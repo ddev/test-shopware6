@@ -17,5 +17,5 @@ cd public/media && tar -czf ../../.tarballs/shopware6_files.tgz .
 
 Database dump was created with
 ```
-ddev export-db --file=.tarballs/db.sql.gz
+ddev export-db --file=.tarballs/shopware6_db.sql.gz
 ```
