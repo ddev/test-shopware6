@@ -10,12 +10,12 @@ Source code tarball was then created with
 tar -czf .tarballs/shopware6_code.tgz --exclude=public/media --exclude=.tarballs .
 ```
 
-Files tarball was created with
-```
-cd public/media && tar -czf ../../.tarballs/shopware6_files.tgz .
-```
-
 Database dump was created with
 ```
 ddev export-db --file=.tarballs/shopware6_db.sql.gz
+```
+
+Files tarball was created with
+```
+cd public/media && tar -czf ../../.tarballs/shopware6_files.tgz .
 ```
