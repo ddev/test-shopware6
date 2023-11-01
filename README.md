@@ -12,7 +12,7 @@ tar -czf .tarballs/shopware6_code.tgz --exclude=public/media --exclude=.tarballs
 
 Database db tarball (not db.sql.gz) was created with
 ```
-ddev export-db --file=.tarballs/db.sql && tar -czf .tarballs/shopware6_db.sql.tar.gz -C .tarballs db.sql
+ddev export-db --gzip=false --file=.tarballs/db.sql && tar -czf .tarballs/shopware6_db.sql.tar.gz -C .tarballs db.sql
 ```
 
 Files tarball was created with
