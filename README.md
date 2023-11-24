@@ -7,7 +7,7 @@ Demo data was installed with the Admin Settings->System->First Run Wizard.
 
 Source code tarball was then created with 
 ```
-tar -czf .tarballs/shopware6_code.tgz --exclude=public/media --exclude=.tarballs --exclude=.ddev --exclude=.git --exclude=var .
+tar -czf .tarballs/shopware6_code.tgz --exclude=public/media --exclude=.tarballs --exclude=.ddev --exclude=.git --exclude=.env.local --exclude=var .
 ```
 
 Database db tarball (not db.sql.gz) was created with
