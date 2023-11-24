@@ -1,21 +1,10 @@
-# test-shopware6
-Used by automated tests to test shopware6 installation
+# Shopware 6 production template
 
-This repo was created with a `composer create` using the techniques at https://developer.shopware.com/docs/guides/installation/template.html and https://ddev.readthedocs.io/en/latest/users/quickstart/#shopware
+This repository contains the production template that enables you to build,
+package and deploy Shopware 6 to production shops.
 
-Demo data was installed with the Admin Settings->System->First Run Wizard.
+## Installation and usage instructions
 
-Source code tarball was then created with 
-```
-tar -czf .tarballs/shopware6_code.tgz --exclude=public/media --exclude=.tarballs --exclude=.ddev --exclude=.git --exclude=.env.local --exclude=var .
-```
-
-Database db tarball (not db.sql.gz) was created with
-```
-ddev export-db --gzip=false --file=.tarballs/db.sql && tar -czf .tarballs/shopware6_db.sql.tar.gz -C .tarballs db.sql
-```
-
-Files tarball was created with
-```
-cd public/media && tar -czf ../../.tarballs/shopware6_files.tgz .
-```
+Please refer to the
+[documentation](https://developer.shopware.com/docs/guides/installation/template)
+for instructions on how to use this template.
