@@ -11,16 +11,19 @@ use Shopware\Core\Framework\DataAbstractionLayer\Indexing\ManyToManyIdFieldUpdat
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\System\SalesChannel\Event\SalesChannelIndexerEvent;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelDefinition;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelIndexer extends EntityIndexer
 {
     final public const MANY_TO_MANY_UPDATER = 'sales_channel.many-to-many';
 
     /**
      * @internal
+     *
+     * @param EntityRepository<SalesChannelCollection> $repository
      */
     public function __construct(
         private readonly IteratorFactory $iteratorFactory,
@@ -62,6 +65,9 @@ class SalesChannelIndexer extends EntityIndexer
     public function handle(EntityIndexingMessage $message): void
     {
         $ids = $message->getData();
+        if (!\is_array($ids)) {
+            return;
+        }
 
         $ids = array_unique(array_filter($ids));
         if (empty($ids)) {

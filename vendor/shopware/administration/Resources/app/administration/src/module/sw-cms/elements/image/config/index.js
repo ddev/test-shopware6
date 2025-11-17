@@ -5,12 +5,14 @@ const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: ['element-update'],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -38,6 +40,66 @@ export default {
             }
 
             return this.element.config.media.value;
+        },
+
+        displayModeOptions() {
+            return [
+                {
+                    id: 1,
+                    value: 'standard',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeStandard'),
+                },
+                {
+                    id: 2,
+                    value: 'stretch',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeStretch'),
+                },
+                {
+                    id: 3,
+                    value: 'cover',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeCover'),
+                },
+            ];
+        },
+
+        verticalAlignOptions() {
+            return [
+                {
+                    id: 1,
+                    value: 'flex-start',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignTop'),
+                },
+                {
+                    id: 2,
+                    value: 'center',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignCenter'),
+                },
+                {
+                    id: 3,
+                    value: 'flex-end',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignBottom'),
+                },
+            ];
+        },
+
+        horizontalAlignOptions() {
+            return [
+                {
+                    id: 1,
+                    value: 'flex-start',
+                    label: this.$tc('sw-cms.elements.general.config.label.horizontalAlignLeft'),
+                },
+                {
+                    id: 2,
+                    value: 'center',
+                    label: this.$tc('sw-cms.elements.general.config.label.horizontalAlignCenter'),
+                },
+                {
+                    id: 3,
+                    value: 'flex-end',
+                    label: this.$tc('sw-cms.elements.general.config.label.horizontalAlignRight'),
+                },
+            ];
         },
     },
 
@@ -86,11 +148,13 @@ export default {
         updateElementData(media = null) {
             const mediaId = media === null ? null : media.id;
             if (!this.element.data) {
-                this.$set(this.element, 'data', { mediaId, media });
-            } else {
-                this.$set(this.element.data, 'mediaId', mediaId);
-                this.$set(this.element.data, 'media', media);
+                this.element.data = { mediaId, media };
+
+                return;
             }
+
+            this.element.data.mediaId = mediaId;
+            this.element.data.media = media;
         },
 
         onOpenMediaModal() {
@@ -103,11 +167,12 @@ export default {
             this.$emit('element-update', this.element);
         },
 
-        onChangeDisplayMode(value) {
-            if (value === 'cover') {
-                this.element.config.verticalAlign.value = null;
-                this.element.config.horizontalAlign.value = null;
-            }
+        onChangeDisplayMode() {
+            this.$emit('element-update', this.element);
+        },
+
+        onChangeIsDecorative(value) {
+            this.element.config.isDecorative.value = value;
 
             this.$emit('element-update', this.element);
         },

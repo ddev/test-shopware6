@@ -7,34 +7,26 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class StoreCategoryStruct extends StoreStruct
 {
-    /**
-     * @var int
-     */
-    protected $id;
+    protected int $id;
+
+    protected string $name;
+
+    protected ?int $parent = null;
 
     /**
-     * @var string
+     * @var array<string, mixed>
      */
-    protected $name;
+    protected array $details;
 
     /**
-     * @var int|null
+     * @return StoreCategoryStruct
      */
-    protected $parent;
-
-    /**
-     * @var array
-     */
-    protected $details;
-
     public static function fromArray(array $data): StoreStruct
     {
-        $category = new self();
-
-        return $category->assign($data);
+        return (new self())->assign($data);
     }
 
     public function getId(): int
@@ -52,6 +44,9 @@ class StoreCategoryStruct extends StoreStruct
         return $this->parent;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getDetails(): array
     {
         return $this->details;

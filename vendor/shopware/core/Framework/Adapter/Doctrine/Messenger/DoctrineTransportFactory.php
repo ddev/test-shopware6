@@ -10,7 +10,10 @@ use Symfony\Component\Messenger\Transport\Serialization\SerializerInterface;
 use Symfony\Component\Messenger\Transport\TransportFactoryInterface;
 use Symfony\Component\Messenger\Transport\TransportInterface;
 
-#[Package('core')]
+/**
+ * @implements TransportFactoryInterface<DoctrineTransport>
+ */
+#[Package('framework')]
 class DoctrineTransportFactory implements TransportFactoryInterface
 {
     public function __construct(private readonly DBALConnection $connection)

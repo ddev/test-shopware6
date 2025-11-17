@@ -10,12 +10,13 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\UpdatedByField;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class UpdatedByFieldSerializer extends FkFieldSerializer
 {
     public function encode(Field $field, EntityExistence $existence, KeyValuePair $data, WriteParameterBag $parameters): \Generator
@@ -41,7 +42,8 @@ class UpdatedByFieldSerializer extends FkFieldSerializer
 
         $userId = $context->getSource()->getUserId();
 
-        if (!$userId) {
+        /** @deprecated tag:v6.8.0 - remove early return */
+        if (!$userId && !Feature::isActive('v6.8.0.0')) {
             return;
         }
 

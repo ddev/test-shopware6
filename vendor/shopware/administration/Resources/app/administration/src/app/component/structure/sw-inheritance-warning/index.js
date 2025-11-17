@@ -1,13 +1,10 @@
 import template from './sw-inheritance-warning.html.twig';
 import './sw-inheritance-warning.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Renders inheritance warning
  * @status ready
@@ -16,12 +13,13 @@ const { Component } = Shopware;
  * <sw-inheritance-warning :name="'This product'"></sw-inheritance-warning>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-inheritance-warning', {
+export default {
     template,
+
     props: {
         name: {
             type: String,
             required: true,
         },
     },
-});
+};

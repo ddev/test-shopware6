@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 Shopware.Filter.register('striphtml', (value: string): string => {
@@ -11,6 +11,6 @@ Shopware.Filter.register('striphtml', (value: string): string => {
 });
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default {};

@@ -12,7 +12,7 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
 /**
  * @internal
  */
-#[Package('storefront')]
+#[Package('framework')]
 class ResponseHeaderListener implements EventSubscriberInterface
 {
     private const REMOVAL_HEADERS = [
@@ -41,7 +41,7 @@ class ResponseHeaderListener implements EventSubscriberInterface
         /** @var list<string> $scopes */
         $scopes = $event->getRequest()->attributes->get(PlatformRequest::ATTRIBUTE_ROUTE_SCOPE, []);
 
-        if (!\in_array(StorefrontRouteScope::ID, $scopes, true) && !$response instanceof StorefrontResponse) {
+        if (!\in_array(StorefrontRouteScope::ID, $scopes, true)) {
             return;
         }
 

@@ -41,7 +41,7 @@ class ProxyDumper implements DumperInterface
         $this->classGenerator = new BaseGeneratorStrategy();
     }
 
-    public function isProxyCandidate(Definition $definition, bool &$asGhostObject = null, string $id = null): bool
+    public function isProxyCandidate(Definition $definition, ?bool &$asGhostObject = null, ?string $id = null): bool
     {
         $asGhostObject = false;
 
@@ -53,7 +53,7 @@ class ProxyDumper implements DumperInterface
         $instantiation = 'return';
 
         if ($definition->isShared()) {
-            $instantiation .= sprintf(' $container->%s[%s] =', $definition->isPublic() && !$definition->isPrivate() ? 'services' : 'privates', var_export($id, true));
+            $instantiation .= \sprintf(' $container->%s[%s] =', $definition->isPublic() && !$definition->isPrivate() ? 'services' : 'privates', var_export($id, true));
         }
 
         $proxifiedClass = new \ReflectionClass($this->proxyGenerator->getProxifiedClass($definition));
@@ -76,7 +76,7 @@ class ProxyDumper implements DumperInterface
 EOF;
     }
 
-    public function getProxyCode(Definition $definition, string $id = null): string
+    public function getProxyCode(Definition $definition, ?string $id = null): string
     {
         $code = $this->classGenerator->generate($this->generateProxyClass($definition));
         $code = preg_replace('/^(class [^ ]++ extends )([^\\\\])/', '$1\\\\$2', $code);

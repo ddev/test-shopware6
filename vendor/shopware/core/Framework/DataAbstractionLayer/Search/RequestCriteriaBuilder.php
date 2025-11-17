@@ -5,8 +5,6 @@ namespace Shopware\Core\Framework\DataAbstractionLayer\Search;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\AssociationNotFoundException;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidFilterQueryException;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidLimitQueryException;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidPageQueryException;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidSortQueryException;
@@ -24,10 +22,12 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Parser\QueryStringParser
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Query\ScoreQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\CountSorting;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
+use Shopware\Core\Framework\FrameworkException;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('core')]
+#[Package('framework')]
 class RequestCriteriaBuilder
 {
     private const TOTAL_COUNT_MODE_MAPPING = [
@@ -49,10 +49,15 @@ class RequestCriteriaBuilder
 
     public function handleRequest(Request $request, Criteria $criteria, EntityDefinition $definition, Context $context): Criteria
     {
-        if ($request->getMethod() === Request::METHOD_GET) {
+        if ($request->isMethod(Request::METHOD_GET)) {
             $criteria = $this->fromArray($request->query->all(), $criteria, $definition, $context);
         } else {
             $criteria = $this->fromArray($request->request->all(), $criteria, $definition, $context);
+        }
+
+        // @deprecated tag:v6.8.0 - switch the default to 0
+        if ($request->headers->get(PlatformRequest::HEADER_INCLUDE_SEARCH_INFO, '1') === '0') {
+            $criteria->addState(Criteria::STATE_DISABLE_SEARCH_INFO);
         }
 
         return $criteria;
@@ -128,7 +133,23 @@ class RequestCriteriaBuilder
         }
 
         if (isset($payload['includes'])) {
+            if (!\is_array($payload['includes'])) {
+                throw DataAbstractionLayerException::expectedArrayWithType(
+                    'includes',
+                    \gettype($payload['includes'])
+                );
+            }
             $criteria->setIncludes($payload['includes']);
+        }
+
+        if (isset($payload['excludes'])) {
+            if (!\is_array($payload['excludes'])) {
+                throw DataAbstractionLayerException::expectedArrayWithType(
+                    'excludes',
+                    \gettype($payload['excludes'])
+                );
+            }
+            $criteria->setExcludes($payload['excludes']);
         }
 
         if (isset($payload['filter'])) {
@@ -181,7 +202,7 @@ class RequestCriteriaBuilder
                 $field = $definition->getFields()->get($propertyName);
 
                 if (!$field instanceof AssociationField) {
-                    throw new AssociationNotFoundException((string) $propertyName);
+                    throw FrameworkException::associationNotFound((string) $propertyName);
                 }
 
                 $ref = $field->getReferenceDefinition();
@@ -218,7 +239,11 @@ class RequestCriteriaBuilder
     private function parseSorting(EntityDefinition $definition, array $sorting): array
     {
         $sortings = [];
-        foreach ($sorting as $sort) {
+        foreach ($sorting as $i => $sort) {
+            if (!\is_array($sort) || !\is_string($sort['field'] ?? null)) {
+                throw DataAbstractionLayerException::invalidSortQuery('The "sort" array needs to be an associative array at least containing a field name', '/sort/' . $i);
+            }
+
             $order = $sort['order'] ?? 'asc';
             $naturalSorting = $sort['naturalSorting'] ?? false;
             $type = $sort['type'] ?? '';
@@ -249,7 +274,7 @@ class RequestCriteriaBuilder
         $parts = array_filter(explode(',', $query));
 
         if (empty($parts)) {
-            throw new InvalidSortQueryException();
+            throw DataAbstractionLayerException::invalidSortQuery('The "sort" parameter needs to be a sorting array or a comma separated list of fields', '/sort');
         }
 
         $sorting = [];
@@ -280,19 +305,28 @@ class RequestCriteriaBuilder
             ++$index;
 
             if ($field === '') {
-                $searchRequestException->add(new InvalidFilterQueryException(sprintf('The key for filter at position "%d" must not be blank.', $index)), '/filter/' . $index);
+                $searchRequestException->add(
+                    DataAbstractionLayerException::invalidFilterQuery(\sprintf('The key for filter at position "%d" must not be blank.', $index), '/filter/' . $index),
+                    '/filter/' . $index
+                );
 
                 continue;
             }
 
             if ($value === '') {
-                $searchRequestException->add(new InvalidFilterQueryException(sprintf('The value for filter "%s" must not be blank.', $field)), '/filter/' . $field);
+                $searchRequestException->add(
+                    DataAbstractionLayerException::invalidFilterQuery(\sprintf('The value for filter "%s" must not be blank.', $field), '/filter/' . $field),
+                    '/filter/' . $field
+                );
 
                 continue;
             }
 
             if (!\is_scalar($value)) {
-                $searchRequestException->add(new InvalidFilterQueryException(sprintf('The value for filter "%s" must be scalar.', $field)), '/filter/' . $field);
+                $searchRequestException->add(
+                    DataAbstractionLayerException::invalidFilterQuery(\sprintf('The value for filter "%s" must be scalar.', $field), '/filter/' . $field),
+                    '/filter/' . $field
+                );
 
                 continue;
             }
@@ -372,18 +406,24 @@ class RequestCriteriaBuilder
     private function addFilter(EntityDefinition $definition, array $payload, Criteria $criteria, SearchRequestException $searchException): void
     {
         if (!\is_array($payload['filter'])) {
-            $searchException->add(new InvalidFilterQueryException('The filter parameter has to be a list of filters.'), '/filter');
+            $searchException->add(DataAbstractionLayerException::invalidFilterQuery('The filter parameter has to be a list of filters.', '/filter'), '/filter');
 
             return;
         }
 
         if ($this->hasNumericIndex($payload['filter'])) {
             foreach ($payload['filter'] as $index => $query) {
+                if (!\is_array($query)) {
+                    $searchException->add(DataAbstractionLayerException::invalidFilterQuery('The filter parameter has to be an array.', '/filter/' . $index), '/filter/' . $index);
+
+                    continue;
+                }
+
                 try {
                     $filter = QueryStringParser::fromArray($definition, $query, $searchException, '/filter/' . $index);
                     $criteria->addFilter($filter);
-                } catch (InvalidFilterQueryException $ex) {
-                    $searchException->add($ex, $ex->getPath());
+                } catch (DataAbstractionLayerException $ex) {
+                    $searchException->add($ex, $ex->getParameters()['path']);
                 }
             }
 
@@ -399,7 +439,7 @@ class RequestCriteriaBuilder
     private function addPostFilter(EntityDefinition $definition, array $payload, Criteria $criteria, SearchRequestException $searchException): void
     {
         if (!\is_array($payload['post-filter'])) {
-            $searchException->add(new InvalidFilterQueryException('The filter parameter has to be a list of filters.'), '/post-filter');
+            $searchException->add(DataAbstractionLayerException::invalidFilterQuery('The filter parameter has to be a list of filters.'), '/post-filter');
 
             return;
         }
@@ -409,8 +449,8 @@ class RequestCriteriaBuilder
                 try {
                     $filter = QueryStringParser::fromArray($definition, $query, $searchException, '/post-filter/' . $index);
                     $criteria->addPostFilter($filter);
-                } catch (InvalidFilterQueryException $ex) {
-                    $searchException->add($ex, $ex->getPath());
+                } catch (DataAbstractionLayerException $ex) {
+                    $searchException->add($ex, $ex->getParameters()['path']);
                 }
             }
 
@@ -439,18 +479,18 @@ class RequestCriteriaBuilder
      */
     private function addSorting(array $payload, Criteria $criteria, EntityDefinition $definition, SearchRequestException $searchException): void
     {
-        if (\is_array($payload['sort'])) {
-            $sorting = $this->parseSorting($definition, $payload['sort']);
-            $criteria->addSorting(...$sorting);
-
-            return;
-        }
-
         try {
+            if (\is_array($payload['sort'])) {
+                $sorting = $this->parseSorting($definition, $payload['sort']);
+                $criteria->addSorting(...$sorting);
+
+                return;
+            }
+
             $sorting = $this->parseSimpleSorting($definition, $payload['sort']);
             $criteria->addSorting(...$sorting);
         } catch (InvalidSortQueryException $ex) {
-            $searchException->add($ex, '/sort');
+            $searchException->add($ex, $ex->getParameters()['path']);
         }
     }
 

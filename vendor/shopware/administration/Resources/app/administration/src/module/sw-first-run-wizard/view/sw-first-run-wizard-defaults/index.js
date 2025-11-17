@@ -2,14 +2,20 @@ import template from './sw-first-run-wizard-defaults.html.twig';
 import './sw-first-run-wizard-defaults.scss';
 
 /**
- * @package services-settings
- * @deprecated tag:v6.6.0 - Will be private
+ * @sw-package fundamentals@after-sales
+ *
+ * @private
  */
-// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: [
+        'frw-set-title',
+        'frw-redirect',
+        'buttons-update',
+    ],
 
     data() {
         return {
@@ -32,15 +38,8 @@ export default {
         },
 
         buttonConfig() {
-            return [
+            const buttons = [
                 {
-                    key: 'back',
-                    label: this.$tc('sw-first-run-wizard.general.buttonBack'),
-                    position: 'left',
-                    variant: null,
-                    action: 'sw.first.run.wizard.index.data-import',
-                    disabled: false,
-                }, {
                     key: 'next',
                     label: this.$tc('sw-first-run-wizard.general.buttonNext'),
                     position: 'right',
@@ -49,6 +48,19 @@ export default {
                     disabled: !this.defaultSalesChannelCardLoaded,
                 },
             ];
+
+            if (!Shopware.Store.get('context').app.config.settings?.disableExtensionManagement) {
+                buttons.unshift({
+                    key: 'back',
+                    label: this.$tc('sw-first-run-wizard.general.buttonBack'),
+                    position: 'left',
+                    variant: 'secondary',
+                    action: 'sw.first.run.wizard.index.data-import',
+                    disabled: false,
+                });
+            }
+
+            return buttons;
         },
     },
 

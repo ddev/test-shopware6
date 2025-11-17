@@ -7,7 +7,7 @@ use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class DefaultMediaResolver extends AbstractDefaultMediaResolver
 {
     /**
@@ -24,14 +24,12 @@ class DefaultMediaResolver extends AbstractDefaultMediaResolver
 
     public function getDefaultCmsMediaEntity(string $mediaAssetFilePath): ?MediaEntity
     {
-        $filePath = '/bundles/' . $mediaAssetFilePath;
-
-        if (!$this->filesystem->fileExists($filePath)) {
+        if (!$this->filesystem->fileExists($mediaAssetFilePath)) {
             return null;
         }
 
-        $mimeType = $this->filesystem->mimeType($filePath);
-        $pathInfo = pathinfo($filePath);
+        $mimeType = $this->filesystem->mimeType($mediaAssetFilePath);
+        $pathInfo = pathinfo($mediaAssetFilePath);
 
         if (!$mimeType || !\array_key_exists('extension', $pathInfo)) {
             return null;

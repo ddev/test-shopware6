@@ -1,31 +1,25 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_settings_basic_information_index %}
 <sw-page class="sw-settings-basic-information">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_basic_information_search_bar %}
     <template #search-bar>
         <sw-search-bar />
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_basic_information_smart_bar_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_basic_information_smart_bar_header_title %}
         <h2>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_basic_information_smart_bar_header_title_text %}
             {{ $tc('sw-settings.index.title') }}
-            <sw-icon
+            <mt-icon
                 name="regular-chevron-right-xs"
-                small
+                size="12px"
             />
             {{ $tc('sw-settings-basic-information.general.textHeadline') }}
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_basic_information_smart_bar_header_amount %}
             <span
                 v-if="false"
@@ -39,10 +33,8 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_basic_information_smart_bar_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_basic_information_actions_save %}
         <sw-button-process
             class="sw-settings-basic-information__save-action"
@@ -50,11 +42,7 @@
             :process-success="isSaveSuccessful"
             :disabled="isLoading"
             variant="primary"
-            {% if VUE3 %}
             @update:process-success="saveFinish"
-            {% else %}
-            @process-finish="saveFinish"
-            {% endif %}
             @click="onSave"
         >
             {{ $tc('sw-settings-basic-information.general.buttonSave') }}
@@ -63,15 +51,6 @@
     </template>
     {% endblock %}
 
-    <template #language-switch>
-        <sw-language-switch
-            :save-changes-function="saveOnLanguageChange"
-            :abort-change-function="abortOnLanguageChange"
-            @on-change="onChangeLanguage"
-        />
-    </template>
-
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_basic_information_content %}
     <template #content>
         <sw-card-view>

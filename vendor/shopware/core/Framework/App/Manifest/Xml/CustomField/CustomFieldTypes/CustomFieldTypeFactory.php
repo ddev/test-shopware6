@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class CustomFieldTypeFactory
 {
     private const TAG_TO_CLASS_MAPPING = [
@@ -29,7 +29,6 @@ class CustomFieldTypeFactory
 
     public static function createFromXml(\DOMElement $element): CustomFieldType
     {
-        /** @var class-string<CustomFieldType>|null $fieldClass */
         $fieldClass = self::TAG_TO_CLASS_MAPPING[$element->tagName] ?? null;
 
         if (!$fieldClass) {

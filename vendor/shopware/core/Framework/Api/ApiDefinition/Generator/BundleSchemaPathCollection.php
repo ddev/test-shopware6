@@ -11,7 +11,7 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
  *
  * @phpstan-import-type Api from DefinitionService
  */
-#[Package('core')]
+#[Package('framework')]
 class BundleSchemaPathCollection
 {
     /**
@@ -22,7 +22,7 @@ class BundleSchemaPathCollection
     }
 
     /**
-     * @phpstan-param Api $api
+     * @param Api $api
      *
      * @return string[]
      */
@@ -37,10 +37,7 @@ class BundleSchemaPathCollection
             }
             $openApiDirs[] = $path;
             if ($bundle->getName() === $bundleName) {
-                unset($openApiDirs);
-                $openApiDirs[] = $path;
-
-                break;
+                return [$path];
             }
         }
 

@@ -7,24 +7,18 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class BinaryStruct extends StoreStruct
 {
-    /**
-     * @var string
-     */
-    protected $version;
+    protected string $version;
+
+    protected string $text;
+
+    protected string $creationDate;
 
     /**
-     * @var string
+     * @return BinaryStruct
      */
-    protected $text;
-
-    /**
-     * @var string
-     */
-    protected $creationDate;
-
     public static function fromArray(array $data): StoreStruct
     {
         return (new self())->assign($data);

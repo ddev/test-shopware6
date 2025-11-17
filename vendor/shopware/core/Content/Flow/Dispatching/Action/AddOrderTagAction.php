@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Content\Flow\Dispatching\Action;
 
+use Shopware\Core\Checkout\Order\OrderCollection;
 use Shopware\Core\Content\Flow\Dispatching\DelayableAction;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
 use Shopware\Core\Framework\Context;
@@ -12,11 +13,13 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('after-sales')]
 class AddOrderTagAction extends FlowAction implements DelayableAction
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<OrderCollection> $orderRepository
      */
     public function __construct(private readonly EntityRepository $orderRepository)
     {
@@ -28,7 +31,7 @@ class AddOrderTagAction extends FlowAction implements DelayableAction
     }
 
     /**
-     * @return array<int, string>
+     * @return list<string>
      */
     public function requirements(): array
     {

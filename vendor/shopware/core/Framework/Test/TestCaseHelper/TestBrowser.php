@@ -2,67 +2,49 @@
 
 namespace Shopware\Core\Framework\Test\TestCaseHelper;
 
-use Shopware\Core\Framework\Event\BeforeSendResponseEvent;
-use Shopware\Core\Framework\Routing\RequestTransformerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Component\BrowserKit\CookieJar;
-use Symfony\Component\BrowserKit\History;
-use Symfony\Component\BrowserKit\Request as DomRequest;
-use Symfony\Component\BrowserKit\Response as DomResponse;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * @internal
  */
 class TestBrowser extends KernelBrowser
 {
-    /**
-     * @var Request
-     */
-    protected $lastRequest;
-
-    private readonly RequestTransformerInterface $requestTransformer;
-
-    /**
-     * @param array<string, mixed> $server
-     */
-    public function __construct(
-        KernelInterface $kernel,
-        private readonly EventDispatcherInterface $eventDispatcher,
-        array $server = [],
-        ?History $history = null,
-        ?CookieJar $cookieJar = null
-    ) {
-        parent::__construct($kernel, $server, $history, $cookieJar);
-
-        $transformer = $this->getContainer()->get(RequestTransformerInterface::class);
-        $this->requestTransformer = $transformer;
-    }
-
     public function setServerParameter(string $key, mixed $value): void
     {
         $this->server[$key] = $value;
     }
 
-    protected function filterRequest(DomRequest $request): Request
-    {
-        $filteredRequest = parent::filterRequest($request);
-        $transformedRequest = $this->requestTransformer->transform($filteredRequest);
-
-        return $this->lastRequest = $transformedRequest;
-    }
-
     /**
-     * @param Response $response
+     * Custom override because the original Symfony implementation always sets the `HTTP_ACCEPT` header and
+     * removes it afterward. We only want to do this if that header wasn't stored before in `setServerParameter`.
+     *
+     * Shopware often wants to use that accept header with a value of `application/vnd.api+json,application/json`
+     * see e.g. \Shopware\Core\Framework\Test\TestCaseBase\AdminApiTestBehaviour::createClient
+     *
+     * @param array<int|string, mixed> $parameters
+     * @param array<string, string> $server
      */
-    protected function filterResponse(object $response): DomResponse
+    public function jsonRequest(string $method, string $uri, array $parameters = [], array $server = [], bool $changeHistory = true): Crawler
     {
-        $event = new BeforeSendResponseEvent($this->lastRequest, $response);
-        $this->eventDispatcher->dispatch($event);
+        $content = json_encode($parameters, \JSON_PRESERVE_ZERO_FRACTION);
+        \assert(\is_string($content));
 
-        return parent::filterResponse($response);
+        $this->setServerParameter('CONTENT_TYPE', 'application/json');
+
+        $acceptAlreadySet = $this->getServerParameter('HTTP_ACCEPT', false);
+        if (!$acceptAlreadySet) {
+            $this->setServerParameter('HTTP_ACCEPT', 'application/json');
+        }
+
+        try {
+            return $this->request($method, $uri, [], [], $server, $content, $changeHistory);
+        } finally {
+            unset($this->server['CONTENT_TYPE']);
+
+            if (!$acceptAlreadySet) {
+                unset($this->server['HTTP_ACCEPT']);
+            }
+        }
     }
 }

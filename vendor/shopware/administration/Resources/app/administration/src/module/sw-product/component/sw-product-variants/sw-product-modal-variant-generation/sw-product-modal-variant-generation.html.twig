@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_product_modal_variant_generation %}
 <sw-modal
     v-if="!showUploadModal"
@@ -7,19 +6,15 @@
     @modal-close="$emit('modal-close')"
 >
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_modal_variant_generation_sidebar %}
     <div class="sw-product-modal-variant-generation__sidebar">
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_sidebar_tabs %}
         <sw-tabs
             is-vertical
             position-identifier="sw-product-modal-variant-generation"
         >
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_modal_variant_generation_sidebar_tabs_items %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_modal_variant_generation_sidebar_tabs_item_options %}
             <sw-tabs-item
                 class="sw-variant-modal__option-selection"
@@ -30,7 +25,6 @@
             </sw-tabs-item>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_modal_variant_generation_sidebar_tabs_item_prices %}
             <sw-tabs-item
                 v-show="variantsNumber"
@@ -42,7 +36,6 @@
             </sw-tabs-item>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_modal_variant_generation_sidebar_tabs_item_restrictions %}
             <sw-tabs-item
                 v-show="variantsNumber"
@@ -58,23 +51,26 @@
         </sw-tabs>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_sidebar_descriptions %}
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_sidebar_descriptions_options %}
-        <p v-if="activeTab == 'options'">
-            {{ $tc('sw-product.variations.configuratorModal.selectOptionsExplanation') }}
-        </p>
+        <div v-if="activeTab == 'options'">
+            <p>{{ $tc('sw-product.variations.configuratorModal.selectOptionsExplanation') }}</p>
+            {% block sw_product_modal_variant_generation_sidebar_add_only_selected %}
+
+            <mt-switch
+                v-model="isAddOnly"
+                :label="$tc('sw-product.variations.configuratorModal.addVariantsOnly')"
+            />
+            {% endblock %}
+        </div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_sidebar_descriptions_restrictions %}
         <p v-else-if="activeTab == 'restrictions'">
             {{ $tc('sw-product.variations.configuratorModal.selectRestrictionsExplanation') }}
         </p>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_sidebar_descriptions_prices %}
         <p v-else-if="activeTab == 'prices'">
             {{ $tc('sw-product.variations.configuratorModal.selectPricesExplanation') }}
@@ -85,10 +81,8 @@
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_modal_variant_generation_main %}
     <div class="sw-product-modal-variant-generation__main">
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_main_configurator_selection %}
         <sw-product-variants-configurator-selection
             v-show="activeTab == 'options'"
@@ -96,12 +90,12 @@
             :options="product.configuratorSettings"
             :overlay="false"
             :collapsible="false"
+            :is-add-only="isAddOnly"
             @variations-finish-generate="$emit('variations-finish-generate')"
             @option-select="calcVariantsNumber()"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_main_configurator_prices %}
         <sw-product-variants-configurator-prices
             v-if="activeTab == 'prices'"
@@ -110,7 +104,6 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_main_configurator_restrictions %}
         <sw-product-variants-configurator-restrictions
             v-if="activeTab == 'restrictions'"
@@ -121,28 +114,26 @@
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_modal_variant_generation_footer %}
     <template #modal-footer>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_footer_cancel %}
-        <sw-button
+        <mt-button
             size="small"
-            @click="$emit('modal-close')"
+            variant="secondary"
+            @click="onModalCancel"
         >
-            {{ $tc('sw-product.variations.cancelVariationsButton') }}
-        </sw-button>
+            {{ $tc('global.default.cancel') }}
+        </mt-button>
         {% endblock %}
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_modal_variant_generation_footer_generate %}
-        <sw-button
+        <mt-button
             class="sw-product-variant-generation__next-action"
             variant="primary"
             size="small"
             @click="showNextStep"
         >
             {{ $tc('sw-product.variations.nextModalButton') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
     </template>
     {% endblock %}
@@ -159,14 +150,14 @@
         {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxHeader') }}
         <div class="sw-product-modal-variant-generation__infoBoxContent">
             <span class="sw-product-modal-variant-generation__variant-amount">
-                {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxCount', variantGenerationQueue.createQueue.length, { count: variantGenerationQueue.createQueue.length }) }}
+                {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxCount', { count: variantGenerationQueue.createQueue.length }, variantGenerationQueue.createQueue.length) }}
             </span>
-            {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxCreateLabel', variantGenerationQueue.createQueue.length, { count: variantGenerationQueue.createQueue.length }) }}
+            {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxCreateLabel', { count: variantGenerationQueue.createQueue.length }, variantGenerationQueue.createQueue.length) }}
 
             <span class="sw-product-modal-variant-generation__variant-amount">
-                {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxCount', variantGenerationQueue.deleteQueue.length, { count: variantGenerationQueue.deleteQueue.length }) }}
+                {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxCount', { count: variantGenerationQueue.deleteQueue.length }, variantGenerationQueue.deleteQueue.length) }}
             </span>
-            {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxDeleteLabel', variantGenerationQueue.deleteQueue.length, { count: variantGenerationQueue.deleteQueue.length }) }}
+            {{ $tc('sw-product.variations.configuratorModal.uploadInfoBoxDeleteLabel', { count: variantGenerationQueue.deleteQueue.length }, variantGenerationQueue.deleteQueue.length) }}
         </div>
     </div>
 
@@ -177,13 +168,10 @@
             </div>
 
             <div class="sw-product-modal-variant-generation__upload-all-container">
-                <sw-switch-field
+
+                <mt-switch
                     :label="$tc('sw-product.variations.configuratorModal.digitalVariantSwitch')"
-                    {% if VUE3 %}
-                    @update:value="onChangeAllVariantValues"
-                    {% else %}
-                    @change="onChangeAllVariantValues"
-                    {% endif %}
+                    @update:model-value="onChangeAllVariantValues"
                 />
                 <div class="sw-product-modal-variant-generation__upload-all">
                     <sw-upload-listener
@@ -192,6 +180,7 @@
                         @media-upload-finish="successfulUpload"
                     />
                     <sw-media-compact-upload-v2
+                        v-if="productDownloadFolderId"
                         :button-label="$tc('sw-product.variations.configuratorModal.uploadAllButton')"
                         :remove-button-label="$tc('sw-product.variations.configuratorModal.removeAllButton')"
                         upload-tag="upload_all"
@@ -199,7 +188,7 @@
                         :source-multiselect="downloadFilesForAllVariants.length > 0 ? downloadFilesForAllVariants : null"
                         allow-multi-select
                         add-files-on-multiselect
-                        default-folder="product_download"
+                        :target-folder-id="productDownloadFolderId"
                         file-accept="*/*"
                         @delete-item="(file) => removeFileForAllVariants(file)"
                     />
@@ -229,15 +218,10 @@
                     <div>
                         <template
                             v-for="(option, index) in item.options"
-                            {% if VUE3 %}
                             :key="index"
-                            {% endif %}
                         >
                             <span
                                 v-if="option.entity"
-                                {% if VUE2 %}
-                                :key="index"
-                                {% endif %}
                             >
                                 {{ option.entity.group.translated?.name || option.entity.group.name }}:
                                 {{ option.entity.translated?.name || option.entity.name }}
@@ -250,14 +234,11 @@
                         :key="item.id"
                         class="sw-data-grid__item"
                     >
-                        <sw-switch-field
+
+                        <mt-switch
                             label="Digital"
-                            :value="item.productStates.includes('is-download')"
-                            {% if VUE3 %}
-                            @update:value="(event) => onChangeVariantValue(event, item)"
-                            {% else %}
-                            @change="(event) => onChangeVariantValue(event, item)"
-                            {% endif %}
+                            :model-value="item.productStates.includes('is-download')"
+                            @update:model-value="(event) => onChangeVariantValue(event, item)"
                         />
                         <sw-upload-listener
                             :upload-tag="item.productNumber"
@@ -265,13 +246,14 @@
                             @media-upload-finish="(event) => successfulUpload(event, item)"
                         />
                         <sw-media-compact-upload-v2
+                            v-if="productDownloadFolderId"
                             :upload-tag="item.productNumber"
                             :disabled="item.productStates.length === 0"
                             private-filesystem
                             allow-multi-select
                             add-files-on-multiselect
                             :source-multiselect="item.downloads.length > 0 ? item.downloads : null"
-                            default-folder="product_download"
+                            :target-folder-id="productDownloadFolderId"
                             file-accept="*/*"
                             @delete-item="(file) => removeFile(`${file.fileName}.${file.fileExtension}`, item)"
                         />
@@ -292,22 +274,24 @@
     </template>
 
     <template #modal-footer>
-        <sw-button
+        <mt-button
             size="small"
+            variant="secondary"
             @click="showUploadModal = false"
         >
             {{ $tc('sw-product.variations.backVariationsButton') }}
-        </sw-button>
+        </mt-button>
 
-        <sw-button
+        <mt-button
             :disabled="isGenerateButtonDisabled"
             class="sw-product-variant-generation__generate-action"
             :variant="buttonVariant"
+            :is-loading="isLoading"
             size="small"
             @click="generateVariants()"
         >
             {{ buttonLabel }}
-        </sw-button>
+        </mt-button>
     </template>
 
     <template #modal-loader>
@@ -316,9 +300,10 @@
                 v-if="isLoading"
                 class="generate-variant-progress-bar__wrapper"
             >
-                <sw-progress-bar
+                <mt-progress-bar
                     class="generate-variant-progress-bar"
-                    :value="progressInPercentage"
+                    :model-value="actualProgress"
+                    :max-value="maxProgress"
                 />
 
                 <span class="generate-variant-progress-bar__description">

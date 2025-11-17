@@ -13,7 +13,7 @@ use Shopware\Core\Maintenance\System\Struct\DatabaseConnectionInformation;
  *
  * @phpstan-import-type Shop from ShopConfigurationController
  */
-#[Package('core')]
+#[Package('framework')]
 class EnvConfigWriter
 {
     private const FLEX_DOTENV = <<<'EOT'
@@ -77,7 +77,7 @@ EOT;
         $secret = Key::createNewRandomKey()->saveToAsciiSafeString();
 
         // Copy flex default .env if missing
-        if (!file_exists($this->projectDir . '/.env')) {
+        if (!\is_file($this->projectDir . '/.env')) {
             $template = str_replace(
                 [
                     'SECRET_PLACEHOLDER',
@@ -124,7 +124,7 @@ EOT;
 
         $htaccessPath = $this->projectDir . '/public/.htaccess';
 
-        if (file_exists($htaccessPath . '.dist') && !file_exists($htaccessPath)) {
+        if (\is_file($htaccessPath . '.dist') && !\is_file($htaccessPath)) {
             $perms = fileperms($htaccessPath . '.dist');
             copy($htaccessPath . '.dist', $htaccessPath);
 

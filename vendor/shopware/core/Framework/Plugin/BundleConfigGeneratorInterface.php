@@ -4,11 +4,31 @@ namespace Shopware\Core\Framework\Plugin;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+/**
+ * @phpstan-type BundleConfig array{
+ *         basePath: string,
+ *         views: string[],
+ *         technicalName: string,
+ *         administration?: array{
+ *             path: string,
+ *             entryFilePath: string|null,
+ *             webpack: string|null,
+ *         },
+ *         storefront: array{
+ *            path: string ,
+ *            entryFilePath: string|null,
+ *            webpack: string|null,
+ *            styleFiles: string[],
+ *         }
+ *     }
+ */
+#[Package('framework')]
 interface BundleConfigGeneratorInterface
 {
     /**
      * Returns the bundle config for the webpack plugin injector
+     *
+     * @return array<string, BundleConfig>
      */
     public function getConfig(): array;
 }

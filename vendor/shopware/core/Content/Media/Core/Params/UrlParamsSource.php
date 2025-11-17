@@ -4,7 +4,7 @@ namespace Shopware\Core\Content\Media\Core\Params;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('content')]
+#[Package('discovery')]
 enum UrlParamsSource
 {
     case MEDIA;

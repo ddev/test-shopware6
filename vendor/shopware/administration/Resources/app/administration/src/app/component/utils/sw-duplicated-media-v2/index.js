@@ -1,11 +1,11 @@
 import template from './sw-duplicated-media-v2.html.twig';
 import './sw-duplicated-media-v2.scss';
 
-const { Component, Context, Filter } = Shopware;
+const { Context, Filter } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
@@ -14,10 +14,13 @@ const LOCAL_STORAGE_KEY_OPTION = 'sw-duplicate-media-resolve-option';
 const LOCAL_STORAGE_SAVE_SELECTION = 'sw-duplicate-media-resolve-save-selection';
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-duplicated-media-v2', {
+export default {
     template,
 
-    inject: ['repositoryFactory', 'mediaService'],
+    inject: [
+        'repositoryFactory',
+        'mediaService',
+    ],
 
     data() {
         return {
@@ -133,7 +136,7 @@ Component.register('sw-duplicated-media-v2', {
         this.createdComponent();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyComponent();
     },
 
@@ -197,17 +200,13 @@ Component.register('sw-duplicated-media-v2', {
                 return;
             }
 
-            const criteria = new Criteria(1, 1)
-                .addFilter(
-                    Criteria.multi(
-                        'AND',
-                        [
-                            Criteria.equals('fileName', this.currentTask.fileName),
-                            Criteria.equals('fileExtension', this.currentTask.extension),
-                            Criteria.equals('private', this.currentTask.isPrivate),
-                        ],
-                    ),
-                );
+            const criteria = new Criteria(1, 1).addFilter(
+                Criteria.multi('AND', [
+                    Criteria.equals('fileName', this.currentTask.fileName),
+                    Criteria.equals('fileExtension', this.currentTask.extension),
+                    Criteria.equals('private', this.currentTask.isPrivate),
+                ]),
+            );
 
             const searchResult = await this.mediaRepository.search(criteria, Context.api);
             if (searchResult?.[0]) {
@@ -292,15 +291,13 @@ Component.register('sw-duplicated-media-v2', {
         },
 
         async replaceFile(uploadTask) {
-            const criteria = new Criteria(1, 1)
-                .addFilter(Criteria.multi(
-                    'AND',
-                    [
-                        Criteria.equals('fileName', uploadTask.fileName),
-                        Criteria.equals('fileExtension', uploadTask.extension),
-                        Criteria.equals('private', uploadTask.isPrivate),
-                    ],
-                ));
+            const criteria = new Criteria(1, 1).addFilter(
+                Criteria.multi('AND', [
+                    Criteria.equals('fileName', uploadTask.fileName),
+                    Criteria.equals('fileExtension', uploadTask.extension),
+                    Criteria.equals('private', uploadTask.isPrivate),
+                ]),
+            );
 
             const searchResult = await this.mediaRepository.search(criteria, Context.api);
             const newTarget = searchResult[0];
@@ -325,15 +322,13 @@ Component.register('sw-duplicated-media-v2', {
                 await this.mediaRepository.delete(oldTarget.id, Context.api);
             }
 
-            const criteria = new Criteria(1, 1)
-                .addFilter(Criteria.multi(
-                    'AND',
-                    [
-                        Criteria.equals('fileName', uploadTask.fileName),
-                        Criteria.equals('fileExtension', uploadTask.extension),
-                        Criteria.equals('private', uploadTask.isPrivate),
-                    ],
-                ));
+            const criteria = new Criteria(1, 1).addFilter(
+                Criteria.multi('AND', [
+                    Criteria.equals('fileName', uploadTask.fileName),
+                    Criteria.equals('fileExtension', uploadTask.extension),
+                    Criteria.equals('private', uploadTask.isPrivate),
+                ]),
+            );
 
             const searchResult = await this.mediaRepository.search(criteria, Context.api);
             const newTarget = searchResult[0];
@@ -342,4 +337,4 @@ Component.register('sw-duplicated-media-v2', {
             this.mediaService.keepFile(uploadTask.uploadTag, uploadTask);
         },
     },
-});
+};

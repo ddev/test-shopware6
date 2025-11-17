@@ -34,8 +34,10 @@ class Search
     /**
      * If you don’t need to track the total number of hits at all you can improve
      * query times by setting this option to false. Defaults to true.
+     *
+     * @var bool|int|null
      */
-    private ?bool $trackTotalHits = null;
+    private $trackTotalHits;
 
     /**
      * To retrieve hits from a certain offset. Defaults to 0.
@@ -101,7 +103,7 @@ class Search
     /**
      * Exclude documents which have a _score less than the minimum specified in min_score.
      */
-    private ?int $minScore = null;
+    private ?float $minScore = null;
 
     /**
      * Pagination of results can be done by using the from and size but the cost becomes
@@ -131,7 +133,7 @@ class Search
      */
     private ?string $scroll = null;
 
-    private static ?\OpenSearchDSL\Serializer\OrderedSerializer $serializer = null;
+    private static ?OrderedSerializer $serializer = null;
 
     /**
      * @var AbstractSearchEndpoint[]
@@ -247,9 +249,9 @@ class Search
      *
      * @return $this
      */
-    public function addAggregation(AbstractAggregation $aggregation)
+    public function addAggregation(AbstractAggregation $aggregation, ?string $key = null)
     {
-        $this->getEndpoint(AggregationsEndpoint::NAME)->add($aggregation, $aggregation->getName());
+        $this->getEndpoint(AggregationsEndpoint::NAME)->add($aggregation, $key ?: $aggregation->getName());
 
         return $this;
     }
@@ -269,9 +271,9 @@ class Search
      *
      * @return $this
      */
-    public function addInnerHit(NestedInnerHit $innerHit)
+    public function addInnerHit(NestedInnerHit $innerHit, ?string $key = null)
     {
-        $this->getEndpoint(InnerHitsEndpoint::NAME)->add($innerHit, $innerHit->getName());
+        $this->getEndpoint(InnerHitsEndpoint::NAME)->add($innerHit, $key ?: $innerHit->getName());
 
         return $this;
     }
@@ -291,9 +293,9 @@ class Search
      *
      * @return $this
      */
-    public function addSort(BuilderInterface $sort)
+    public function addSort(BuilderInterface $sort, ?string $key = null)
     {
-        $this->getEndpoint(SortEndpoint::NAME)->add($sort);
+        $this->getEndpoint(SortEndpoint::NAME)->add($sort, $key);
 
         return $this;
     }
@@ -340,9 +342,9 @@ class Search
      *
      * @return $this
      */
-    public function addSuggest(NamedBuilderInterface $suggest)
+    public function addSuggest(NamedBuilderInterface $suggest, ?string $key = null)
     {
-        $this->getEndpoint(SuggestEndpoint::NAME)->add($suggest, $suggest->getName());
+        $this->getEndpoint(SuggestEndpoint::NAME)->add($suggest, $key ?: $suggest->getName());
 
         return $this;
     }
@@ -378,7 +380,7 @@ class Search
     }
 
     /**
-     * @return bool
+     * @return bool|int|null
      */
     public function isTrackTotalHits()
     {
@@ -386,9 +388,11 @@ class Search
     }
 
     /**
+     * @param bool|int|null $trackTotalHits
+     *
      * @return $this
      */
-    public function setTrackTotalHits(bool $trackTotalHits)
+    public function setTrackTotalHits($trackTotalHits)
     {
         $this->trackTotalHits = $trackTotalHits;
 
@@ -564,7 +568,7 @@ class Search
     }
 
     /**
-     * @return int
+     * @return float
      */
     public function getMinScore()
     {
@@ -572,13 +576,13 @@ class Search
     }
 
     /**
-     * @param int $minScore
+     * @param int|float $minScore
      *
      * @return $this
      */
     public function setMinScore($minScore)
     {
-        $this->minScore = $minScore;
+        $this->minScore = (float) $minScore;
 
         return $this;
     }

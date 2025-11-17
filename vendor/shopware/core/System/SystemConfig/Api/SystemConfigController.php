@@ -3,9 +3,10 @@
 namespace Shopware\Core\System\SystemConfig\Api;
 
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Routing\RoutingException;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SystemConfig\Service\ConfigurationService;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Core\System\SystemConfig\Validation\SystemConfigValidator;
@@ -13,10 +14,10 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('system-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('framework')]
 class SystemConfigController extends AbstractController
 {
     /**
@@ -75,7 +76,7 @@ class SystemConfigController extends AbstractController
             $json = json_encode($values, \JSON_PRESERVE_ZERO_FRACTION);
         }
 
-        return new JsonResponse($json, 200, [], true);
+        return new JsonResponse($json, Response::HTTP_OK, [], true);
     }
 
     #[Route(path: '/api/_action/system-config', name: 'api.action.core.save.system-config', defaults: ['_acl' => ['system_config:update', 'system_config:create', 'system_config:delete']], methods: ['POST'])]
@@ -92,21 +93,9 @@ class SystemConfigController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    /**
-     * @deprecated tag:v6.6.0 $context param will be required
-     */
     #[Route(path: '/api/_action/system-config/batch', name: 'api.action.core.save.system-config.batch', defaults: ['_acl' => ['system_config:update', 'system_config:create', 'system_config:delete']], methods: ['POST'])]
-    public function batchSaveConfiguration(Request $request, ?Context $context = null): JsonResponse
+    public function batchSaveConfiguration(Request $request, Context $context): JsonResponse
     {
-        if (!$context) {
-            Feature::triggerDeprecationOrThrow(
-                'v6.6.0.0',
-                'Second parameter `$context` will be required in method `batchSaveConfiguration()` in `SystemConfigController` in v6.6.0.0'
-            );
-
-            $context = Context::createDefaultContext();
-        }
-
         $this->systemConfigValidator->validate($request->request->all(), $context);
 
         /**

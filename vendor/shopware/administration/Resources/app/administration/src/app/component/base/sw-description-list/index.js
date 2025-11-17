@@ -1,13 +1,10 @@
 import template from './sw-description-list.html.twig';
 import './sw-description-list.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description A definition list which uses CSS grid for a column layout.
  * @status ready
  * @example-type static
@@ -21,7 +18,7 @@ const { Component } = Shopware;
  *     <dd>Lorem ipsum dolor sit amet, consetetur sadipscing elitr</dd>
  * </sw-description-list>
  */
-Component.register('sw-description-list', {
+export default {
     template,
 
     props: {
@@ -39,4 +36,4 @@ Component.register('sw-description-list', {
             };
         },
     },
-});
+};

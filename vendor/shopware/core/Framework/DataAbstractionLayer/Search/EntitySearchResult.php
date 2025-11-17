@@ -3,7 +3,6 @@
 namespace Shopware\Core\Framework\DataAbstractionLayer\Search;
 
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\AggregationResult\AggregationResultCollection;
 use Shopware\Core\Framework\Log\Package;
@@ -14,34 +13,20 @@ use Shopware\Core\Framework\Struct\StateAwareTrait;
  *
  * @template TEntityCollection of EntityCollection
  *
- * @extends EntityCollection<Entity>
+ * @phpstan-type TElement template-type<TEntityCollection, EntityCollection, 'TElement'>
+ *
+ * @extends EntityCollection<TElement>
  */
-#[Package('core')]
+#[Package('framework')]
 class EntitySearchResult extends EntityCollection
 {
     use StateAwareTrait;
 
     protected AggregationResultCollection $aggregations;
 
-    /**
-     * @var Criteria
-     */
-    protected $criteria;
+    protected int $page;
 
-    /**
-     * @var Context
-     */
-    protected $context;
-
-    /**
-     * @var int
-     */
-    protected $page;
-
-    /**
-     * @var int|null
-     */
-    protected $limit;
+    protected ?int $limit = null;
 
     /**
      * @param TEntityCollection $entities
@@ -51,11 +36,9 @@ class EntitySearchResult extends EntityCollection
         protected int $total,
         protected EntityCollection $entities,
         ?AggregationResultCollection $aggregations,
-        Criteria $criteria,
-        Context $context
+        protected Criteria $criteria,
+        protected Context $context
     ) {
-        $this->criteria = $criteria;
-        $this->context = $context;
         $this->aggregations = $aggregations ?? new AggregationResultCollection();
         $this->limit = $criteria->getLimit();
         $this->page = !$criteria->getLimit() ? 1 : (int) ceil((($criteria->getOffset() ?? 0) + 1) / $criteria->getLimit());
@@ -63,12 +46,12 @@ class EntitySearchResult extends EntityCollection
         parent::__construct($entities);
     }
 
-    public function filter(\Closure $closure)
+    public function filter(\Closure $closure): static
     {
         return $this->createNew($this->entities->filter($closure));
     }
 
-    public function slice(int $offset, ?int $length = null)
+    public function slice(int $offset, ?int $length = null): static
     {
         return $this->createNew($this->entities->slice($offset, $length));
     }
@@ -133,7 +116,7 @@ class EntitySearchResult extends EntityCollection
         return 'dal_entity_search_result';
     }
 
-    public function getPage(): ?int
+    public function getPage(): int
     {
         return $this->page;
     }
@@ -164,7 +147,7 @@ class EntitySearchResult extends EntityCollection
     }
 
     /**
-     * @return Entity|null
+     * @return TElement|null
      */
     public function getAt(int $position)
     {
@@ -172,11 +155,9 @@ class EntitySearchResult extends EntityCollection
     }
 
     /**
-     * @return static
-     *
-     * @deprecated tag:v6.6.0  - reason:return-type-change - Return type will be changed to `static`
+     * @param iterable<TElement> $elements
      */
-    protected function createNew(iterable $elements = [])
+    protected function createNew(iterable $elements = []): static
     {
         if (!($elements instanceof EntityCollection)) {
             $elements = new EntityCollection($elements);

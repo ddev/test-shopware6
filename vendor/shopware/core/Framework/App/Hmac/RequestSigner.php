@@ -5,8 +5,9 @@ namespace Shopware\Core\Framework\App\Hmac;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Shopware\Core\Framework\Log\Package;
+use Symfony\Component\HttpFoundation\Request;
 
-#[Package('core')]
+#[Package('framework')]
 class RequestSigner
 {
     final public const SHOPWARE_APP_SIGNATURE = 'shopware-app-signature';
@@ -15,7 +16,7 @@ class RequestSigner
 
     public function signRequest(RequestInterface $request, string $secret): RequestInterface
     {
-        if ($request->getMethod() !== 'POST') {
+        if ($request->getMethod() !== Request::METHOD_POST) {
             return clone $request;
         }
 

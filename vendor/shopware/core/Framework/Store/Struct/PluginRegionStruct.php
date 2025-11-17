@@ -8,31 +8,16 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class PluginRegionStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $name;
-
-    /**
-     * @var string
-     */
-    protected $label;
-
-    /**
-     * @var PluginCategoryCollection
-     */
-    protected $categories;
+    protected PluginCategoryCollection $categories;
 
     public function __construct(
-        string $name,
-        string $label,
-        iterable $categories
+        protected string $name,
+        protected string $label,
+        iterable $categories,
     ) {
-        $this->name = $name;
-        $this->label = $label;
         $this->categories = new PluginCategoryCollection($categories);
     }
 

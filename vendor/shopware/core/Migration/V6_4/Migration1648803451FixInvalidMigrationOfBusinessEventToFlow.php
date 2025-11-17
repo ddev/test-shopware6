@@ -17,7 +17,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @phpstan-type SequenceData array{id: string, parent_id: string|null, true_case: int|null, flow_id: string|null, rule_id: string|null, action_name: string|null, position: int, created_at: string|null, config: string|null}
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1648803451FixInvalidMigrationOfBusinessEventToFlow extends MigrationStep
 {
     /**
@@ -79,6 +79,8 @@ class Migration1648803451FixInvalidMigrationOfBusinessEventToFlow extends Migrat
                 continue;
             }
 
+            \assert($actionSequence['id'] !== null);
+
             $parentId = $parentCondition['id'];
 
             $hasSaleChannelRule = \in_array($parentCondition['rule_id'], $saleChannelRule, true);
@@ -101,6 +103,8 @@ class Migration1648803451FixInvalidMigrationOfBusinessEventToFlow extends Migrat
             $childrenCondition = array_values(array_filter($sequence, fn ($sequence) => $sequence['rule_id'] !== null && $sequence['parent_id'] !== null));
 
             foreach ($childrenCondition as $child) {
+                \assert($child['id'] !== null);
+
                 $this->sequenceUpdate[] = $this->buildSequenceData(
                     $child['id'],
                     $parentId,

@@ -18,12 +18,13 @@ import ViewSearchResultsEvent from 'src/plugin/google-analytics/events/view-sear
 import CookieStorageHelper from 'src/helper/storage/cookie-storage.helper';
 
 /**
- * @package merchant-services
+ * @package buyers-experience
  */
 export default class GoogleAnalyticsPlugin extends Plugin
 {
     init() {
         this.cookieEnabledName = 'google-analytics-enabled';
+        this.cookieAdsEnabledName = 'google-ads-enabled';
         this.storage = Storage;
 
         this.handleTrackingLocation();
@@ -44,8 +45,13 @@ export default class GoogleAnalyticsPlugin extends Plugin
         gtag('js', new Date());
         gtag('config', window.gtagTrackingId, window.gtagConfig);
 
+        /** @deprecated tag:v6.8.0 - Will be removed, use activeRoute instead. */
         this.controllerName = window.controllerName;
+
+        /** @deprecated tag:v6.8.0 - Will be removed, use activeRoute instead. */
         this.actionName = window.actionName;
+        
+        this.activeRoute = window.activeRoute;
         this.events = [];
 
         this.registerDefaultEvents();
@@ -75,7 +81,7 @@ export default class GoogleAnalyticsPlugin extends Plugin
 
     handleEvents() {
         this.events.forEach(event => {
-            if (!event.supports(this.controllerName, this.actionName)) {
+            if (!event.supports(this.controllerName, this.actionName, this.activeRoute)) {
                 return;
             }
 
@@ -113,6 +119,8 @@ export default class GoogleAnalyticsPlugin extends Plugin
     handleCookies(cookieUpdateEvent) {
         const updatedCookies = cookieUpdateEvent.detail;
 
+        this._updateConsent(updatedCookies);
+
         if (!Object.prototype.hasOwnProperty.call(updatedCookies, this.cookieEnabledName)) {
             return;
         }
@@ -144,6 +152,34 @@ export default class GoogleAnalyticsPlugin extends Plugin
         this.events.forEach(event => {
             event.disable();
         });
+    }
+
+    /**
+     * @param {Object} updatedCookies
+     * @private
+     */
+    _updateConsent(updatedCookies) {
+        if (Object.keys(updatedCookies).length === 0) {
+            return;
+        }
+
+        const consentUpdateConfig = {};
+
+        if (Object.prototype.hasOwnProperty.call(updatedCookies, this.cookieEnabledName)) {
+            consentUpdateConfig['analytics_storage'] = updatedCookies[this.cookieEnabledName] ? 'granted' : 'denied';
+        }
+
+        if (Object.prototype.hasOwnProperty.call(updatedCookies, this.cookieAdsEnabledName)) {
+            consentUpdateConfig['ad_storage'] = updatedCookies[this.cookieAdsEnabledName] ? 'granted' : 'denied';
+            consentUpdateConfig['ad_user_data'] = updatedCookies[this.cookieAdsEnabledName] ? 'granted' : 'denied';
+            consentUpdateConfig['ad_personalization'] = updatedCookies[this.cookieAdsEnabledName] ? 'granted' : 'denied';
+        }
+
+        if (Object.keys(consentUpdateConfig).length === 0) {
+            return;
+        }
+
+        gtag('consent', 'update', consentUpdateConfig);
     }
 
     /**

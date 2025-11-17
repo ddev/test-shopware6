@@ -1,15 +1,15 @@
 import './sw-field-copyable.scss';
 import template from './sw-field-copyable.html.twig';
 
-const { Component, Mixin } = Shopware;
+const { Mixin } = Shopware;
 const domUtils = Shopware.Utils.dom;
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
-Component.register('sw-field-copyable', {
+export default {
     template,
 
     mixins: [
@@ -47,13 +47,13 @@ Component.register('sw-field-copyable', {
     },
 
     methods: {
-        copyToClipboard() {
+        async copyToClipboard() {
             if (!this.copyableText) {
                 return;
             }
 
             try {
-                domUtils.copyToClipboard(this.copyableText);
+                await domUtils.copyStringToClipboard(this.copyableText);
                 if (this.tooltip) {
                     this.tooltipSuccess();
                 } else {
@@ -81,4 +81,4 @@ Component.register('sw-field-copyable', {
             this.wasCopied = false;
         },
     },
-});
+};

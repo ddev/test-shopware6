@@ -1,13 +1,16 @@
 import template from './sw-category-detail-menu.html.twig';
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['acl', 'repositoryFactory'],
+    inject: [
+        'acl',
+        'repositoryFactory',
+    ],
 
     props: {
         category: {
@@ -77,5 +80,4 @@ export default {
             this.onSetMediaItem({ targetId: dropItem.id });
         },
     },
-
 };

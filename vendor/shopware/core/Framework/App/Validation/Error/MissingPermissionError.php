@@ -7,14 +7,17 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class MissingPermissionError extends Error
 {
     private const KEY = 'manifest-missing-permission';
 
+    /**
+     * @param list<string> $violations
+     */
     public function __construct(array $violations)
     {
-        $this->message = sprintf(
+        $this->message = \sprintf(
             "The following permissions are missing:\n- %s",
             implode("\n- ", $violations)
         );

@@ -5,7 +5,7 @@ namespace Shopware\Core\System\NumberRange\ValueGenerator\Pattern;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
-#[Package('checkout')]
+#[Package('framework')]
 class ValueGeneratorPatternDate extends AbstractValueGenerator
 {
     final public const STANDARD_FORMAT = 'Y-m-d';
@@ -15,9 +15,6 @@ class ValueGeneratorPatternDate extends AbstractValueGenerator
         return 'date';
     }
 
-    /**
-     * @param array<int, string>|null $args
-     */
     public function generate(array $config, ?array $args = null, ?bool $preview = false): string
     {
         if ($args === null || \count($args) === 0) {

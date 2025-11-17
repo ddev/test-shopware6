@@ -3,7 +3,7 @@
 namespace Shopware\Core\Framework\App\Lifecycle\Persister;
 
 use Shopware\Core\Framework\App\Aggregate\AppScriptCondition\AppScriptConditionCollection;
-use Shopware\Core\Framework\App\Aggregate\AppScriptCondition\AppScriptConditionEntity;
+use Shopware\Core\Framework\App\AppCollection;
 use Shopware\Core\Framework\App\AppEntity;
 use Shopware\Core\Framework\App\Lifecycle\ScriptFileReader;
 use Shopware\Core\Framework\App\Manifest\Manifest;
@@ -32,11 +32,15 @@ use Symfony\Component\Validator\Constraints\Type;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class RuleConditionPersister
 {
     private const CONDITION_SCRIPT_DIR = '/rule-conditions/';
 
+    /**
+     * @param EntityRepository<AppScriptConditionCollection> $appScriptConditionRepository
+     * @param EntityRepository<AppCollection> $appRepository
+     */
     public function __construct(
         private readonly ScriptFileReader $scriptReader,
         private readonly EntityRepository $appScriptConditionRepository,
@@ -47,9 +51,8 @@ class RuleConditionPersister
     public function updateConditions(Manifest $manifest, string $appId, string $defaultLocale, Context $context): void
     {
         $app = $this->getAppWithExistingConditions($appId, $context);
-
-        /** @var AppScriptConditionCollection $existingRuleConditions */
         $existingRuleConditions = $app->getScriptConditions();
+        \assert($existingRuleConditions !== null);
 
         $ruleConditions = $manifest->getRuleConditions();
         $ruleConditions = $ruleConditions !== null ? $ruleConditions->getRuleConditions() : [];
@@ -58,16 +61,15 @@ class RuleConditionPersister
 
         foreach ($ruleConditions as $ruleCondition) {
             $payload = $ruleCondition->toArray($defaultLocale);
-            $payload['identifier'] = sprintf('app\\%s_%s', $manifest->getMetadata()->getName(), $ruleCondition->getIdentifier());
+            $payload['identifier'] = \sprintf('app\\%s_%s', $manifest->getMetadata()->getName(), $ruleCondition->getIdentifier());
             $payload['script'] = $this->scriptReader->getScriptContent(
+                $app,
                 self::CONDITION_SCRIPT_DIR . $ruleCondition->getScript(),
-                $app->getPath()
             );
             $payload['appId'] = $appId;
             $payload['active'] = $app->isActive();
             $payload['constraints'] = $this->hydrateConstraints($payload['constraints']);
 
-            /** @var AppScriptConditionEntity|null $existing */
             $existing = $existingRuleConditions->filterByProperty('identifier', $payload['identifier'])->first();
 
             if ($existing) {
@@ -93,7 +95,7 @@ class RuleConditionPersister
         $criteria->addFilter(new EqualsFilter('appId', $appId));
         $criteria->addFilter(new EqualsFilter('active', false));
 
-        /** @var array<string> $scripts */
+        /** @var list<string> $scripts */
         $scripts = $this->appScriptConditionRepository->searchIds($criteria, $context)->getIds();
 
         $updateSet = array_map(fn (string $id) => ['id' => $id, 'active' => true], $scripts);
@@ -107,7 +109,7 @@ class RuleConditionPersister
         $criteria->addFilter(new EqualsFilter('appId', $appId));
         $criteria->addFilter(new EqualsFilter('active', true));
 
-        /** @var array<string> $scripts */
+        /** @var list<string> $scripts */
         $scripts = $this->appScriptConditionRepository->searchIds($criteria, $context)->getIds();
 
         $updateSet = array_map(fn (string $id) => ['id' => $id, 'active' => false], $scripts);
@@ -120,15 +122,14 @@ class RuleConditionPersister
         $criteria = new Criteria([$appId]);
         $criteria->addAssociation('scriptConditions');
 
-        /** @var AppEntity $app */
-        $app = $this->appRepository->search($criteria, $context)->first();
+        $app = $this->appRepository->search($criteria, $context)->getEntities()->first();
+        \assert($app !== null);
 
         return $app;
     }
 
     private function deleteConditionScripts(AppScriptConditionCollection $toBeRemoved, Context $context): void
     {
-        /** @var array<string> $ids */
         $ids = $toBeRemoved->getIds();
 
         if (!empty($ids)) {
@@ -139,7 +140,7 @@ class RuleConditionPersister
     }
 
     /**
-     * @param CustomFieldType[] $fields
+     * @param list<CustomFieldType> $fields
      */
     private function hydrateConstraints(array $fields): string
     {
@@ -187,7 +188,7 @@ class RuleConditionPersister
             }
 
             if ($field instanceof MultiSelectField) {
-                $constraints[$field->getName()][] = new All([new Choice(array_keys($field->getOptions()))]);
+                $constraints[$field->getName()][] = new All(constraints: new Choice(array_keys($field->getOptions())));
 
                 continue;
             }

@@ -28,7 +28,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *
  * @see \Shopware\Tests\Integration\Core\Framework\Api\EventListener\SalesChannelAuthenticationListenerTest
  */
-#[Package('core')]
+#[Package('framework')]
 class SalesChannelAuthenticationListener implements EventSubscriberInterface
 {
     use RouteScopeCheckTrait;
@@ -72,7 +72,7 @@ class SalesChannelAuthenticationListener implements EventSubscriberInterface
         if (!$accessKey) {
             throw ApiException::unauthorized(
                 'header',
-                sprintf('Header "%s" is required.', PlatformRequest::HEADER_ACCESS_KEY)
+                \sprintf('Header "%s" is required.', PlatformRequest::HEADER_ACCESS_KEY)
             );
         }
 
@@ -144,9 +144,9 @@ class SalesChannelAuthenticationListener implements EventSubscriberInterface
         }
 
         try {
-            /** @var string[] $allowedIps */
+            /** @var list<string> $allowedIps */
             $allowedIps = Json::decodeToList((string) ($salesChannelData['maintenanceIpWhitelist'] ?? ''));
-        } catch (UtilException $e) {
+        } catch (UtilException) {
             return;
         }
 

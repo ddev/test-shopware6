@@ -4,13 +4,16 @@ import './sw-category-link-settings.scss';
 const { Criteria } = Shopware.Data;
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['acl', 'repositoryFactory'],
+    inject: [
+        'acl',
+        'repositoryFactory',
+    ],
 
     props: {
         category: {
@@ -28,6 +31,7 @@ export default {
     data() {
         return {
             categoriesCollection: [],
+            linkHasProtocol: false,
         };
     },
 
@@ -36,11 +40,11 @@ export default {
             return [
                 {
                     value: 'external',
-                    label: this.$tc('sw-category.base.link.type.external'),
+                    label: this.$t('sw-category.base.link.type.external'),
                 },
                 {
                     value: 'internal',
-                    label: this.$tc('sw-category.base.link.type.internal'),
+                    label: this.$t('sw-category.base.link.type.internal'),
                 },
             ];
         },
@@ -49,15 +53,15 @@ export default {
             return [
                 {
                     value: 'category',
-                    label: this.$tc('global.entities.category'),
+                    label: this.$t('global.entities.category'),
                 },
                 {
                     value: 'product',
-                    label: this.$tc('global.entities.product'),
+                    label: this.$t('global.entities.product'),
                 },
                 {
                     value: 'landing_page',
-                    label: this.$tc('global.entities.landing_page'),
+                    label: this.$t('global.entities.landing_page'),
                 },
             ];
         },
@@ -98,10 +102,7 @@ export default {
         },
 
         categoryCriteria() {
-            const criteria = new Criteria(1, null);
-            criteria.addFilter(Criteria.equals('type', 'page'));
-
-            return criteria;
+            return new Criteria(1, null);
         },
 
         internalLinkCriteria() {
@@ -116,7 +117,21 @@ export default {
         },
 
         categoryLinkPlaceholder() {
-            return this.category.internalLink ? '' : this.$tc('sw-category.base.link.categoryPlaceholder');
+            return this.category.internalLink ? '' : this.$t('sw-category.base.link.categoryPlaceholder');
+        },
+
+        allowedCategoryTypes() {
+            return ['page'];
+        },
+
+        categoryLinkHelpText() {
+            return this.$t('sw-category.base.link.categoryHelpText', {
+                types: this.allowedCategoryTypes
+                    .map((type) => {
+                        return this.$t(`sw-category.base.general.types.${type}`);
+                    })
+                    .join(', '),
+            });
         },
     },
 
@@ -130,6 +145,7 @@ export default {
                 this.category.linkType = 'external';
             }
 
+            this.linkHasProtocol = this.category.externalLink?.startsWith('http') || this.category.externalLink === null;
             this.createCategoryCollection();
         },
 
@@ -142,11 +158,9 @@ export default {
         },
 
         createCategoryCollection() {
-            this.categoryRepository
-                .search(this.internalLinkCriteria, Shopware.Context.api)
-                .then(result => {
-                    this.categoriesCollection = result;
-                });
+            this.categoryRepository.search(this.internalLinkCriteria, Shopware.Context.api).then((result) => {
+                this.categoriesCollection = result;
+            });
         },
 
         onSelectionAdd(item) {

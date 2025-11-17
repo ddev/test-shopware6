@@ -9,8 +9,10 @@ use Shopware\Core\Checkout\Order\Aggregate\OrderAddress\OrderAddressCollection;
 use Shopware\Core\Checkout\Order\Aggregate\OrderAddress\OrderAddressEntity;
 use Shopware\Core\Checkout\Order\Aggregate\OrderCustomer\OrderCustomerEntity;
 use Shopware\Core\Checkout\Order\Aggregate\OrderDelivery\OrderDeliveryCollection;
+use Shopware\Core\Checkout\Order\Aggregate\OrderDelivery\OrderDeliveryEntity;
 use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemCollection;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionCollection;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
@@ -29,212 +31,108 @@ class OrderEntity extends Entity
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $orderNumber;
+    protected ?string $orderNumber = null;
 
-    /**
-     * @var string
-     */
-    protected $currencyId;
+    protected string $currencyId;
 
-    /**
-     * @var float
-     */
-    protected $currencyFactor;
+    protected float $currencyFactor;
 
-    /**
-     * @var string
-     */
-    protected $salesChannelId;
+    protected string $salesChannelId;
 
-    /**
-     * @var string
-     */
-    protected $billingAddressId;
+    protected string $billingAddressId;
 
-    /**
-     * @var string
-     */
-    protected $billingAddressVersionId;
+    protected string $billingAddressVersionId;
 
-    /**
-     * @var \DateTimeInterface
-     */
-    protected $orderDateTime;
+    protected \DateTimeInterface $orderDateTime;
 
-    /**
-     * @var \DateTimeInterface
-     */
-    protected $orderDate;
+    protected \DateTimeInterface $orderDate;
 
-    /**
-     * @var CartPrice
-     */
-    protected $price;
+    protected CartPrice $price;
 
-    /**
-     * @var float
-     */
-    protected $amountTotal;
+    protected float $amountTotal;
 
-    /**
-     * @var float
-     */
-    protected $amountNet;
+    protected float $amountNet;
 
-    /**
-     * @var float
-     */
-    protected $positionPrice;
+    protected float $positionPrice;
 
-    /**
-     * @var string
-     */
-    protected $taxStatus;
+    protected ?string $taxStatus = null;
 
-    /**
-     * @var CalculatedPrice
-     */
-    protected $shippingCosts;
+    protected CalculatedPrice $shippingCosts;
 
-    /**
-     * @var float
-     */
-    protected $shippingTotal;
+    protected float $shippingTotal;
 
-    /**
-     * @var OrderCustomerEntity|null
-     */
-    protected $orderCustomer;
+    protected ?OrderCustomerEntity $orderCustomer = null;
 
-    /**
-     * @var CurrencyEntity|null
-     */
-    protected $currency;
+    protected ?CurrencyEntity $currency = null;
 
-    /**
-     * @var string
-     */
-    protected $languageId;
+    protected string $languageId;
 
-    /**
-     * @var LanguageEntity
-     */
-    protected $language;
+    protected ?LanguageEntity $language = null;
 
-    /**
-     * @var SalesChannelEntity|null
-     */
-    protected $salesChannel;
+    protected ?SalesChannelEntity $salesChannel = null;
 
-    /**
-     * @var OrderAddressCollection|null
-     */
-    protected $addresses;
+    protected ?OrderAddressCollection $addresses = null;
 
-    /**
-     * @var OrderAddressEntity|null
-     */
-    protected $billingAddress;
+    protected ?OrderAddressEntity $billingAddress = null;
 
-    /**
-     * @var OrderDeliveryCollection|null
-     */
-    protected $deliveries;
+    protected ?OrderDeliveryCollection $deliveries = null;
 
-    /**
-     * @var OrderLineItemCollection|null
-     */
-    protected $lineItems;
+    protected ?OrderLineItemCollection $lineItems = null;
 
-    /**
-     * @var OrderTransactionCollection|null
-     */
-    protected $transactions;
+    protected ?OrderTransactionCollection $transactions = null;
 
-    /**
-     * @var string|null
-     */
-    protected $deepLinkCode;
+    protected ?string $deepLinkCode = null;
 
-    /**
-     * @var int
-     */
-    protected $autoIncrement;
+    protected int $autoIncrement;
 
-    /**
-     * @var StateMachineStateEntity|null
-     */
-    protected $stateMachineState;
+    protected ?StateMachineStateEntity $stateMachineState = null;
 
-    /**
-     * @var string
-     */
-    protected $stateId;
+    protected string $stateId;
 
-    /**
-     * @var DocumentCollection|null
-     */
-    protected $documents;
+    protected ?OrderDeliveryEntity $primaryOrderDelivery = null;
 
-    /**
-     * @var TagCollection|null
-     */
-    protected $tags;
+    protected ?string $primaryOrderDeliveryId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $affiliateCode;
+    protected ?string $primaryOrderDeliveryVersionId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $campaignCode;
+    protected ?OrderTransactionEntity $primaryOrderTransaction = null;
 
-    /**
-     * @var string|null
-     */
-    protected $customerComment;
+    protected ?string $primaryOrderTransactionId = null;
+
+    protected ?string $primaryOrderTransactionVersionId = null;
+
+    protected ?DocumentCollection $documents = null;
+
+    protected ?TagCollection $tags = null;
+
+    protected ?string $affiliateCode = null;
+
+    protected ?string $campaignCode = null;
+
+    protected ?string $customerComment = null;
+
+    protected ?string $internalComment = null;
 
     /**
      * @var array<string>|null
      */
-    protected $ruleIds = [];
+    protected ?array $ruleIds = [];
 
-    /**
-     * @var string|null
-     */
-    protected $createdById;
+    protected ?string $createdById = null;
 
-    /**
-     * @var UserEntity|null
-     */
-    protected $createdBy;
+    protected ?UserEntity $createdBy = null;
 
-    /**
-     * @var string|null
-     */
-    protected $updatedById;
+    protected ?string $updatedById = null;
 
-    /**
-     * @var UserEntity|null
-     */
-    protected $updatedBy;
+    protected ?UserEntity $updatedBy = null;
 
-    /**
-     * @var CashRoundingConfig|null
-     */
-    protected $itemRounding;
+    protected ?CashRoundingConfig $itemRounding = null;
 
-    /**
-     * @var CashRoundingConfig|null
-     */
-    protected $totalRounding;
+    protected ?CashRoundingConfig $totalRounding = null;
 
     protected ?string $source = null;
+
+    protected ?string $taxCalculationType = null;
 
     public function getCurrencyId(): string
     {
@@ -321,7 +219,7 @@ class OrderEntity extends Entity
         return $this->positionPrice;
     }
 
-    public function getTaxStatus(): string
+    public function getTaxStatus(): ?string
     {
         return $this->taxStatus;
     }
@@ -371,12 +269,12 @@ class OrderEntity extends Entity
         $this->languageId = $languageId;
     }
 
-    public function getLanguage(): LanguageEntity
+    public function getLanguage(): ?LanguageEntity
     {
         return $this->language;
     }
 
-    public function setLanguage(LanguageEntity $language): void
+    public function setLanguage(?LanguageEntity $language): void
     {
         $this->language = $language;
     }
@@ -496,6 +394,46 @@ class OrderEntity extends Entity
         $this->shippingTotal = $shippingTotal;
     }
 
+    public function getPrimaryOrderDelivery(): ?OrderDeliveryEntity
+    {
+        return $this->primaryOrderDelivery;
+    }
+
+    public function setPrimaryOrderDelivery(?OrderDeliveryEntity $primaryOrderDelivery): void
+    {
+        $this->primaryOrderDelivery = $primaryOrderDelivery;
+    }
+
+    public function getPrimaryOrderDeliveryId(): ?string
+    {
+        return $this->primaryOrderDeliveryId;
+    }
+
+    public function setPrimaryOrderDeliveryId(?string $primaryOrderDeliveryId): void
+    {
+        $this->primaryOrderDeliveryId = $primaryOrderDeliveryId;
+    }
+
+    public function getPrimaryOrderTransaction(): ?OrderTransactionEntity
+    {
+        return $this->primaryOrderTransaction;
+    }
+
+    public function setPrimaryOrderTransaction(?OrderTransactionEntity $primaryOrderTransaction): void
+    {
+        $this->primaryOrderTransaction = $primaryOrderTransaction;
+    }
+
+    public function getPrimaryOrderTransactionId(): ?string
+    {
+        return $this->primaryOrderTransactionId;
+    }
+
+    public function setPrimaryOrderTransactionId(?string $primaryOrderTransactionId): void
+    {
+        $this->primaryOrderTransactionId = $primaryOrderTransactionId;
+    }
+
     public function getDocuments(): ?DocumentCollection
     {
         return $this->documents;
@@ -572,6 +510,16 @@ class OrderEntity extends Entity
         $this->customerComment = $customerComment;
     }
 
+    public function getInternalComment(): ?string
+    {
+        return $this->internalComment;
+    }
+
+    public function setInternalComment(?string $internalComment): void
+    {
+        $this->internalComment = $internalComment;
+    }
+
     public function getSource(): ?string
     {
         return $this->source;
@@ -580,6 +528,16 @@ class OrderEntity extends Entity
     public function setSource(?string $source): void
     {
         $this->source = $source;
+    }
+
+    public function getTaxCalculationType(): ?string
+    {
+        return $this->taxCalculationType;
+    }
+
+    public function setTaxCalculationType(?string $taxCalculationType): void
+    {
+        $this->taxCalculationType = $taxCalculationType;
     }
 
     /**
@@ -676,6 +634,26 @@ class OrderEntity extends Entity
     public function setBillingAddressVersionId(string $billingAddressVersionId): void
     {
         $this->billingAddressVersionId = $billingAddressVersionId;
+    }
+
+    public function getPrimaryOrderDeliveryVersionId(): ?string
+    {
+        return $this->primaryOrderDeliveryVersionId;
+    }
+
+    public function setPrimaryOrderDeliveryVersionId(?string $primaryOrderDeliveryVersionId): void
+    {
+        $this->primaryOrderDeliveryVersionId = $primaryOrderDeliveryVersionId;
+    }
+
+    public function getPrimaryOrderTransactionVersionId(): ?string
+    {
+        return $this->primaryOrderTransactionVersionId;
+    }
+
+    public function setPrimaryOrderTransactionVersionId(?string $primaryOrderTransactionVersionId): void
+    {
+        $this->primaryOrderTransactionVersionId = $primaryOrderTransactionVersionId;
     }
 
     private function addChildren(OrderLineItemCollection $lineItems, OrderLineItemCollection $parents): void

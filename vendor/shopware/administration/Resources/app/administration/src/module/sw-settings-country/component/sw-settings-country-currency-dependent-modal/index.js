@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package fundamentals@discovery
  */
 import template from './sw-settings-country-currency-dependent-modal.html.twig';
 import './sw-settings-country-currency-dependent-modal.scss';
@@ -13,6 +13,12 @@ export default {
     inject: [
         'repositoryFactory',
         'acl',
+    ],
+
+    emits: [
+        'modal-close',
+        'modal-save',
+        'base-item-change',
     ],
 
     props: {
@@ -57,7 +63,7 @@ export default {
 
     computed: {
         currentUserId() {
-            return Shopware.State.get('session').currentUser.id;
+            return Shopware.Store.get('session').currentUser.id;
         },
 
         currencyTaxFreeDependentRepository() {
@@ -69,21 +75,25 @@ export default {
         },
 
         countryCurrencyColumns() {
-            return [{
-                property: 'currencyId',
-                label: '',
-                inlineEdit: 'string',
-                primary: true,
-            }, {
-                property: 'amount',
-                label: this.$tc('sw-settings-country.detail.taxFreeFrom'),
-                inlineEdit: 'string',
-                primary: true,
-            }, {
-                property: 'enabled',
-                label: this.$tc('sw-settings-country.detail.baseCurrency'),
-                inlineEdit: 'string',
-            }];
+            return [
+                {
+                    property: 'currencyId',
+                    label: '',
+                    inlineEdit: 'string',
+                    primary: true,
+                },
+                {
+                    property: 'amount',
+                    label: this.$tc('sw-settings-country.detail.taxFreeFrom'),
+                    inlineEdit: 'string',
+                    primary: true,
+                },
+                {
+                    property: 'enabled',
+                    label: this.$tc('sw-settings-country.detail.baseCurrency'),
+                    inlineEdit: 'string',
+                },
+            ];
         },
     },
 
@@ -125,12 +135,13 @@ export default {
                 return;
             }
 
-            this.currencyDependsValue
-                .splice(this.currencyDependsValue.indexOf(currencyDependentRemoval), 1);
+            this.currencyDependsValue.splice(this.currencyDependsValue.indexOf(currencyDependentRemoval), 1);
 
             if (this.userConfigValues[this.taxFreeType]) {
-                this.userConfigValues[this.taxFreeType]
-                    .splice(this.userConfigValues[this.taxFreeType].indexOf(currencyId), 1);
+                this.userConfigValues[this.taxFreeType].splice(
+                    this.userConfigValues[this.taxFreeType].indexOf(currencyId),
+                    1,
+                );
             }
             this.updateCheckBoxHamburgerMenu(currencyId);
         },
@@ -151,8 +162,10 @@ export default {
             });
 
             if (this.userConfigValues[this.taxFreeType]) {
-                this.userConfigValues[this.taxFreeType]
-                    .splice(this.userConfigValues[this.taxFreeType].indexOf(item.currencyId), 1);
+                this.userConfigValues[this.taxFreeType].splice(
+                    this.userConfigValues[this.taxFreeType].indexOf(item.currencyId),
+                    1,
+                );
             }
 
             this.menuOptions.forEach((currency) => {
@@ -202,13 +215,12 @@ export default {
 
         createNewUserConfig() {
             this.userConfig.value = {
-                [this.countryId]:
-                    {
-                        [this.taxFreeType]: [],
-                    },
+                [this.countryId]: {
+                    [this.taxFreeType]: [],
+                },
             };
 
-            this.currencyDependsValue.forEach(value => {
+            this.currencyDependsValue.forEach((value) => {
                 if (!value.enabled) {
                     this.userConfig.value[this.countryId][this.taxFreeType].push(value.currencyId);
                 }
@@ -222,13 +234,15 @@ export default {
                 valuesUserConfig = this.userConfigValues[this.taxFreeType];
             }
 
-            this.currencyDependsValue.forEach(value => {
+            this.currencyDependsValue.forEach((value) => {
                 if (!value.enabled) {
                     valuesUserConfig.push(value.currencyId);
                 }
             });
 
-            this.userConfig.value[this.countryId][this.taxFreeType] = [...new Set(valuesUserConfig)];
+            this.userConfig.value[this.countryId][this.taxFreeType] = [
+                ...new Set(valuesUserConfig),
+            ];
         },
 
         getCurrencyNameById(currencyId) {

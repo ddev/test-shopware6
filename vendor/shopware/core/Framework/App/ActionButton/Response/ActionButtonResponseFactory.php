@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class ActionButtonResponseFactory
 {
     /**
@@ -21,7 +21,7 @@ class ActionButtonResponseFactory
     }
 
     /**
-     * @param array<mixed> $payload
+     * @param array<string, mixed> $payload
      */
     public function createFromResponse(AppAction $action, string $actionType, array $payload, Context $context): ActionButtonResponse
     {
@@ -31,6 +31,6 @@ class ActionButtonResponseFactory
             }
         }
 
-        throw AppException::actionButtonProcessException($action->getActionId(), sprintf('No factory found for action type "%s"', $actionType));
+        throw AppException::actionButtonProcessException($action->getActionId(), \sprintf('No factory found for action type "%s"', $actionType));
     }
 }

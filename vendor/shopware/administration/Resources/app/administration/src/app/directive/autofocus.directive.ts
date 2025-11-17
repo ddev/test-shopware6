@@ -1,9 +1,9 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 Shopware.Directive.register('autofocus', {
-    inserted: (el: HTMLElement) => {
+    mounted: (el: HTMLElement) => {
         const inputs = el.getElementsByTagName('input');
 
         if (inputs.length === 0) {
@@ -15,6 +15,6 @@ Shopware.Directive.register('autofocus', {
 });
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export {};

@@ -32,10 +32,7 @@ class InstallCommand extends BaseCommand
 {
     use CompletionTrait;
 
-    /**
-     * @return void
-     */
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('install')
@@ -79,7 +76,7 @@ EOT
         ;
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = $this->getIO();
         if ($input->getOption('dev')) {

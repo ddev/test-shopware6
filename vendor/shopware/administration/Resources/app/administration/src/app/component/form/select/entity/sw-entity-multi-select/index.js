@@ -1,3 +1,7 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-entity-multi-select.html.twig';
 import './sw-entity-multi-select.scss';
 
@@ -6,10 +10,11 @@ const { debounce, get } = Shopware.Utils;
 const { Criteria, EntityCollection } = Shopware.Data;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-entity-multi-select', {
+export default {
     template,
+
     inheritAttrs: false,
 
     inject: [
@@ -17,18 +22,25 @@ Component.register('sw-entity-multi-select', {
         'feature',
     ],
 
+    emits: [
+        'search',
+        'update:entityCollection',
+        'item-add',
+        'item-remove',
+        'display-values-expand',
+        'search-term-change',
+    ],
+
     mixins: [
         Mixin.getByName('remove-api-error'),
     ],
 
-    model: {
-        prop: 'entityCollection',
-        event: 'change',
-    },
-
     props: {
         labelProperty: {
-            type: [String, Array],
+            type: [
+                String,
+                Array,
+            ],
             required: false,
             default: 'name',
         },
@@ -60,15 +72,21 @@ Component.register('sw-entity-multi-select', {
         criteria: {
             type: Object,
             required: false,
-            default() {
-                return new Criteria(1, this.resultLimit);
+            default(props) {
+                return new Criteria(1, props.resultLimit);
             },
+        },
+
+        disabled: {
+            type: Boolean,
+            required: false,
+            // eslint-disable-next-line vue/no-boolean-default
+            default: undefined,
         },
 
         highlightSearchTerm: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -108,9 +126,15 @@ Component.register('sw-entity-multi-select', {
             type: String,
             required: false,
             default: 'right',
-            validValues: ['bottom', 'right'],
+            validValues: [
+                'bottom',
+                'right',
+            ],
             validator(value) {
-                return ['bottom', 'right'].includes(value);
+                return [
+                    'bottom',
+                    'right',
+                ].includes(value);
             },
         },
 
@@ -134,6 +158,11 @@ Component.register('sw-entity-multi-select', {
             type: Boolean,
             required: false,
             default: false,
+        },
+        label: {
+            type: String,
+            required: false,
+            default: undefined,
         },
     },
 
@@ -161,7 +190,6 @@ Component.register('sw-entity-multi-select', {
 
             return this.currentCollection.slice(0, this.limit);
         },
-
 
         totalValuesCount() {
             if (this.currentCollection.length) {
@@ -251,7 +279,7 @@ Component.register('sw-entity-multi-select', {
             if (!this.resultCollection) {
                 this.resultCollection = result;
             } else {
-                result.forEach(item => {
+                result.forEach((item) => {
                     // Prevent duplicate entries
                     if (!this.resultCollection.has(item.id)) {
                         this.resultCollection.push(item);
@@ -269,9 +297,11 @@ Component.register('sw-entity-multi-select', {
                 labelProperties.push(this.labelProperty);
             }
 
-            return labelProperties.map(labelProperty => {
-                return this.getKey(item, labelProperty) || this.getKey(item, `translated.${labelProperty}`);
-            }).join(' ');
+            return labelProperties
+                .map((labelProperty) => {
+                    return this.getKey(item, labelProperty) || this.getKey(item, `translated.${labelProperty}`);
+                })
+                .join(' ');
         },
 
         resetActiveItem() {
@@ -297,13 +327,7 @@ Component.register('sw-entity-multi-select', {
         },
 
         emitChanges(newCollection) {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:entityCollection', newCollection);
-
-                return;
-            }
-
-            this.$emit('change', newCollection);
+            this.$emit('update:entityCollection', newCollection);
         },
 
         addItem(item) {
@@ -426,4 +450,4 @@ Component.register('sw-entity-multi-select', {
             this.$refs.selectionList.blur();
         },
     },
-});
+};

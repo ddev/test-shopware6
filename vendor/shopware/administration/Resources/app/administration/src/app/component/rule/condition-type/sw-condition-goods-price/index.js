@@ -6,14 +6,15 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Condition for the GoodsPriceRule. This component must a be child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-goods-price :condition="condition" :level="0"></sw-condition-goods-price>
  */
-Component.extend('sw-condition-goods-price', 'sw-condition-base', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     data() {
@@ -38,10 +39,13 @@ Component.extend('sw-condition-goods-price', 'sw-condition-base', {
             },
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.amount']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.amount',
+        ]),
 
         currentError() {
             return this.conditionValueOperatorError || this.conditionValueAmountError;
         },
     },
-});
+};

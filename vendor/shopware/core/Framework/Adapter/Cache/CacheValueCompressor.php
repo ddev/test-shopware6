@@ -2,15 +2,19 @@
 
 namespace Shopware\Core\Framework\Adapter\Cache;
 
+use Shopware\Core\Framework\Adapter\AdapterException;
+use Shopware\Core\Framework\FrameworkException;
 use Shopware\Core\Framework\Log\Package;
 
 /**
  * @template TCachedContent
  */
-#[Package('core')]
+#[Package('framework')]
 class CacheValueCompressor
 {
     public static bool $compress = true;
+
+    public static string $compressMethod = 'gzip';
 
     /**
      * @param TCachedContent $content
@@ -21,10 +25,16 @@ class CacheValueCompressor
             return \serialize($content);
         }
 
-        $compressed = gzcompress(serialize($content), 9);
+        if (self::$compressMethod === 'zstd') {
+            $compressed = \zstd_compress(\serialize($content));
+        } elseif (self::$compressMethod === 'gzip') {
+            $compressed = \gzcompress(\serialize($content));
+        } else {
+            throw FrameworkException::invalidCompressionMethod(self::$compressMethod);
+        }
 
         if ($compressed === false) {
-            throw new \RuntimeException('Failed to compress cache value');
+            throw AdapterException::cacheCompressionError('Failed to compress cache value');
         }
 
         return $compressed;
@@ -45,9 +55,16 @@ class CacheValueCompressor
             return \unserialize($value);
         }
 
-        $uncompressed = gzuncompress($value);
+        if (self::$compressMethod === 'zstd') {
+            $uncompressed = \zstd_uncompress($value);
+        } elseif (self::$compressMethod === 'gzip') {
+            $uncompressed = \gzuncompress($value);
+        } else {
+            throw FrameworkException::invalidCompressionMethod(self::$compressMethod);
+        }
+
         if ($uncompressed === false) {
-            throw new \RuntimeException(sprintf('Could not uncompress "%s"', $value));
+            throw AdapterException::cacheCompressionError('Could not uncompress value');
         }
 
         return unserialize($uncompressed);

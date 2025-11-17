@@ -2,6 +2,7 @@
 
 namespace Shopware\Storefront\Theme\Command;
 
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -9,8 +10,8 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
-use Shopware\Storefront\Theme\StorefrontPluginRegistryInterface;
-use Shopware\Storefront\Theme\ThemeEntity;
+use Shopware\Storefront\Theme\StorefrontPluginRegistry;
+use Shopware\Storefront\Theme\ThemeCollection;
 use Shopware\Storefront\Theme\ThemeService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -25,7 +26,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'theme:change',
     description: 'Change the active theme for a sales channel',
 )]
-#[Package('storefront')]
+#[Package('framework')]
 class ThemeChangeCommand extends Command
 {
     private readonly Context $context;
@@ -34,15 +35,18 @@ class ThemeChangeCommand extends Command
 
     /**
      * @internal
+     *
+     * @param EntityRepository<SalesChannelCollection> $salesChannelRepository
+     * @param EntityRepository<ThemeCollection> $themeRepository
      */
     public function __construct(
         private readonly ThemeService $themeService,
-        private readonly StorefrontPluginRegistryInterface $pluginRegistry,
+        private readonly StorefrontPluginRegistry $pluginRegistry,
         private readonly EntityRepository $salesChannelRepository,
         private readonly EntityRepository $themeRepository
     ) {
         parent::__construct();
-        $this->context = Context::createDefaultContext();
+        $this->context = Context::createCLIContext();
     }
 
     protected function configure(): void
@@ -51,6 +55,7 @@ class ThemeChangeCommand extends Command
         $this->addOption('sales-channel', 's', InputOption::VALUE_REQUIRED, 'Sales Channel ID. Can not be used together with --all.');
         $this->addOption('all', null, InputOption::VALUE_NONE, 'Set theme for all sales channel Can not be used together with -s');
         $this->addOption('no-compile', null, InputOption::VALUE_NONE, 'Skip theme compiling');
+        $this->addOption('sync', null, InputOption::VALUE_NONE, 'Compile the theme synchronously');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -73,8 +78,10 @@ class ThemeChangeCommand extends Command
         }
         \assert(\is_string($themeName));
 
-        /** @var SalesChannelCollection $salesChannels */
-        $salesChannels = $this->salesChannelRepository->search(new Criteria(), $this->context)->getEntities();
+        $criteria = (new Criteria())
+            ->addFilter(new EqualsFilter('typeId', Defaults::SALES_CHANNEL_TYPE_STOREFRONT));
+
+        $salesChannels = $this->salesChannelRepository->search($criteria, $this->context)->getEntities();
 
         if ($input->getOption('all')) {
             $selectedSalesChannel = $salesChannels;
@@ -97,22 +104,24 @@ class ThemeChangeCommand extends Command
             $selectedSalesChannel = [$salesChannels->get($salesChannelOption)];
         }
 
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('technicalName', $themeName));
+        $criteria = (new Criteria())
+            ->addFilter(new EqualsFilter('technicalName', $themeName));
 
-        /** @var ThemeEntity|null $theme */
-        $theme = $this->themeRepository->search($criteria, $this->context)->first();
-
-        if ($theme === null) {
+        $theme = $this->themeRepository->search($criteria, $this->context)->getEntities()->first();
+        if (!$theme) {
             $this->io->error('Invalid theme name');
 
             return self::INVALID;
         }
 
+        if ($input->getOption('sync')) {
+            $this->context->addState(ThemeService::STATE_NO_QUEUE);
+        }
+
         /** @var SalesChannelEntity $salesChannel */
         foreach ($selectedSalesChannel as $salesChannel) {
             $this->io->writeln(
-                sprintf('Set and compiling theme "%s" (%s) as new theme for sales channel "%s"', $themeName, $theme->getId(), $salesChannel->getName())
+                \sprintf('Set and compiling theme "%s" (%s) as new theme for sales channel "%s"', $themeName, $theme->getId(), $salesChannel->getName())
             );
 
             $this->themeService->assignTheme(

@@ -5,6 +5,7 @@ namespace Shopware\Core\Content\Product\Stock;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Content\Product\Events\ProductNoLongerAvailableEvent;
+use Shopware\Core\Content\Product\Events\ProductStockAlteredEvent;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
@@ -14,7 +15,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('core')]
+#[Package('inventory')]
 class StockStorage extends AbstractStockStorage
 {
     /**
@@ -45,9 +46,13 @@ class StockStorage extends AbstractStockStorage
             return;
         }
 
+        if (\count($changes) === 0) {
+            return;
+        }
+
         $sql = <<<'SQL'
             UPDATE product
-            SET stock = stock + :quantity, sales = sales - :quantity, available_stock = stock
+            SET stock = stock + :quantity, sales = sales - :quantity, available_stock = stock, updated_at = NOW()
             WHERE id = :id AND version_id = :version
         SQL;
 
@@ -65,6 +70,8 @@ class StockStorage extends AbstractStockStorage
         }
 
         $this->updateAvailableFlag(array_column($changes, 'productId'), $context);
+
+        $this->dispatcher->dispatch(new ProductStockAlteredEvent(array_column($changes, 'productId'), $context));
     }
 
     /**
@@ -99,13 +106,20 @@ class StockStorage extends AbstractStockStorage
                 AND parent.version_id = product.version_id
 
             SET product.available = IFNULL((
-                IFNULL(product.is_closeout, parent.is_closeout) * product.stock
+                COALESCE(product.is_closeout, parent.is_closeout, 0) * product.stock
                 >=
-                IFNULL(product.is_closeout, parent.is_closeout) * IFNULL(product.min_purchase, parent.min_purchase)
-            ), 0)
+                COALESCE(product.is_closeout, parent.is_closeout, 0) * IFNULL(product.min_purchase, parent.min_purchase)
+            ), 0),
+                product.updated_at = NOW()
             WHERE product.id IN (:ids)
             AND product.version_id = :version
         ';
+
+        $before = $this->connection->fetchAllKeyValue(
+            'SELECT LOWER(HEX(id)), available FROM product WHERE id IN (:ids) AND product.version_id = :version',
+            ['ids' => $bytes, 'version' => Uuid::fromHexToBytes($context->getVersionId())],
+            ['ids' => ArrayParameterType::BINARY]
+        );
 
         RetryableQuery::retryable($this->connection, function () use ($sql, $context, $bytes): void {
             $this->connection->executeStatement(
@@ -115,11 +129,18 @@ class StockStorage extends AbstractStockStorage
             );
         });
 
-        $updated = $this->connection->fetchFirstColumn(
-            'SELECT LOWER(HEX(id)) FROM product WHERE available = 0 AND id IN (:ids) AND product.version_id = :version',
+        $after = $this->connection->fetchAllKeyValue(
+            'SELECT LOWER(HEX(id)), available FROM product WHERE id IN (:ids) AND product.version_id = :version',
             ['ids' => $bytes, 'version' => Uuid::fromHexToBytes($context->getVersionId())],
             ['ids' => ArrayParameterType::BINARY]
         );
+
+        $updated = [];
+        foreach ($before as $id => $available) {
+            if ($available !== $after[$id]) {
+                $updated[] = (string) $id;
+            }
+        }
 
         if (!empty($updated)) {
             $this->dispatcher->dispatch(new ProductNoLongerAvailableEvent($updated, $context));

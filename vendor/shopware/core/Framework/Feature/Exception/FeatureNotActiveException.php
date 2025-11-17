@@ -6,14 +6,14 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class FeatureNotActiveException extends ShopwareHttpException
 {
     public function __construct(
         string $feature,
         ?\Throwable $previous = null
     ) {
-        $message = sprintf('This function can only be used with feature flag %s', $feature);
+        $message = \sprintf('This function can only be used with feature flag %s', $feature);
         parent::__construct($message, [], $previous);
     }
 

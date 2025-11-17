@@ -1,20 +1,22 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import Criteria from 'src/core/data/criteria.data';
 import template from './sw-product-detail-base.html.twig';
 import './sw-product-detail-base.scss';
 
-const { Component, Context, Utils, Mixin } = Shopware;
-const { mapState, mapGetters } = Component.getComponentHelper();
+const { Context, Utils, Mixin } = Shopware;
 const { isEmpty } = Utils.types;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -36,28 +38,38 @@ export default {
     },
 
     computed: {
-        ...mapState('swProductDetail', [
-            'product',
-            'parentProduct',
-            'customFieldSets',
-            'loading',
-        ]),
+        product() {
+            return Shopware.Store.get('swProductDetail').product;
+        },
 
-        ...mapGetters('swProductDetail', [
-            'isLoading',
-            'showModeSetting',
-            'showProductCard',
-            'productStates',
-        ]),
+        parentProduct() {
+            return Shopware.Store.get('swProductDetail').parentProduct;
+        },
 
-        ...mapState('swProductDetail', {
-        }),
+        customFieldSets() {
+            return Shopware.Store.get('swProductDetail').customFieldSets;
+        },
+
+        loading() {
+            return Shopware.Store.get('swProductDetail').loading;
+        },
+
+        isLoading() {
+            return Shopware.Store.get('swProductDetail').isLoading;
+        },
+
+        showModeSetting() {
+            return Shopware.Store.get('swProductDetail').showModeSetting;
+        },
+
+        productStates() {
+            return Shopware.Store.get('swProductDetail').productStates;
+        },
 
         mediaFormVisible() {
-            return !this.loading.product &&
-                   !this.loading.parentProduct &&
-                   !this.loading.customFieldSets &&
-                   !this.loading.media;
+            return (
+                !this.loading.product && !this.loading.parentProduct && !this.loading.customFieldSets && !this.loading.media
+            );
         },
 
         productMediaRepository() {
@@ -79,8 +91,7 @@ export default {
     },
 
     watch: {
-        product() {
-        },
+        product() {},
     },
 
     created() {
@@ -94,8 +105,13 @@ export default {
             });
         },
 
+        showProductCard(key) {
+            return Shopware.Store.get('swProductDetail').showProductCard(key);
+        },
+
         getMediaDefaultFolderId() {
-            return this.mediaDefaultFolderRepository.search(this.mediaDefaultFolderCriteria, Context.api)
+            return this.mediaDefaultFolderRepository
+                .search(this.mediaDefaultFolderCriteria, Context.api)
                 .then((mediaDefaultFolder) => {
                     const defaultFolder = mediaDefaultFolder.first();
 
@@ -110,7 +126,11 @@ export default {
         mediaRemoveInheritanceFunction(newValue) {
             newValue.forEach(({ id, mediaId, position }) => {
                 const media = this.productMediaRepository.create(Context.api);
-                Object.assign(media, { mediaId, position, productId: this.product.id });
+                Object.assign(media, {
+                    mediaId,
+                    position,
+                    productId: this.product.id,
+                });
                 if (this.parentProduct.coverId === id) {
                     this.product.coverId = media.id;
                 }
@@ -158,7 +178,7 @@ export default {
             media.forEach((item) => {
                 this.addMedia(item).catch(({ fileName }) => {
                     this.createNotificationError({
-                        message: this.$tc('sw-product.mediaForm.errorMediaItemDuplicated', 0, { fileName }),
+                        message: this.$tc('sw-product.mediaForm.errorMediaItemDuplicated', { fileName }, 0),
                     });
                 });
             });
@@ -176,13 +196,24 @@ export default {
                 id: media.id,
             };
 
-            if (isEmpty(this.product.media)) {
+            if (isEmpty(this.product.media) && !this.isSpatial(newMedia)) {
                 this.setMediaAsCover(newMedia);
             }
 
             this.product.media.add(newMedia);
 
             return Promise.resolve();
+        },
+
+        /**
+         * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+         */
+        isSpatial(productMedia) {
+            if (productMedia.media?.fileExtension === 'glb') {
+                return true;
+            }
+            // we need to check the media url since media.fileExtension is set directly after upload
+            return !!productMedia.media?.url?.endsWith('.glb');
         },
 
         isExistingMedia(media) {

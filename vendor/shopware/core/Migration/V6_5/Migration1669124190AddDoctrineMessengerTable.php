@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1669124190AddDoctrineMessengerTable extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -40,6 +40,6 @@ class Migration1669124190AddDoctrineMessengerTable extends MigrationStep
 
     public function updateDestructive(Connection $connection): void
     {
-        $connection->executeStatement('DROP TABLE IF EXISTS `dead_message`');
+        $this->dropTableIfExists($connection, 'dead_message');
     }
 }

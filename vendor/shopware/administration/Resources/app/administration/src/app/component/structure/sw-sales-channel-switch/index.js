@@ -1,14 +1,12 @@
 /**
- * @package sales-channel
+ * @sw-package discovery
  */
 import template from './sw-sales-channel-switch.html.twig';
 
-const { Component } = Shopware;
 const { debug } = Shopware.Utils;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Renders a sales channel switcher.
  * @status ready
@@ -17,8 +15,10 @@ const { debug } = Shopware.Utils;
  * <sw-sales-channel-switch></sw-sales-channel-switch>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-sales-channel-switch', {
+export default {
     template,
+
+    emits: ['change-sales-channel-id'],
 
     props: {
         disabled: {
@@ -26,13 +26,11 @@ Component.register('sw-sales-channel-switch', {
             required: false,
             default: false,
         },
-        // FIXME: add default value
         // eslint-disable-next-line vue/require-default-prop
         abortChangeFunction: {
             type: Function,
             required: false,
         },
-        // FIXME: add default value
         // eslint-disable-next-line vue/require-default-prop
         saveChangesFunction: {
             type: Function,
@@ -64,10 +62,12 @@ Component.register('sw-sales-channel-switch', {
         checkAbort() {
             // Check if abort function exists und reset the select field if the change should be aborted
             if (typeof this.abortChangeFunction === 'function') {
-                if (this.abortChangeFunction({
-                    oldSalesChannelId: this.lastSalesChannelId,
-                    newSalesChannelId: this.salesChannelId,
-                })) {
+                if (
+                    this.abortChangeFunction({
+                        oldSalesChannelId: this.lastSalesChannelId,
+                        newSalesChannelId: this.salesChannelId,
+                    })
+                ) {
                     this.showUnsavedChangesModal = true;
                     this.salesChannelId = this.lastSalesChannelId;
                     this.$refs.salesChannelSelect.loadSelected();
@@ -113,4 +113,4 @@ Component.register('sw-sales-channel-switch', {
             this.emitChange();
         },
     },
-});
+};

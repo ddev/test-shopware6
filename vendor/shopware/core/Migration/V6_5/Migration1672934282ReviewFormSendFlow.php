@@ -3,6 +3,7 @@
 namespace Shopware\Core\Migration\V6_5;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Content\Flow\Dispatching\Action\SendMailAction;
 use Shopware\Core\Content\MailTemplate\MailTemplateTypes;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Log\Package;
@@ -12,7 +13,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1672934282ReviewFormSendFlow extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -31,11 +32,7 @@ class Migration1672934282ReviewFormSendFlow extends MigrationStep
         $this->createFlow($connection, $templateId);
     }
 
-    public function updateDestructive(Connection $connection): void
-    {
-    }
-
-    private function createFlow(Connection $connection, string $mailtTemplateId): void
+    private function createFlow(Connection $connection, string $mailTemplateId): void
     {
         $flowId = Uuid::randomBytes();
 
@@ -60,13 +57,13 @@ class Migration1672934282ReviewFormSendFlow extends MigrationStep
                 'flow_id' => $flowId,
                 'rule_id' => null,
                 'parent_id' => null,
-                'action_name' => 'action.mail.send',
+                'action_name' => SendMailAction::ACTION_NAME,
                 'position' => 1,
                 'true_case' => 0,
                 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT),
-                'config' => sprintf(
+                'config' => \sprintf(
                     '{"recipient": {"data": [], "type": "default"}, "mailTemplateId": "%s", "documentTypeIds": []}',
-                    Uuid::fromBytesToHex($mailtTemplateId)
+                    Uuid::fromBytesToHex($mailTemplateId)
                 ),
             ]
         );

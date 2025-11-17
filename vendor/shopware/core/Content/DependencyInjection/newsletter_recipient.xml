@@ -23,6 +23,7 @@
 
         <service id="Shopware\Core\Content\Newsletter\ScheduledTask\NewsletterRecipientTaskHandler">
             <argument type="service" id="scheduled_task.repository" />
+            <argument type="service" id="logger"/>
             <argument type="service" id="newsletter_recipient.repository" />
             <tag name="messenger.message_handler" />
         </service>
@@ -38,6 +39,8 @@
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
             <argument type="service" id="shopware.rate_limiter" />
             <argument type="service" id="Symfony\Component\HttpFoundation\RequestStack" />
+            <argument type="service" id="Shopware\Core\System\SalesChannel\StoreApiCustomFieldMapper"/>
+            <argument type="service" id="customer.repository"/>
         </service>
 
         <service id="Shopware\Core\Content\Newsletter\SalesChannel\NewsletterConfirmRoute" public="true">
@@ -65,7 +68,7 @@
         </service>
 
         <service id="Shopware\Core\Content\Newsletter\Event\Subscriber\NewsletterRecipientDeletedSubscriber">
-            <argument type="service" id="messenger.bus.shopware"/>
+            <argument type="service" id="messenger.default_bus"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 

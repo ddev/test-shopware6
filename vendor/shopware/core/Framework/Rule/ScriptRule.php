@@ -23,9 +23,9 @@ use Twig\Error\SyntaxError;
 use Twig\Extension\DebugExtension;
 
 /**
- * @internal
+ * @final
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class ScriptRule extends Rule
 {
     final public const RULE_NAME = 'scriptRule';
@@ -54,33 +54,30 @@ class ScriptRule extends Rule
 
     public function match(RuleScope $scope): bool
     {
+        $name = $this->identifier ?? $this->getName();
         $context = [...['scope' => $scope], ...$this->values];
         $lastModified = $this->lastModified ?? $scope->getCurrentTime();
-        $name = $this->identifier ?? $this->getName();
-
-        $options = ['auto_reload' => true];
-        if (!$this->debug) {
-            $options['cache'] = new FilesystemCache($this->cacheDir . '/' . $name);
-        } else {
-            $options['debug'] = true;
-        }
 
         $script = new Script(
             $name,
-            sprintf('
-                {%% apply spaceless %%}
-                    {%% macro evaluate(%1$s) %%}
-                        %2$s
-                    {%% endmacro %%}
+            \sprintf('
+                {%%- macro evaluate(%1$s) -%%}
+                    %2$s
+                {%%- endmacro -%%}
 
-                    {%% set var = _self.evaluate(%1$s) %%}
-                    {{ var }}
-                {%% endapply  %%}
+                {%%- set var = _self.evaluate(%1$s) -%%}
+                {{- var -}}
             ', implode(', ', array_keys($context)), $this->script),
             $lastModified,
-            null,
-            $options
         );
+
+        $twigOptions = ['auto_reload' => true];
+        if (!$this->debug) {
+            $twigOptions['cache'] = new FilesystemCache($this->cacheDir . '/' . $name);
+        } else {
+            $twigOptions['debug'] = true;
+        }
+        $script->setTwigOptions($twigOptions);
 
         $twig = new TwigEnvironment(
             new ScriptTwigLoader($script),
@@ -125,8 +122,6 @@ class ScriptRule extends Rule
 
     /**
      * @param array<string, mixed> $options
-     *
-     * @return $this
      */
     public function assignValues(array $options): ScriptRule
     {
@@ -153,14 +148,15 @@ class ScriptRule extends Rule
     private function render(TwigEnvironment $twig, Script $script, Hook $hook, string $name, array $context): bool
     {
         if (!$this->traces) {
-            return filter_var(trim((string) $twig->render($name, $context)), \FILTER_VALIDATE_BOOLEAN);
+            return filter_var(trim($twig->render($name, $context)), \FILTER_VALIDATE_BOOLEAN);
         }
 
         $match = false;
         $this->traces->trace($hook, $script, function (Debug $debug) use ($twig, $name, $context, &$match): void {
             $twig->addGlobal('debug', $debug);
 
-            $match = filter_var(trim($twig->render($name, $context)), \FILTER_VALIDATE_BOOLEAN);
+            $rendered = $twig->render($name, $context);
+            $match = filter_var(trim($rendered), \FILTER_VALIDATE_BOOLEAN);
 
             $debug->dump($match, 'return');
         });

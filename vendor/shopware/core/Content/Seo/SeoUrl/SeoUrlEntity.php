@@ -9,85 +9,37 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Language\LanguageEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 
-#[Package('buyers-experience')]
+#[Package('inventory')]
 class SeoUrlEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string|null
-     */
-    protected $salesChannelId;
+    protected ?string $salesChannelId = null;
 
-    /**
-     * @var string
-     */
-    protected $languageId;
+    protected string $languageId;
 
-    /**
-     * @var string
-     */
-    protected $routeName;
+    protected string $routeName;
 
-    /**
-     * @var string
-     */
-    protected $foreignKey;
+    protected string $foreignKey;
 
-    /**
-     * @var string
-     */
-    protected $pathInfo;
+    protected string $pathInfo;
 
-    /**
-     * @var string
-     */
-    protected $seoPathInfo;
+    protected string $seoPathInfo;
 
-    /**
-     * @var bool|null
-     */
-    protected $isCanonical;
+    protected ?bool $isCanonical = null;
 
-    /**
-     * @var bool
-     */
-    protected $isModified;
+    protected bool $isModified;
 
-    /**
-     * @var bool
-     */
-    protected $isDeleted;
+    protected bool $isDeleted;
 
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed without replacement
-     *
-     * @var bool
-     */
-    protected $isValid;
+    protected ?SalesChannelEntity $salesChannel = null;
 
-    /**
-     * @var SalesChannelEntity|null
-     */
-    protected $salesChannel;
+    protected ?LanguageEntity $language = null;
 
-    /**
-     * @var LanguageEntity|null
-     */
-    protected $language;
+    protected string $url;
 
-    /**
-     * @var string
-     */
-    protected $url;
-
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed without replacement
-     *
-     * @var string|null
-     */
-    protected $error;
+    protected ?string $error = null;
 
     public function getSalesChannelId(): ?string
     {
@@ -209,23 +161,21 @@ class SeoUrlEntity extends Entity
         $this->language = $language;
     }
 
+    /**
+     * The error property will be set in the runtime and is not a field in the seo_url table.
+     * It is used for the url generation in a json serialized entity.
+     */
     public function getError(): ?string
     {
         return $this->error;
     }
 
+    /**
+     * The error property will be set in the runtime and is not a field in the seo_url table.
+     * It is used for the url generation in a json serialized entity.
+     */
     public function setError(?string $error): void
     {
         $this->error = $error;
-    }
-
-    public function getIsValid(): bool
-    {
-        return $this->isValid;
-    }
-
-    public function setIsValid(bool $isValid): void
-    {
-        $this->isValid = $isValid;
     }
 }

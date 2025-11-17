@@ -16,6 +16,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\UsageData\Consent\ConsentService;
 use Shopware\Core\System\UsageData\Services\EntityDefinitionService;
 use Shopware\Core\System\UsageData\Services\ManyToManyAssociationService;
+use Shopware\Core\System\UsageData\Services\ShopIdProvider;
 use Shopware\Core\System\UsageData\Services\UsageDataAllowListService;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
@@ -24,36 +25,39 @@ use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
  * @internal
  */
 #[AsMessageHandler(handles: DispatchEntityMessage::class)]
-#[Package('merchant-services')]
-final class DispatchEntityMessageHandler
+#[Package('data-services')]
+final readonly class DispatchEntityMessageHandler
 {
     public function __construct(
-        private readonly EntityDefinitionService $entityDefinitionService,
-        private readonly ManyToManyAssociationService $manyToManyAssociationService,
-        private readonly UsageDataAllowListService $usageDataAllowListService,
-        private readonly Connection $connection,
-        private readonly EntityDispatcher $entityDispatcher,
-        private readonly ConsentService $consentService,
+        private EntityDefinitionService $entityDefinitionService,
+        private ManyToManyAssociationService $manyToManyAssociationService,
+        private UsageDataAllowListService $usageDataAllowListService,
+        private Connection $connection,
+        private EntityDispatcher $entityDispatcher,
+        private ConsentService $consentService,
+        private ShopIdProvider $shopIdProvider
     ) {
     }
 
     public function __invoke(DispatchEntityMessage $message): void
     {
-        if (!$this->consentService->shouldPushData()) {
-            return;
-        }
-
-        $definition = $this->entityDefinitionService->getAllowedEntityDefinition($message->getEntityName());
+        $definition = $this->entityDefinitionService->getAllowedEntityDefinition($message->entityName);
         if ($definition === null) {
             self::throwUnrecoverableMessageHandlingException($message, 'No allowed entity definition found');
         }
+
         /** @var EntityDefinition $definition */
+        // don't dispatch entity data if shopId is different; handle old messages without shopId
+        if ($message->shopId !== null && $this->shopIdProvider->getShopId() !== $message->shopId) {
+            self::throwUnrecoverableMessageHandlingException($message, 'Message dispatched for old shopId');
+        }
+
         $lastApprovalDate = $this->consentService->getLastConsentIsAcceptedDate();
         if ($lastApprovalDate === null) {
             self::throwUnrecoverableMessageHandlingException($message, 'No approval date found');
         }
-        /** @var \DateTimeInterface $lastApprovalDate */
-        if ($message->getOperation() === Operation::DELETE) {
+
+        if ($message->operation === Operation::DELETE) {
             $this->handleDelete($message, $definition);
 
             return;
@@ -93,28 +97,23 @@ final class DispatchEntityMessageHandler
             $encoded[$field->getPropertyName()] = $field->getSerializer()->decode($field, $entity[$field->getStorageName()]);
         }
 
-        if (\array_key_exists(DispatchEntitiesQueryBuilder::PUID_FIELD_NAME, $entity)) {
-            $encoded[DispatchEntitiesQueryBuilder::PUID_FIELD_NAME] = $entity[DispatchEntitiesQueryBuilder::PUID_FIELD_NAME];
-        }
-
         return $encoded;
     }
 
-    private function throwUnrecoverableMessageHandlingException(DispatchEntityMessage $message, string $errorMessage): void
+    private function throwUnrecoverableMessageHandlingException(DispatchEntityMessage $message, string $errorMessage): never
     {
-        /** @phpstan-ignore-next-line */
-        throw new UnrecoverableMessageHandlingException(sprintf(
+        throw new UnrecoverableMessageHandlingException(\sprintf(
             '%s. Skipping dispatching of entity sync message. Entity: %s, Operation: %s',
             $errorMessage,
-            $message->getEntityName(),
-            $message->getOperation()->value,
+            $message->entityName,
+            $message->operation->value,
         ));
     }
 
     private function handleDelete(DispatchEntityMessage $message, EntityDefinition $definition): void
     {
         $rowIds = [];
-        foreach ($message->getPrimaryKeys() as $pks) {
+        foreach ($message->primaryKeys as $pks) {
             $rowIds[] = Uuid::fromHexToBytes($pks['id']);
         }
 
@@ -135,10 +134,11 @@ final class DispatchEntityMessageHandler
         }
 
         $this->entityDispatcher->dispatch(
-            $message->getEntityName(),
+            $message->entityName,
             $entityIds,
-            $message->getOperation(),
-            $message->getRunDate()
+            $message->operation,
+            $message->runDate,
+            $message->shopId ?? $this->shopIdProvider->getShopId()
         );
 
         $qb = new QueryBuilder($this->connection);
@@ -153,7 +153,7 @@ final class DispatchEntityMessageHandler
     private function handleUpserts(
         DispatchEntityMessage $message,
         EntityDefinition $definition,
-        \DateTimeInterface $lastApprovalDate,
+        \DateTimeImmutable $lastApprovalDate,
     ): void {
         $fields = $this->usageDataAllowListService->getFieldsToSelectFromDefinition($definition);
         $manyToManyAssociationIdFields = $this->entityDefinitionService->getManyToManyAssociationIdFields($fields);
@@ -167,7 +167,7 @@ final class DispatchEntityMessageHandler
             }
         }
 
-        $primaryKeys = $message->getPrimaryKeys();
+        $primaryKeys = $message->primaryKeys;
         $primaryKeyColumns = array_keys($primaryKeys[0]);
         if (!empty($missingIdFields) && \count($primaryKeyColumns) > 1) {
             self::throwUnrecoverableMessageHandlingException($message, 'Entity sync does not support composite primary keys');
@@ -186,10 +186,6 @@ final class DispatchEntityMessageHandler
             ->withFields($fields)
             ->withLastApprovalDateConstraint($message, $lastApprovalDate)
             ->withPrimaryKeys($primaryKeys);
-
-        if ($this->entityDefinitionService->isPuidEntity($definition)) {
-            $queryBuilder->withPersonalUniqueIdentifier();
-        }
 
         $queryBuilder->checkLiveVersion($definition);
 
@@ -210,11 +206,16 @@ final class DispatchEntityMessageHandler
             $serializedEntities[] = $serializedEntity;
         }
 
+        if (empty($serializedEntities)) {
+            return;
+        }
+
         $this->entityDispatcher->dispatch(
             $definition->getEntityName(),
             $serializedEntities,
-            $message->getOperation(),
-            $message->getRunDate()
+            $message->operation,
+            $message->runDate,
+            $message->shopId ?? $this->shopIdProvider->getShopId()
         );
     }
 }

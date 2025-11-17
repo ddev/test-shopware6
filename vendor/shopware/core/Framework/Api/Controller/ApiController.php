@@ -8,8 +8,10 @@ use Shopware\Core\Framework\Api\Acl\Role\AclRoleDefinition;
 use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\Response\ResponseFactoryInterface;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\EntityProtection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\EntityProtectionValidator;
@@ -29,6 +31,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\OneToOneAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\TranslationsAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\MappingEntityDefinition;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\AggregationResult\AggregationResultCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
@@ -36,12 +39,14 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\RequestCriteriaBuilder;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\CloneBehavior;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\PlatformRequest;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\Encoder\DecoderInterface;
 use Symfony\Component\Serializer\Exception\InvalidArgumentException;
 use Symfony\Component\Serializer\Exception\UnexpectedValueException;
@@ -49,8 +54,8 @@ use Symfony\Component\Serializer\Exception\UnexpectedValueException;
 /**
  * @phpstan-type EntityPathSegment array{entity: string, value: ?string, definition: EntityDefinition, field: ?Field}
  */
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('core')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('framework')]
 class ApiController extends AbstractController
 {
     final public const WRITE_UPDATE = 'update';
@@ -69,7 +74,7 @@ class ApiController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/api/_action/clone/{entity}/{id}', name: 'api.clone', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[a-zA-Z-]+', 'id' => '[0-9a-f]{32}'])]
+    #[Route(path: '/api/_action/clone/{entity}/{id}', name: 'api.clone', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[0-9a-zA-Z-]+', 'id' => '[0-9a-f]{32}'])]
     public function clone(Context $context, string $entity, string $id, Request $request): JsonResponse
     {
         $behavior = new CloneBehavior(
@@ -103,7 +108,7 @@ class ApiController extends AbstractController
         return new JsonResponse(['id' => $newId]);
     }
 
-    #[Route(path: '/api/_action/version/{entity}/{id}', name: 'api.createVersion', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[a-zA-Z-]+', 'id' => '[0-9a-f]{32}'])]
+    #[Route(path: '/api/_action/version/{entity}/{id}', name: 'api.createVersion', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[0-9a-zA-Z-]+', 'id' => '[0-9a-f]{32}'])]
     public function createVersion(Request $request, Context $context, string $entity, string $id): Response
     {
         $entity = $this->urlToSnakeCase($entity);
@@ -135,7 +140,7 @@ class ApiController extends AbstractController
         ]);
     }
 
-    #[Route(path: '/api/_action/version/merge/{entity}/{versionId}', name: 'api.mergeVersion', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[a-zA-Z-]+', 'versionId' => '[0-9a-f]{32}'])]
+    #[Route(path: '/api/_action/version/merge/{entity}/{versionId}', name: 'api.mergeVersion', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[0-9a-zA-Z-]+', 'versionId' => '[0-9a-f]{32}'])]
     public function mergeVersion(Context $context, string $entity, string $versionId): JsonResponse
     {
         $entity = $this->urlToSnakeCase($entity);
@@ -155,7 +160,7 @@ class ApiController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    #[Route(path: '/api/_action/version/{versionId}/{entity}/{entityId}', name: 'api.deleteVersion', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[a-zA-Z-]+', 'id' => '[0-9a-f]{32}'])]
+    #[Route(path: '/api/_action/version/{versionId}/{entity}/{entityId}', name: 'api.deleteVersion', methods: ['POST'], requirements: ['version' => '\d+', 'entity' => '[0-9a-zA-Z-]+', 'id' => '[0-9a-f]{32}'])]
     public function deleteVersion(Context $context, string $entity, string $entityId, string $versionId): JsonResponse
     {
         if (!Uuid::isValid($versionId)) {
@@ -263,6 +268,20 @@ class ApiController extends AbstractController
         return $responseFactory->createListingResponse($criteria, $result, $definition, $request, $context);
     }
 
+    public function aggregate(Request $request, Context $context, ResponseFactoryInterface $responseFactory, string $entityName, string $path): Response
+    {
+        [$criteria, $repository] = $this->resolveSearch($request, $context, $entityName, $path);
+
+        $aggregations = $context->scope(Context::CRUD_API_SCOPE, fn (Context $context): AggregationResultCollection => $repository->aggregate($criteria, $context));
+
+        /** @var EntitySearchResult<covariant EntityCollection<covariant Entity>> */
+        $result = new EntitySearchResult($entityName, 0, new EntityCollection(), $aggregations, $criteria, $context);
+
+        $definition = $this->getDefinitionOfPath($entityName, $path, $context);
+
+        return $responseFactory->createListingResponse($criteria, $result, $definition, $request, $context);
+    }
+
     public function list(Request $request, Context $context, ResponseFactoryInterface $responseFactory, string $entityName, string $path): Response
     {
         [$criteria, $repository] = $this->resolveSearch($request, $context, $entityName, $path);
@@ -276,12 +295,28 @@ class ApiController extends AbstractController
 
     public function create(Request $request, Context $context, ResponseFactoryInterface $responseFactory, string $entityName, string $path): Response
     {
-        return $this->write($request, $context, $responseFactory, $entityName, $path, self::WRITE_CREATE);
+        try {
+            return $this->write($request, $context, $responseFactory, $entityName, $path, self::WRITE_CREATE);
+        } catch (DataAbstractionLayerException $exception) {
+            if ($exception->getErrorCode() === DataAbstractionLayerException::INVALID_WRITE_INPUT) {
+                throw ApiException::badRequest('Invalid payload. Should be associative array');
+            }
+
+            throw $exception;
+        }
     }
 
     public function update(Request $request, Context $context, ResponseFactoryInterface $responseFactory, string $entityName, string $path): Response
     {
-        return $this->write($request, $context, $responseFactory, $entityName, $path, self::WRITE_UPDATE);
+        try {
+            return $this->write($request, $context, $responseFactory, $entityName, $path, self::WRITE_UPDATE);
+        } catch (DataAbstractionLayerException $exception) {
+            if ($exception->getErrorCode() === DataAbstractionLayerException::INVALID_WRITE_INPUT) {
+                throw ApiException::badRequest('Invalid payload. Should be associative array');
+            }
+
+            throw $exception;
+        }
     }
 
     public function delete(Request $request, Context $context, ResponseFactoryInterface $responseFactory, string $entityName, string $path): Response
@@ -390,7 +425,7 @@ class ApiController extends AbstractController
     }
 
     /**
-     * @return array{0: Criteria, 1: EntityRepository}
+     * @return array{0: Criteria, 1: EntityRepository<covariant EntityCollection<covariant Entity>>}
      */
     private function resolveSearch(Request $request, Context $context, string $entityName, string $path): array
     {
@@ -453,7 +488,7 @@ class ApiController extends AbstractController
 
             $criteria->addFilter(
                 new EqualsFilter(
-                    sprintf('%s.%s.id', $definition->getEntityName(), $reverse->getPropertyName()),
+                    \sprintf('%s.%s.id', $definition->getEntityName(), $reverse->getPropertyName()),
                     $parent['value']
                 )
             );
@@ -462,7 +497,7 @@ class ApiController extends AbstractController
             if ($parentDefinition->isVersionAware()) {
                 $criteria->addFilter(
                     new EqualsFilter(
-                        sprintf('%s.%s.versionId', $definition->getEntityName(), $reverse->getPropertyName()),
+                        \sprintf('%s.%s.versionId', $definition->getEntityName(), $reverse->getPropertyName()),
                         $context->getVersionId()
                     )
                 );
@@ -507,7 +542,7 @@ class ApiController extends AbstractController
             $criteria->addFilter(
                 new EqualsFilter(
                     // filter inverse association to parent value:  manufacturer.products.id = SW1
-                    sprintf('%s.%s.id', $definition->getEntityName(), $reverse->getPropertyName()),
+                    \sprintf('%s.%s.id', $definition->getEntityName(), $reverse->getPropertyName()),
                     $parent['value']
                 )
             );
@@ -531,7 +566,7 @@ class ApiController extends AbstractController
             $criteria->addFilter(
                 new EqualsFilter(
                     // filter inverse association to parent value:  order_customer.order_id = xxxx
-                    sprintf('%s.%s.id', $definition->getEntityName(), $reverse->getPropertyName()),
+                    \sprintf('%s.%s.id', $definition->getEntityName(), $reverse->getPropertyName()),
                     $parent['value']
                 )
             );
@@ -596,7 +631,7 @@ class ApiController extends AbstractController
         if ($type === self::WRITE_CREATE && !empty($last['value'])) {
             $methods = ['GET', 'PATCH', 'DELETE'];
 
-            throw ApiException::methodNotAllowed($methods, sprintf('No route found for "%s %s": Method Not Allowed (Allow: %s)', $request->getMethod(), $request->getPathInfo(), implode(', ', $methods)));
+            throw ApiException::methodNotAllowed($methods, \sprintf('No route found for "%s %s": Method Not Allowed (Allow: %s)', $request->getMethod(), $request->getPathInfo(), implode(', ', $methods)));
         }
 
         if ($type === self::WRITE_UPDATE && isset($last['value'])) {
@@ -862,14 +897,20 @@ class ApiController extends AbstractController
                 'field' => null,
             ],
         ];
-
         foreach ($parts as $part) {
             /** @var AssociationField|null $field */
             $field = $root->getFields()->get($part['entity']);
+
             if (!$field) {
                 $path = implode('.', array_column($entities, 'entity')) . '.' . $part['entity'];
 
                 throw ApiException::notExistingRelation($path);
+            }
+
+            if (!($field instanceof AssociationField)) {
+                $message = \sprintf('Field "%s" is not a valid association field.', $part['entity']);
+
+                throw ApiException::pathIsNoAssociationField($message);
             }
 
             if ($field instanceof ManyToManyAssociationField) {

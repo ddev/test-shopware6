@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Content\Flow\Dispatching\Storer;
 
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
@@ -12,15 +13,16 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Event\CustomerAware;
 use Shopware\Core\Framework\Event\FlowEventAware;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('services-settings')]
+#[Package('after-sales')]
 class CustomerStorer extends FlowStorer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerCollection> $customerRepository
      */
     public function __construct(
         private readonly EntityRepository $customerRepository,
@@ -61,24 +63,6 @@ class CustomerStorer extends FlowStorer
         );
     }
 
-    /**
-     * @param array<int, mixed> $args
-     *
-     * @deprecated tag:v6.6.0 - Will be removed in v6.6.0.0
-     */
-    public function load(array $args): ?CustomerEntity
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6_6_0_0',
-            Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0.0')
-        );
-
-        [$id, $context] = $args;
-        $criteria = new Criteria([$id]);
-
-        return $this->loadCustomer($criteria, $context, $id);
-    }
-
     private function lazyLoad(StorableFlow $storableFlow): ?CustomerEntity
     {
         $id = $storableFlow->getStore(CustomerAware::CUSTOMER_ID);
@@ -94,6 +78,12 @@ class CustomerStorer extends FlowStorer
     private function loadCustomer(Criteria $criteria, Context $context, string $id): ?CustomerEntity
     {
         $criteria->addAssociation('salutation');
+        $criteria->addAssociation('defaultBillingAddress.country');
+        $criteria->addAssociation('defaultBillingAddress.countryState');
+        $criteria->addAssociation('defaultBillingAddress.salutation');
+        $criteria->addAssociation('defaultShippingAddress.country');
+        $criteria->addAssociation('defaultShippingAddress.countryState');
+        $criteria->addAssociation('defaultShippingAddress.salutation');
 
         $event = new BeforeLoadStorableFlowDataEvent(
             CustomerDefinition::ENTITY_NAME,
@@ -103,10 +93,9 @@ class CustomerStorer extends FlowStorer
 
         $this->dispatcher->dispatch($event, $event->getName());
 
-        $customer = $this->customerRepository->search($criteria, $context)->get($id);
+        $customer = $this->customerRepository->search($criteria, $context)->getEntities()->get($id);
 
         if ($customer) {
-            /** @var CustomerEntity $customer */
             return $customer;
         }
 

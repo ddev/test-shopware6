@@ -1,23 +1,26 @@
 import template from './sw-desktop.html.twig';
 import './sw-desktop.scss';
 
-const { Component } = Shopware;
 const { hasOwnProperty } = Shopware.Utils.object;
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
-Component.register('sw-desktop', {
+export default {
     template,
 
-    inject: ['feature', 'appUrlChangeService', 'userActivityApiService'],
+    inject: [
+        'feature',
+        'shopIdChangeService',
+        'userActivityApiService',
+    ],
 
     data() {
         return {
             noNavigation: false,
-            urlDiff: null,
+            shopIdCheck: null,
         };
     },
 
@@ -25,11 +28,16 @@ Component.register('sw-desktop', {
         desktopClasses() {
             return {
                 'sw-desktop--no-nav': this.noNavigation,
+                'sw-desktop--staging': this.isStaging,
             };
         },
 
         currentUser() {
-            return Shopware.State.get('session').currentUser;
+            return Shopware.Store.get('session').currentUser;
+        },
+
+        isStaging() {
+            return Shopware.Store.get('context').app.config.settings?.enableStagingMode === true;
         },
     },
 
@@ -57,7 +65,7 @@ Component.register('sw-desktop', {
     methods: {
         createdComponent() {
             this.checkRouteSettings();
-            this.updateShowUrlChangedModal();
+            this.updateShopIdChangeModal();
         },
 
         checkRouteSettings() {
@@ -68,19 +76,17 @@ Component.register('sw-desktop', {
             }
         },
 
-        updateShowUrlChangedModal() {
-            if (!Shopware.State.get('context').app.config.settings.appsRequireAppUrl) {
-                this.urlDiff = null;
+        async updateShopIdChangeModal() {
+            if (!Shopware.Store.get('context').app.config.settings?.appsRequireAppUrl) {
+                this.shopIdCheck = null;
                 return;
             }
 
-            this.appUrlChangeService.getUrlDiff().then((diff) => {
-                this.urlDiff = diff;
-            });
+            this.shopIdCheck = await this.shopIdChangeService.checkShopId();
         },
 
         closeModal() {
-            this.urlDiff = null;
+            this.shopIdCheck = null;
         },
 
         onUpdateSearchFrequently() {
@@ -102,9 +108,13 @@ Component.register('sw-desktop', {
             const { $module } = this.$route.meta;
             const routeName = this.$route?.name;
 
+            if (!$module) {
+                return false;
+            }
+
             const { name, icon, color, entity, routes, title } = $module;
 
-            if (!this.$te((title)) || !routes?.index) {
+            if (!this.$te(title) || !routes?.index) {
                 return false;
             }
 
@@ -118,10 +128,7 @@ Component.register('sw-desktop', {
                 };
             }
 
-            if (
-                routes?.index?.name === routeName ||
-                routes.index?.children?.some(child => child.name === routeName)
-            ) {
+            if (routes?.index?.name === routeName || routes.index?.children?.some((child) => child.name === routeName)) {
                 const { components, children, meta, props, ...route } = routes.index;
                 return {
                     name,
@@ -134,10 +141,7 @@ Component.register('sw-desktop', {
                 };
             }
 
-            if (
-                routes?.create?.name === routeName ||
-                routes.create?.children?.some(child => child.name === routeName)
-            ) {
+            if (routes?.create?.name === routeName || routes.create?.children?.some((child) => child.name === routeName)) {
                 const { components, children, meta, props, ...route } = routes.create;
                 return {
                     name,
@@ -168,9 +172,8 @@ Component.register('sw-desktop', {
             );
 
             return metadata.find(
-                item => item.route.name === routeName ||
-                    item.route?.children?.some(child => child.name === routeName),
+                (item) => item.route.name === routeName || item.route?.children?.some((child) => child.name === routeName),
             );
         },
     },
-});
+};

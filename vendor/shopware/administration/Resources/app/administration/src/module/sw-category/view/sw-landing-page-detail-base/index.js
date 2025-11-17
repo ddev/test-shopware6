@@ -1,17 +1,19 @@
 import template from './sw-landing-page-detail-base.html.twig';
-import './sw-landing-page-detail-base.scss';
 
 const { Mixin } = Shopware;
-const { mapState, mapPropertyErrors } = Shopware.Component.getComponentHelper();
+const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
 
     mixins: [
         Mixin.getByName('placeholder'),
@@ -25,15 +27,9 @@ export default {
     },
 
     computed: {
-        ...mapState('swCategoryDetail', {
-            customFieldSetsArray: state => {
-                if (!state.customFieldSets) {
-                    return [];
-                }
-
-                return state.customFieldSets;
-            },
-        }),
+        customFieldSetsArray() {
+            return Shopware.Store.get('swCategoryDetail').customFieldSets ?? [];
+        },
 
         ...mapPropertyErrors('landingPage', [
             'name',
@@ -42,11 +38,15 @@ export default {
         ]),
 
         landingPage() {
-            return Shopware.State.get('swCategoryDetail').landingPage;
+            return Shopware.Store.get('swCategoryDetail').landingPage;
         },
 
         cmsPage() {
-            return Shopware.State.get('cmsPageState').currentPage;
+            return Shopware.Store.get('cmsPage').currentPage;
+        },
+
+        isLayoutSet() {
+            return this.landingPage.cmsPageId !== null;
         },
     },
 };

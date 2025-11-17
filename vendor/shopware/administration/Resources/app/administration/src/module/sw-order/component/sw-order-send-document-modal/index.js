@@ -2,11 +2,15 @@ import template from './sw-order-send-document-modal.html.twig';
 import './sw-order-send-document-modal.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
+const { Filter } = Shopware;
 const { Criteria } = Shopware.Data;
 
+/**
+ * @sw-package checkout
+ */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
@@ -14,6 +18,11 @@ export default {
     inject: [
         'mailService',
         'repositoryFactory',
+    ],
+
+    emits: [
+        'modal-close',
+        'document-sent',
     ],
 
     mixins: [
@@ -38,27 +47,33 @@ export default {
             subject: '',
             recipient: '',
             content: '',
+            a11yDocuments: [],
         };
     },
 
     computed: {
+        truncateFilter() {
+            return Filter.getByName('truncate');
+        },
+
         mailTemplateRepository() {
             return this.repositoryFactory.create('mail_template');
+        },
+
+        mailHeaderFooterRepository() {
+            return this.repositoryFactory.create('mail_header_footer');
         },
 
         mailTemplateCriteria() {
             const criteria = new Criteria(1, 25);
             criteria.addAssociation('mailTemplateType');
             criteria.addFilter(
-                Criteria.equalsAny(
-                    'mailTemplateType.technicalName',
-                    [
-                        'delivery_mail',
-                        'invoice_mail',
-                        'credit_note_mail',
-                        'cancellation_mail',
-                    ],
-                ),
+                Criteria.equalsAny('mailTemplateType.technicalName', [
+                    'delivery_mail',
+                    'invoice_mail',
+                    'credit_note_mail',
+                    'cancellation_mail',
+                ]),
             );
 
             return criteria;
@@ -75,6 +90,9 @@ export default {
             return this.mailTemplateId === null || this.subject.length <= 0 || this.recipient.length <= 0;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -89,6 +107,8 @@ export default {
             this.recipient = this.order.orderCustomer.email;
 
             this.setEmailTemplateAccordingToDocumentType();
+
+            this.loadTheLinksForA11y();
         },
 
         setEmailTemplateAccordingToDocumentType() {
@@ -103,20 +123,24 @@ export default {
                 return;
             }
 
-            this.mailTemplateRepository.search(this.mailTemplateCriteria, Shopware.Context.api).then((result) => {
-                const mailTemplate = result.filter(
-                    t => t.mailTemplateType.technicalName === documentMailTemplateMapping[
-                        this.document.documentType.technicalName
-                    ],
-                ).first();
+            this.mailTemplateRepository
+                .search(this.mailTemplateCriteria, { ...Shopware.Context.api, languageId: this.order.languageId })
+                .then((result) => {
+                    const mailTemplate = result
+                        .filter(
+                            (t) =>
+                                t.mailTemplateType.technicalName ===
+                                documentMailTemplateMapping[this.document.documentType.technicalName],
+                        )
+                        .first();
 
-                if (!mailTemplate) {
-                    return;
-                }
+                    if (!mailTemplate) {
+                        return;
+                    }
 
-                this.mailTemplateId = mailTemplate.id;
-                this.onMailTemplateChange(mailTemplate.id, mailTemplate);
-            });
+                    this.mailTemplateId = mailTemplate.id;
+                    this.onMailTemplateChange(mailTemplate.id, mailTemplate);
+                });
         },
 
         onMailTemplateChange(mailTemplateId, mailTemplate) {
@@ -124,51 +148,110 @@ export default {
                 this.subject = '';
                 this.content = '';
 
-                return;
+                return Promise.resolve();
             }
 
-            this.subject = mailTemplate.subject;
-            this.mailService.buildRenderPreview(mailTemplate.mailTemplateType, mailTemplate).then((result) => {
-                this.content = result;
-            });
+            const localMailTemplate = { ...mailTemplate };
+            if (localMailTemplate?.mailTemplateType?.templateData?.order && this?.order) {
+                localMailTemplate.mailTemplateType.templateData.order = this.order;
+            }
+
+            this.subject = localMailTemplate.subject;
+
+            if (!this.order.salesChannel || !this.order.salesChannel.mailHeaderFooterId) {
+                return this.mailService
+                    .buildRenderPreview(localMailTemplate.mailTemplateType, localMailTemplate)
+                    .then((result) => {
+                        this.content = result;
+                    });
+            }
+
+            const mailTemplateWithHeaderFooter = { ...localMailTemplate };
+            return this.mailHeaderFooterRepository
+                .search(new Criteria(1, 1).addFilter(Criteria.equals('id', this.order.salesChannel.mailHeaderFooterId)))
+                .then((mailHeaderFooter) => {
+                    if (mailHeaderFooter[0].headerHtml) {
+                        mailTemplateWithHeaderFooter.contentHtml =
+                            mailHeaderFooter[0].headerHtml + mailTemplateWithHeaderFooter.contentHtml;
+                    }
+
+                    if (mailHeaderFooter[0].footerHtml) {
+                        mailTemplateWithHeaderFooter.contentHtml += mailHeaderFooter[0].footerHtml;
+                    }
+
+                    return this.mailService.buildRenderPreview(
+                        mailTemplateWithHeaderFooter.mailTemplateType,
+                        mailTemplateWithHeaderFooter,
+                    );
+                })
+                .then((result) => {
+                    this.content = result;
+                });
         },
 
         onSendDocument() {
             this.isLoading = true;
 
-            this.mailTemplateRepository.get(this.mailTemplateId, Shopware.Context.api, this.mailTemplateSendCriteria)
+            const apiContext = {
+                ...Shopware.Context.api,
+                languageId: this.order.languageId || Shopware.Context.api.languageId,
+            };
+
+            this.mailTemplateRepository
+                .get(this.mailTemplateId, apiContext, this.mailTemplateSendCriteria)
                 .then((mailTemplate) => {
-                    this.mailService.sendMailTemplate(
-                        this.recipient,
-                        `${this.order.orderCustomer.firstName} ${this.order.orderCustomer.lastName}`,
-                        {
-                            ...mailTemplate,
-                            ...{
-                                subject: this.subject,
-                                recipient: this.recipient,
+                    this.mailService
+                        .sendMailTemplate(
+                            this.recipient,
+                            `${this.order.orderCustomer.firstName} ${this.order.orderCustomer.lastName}`,
+                            {
+                                ...mailTemplate,
+                                ...{
+                                    subject: this.subject,
+                                    recipient: this.recipient,
+                                },
                             },
-                        },
-                        {
-                            getIds: () => {},
-                        },
-                        this.order.salesChannelId,
-                        false,
-                        [this.document.id],
-                        {
-                            order: this.order,
-                            salesChannel: this.order.salesChannel,
-                        },
-                    ).catch(() => {
-                        this.createNotificationError({
-                            message: this.$tc('sw-order.documentSendModal.errorMessage'),
+                            {
+                                getIds: () => {},
+                            },
+                            this.order.salesChannelId,
+                            false,
+                            [this.document.id],
+                            {
+                                order: this.order,
+                                salesChannel: this.order.salesChannel,
+                                document: this.document,
+                                a11yDocuments: this.a11yDocuments,
+                            },
+                            null,
+                            null,
+                            apiContext,
+                        )
+                        .catch(() => {
+                            this.createNotificationError({
+                                message: this.$tc('sw-order.documentSendModal.errorMessage'),
+                            });
+                            this.$emit('modal-close');
+                        })
+                        .then(() => {
+                            this.$emit('document-sent');
+                        })
+                        .finally(() => {
+                            this.isLoading = false;
                         });
-                        this.$emit('modal-close');
-                    }).then(() => {
-                        this.$emit('document-sent');
-                    }).finally(() => {
-                        this.isLoading = false;
-                    });
                 });
+        },
+
+        loadTheLinksForA11y() {
+            if (!this.document?.documentA11yMediaFile) {
+                return;
+            }
+
+            this.a11yDocuments.push({
+                documentId: this.document.id,
+                deepLinkCode: this.document.deepLinkCode,
+                fileExtension: this.document.documentA11yMediaFile.fileExtension,
+            });
         },
     },
 };

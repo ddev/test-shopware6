@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/platform/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
     <card>
         <title>Product</title>
         <title lang="de-DE">Produkt</title>
@@ -14,6 +14,15 @@
         </input-field>
 
         <input-field type="bool">
+            <name>autoplayVideoInListing</name>
+            <label>Autoplay videos in product listings</label>
+            <label lang="de-DE">Videos in Produkt-Listings</label>
+            <helpText>Videos in product listings that are configured as product media covers are played automatically. Deactivate to display the first frame of video only.</helpText>
+            <helpText lang="de-DE">Videos in Produkt-Listings, die als Cover von Produktmedien konfiguriert sind, werden automatisch abgespielt. Wenn deaktiviert, wird nur der erste Frame des Videos angezeigt.</helpText>
+            <defaultValue>false</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
             <name>hideCloseoutProductsWhenOutOfStock</name>
             <label>Hide products after clearance</label>
             <label lang="de-DE">Produkte nach Abverkaufende ausblenden</label>
@@ -22,11 +31,29 @@
         </input-field>
 
         <input-field type="bool">
+            <name>showVariantOptionInSearchSuggestionResult</name>
+            <label>Show variant options in the search suggestion results</label>
+            <label lang="de-DE">Anzeige von Variantenoptionen in den Suchvorschlägen</label>
+            <helpText>Allow the variant options to be displayed underneath the product name in the search suggestion results.</helpText>
+            <helpText lang="de-DE">Erlauben Sie die Anzeige der Variantenoptionen unterhalb des Produktnamens in den Suchvorschlägen.</helpText>
+        </input-field>
+
+        <input-field type="bool">
             <name>showReview</name>
             <label>Show reviews</label>
             <label lang="de-DE">Bewertungen anzeigen</label>
             <helpText>Activate to show reviews</helpText>
             <helpText lang="de-DE">Aktivieren um Bewertungen anzuzeigen</helpText>
+        </input-field>
+
+        <input-field type="int">
+            <name>reviewsPerPage</name>
+            <defaultValue>10</defaultValue>
+            <label>Number of reviews per page</label>
+            <label lang="de-DE">Anzahl der Bewertungen pro Seite</label>
+            <helpText>The number of reviews displayed on a product page in the storefront.</helpText>
+            <helpText lang="de-DE">Die Anzahl der Bewertungen die auf einer Produktseite in der Storefront angezeigt werden.</helpText>
+            <min>1</min>
         </input-field>
 
         <input-field type="bool">

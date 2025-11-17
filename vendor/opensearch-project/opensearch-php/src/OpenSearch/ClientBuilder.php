@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  *
- * Elasticsearch PHP client
+ * OpenSearch PHP client
  *
- * @link      https://github.com/elastic/elasticsearch-php/
+ * @link      https://github.com/opensearch-project/opensearch-php/
  * @copyright Copyright (c) Elasticsearch B.V (https://www.elastic.co)
  * @license   http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license   https://www.gnu.org/licenses/lgpl-2.1.html GNU Lesser General Public License, Version 2.1
@@ -160,6 +160,11 @@ class ClientBuilder
      * @var bool
      */
     private $includePortInHostHeader = false;
+
+    /**
+     * @var string|null
+     */
+    private $basicAuthentication = null;
 
     /**
      * Create an instance of ClientBuilder
@@ -427,14 +432,7 @@ class ClientBuilder
      */
     public function setBasicAuthentication(string $username, string $password): ClientBuilder
     {
-        if (isset($this->connectionParams['client']['curl']) === false) {
-            $this->connectionParams['client']['curl'] = [];
-        }
-
-        $this->connectionParams['client']['curl'] += [
-            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-            CURLOPT_USERPWD  => $username.':'.$password
-        ];
+        $this->basicAuthentication = $username.':'.$password;
 
         return $this;
     }
@@ -533,7 +531,7 @@ class ClientBuilder
      * @param string $cert The name of a file containing a PEM formatted certificate.
      * @param string $password if the certificate requires a password
      */
-    public function setSSLCert(string $cert, string $password = null): ClientBuilder
+    public function setSSLCert(string $cert, ?string $password = null): ClientBuilder
     {
         $this->sslCert = [$cert, $password];
 
@@ -546,7 +544,7 @@ class ClientBuilder
      * @param string $key The name of a file containing a private SSL key
      * @param string $password if the private key requires a password
      */
-    public function setSSLKey(string $key, string $password = null): ClientBuilder
+    public function setSSLKey(string $key, ?string $password = null): ClientBuilder
     {
         $this->sslKey = [$key, $password];
 
@@ -633,6 +631,17 @@ class ClientBuilder
         }
 
         $this->connectionParams['client']['port_in_header'] = $this->includePortInHostHeader;
+
+        if (! is_null($this->basicAuthentication)) {
+            if (isset($this->connectionParams['client']['curl']) === false) {
+                $this->connectionParams['client']['curl'] = [];
+            }
+
+            $this->connectionParams['client']['curl'] += [
+                CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+                CURLOPT_USERPWD  => $this->basicAuthentication
+            ];
+        }
 
         if (is_null($this->connectionFactory)) {
             // Make sure we are setting Content-Type and Accept (unless the user has explicitly

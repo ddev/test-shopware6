@@ -1,12 +1,12 @@
 /* eslint-disable */
 /**
- * @package admin
+ * @sw-package framework
  */
-
-export default (): void => {
-    const context = require.context('./', false, /(?<!index)(?<!\.spec)(?<!spec\.vue3\.)\.(js|ts)$/);
-
-    return context.keys().forEach(item => {
-        context(item);
+export default (): void | any[] => {
+    // @ts-expect-error
+    const context = import.meta.glob<$TSFixMe>('./**/!(*.spec).{j,t}s', {
+        eager: true,
     });
+
+    return Object.values(context).map((item) => item.default);
 };

@@ -8,25 +8,13 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class PluginCategoryStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $name;
-
-    /**
-     * @var string
-     */
-    protected $label;
-
     public function __construct(
-        string $name,
-        string $label
+        protected string $name,
+        protected string $label,
     ) {
-        $this->name = $name;
-        $this->label = $label;
     }
 
     public function getName(): string

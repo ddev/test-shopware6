@@ -57,7 +57,7 @@ describe('Form Preserver tests', () => {
 
         formPreserverPlugin._prepareElements();
 
-        expect(formPreserverPlugin._registerFormElementEvent).toHaveBeenCalledTimes(29 - 10);
+        expect(formPreserverPlugin._registerFormElementEvent).toHaveBeenCalledTimes(29 - 9);
 
         formPreserverPlugin._registerFormElementEvent.mockClear();
     });
@@ -115,7 +115,7 @@ describe('Form Preserver tests', () => {
             element.dispatchEvent(new Event('input'));
         });
 
-        jest.advanceTimersByTime(formPreserverPlugin.delay);
+        jest.runOnlyPendingTimers();
 
         Object.entries(testValuesNormal).forEach(([key, value]) => {
             expect(Storage.getItem(`test.${key}`)).toBe(value);
@@ -150,4 +150,16 @@ describe('Form Preserver tests', () => {
         expect(Storage.getItem(`test.cars2`)).toBe('volvo,audi');
     });
 
+    test.each(['submit', 'reset'])('form preserver clears storage on form submission / reset', (eventType) => {
+        const element = document.querySelector(`[name=checkboxtest]`);
+        element.checked = true;
+        element.dispatchEvent(new Event('change'));
+
+        expect(Storage.getItem(`test.checkboxtest`)).toBe('true');
+
+        const form = document.querySelector('#test');
+        form.dispatchEvent(new Event(eventType));
+
+        expect(Storage.getItem('test.checkboxtest')).toBeNull();
+    });
 });

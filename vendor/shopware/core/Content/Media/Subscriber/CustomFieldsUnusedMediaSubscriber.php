@@ -15,12 +15,12 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  *
  *  * @codeCoverageIgnore This would be useless as a unit test. It is integration tested here: \Shopware\Tests\Integration\Core\Content\Media\Subscriber\CustomFieldsUnusedMediaSubscriberTest
  */
-#[Package('core')]
+#[Package('discovery')]
 class CustomFieldsUnusedMediaSubscriber implements EventSubscriberInterface
 {
     public function __construct(
-        private Connection $connection,
-        private DefinitionInstanceRegistry $definitionRegistry
+        private readonly Connection $connection,
+        private readonly DefinitionInstanceRegistry $definitionRegistry,
     ) {
     }
 
@@ -70,7 +70,7 @@ class CustomFieldsUnusedMediaSubscriber implements EventSubscriberInterface
             $usedMediaIds = $this->connection->fetchFirstColumn(
                 $statement,
                 [$event->getUnusedIds()],
-                [ArrayParameterType::BINARY]
+                [ArrayParameterType::STRING]
             );
 
             $event->markAsUsed($usedMediaIds);
@@ -84,7 +84,7 @@ class CustomFieldsUnusedMediaSubscriber implements EventSubscriberInterface
     {
         /** @var list<array{id: string, name: string, entity_name: string}> $results */
         $results = $this->connection->fetchAllAssociative(
-            sprintf(
+            \sprintf(
                 <<<'SQL'
                 SELECT f.id, f.name, fsr.entity_name
                 FROM custom_field f
@@ -122,7 +122,7 @@ class CustomFieldsUnusedMediaSubscriber implements EventSubscriberInterface
             $usedMediaIds = $this->connection->fetchFirstColumn(
                 $statement,
                 [$event->getUnusedIds()],
-                [ArrayParameterType::BINARY]
+                [ArrayParameterType::STRING]
             );
 
             $event->markAsUsed($usedMediaIds);
@@ -140,7 +140,7 @@ class CustomFieldsUnusedMediaSubscriber implements EventSubscriberInterface
             $table = $this->getTableName((string) $entity);
 
             foreach ($fields as $field) {
-                $statements[] = sprintf(
+                $statements[] = \sprintf(
                     <<<'SQL'
                     SELECT JSON_EXTRACT(custom_fields, "$.%s") as mediaIds FROM `%s`
                     WHERE JSON_OVERLAPS(
@@ -163,7 +163,7 @@ class CustomFieldsUnusedMediaSubscriber implements EventSubscriberInterface
             $usedMediaIds = $this->connection->fetchFirstColumn(
                 $statement,
                 [$event->getUnusedIds()],
-                [ArrayParameterType::BINARY]
+                [ArrayParameterType::STRING]
             );
 
             $event->markAsUsed(

@@ -5,7 +5,7 @@ const { Mixin, Context } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -18,14 +18,14 @@ export default {
         'feature',
     ],
 
+    emits: [
+        'update:selection',
+        'media-folder-change',
+    ],
+
     mixins: [
         Mixin.getByName('media-grid-listener'),
     ],
-
-    model: {
-        prop: 'selection',
-        event: 'media-selection-change',
-    },
 
     props: {
         selection: {
@@ -51,9 +51,23 @@ export default {
             type: Number,
             required: false,
             default: 25,
-            validValues: [1, 5, 25, 50, 100, 500],
+            validValues: [
+                1,
+                5,
+                25,
+                50,
+                100,
+                500,
+            ],
             validator(value) {
-                return [1, 5, 25, 50, 100, 500].includes(value);
+                return [
+                    1,
+                    5,
+                    25,
+                    50,
+                    100,
+                    500,
+                ].includes(value);
             },
         },
 
@@ -78,7 +92,6 @@ export default {
         allowMultiSelect: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -104,9 +117,10 @@ export default {
 
     computed: {
         shouldDisplayEmptyState() {
-            return !this.isLoading && (this.selectableItems.length === 0 || (
-                this.isValidTerm(this.term) && this.selectableItems.length === 0
-            ));
+            return (
+                !this.isLoading &&
+                (this.selectableItems.length === 0 || (this.isValidTerm(this.term) && this.selectableItems.length === 0))
+            );
         },
 
         mediaRepository() {
@@ -122,7 +136,11 @@ export default {
         },
 
         selectableItems() {
-            return [...this.subFolders, ...this.pendingUploads, ...this.items];
+            return [
+                ...this.subFolders,
+                ...this.pendingUploads,
+                ...this.items,
+            ];
         },
 
         rootFolder() {
@@ -157,10 +175,9 @@ export default {
             // always search without folderId criteria --> search for all items
             const criteria = new Criteria(this.pageItem, this.limit);
 
-            criteria
-                .addSorting(Criteria.sort(this.sorting.sortBy, this.sorting.sortDirection))
-                .setTerm(this.term);
+            criteria.addSorting(Criteria.sort(this.sorting.sortBy, this.sorting.sortDirection)).setTerm(this.term);
 
+            // eslint-disable-next-line no-warning-comments
             // ToDo NEXT-22186 - will be replaced by a new overview
             [
                 'tags',
@@ -175,13 +192,13 @@ export default {
                 'cmsBlocks.section.page',
                 'cmsSections.page',
                 'cmsPages',
-            ].forEach(association => {
+            ].forEach((association) => {
                 const associationParts = association.split('.');
 
                 criteria.addAssociation(association);
 
                 let path = null;
-                associationParts.forEach(currentPart => {
+                associationParts.forEach((currentPart) => {
                     path = path ? `${path}.${currentPart}` : currentPart;
 
                     criteria.getAssociation(path).setLimit(25);
@@ -217,13 +234,7 @@ export default {
         },
 
         selectedItems() {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:selection', this.selectedItems);
-
-                return;
-            }
-
-            this.$emit('media-selection-change', this.selectedItems);
+            this.$emit('update:selection', this.selectedItems);
         },
 
         sorting() {
@@ -244,8 +255,14 @@ export default {
         this.createdComponent();
     },
 
+    beforeUnmount() {
+        this.beforeUnmountedComponent();
+    },
+
     methods: {
         createdComponent() {
+            Shopware.Utils.EventBus.on('sw-media-library-item-updated', this.refreshItem);
+
             this.refreshList();
 
             if (this.allowMultiSelect) {
@@ -257,6 +274,10 @@ export default {
             };
 
             this.handleMediaGridItemSelected = () => {};
+        },
+
+        beforeUnmountedComponent() {
+            Shopware.Utils.EventBus.off('sw-media-library-item-updated', this.refreshItem);
         },
 
         /*
@@ -285,7 +306,7 @@ export default {
         },
 
         isValidTerm(term) {
-            return term?.trim()?.length > 1;
+            return this.searchRankingService.isValidTerm(term);
         },
 
         loadNextItems() {
@@ -318,7 +339,13 @@ export default {
 
         async loadItems() {
             this.isLoading = true;
-            const [nextFolders, nextMedia] = await Promise.allSettled([this.nextFolders(), this.nextMedia()]);
+            const [
+                nextFolders,
+                nextMedia,
+            ] = await Promise.allSettled([
+                this.nextFolders(),
+                this.nextMedia(),
+            ]);
 
             if (nextMedia.status === 'fulfilled') {
                 this.items.push(...nextMedia.value);
@@ -352,11 +379,7 @@ export default {
                     return [];
                 }
 
-                criteria = this.searchRankingService.buildSearchQueriesForEntity(
-                    searchRankingFields,
-                    this.term,
-                    criteria,
-                );
+                criteria = this.searchRankingService.buildSearchQueriesForEntity(searchRankingFields, this.term, criteria);
             }
 
             // only fetch items of current folder
@@ -366,10 +389,12 @@ export default {
 
             // search only in current and all subFolders
             if (this.folderId != null && this.isValidTerm(this.term)) {
-                criteria.addFilter(Criteria.multi('OR', [
-                    Criteria.equals('mediaFolderId', this.folderId),
-                    Criteria.contains('mediaFolder.path', this.folderId),
-                ]));
+                criteria.addFilter(
+                    Criteria.multi('OR', [
+                        Criteria.equals('mediaFolderId', this.folderId),
+                        Criteria.contains('mediaFolder.path', this.folderId),
+                    ]),
+                );
             }
 
             const media = await this.mediaRepository.search(criteria, Context.api);
@@ -426,7 +451,7 @@ export default {
                 return;
             }
 
-            throw new Error('Injected entity has to be of \'type media\'');
+            throw new Error("Injected entity has to be of 'type media'");
         },
 
         injectMedia(mediaEntity) {
@@ -434,9 +459,11 @@ export default {
                 return;
             }
 
-            if (!this.items.some((alreadyListed) => {
-                return alreadyListed.id === mediaEntity.id;
-            })) {
+            if (
+                !this.items.some((alreadyListed) => {
+                    return alreadyListed.id === mediaEntity.id;
+                })
+            ) {
                 this.items.unshift(mediaEntity);
             }
         },
@@ -466,6 +493,27 @@ export default {
 
         removeNewFolder() {
             this.subFolders.shift();
+        },
+
+        async refreshItem(mediaId) {
+            const itemsIndex = this.items.findIndex((item) => item.id === mediaId);
+            const selectedItemsIndex = this.selectedItems.findIndex((item) => item.id === mediaId);
+
+            this.isLoading = true;
+
+            try {
+                const media = await this.mediaRepository.get(mediaId, Context.api);
+
+                if (itemsIndex !== -1) {
+                    this.items.splice(itemsIndex, 1, media);
+                }
+
+                if (selectedItemsIndex !== -1) {
+                    this.selectedItems.splice(selectedItemsIndex, 1, media);
+                }
+            } finally {
+                this.isLoading = false;
+            }
         },
     },
 };

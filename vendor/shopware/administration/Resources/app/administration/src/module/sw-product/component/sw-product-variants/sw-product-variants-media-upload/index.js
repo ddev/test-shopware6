@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-variants-media-upload.html.twig';
@@ -12,7 +12,10 @@ const { isEmpty } = Shopware.Utils.types;
 export default {
     template,
 
-    inject: ['repositoryFactory', 'mediaDefaultFolderService'],
+    inject: [
+        'repositoryFactory',
+        'mediaDefaultFolderService',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -71,8 +74,8 @@ export default {
             if (!this.product) {
                 return null;
             }
-            const coverId = this.product.cover ? this.product.cover.mediaId : this.product.coverId;
-            return this.product.media.find(media => media.id === coverId);
+
+            return this.product.media.find((media) => media.id === this.product.coverId);
         },
 
         coverImageSource() {
@@ -93,10 +96,12 @@ export default {
             this.getMediaDefaultFolderId()
                 .then((id) => {
                     this.mediaDefaultFolderId = id;
+                    this.defaultFolderId = id;
                     this.updateMediaItemPositions();
                 })
                 .catch(() => {
                     this.mediaDefaultFolderId = null;
+                    this.defaultFolderId = null;
                 });
         },
 
@@ -140,7 +145,7 @@ export default {
             media.forEach((item) => {
                 this.addMedia(item).catch(({ fileName }) => {
                     this.createNotificationError({
-                        message: this.$tc('sw-product.mediaForm.errorMediaItemDuplicated', 0, { fileName }),
+                        message: this.$tc('sw-product.mediaForm.errorMediaItemDuplicated', { fileName }, 0),
                     });
                 });
             });

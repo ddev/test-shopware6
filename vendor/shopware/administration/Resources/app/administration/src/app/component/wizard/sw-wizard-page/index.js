@@ -1,23 +1,28 @@
+/**
+ * @sw-package framework
+ */
+
 import './sw-wizard-page.scss';
 import template from './sw-wizard-page.html.twig';
-
-const { Component } = Shopware;
 
 /**
  * See `sw-wizard` for an example.
  *
  * @private
  */
-Component.register('sw-wizard-page', {
+export default {
     template,
 
-    inject: ['feature'],
+    inject: [
+        'feature',
+        'swWizardPageAdd',
+        'swWizardPageRemove',
+    ],
 
     props: {
         isActive: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return false;
@@ -32,7 +37,10 @@ Component.register('sw-wizard-page', {
         },
         position: {
             type: Number,
-            required: true,
+            required: false,
+            default() {
+                return 0;
+            },
         },
     },
 
@@ -47,27 +55,17 @@ Component.register('sw-wizard-page', {
         this.createdComponent();
     },
 
-    destroyed() {
+    unmounted() {
         this.destroyedComponent();
     },
 
     methods: {
         createdComponent() {
-            if (this.feature.isActive('VUE3')) {
-                this.$parent.$parent.$parent.$emit('page-add', this);
-                return;
-            }
-
-            this.$parent.$emit('page-add', this);
+            this.swWizardPageAdd(this);
         },
 
         destroyedComponent() {
-            if (this.feature.isActive('VUE3')) {
-                this.$parent.$parent.$parent.$emit('page-remove', this);
-                return;
-            }
-
-            this.$parent.$emit('page-remove', this);
+            this.swWizardPageRemove(this);
         },
     },
-});
+};

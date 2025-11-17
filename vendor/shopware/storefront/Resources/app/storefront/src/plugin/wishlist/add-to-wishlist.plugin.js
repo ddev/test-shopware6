@@ -1,5 +1,5 @@
 import Plugin from 'src/plugin-system/plugin.class';
-import DomAccess from 'src/helper/dom-access.helper';
+import CookieStorageHelper from 'src/helper/storage/cookie-storage.helper';
 
 /**
  * @package checkout
@@ -10,7 +10,7 @@ export default class AddToWishlistPlugin extends Plugin {
             add: 'Add to wishlist',
             remove: 'Remove from wishlist',
         },
-    }
+    };
 
     init() {
         this.classList = {
@@ -18,7 +18,7 @@ export default class AddToWishlistPlugin extends Plugin {
             addedState: 'product-wishlist-added',
             notAddedState: 'product-wishlist-not-added',
         };
-        this.textsElement = DomAccess.querySelector(this.el, '.product-wishlist-btn-content', false);
+        this.textsElement = this.el.querySelector('.product-wishlist-btn-content');
 
         this._getWishlistStorage();
 
@@ -36,7 +36,7 @@ export default class AddToWishlistPlugin extends Plugin {
      * @private
      */
     _getWishlistStorage() {
-        const wishlistBasketElement = DomAccess.querySelector(document, '#wishlist-basket', false);
+        const wishlistBasketElement = document.querySelector('#wishlist-basket');
 
         if (!wishlistBasketElement) {
             return;
@@ -50,6 +50,8 @@ export default class AddToWishlistPlugin extends Plugin {
      */
     _registerEvents() {
         this.el.addEventListener('click', this._onClick.bind(this));
+
+        this._wishlistStorage.$emitter.subscribe('Wishlist/onLoginRedirect', this.initStateClasses.bind(this));
     }
 
     initStateClasses() {
@@ -72,16 +74,22 @@ export default class AddToWishlistPlugin extends Plugin {
             return;
         }
 
-        this.el.classList.add(this.classList.isLoading);
+        if (
+            !window.customerLoggedInState &&
+            window.useDefaultCookieConsent &&
+            !CookieStorageHelper?.getItem('wishlist-enabled')
+        ) {
+            document.$emitter.publish('CookieConfiguration/requestConsent', {
+                route: `${window.router['frontend.cookie.consent.offcanvas']}?featureName=wishlist&cookieName=wishlist-enabled`,
+                cookieName: 'wishlist-enabled',
+            });
+            return;
+        }
 
         if (this._wishlistStorage.has(this.options.productId)) {
             this._wishlistStorage.remove(this.options.productId, this.options.router.remove);
-
-            this._removeActiveState();
         } else {
             this._wishlistStorage.add(this.options.productId, this.options.router.add);
-
-            this._addActiveState();
         }
     }
 

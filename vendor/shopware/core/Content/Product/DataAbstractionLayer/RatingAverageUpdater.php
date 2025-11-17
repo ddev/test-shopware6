@@ -9,7 +9,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('core')]
+#[Package('framework')]
 class RatingAverageUpdater
 {
     /**
@@ -19,6 +19,9 @@ class RatingAverageUpdater
     {
     }
 
+    /**
+     * @param array<string> $ids
+     */
     public function update(array $ids, Context $context): void
     {
         if (empty($ids)) {
@@ -36,10 +39,10 @@ class RatingAverageUpdater
         });
 
         $query = $this->connection->createQueryBuilder();
-        $query->select([
+        $query->select(
             'IFNULL(product.parent_id, product.id) as id',
             'AVG(product_review.points) as average',
-        ]);
+        );
         $query->from('product_review');
         $query->leftJoin('product_review', 'product', 'product', 'product.id = product_review.product_id OR product.parent_id = product_review.product_id');
         $query->andWhere('product_review.status = 1');

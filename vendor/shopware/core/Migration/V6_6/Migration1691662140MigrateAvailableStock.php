@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1691662140MigrateAvailableStock extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -36,9 +36,5 @@ class Migration1691662140MigrateAvailableStock extends MigrationStep
                 ['ids' => ArrayParameterType::BINARY]
             );
         } while (!empty($ids));
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 }

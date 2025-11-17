@@ -1,6 +1,6 @@
 import Storage from 'src/helper/storage/storage.helper';
 import BaseWishlistStoragePlugin from 'src/plugin/wishlist/base-wishlist-storage.plugin';
-import CookieStorageHelper from 'src/helper/storage/cookie-storage.helper';
+import CookieStorageHelper from '../../helper/storage/cookie-storage.helper';
 
 /**
  * @package checkout
@@ -21,15 +21,12 @@ export default class WishlistLocalStoragePlugin extends BaseWishlistStoragePlugi
         super.load();
     }
 
-    add(productId, router) {
-        if (window.useDefaultCookieConsent && !CookieStorageHelper.getItem(this.cookieEnabledName)) {
-            window.location.replace(router.afterLoginPath);
-
-            return;
-        }
-
+    /**
+     * @deprecated tag:v6.8.0 - The 'router' parameter will be removed.
+     */
+    // eslint-disable-next-line no-unused-vars
+    add(productId, router = null) {
         super.add(productId);
-
         this._save();
     }
 
@@ -70,7 +67,7 @@ export default class WishlistLocalStoragePlugin extends BaseWishlistStoragePlugi
      * @private
      */
     _save() {
-        if(this.products === null || this.getCurrentCounter() === 0) {
+        if (this.products === null || this.getCurrentCounter() === 0) {
             this.storage.removeItem(this._getStorageKey());
         } else {
             this.storage.setItem(this._getStorageKey(), JSON.stringify(this.products));
@@ -92,7 +89,7 @@ export default class WishlistLocalStoragePlugin extends BaseWishlistStoragePlugi
                 guestLogoutButtonPlugin.$emitter.subscribe('guest-logout', () => {
                     this.storage.removeItem(this._getStorageKey());
                 });
-            })
+            });
         }
     }
 }

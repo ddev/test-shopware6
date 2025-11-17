@@ -2,10 +2,11 @@
 
 namespace Shopware\Core\Framework\Api\Sync;
 
+use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('core')]
+#[Package('framework')]
 class SyncOperation extends Struct
 {
     final public const ACTION_UPSERT = 'upsert';
@@ -68,23 +69,23 @@ class SyncOperation extends Struct
         $errors = [];
 
         if (empty($this->entity)) {
-            $errors[] = sprintf(
+            $errors[] = \sprintf(
                 'Missing "entity" argument for operation with key "%s". It needs to be a non-empty string.',
                 $this->key
             );
         }
 
         if (empty($this->action) || !\in_array($this->action, $this->getSupportedActions(), true)) {
-            $errors[] = sprintf(
+            $errors[] = \sprintf(
                 'Missing or invalid "action" argument for operation with key "%s". Supported actions are [%s]',
                 $this->key,
                 implode(', ', $this->getSupportedActions())
             );
         }
 
-        if (empty($this->payload)) {
-            $errors[] = sprintf(
-                'Missing "payload" argument for operation with key "%s". It needs to be a non-empty array.',
+        if (empty($this->payload) && empty($this->criteria)) {
+            $errors[] = \sprintf(
+                'Missing "payload"|"criteria" argument for operation with key "%s". It needs to be a non-empty array.',
                 $this->key
             );
         }
@@ -113,5 +114,28 @@ class SyncOperation extends Struct
     public function hasCriteria(): bool
     {
         return !empty($this->criteria);
+    }
+
+    /**
+     * @param array<string, mixed> $operation
+     */
+    public static function createFromArray(array $operation, string $key): self
+    {
+        $key = isset($operation['key']) ? (string) $operation['key'] : $key;
+
+        $syncOperation = new self(
+            $key,
+            $operation['entity'] ?? '',
+            $operation['action'] ?? '',
+            $operation['payload'] ?? [],
+            $operation['criteria'] ?? []
+        );
+
+        $errors = $syncOperation->validate();
+        if (!empty($errors)) {
+            throw ApiException::invalidSyncOperationException(implode('; ', $errors));
+        }
+
+        return $syncOperation;
     }
 }

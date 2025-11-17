@@ -1,37 +1,32 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_product_variants_configurator_restrictions %}
 <div class="sw-product-variants-configurator-restrictions">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_variants_configurator_restrictions_search %}
     <div class="sw-product-variants-configurator-restrictions__search">
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_variants_configurator_restrictions_search_field %}
         <sw-simple-search-field
-            v-model="term"
+            v-model:value="term"
             size="small"
             variant="form"
             :placeholder="$tc('sw-product.variations.configuratorModal.searchRestrictions')"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_variants_configurator_restrictions_buttons %}
-        <sw-button
-            variant="ghost"
+        <mt-button
+            ghost
             size="small"
+            variant="secondary"
             @click="addEmptyRestrictionCombination"
         >
             {{ $tc('sw-product.variations.configuratorModal.addNewRestriction') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_variants_configurator_restrictions_grid_wrapper %}
     <div class="sw-product-variants-configurator-restrictions__grid-wrapper">
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_variants_configurator_restrictions_data_grid %}
         <sw-data-grid
             v-if="product.variantRestrictions"
@@ -43,21 +38,15 @@
             full-page
         >
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_variants_configurator_restrictions_data_grid_column_id %}
             <template
                 #column-id="{ item, isInlineEdit, compact }"
             >
                 <template
                     v-for="restriction in getRestrictionsWithNaming(item.id).values"
-                    {% if VUE3 %}
                     :key="restriction.id"
-                    {% endif %}
                 >
                     <span
-                        {% if VUE2 %}
-                        :key="restriction.id"
-                        {% endif %}
                         class="sw-product-variants-configurator-restrictions__group-name"
                     >
                         {{ restriction.group }}:
@@ -73,12 +62,10 @@
             </template>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_variants_configurator_restrictions_data_grid_actions %}
             <template
                 #actions="{ item }"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_variants_configurator_restrictions_data_grid_actions_items %}
                 <sw-context-menu-item @click="editRestrictionCombination(item)">
                     {{ $tc('sw-product.variations.configuratorModal.editRestriction') }}
@@ -98,7 +85,6 @@
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_variants_configurator_restrictions_modal %}
     <sw-modal
         v-if="restrictionModalIsOpen"
@@ -107,10 +93,8 @@
         @modal-close="cancelAddRestriction"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_variants_configurator_restrictions_modal_main %}
         <div class="sw-product-variants-configurator-restrictions__modal-main">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_variants_configurator_restrictions_modal_main_restriction_selection %}
             <sw-product-restriction-selection
                 v-for="(restriction, index) in actualRestriction.values"
@@ -131,46 +115,43 @@
             </sw-product-restriction-selection>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_variants_configurator_restrictions_modal_main_button_new_restriction %}
-            <sw-button
+            <mt-button
                 class="sw-product-variants-configurator-restrictions__button-new-restriction"
+                variant="secondary"
                 @click="addEmptyRestriction"
             >
                 {{ $tc('sw-product.variations.configuratorModal.singleRestrictionSeperation') }}
-            </sw-button>
+            </mt-button>
             {% endblock %}
         </div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_variants_configurator_restrictions_modal_footer %}
         <template #modal-footer>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_variants_configurator_restrictions_modal_footer_cancel %}
-            <sw-button
+            <mt-button
                 size="small"
+                variant="secondary"
                 @click="cancelAddRestriction"
             >
-                {{ $tc('sw-product.variations.configuratorModal.cancel') }}
-            </sw-button>
+                {{ $tc('global.default.cancel') }}
+            </mt-button>
             {% endblock %}
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_variants_configurator_restrictions_modal_footer_save_add_restriction %}
-            <sw-button
+            <mt-button
                 variant="primary"
                 size="small"
                 @click="saveAddRestriction"
             >
                 {{ $tc('sw-product.variations.configuratorModal.save') }}
-            </sw-button>
+            </mt-button>
             {% endblock %}
         </template>
         {% endblock %}
     </sw-modal>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_variants_configurator_restrictions_loader %}
     <sw-loader v-if="isLoading" />
     {% endblock %}

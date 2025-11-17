@@ -1,11 +1,9 @@
-import type { PropType } from 'vue';
 import template from './sw-time-ago.html.twig';
-
-const { Component } = Shopware;
+import useUpdateClock from './updateClock';
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
+ * @sw-package checkout
  * @description Render datetimes with relative values like "13 minutes ago" - works with dates in the past and future
  * @status ready
  * @example-type dynamic
@@ -13,21 +11,29 @@ const { Component } = Shopware;
  * <sw-time-ago date=""2021-08-25T11:08:48.940+00:00""></sw-time-ago>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-time-ago', () => Component.wrapComponentConfig({
+export default Shopware.Component.wrapComponentConfig({
     template,
 
     props: {
         date: {
-            type: [Date, String] as PropType<Date|string>,
+            type: [
+                Date,
+                String,
+            ] as PropType<Date | string>,
             required: true,
+        },
+        dateTimeFormat: {
+            type: Object as PropType<Intl.DateTimeFormatOptions>,
+            required: false,
+            default: {},
         },
     },
 
     data(): {
-        formattedRelativeTime: string|null,
-        interval: ReturnType<typeof setInterval>|null,
-        now: number,
-        } {
+        formattedRelativeTime: string | null;
+        interval: ReturnType<typeof setInterval> | null;
+        now: number;
+    } {
         return {
             formattedRelativeTime: null,
             interval: null,
@@ -50,7 +56,7 @@ Component.register('sw-time-ago', () => Component.wrapComponentConfig({
         },
 
         fullDatetime(): string {
-            return this.dateFilter(this.dateObject.toString());
+            return this.dateFilter(this.dateObject.toString(), this.dateTimeFormat);
         },
 
         lessThanOneMinute(): boolean {
@@ -84,29 +90,23 @@ Component.register('sw-time-ago', () => Component.wrapComponentConfig({
         isToday(): boolean {
             const today = new Date(Date.now());
 
-            return this.dateObject.getDate() === today.getDate() &&
+            return (
+                this.dateObject.getDate() === today.getDate() &&
                 this.dateObject.getMonth() === today.getMonth() &&
-                this.dateObject.getFullYear() === today.getFullYear();
+                this.dateObject.getFullYear() === today.getFullYear()
+            );
         },
     },
 
     mounted() {
-        this.formattedRelativeTime = this.formatRelativeTime();
-
-        // update the formatted date every 30 seconds
-        this.interval = setInterval(() => {
+        // subscriber to the updater, which updates the formatted date every 30 seconds
+        useUpdateClock(() => {
             // we have to set a new date, as vue does not react to changes in the date object
             // and does not invalidate the computed cache
             // this would lead to a wrong time string, if the component is active for more than 1 minute e.g.
             this.now = Date.now();
             this.formattedRelativeTime = this.formatRelativeTime();
-        }, 30000);
-    },
-
-    beforeDestroy() {
-        if (this.interval) {
-            clearInterval(this.interval);
-        }
+        });
     },
 
     methods: {
@@ -122,7 +122,7 @@ Component.register('sw-time-ago', () => Component.wrapComponentConfig({
                 }
 
                 if (this.lessThanOneHour) {
-                    return this.$tc('global.sw-time-ago.minutesAgo', minutesAgo, { minutesAgo });
+                    return this.$tc('global.sw-time-ago.minutesAgo', { minutesAgo }, minutesAgo);
                 }
             } else {
                 if (this.lessThanOneMinuteFromNow) {
@@ -131,7 +131,7 @@ Component.register('sw-time-ago', () => Component.wrapComponentConfig({
 
                 if (this.lessThanOneHourFromNow) {
                     const minutesFromNow = Math.abs(minutesAgo);
-                    return this.$tc('global.sw-time-ago.minutesFromNow', minutesFromNow, { minutesFromNow });
+                    return this.$tc('global.sw-time-ago.minutesFromNow', { minutesFromNow }, minutesFromNow);
                 }
             }
 
@@ -143,7 +143,7 @@ Component.register('sw-time-ago', () => Component.wrapComponentConfig({
                 });
             }
 
-            return this.dateFilter(this.dateObject.toString());
+            return this.dateFilter(this.dateObject.toString(), this.dateTimeFormat);
         },
     },
-}));
+});

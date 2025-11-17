@@ -1,7 +1,8 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@framework
  */
 import template from './sw-users-permissions-role-detail.html.twig';
+import './sw-users-permissions-role-detail.scss';
 
 const { Mixin } = Shopware;
 
@@ -16,12 +17,12 @@ export default {
         'loginService',
         'acl',
         'appAclService',
+        'ssoSettingsService',
     ],
 
     mixins: [
         Mixin.getByName('notification'),
     ],
-
 
     shortcuts: {
         'SYSTEMKEY+S': 'onSave',
@@ -62,7 +63,7 @@ export default {
         },
 
         languageId() {
-            return Shopware.State.get('session').languageId;
+            return Shopware.Store.get('session').languageId;
         },
 
         roleRepository() {
@@ -70,7 +71,7 @@ export default {
         },
 
         roleId() {
-            return this.$route.params.id;
+            return this.$route.params.id?.toLowerCase();
         },
     },
 
@@ -120,14 +121,15 @@ export default {
             this.isLoading = true;
 
             this.appAclService.addAppPermissions().then(() => {
-                this.roleRepository.get(this.roleId)
+                this.roleRepository
+                    .get(this.roleId)
                     .then((role) => {
                         this.role = role;
 
                         const filteredPrivileges = this.privileges.filterPrivilegesRoles(this.role.privileges);
                         const allGeneralPrivileges = this.privileges.getPrivilegesForAdminPrivilegeKeys(filteredPrivileges);
 
-                        this.detailedPrivileges = this.role.privileges.filter(privilege => {
+                        this.detailedPrivileges = this.role.privileges.filter((privilege) => {
                             return !allGeneralPrivileges.includes(privilege);
                         });
                         this.role.privileges = filteredPrivileges;
@@ -139,7 +141,17 @@ export default {
         },
 
         onSave() {
-            this.confirmPasswordModal = true;
+            this.isLoading = true;
+            this.ssoSettingsService.isSso().then((response) => {
+                if (response.isSso) {
+                    this.isLoading = false;
+                    this.saveRole({ ...Shopware.Context.api });
+
+                    return;
+                }
+
+                this.confirmPasswordModal = true;
+            });
         },
 
         saveRole(context) {
@@ -153,12 +165,17 @@ export default {
 
             this.confirmPasswordModal = false;
 
-            return this.roleRepository.save(this.role, context)
+            return this.roleRepository
+                .save(this.role, context)
                 .then(() => {
                     return this.updateCurrentUser();
-                }).then(() => {
+                })
+                .then(() => {
                     if (this.role.isNew()) {
-                        this.$router.push({ name: 'sw.users.permissions.role.detail', params: { id: this.role.id } });
+                        this.$router.push({
+                            name: 'sw.users.permissions.role.detail',
+                            params: { id: this.role.id },
+                        });
                     }
 
                     this.getRole();
@@ -168,8 +185,10 @@ export default {
                     this.createNotificationError({
                         message: this.$tc(
                             'global.notification.notificationSaveErrorMessage',
+                            {
+                                entityName: this.role.name,
+                            },
                             0,
-                            { entityName: this.role.name },
                         ),
                     });
 
@@ -185,7 +204,7 @@ export default {
                 const data = response.data;
                 delete data.password;
 
-                return Shopware.State.commit('setCurrentUser', data);
+                return Shopware.Store.get('session').setCurrentUser(data);
             });
         },
 

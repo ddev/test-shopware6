@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_connect_action_button %}
 <div
     v-tooltip.left="{
@@ -22,8 +21,14 @@
         alt=""
     />
 
+    <mt-icon
+        v-if="action.meteorIcon && action.view !== 'item'"
+        :name="action.meteorIcon"
+        size="14px"
+    />
+
     <span class="sw-context-menu-item__text">
-        {{ buttonLabel }}
+        {{ $tc(buttonLabel ?? '') }}
     </span>
 </div>
 {% endblock %}

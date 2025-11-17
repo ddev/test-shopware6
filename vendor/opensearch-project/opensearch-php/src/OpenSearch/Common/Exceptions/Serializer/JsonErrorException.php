@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  *
- * Elasticsearch PHP client
+ * OpenSearch PHP client
  *
- * @link      https://github.com/elastic/elasticsearch-php/
+ * @link      https://github.com/opensearch-project/opensearch-php/
  * @copyright Copyright (c) Elasticsearch B.V (https://www.elastic.co)
  * @license   http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license   https://www.gnu.org/licenses/lgpl-2.1.html GNU Lesser General Public License, Version 2.1
@@ -56,7 +56,11 @@ class JsonErrorException extends \Exception implements OpenSearchException
         10 => 'Attempted to decode nonexistent UTF-16 code-point' //JSON_ERROR_UTF16
     );
 
-    public function __construct($code, $input, $result, $previous = null)
+    /**
+     * @param mixed $input
+     * @param mixed $result
+     */
+    public function __construct(int $code, $input, $result, ?\Throwable $previous = null)
     {
         if (isset(self::$messages[$code]) !== true) {
             throw new \InvalidArgumentException(sprintf('Encountered unknown JSON error code: [%d]', $code));

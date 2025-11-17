@@ -5,13 +5,14 @@ namespace Shopware\Core\Framework\App\Manifest\Xml\Meta;
 use Composer\Package\Version\VersionParser;
 use Composer\Semver\Constraint\ConstraintInterface;
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\App\Validation\Error\MissingTranslationError;
 use Shopware\Core\Framework\Log\Package;
 
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class Metadata extends XmlElement
 {
     protected const REQUIRED_FIELDS = [
@@ -41,13 +42,15 @@ class Metadata extends XmlElement
 
     protected string $name;
 
+    protected bool $selfManaged = false;
+
     protected string $author;
 
     protected string $copyright;
 
-    protected ?string $license;
+    protected ?string $license = null;
 
-    protected ?string $compatibility;
+    protected ?string $compatibility = null;
 
     protected string $version;
 
@@ -59,8 +62,6 @@ class Metadata extends XmlElement
      * @var array<string, string>
      */
     protected array $privacyPolicyExtensions = [];
-
-    protected ?string $url = null;
 
     /**
      * @return array<string, mixed>
@@ -120,6 +121,16 @@ class Metadata extends XmlElement
         return $this->name;
     }
 
+    public function isSelfManaged(): bool
+    {
+        return $this->selfManaged;
+    }
+
+    public function setSelfManaged(bool $selfManaged): void
+    {
+        $this->selfManaged = $selfManaged;
+    }
+
     public function getAuthor(): string
     {
         return $this->author;
@@ -147,6 +158,11 @@ class Metadata extends XmlElement
         return $this->version;
     }
 
+    public function setVersion(string $version): void
+    {
+        $this->version = $version;
+    }
+
     public function getIcon(): ?string
     {
         return $this->icon;
@@ -155,11 +171,6 @@ class Metadata extends XmlElement
     public function getPrivacy(): ?string
     {
         return $this->privacy;
-    }
-
-    public function getUrl(): ?string
-    {
-        return $this->url;
     }
 
     /**
@@ -172,22 +183,23 @@ class Metadata extends XmlElement
 
     protected static function parse(\DOMElement $element): array
     {
-        $values = [];
-
-        foreach ($element->childNodes as $child) {
-            if (!$child instanceof \DOMElement) {
-                continue;
-            }
-
-            // translated
-            if (\in_array($child->tagName, self::TRANSLATABLE_FIELDS, true)) {
-                $values = self::mapTranslatedTag($child, $values);
-
-                continue;
-            }
-
-            $values[$child->tagName] = $child->nodeValue;
-        }
+        /**
+         * @var array{
+         *      label: array<string, string>,
+         *      description: array<string, string>,
+         *      name: string,
+         *      type: string,
+         *      author: string,
+         *      copyright: string,
+         *      license?: string,
+         *      compatibility?: string,
+         *      version?: string,
+         *      icon?: string,
+         *      privacy?: string,
+         *      privacyPolicyExtensions: array<string, string>,
+         *  } $values
+         */
+        $values = XmlParserUtils::parseChildrenAndTranslate($element, self::TRANSLATABLE_FIELDS);
 
         return $values;
     }

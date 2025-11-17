@@ -7,7 +7,7 @@ use PhpParser\Node\Stmt\ClassMethod;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\Rule;
-use PHPStan\Rules\RuleError;
+use PHPStan\Rules\RuleErrorBuilder;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Log\Package;
 
@@ -16,7 +16,7 @@ use Shopware\Core\Framework\Log\Package;
  *
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class DeprecatedMethodsThrowDeprecationRule implements Rule
 {
     /**
@@ -34,24 +34,38 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
         'reason:remove-entity',
         // Only the route on controller will be removed
         'reason:remove-route',
+        // Interface methods that will be removed should trigger deprecations instead.
+        'reason:remove-interface',
+        // Throwing deprecations in PHPStan rules would cause problems while executed
+        'reason:remove-phpstan-rule',
         // Classes that will be internal are still called from inside the core, therefore they do not trigger deprecations.
         'reason:becomes-internal',
         // New function parameter will be added
         'reason:new-optional-parameter',
+        // Parameter name is changing, which could break usage of named parameters, but should not trigger a deprecation
+        'reason:parameter-name-change',
         // Classes that will be final, can only be changed with the next major
         'reason:becomes-final',
         // If the return type change, the functionality itself is not deprecated, therefore they do not trigger deprecations.
         'reason:return-type-change',
+        // If the parameter type change, the functionality itself is not deprecated, therefore they do not trigger deprecations.
+        'reason:parameter-type-change',
+        // If a parameter becomes more flexible, this does not need action and trigger a deprecation warning.
+        'reason:parameter-type-extension',
         // If there will be in the class hierarchy of a class we mark the whole class as deprecated, but the functionality itself is not deprecated, therefore they do not trigger deprecations.
         'reason:class-hierarchy-change',
         // If we change the visibility of a method we can't know from where it was called and whether the call will be valid in the future, therefore they do not trigger deprecations.
         'reason:visibility-change',
         // Exception still need to be called for BC reasons, therefore they do not trigger deprecations.
         'reason:remove-exception',
+        // If a thrown exception in the method changes, we don't want to trigger deprecation warnings or throw an exception
+        'reason:exception-change',
         // Getter setter that could be serialized when dispatched via bus needs to be deprecated and removed silently
         'reason:remove-getter-setter',
         // The method is used purely for blue-green deployment, therefor it will be removed from the next major without replacement
         'reason:blue-green-deployment',
+        // The class is a decorating class and will be removed. Third party code should never rely on explicit decorators
+        'reason:decoration-will-be-removed',
         // The constraint can still be used, just not via an annotation
         'reason:remove-constraint-annotation',
         // Container factory for deprecated service
@@ -63,15 +77,9 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
         return ClassMethod::class;
     }
 
-    /**
-     * @param ClassMethod $node
-     *
-     * @return array<array-key, RuleError|string>
-     */
     public function processNode(Node $node, Scope $scope): array
     {
         if (!$scope->isInClass()) {
-            // skip
             return [];
         }
 
@@ -91,11 +99,13 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
         $classDeprecation = $class->getDeprecatedDescription();
         if ($classDeprecation && !$this->handlesDeprecationCorrectly($classDeprecation, $methodContent)) {
             return [
-                \sprintf(
+                RuleErrorBuilder::message(\sprintf(
                     'Class "%s" is marked as deprecated, but method "%s" does not call "Feature::triggerDeprecationOrThrow". All public methods of deprecated classes need to trigger a deprecation warning.',
                     $class->getName(),
                     $method->getName()
-                ),
+                ))
+                    ->identifier('shopware.deprecatedClass')
+                    ->build(),
             ];
         }
 
@@ -107,11 +117,13 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
 
         if (!$deprecationOfParentMethod && $methodDeprecation && !$this->handlesDeprecationCorrectly($methodDeprecation, $methodContent)) {
             return [
-                \sprintf(
+                RuleErrorBuilder::message(\sprintf(
                     'Method "%s" of class "%s" is marked as deprecated, but does not call "Feature::triggerDeprecationOrThrow". All deprecated methods need to trigger a deprecation warning.',
                     $method->getName(),
                     $class->getName()
-                ),
+                ))
+                    ->identifier('shopware.deprecatedMethod')
+                    ->build(),
             ];
         }
 
@@ -120,14 +132,15 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
 
     private function getMethodContent(Node $node, Scope $scope, ClassReflection $class): string
     {
-        /** @var string $filename */
         $filename = $class->getFileName();
 
         $trait = $scope->getTraitReflection();
-
         if ($trait) {
-            /** @var string $filename */
             $filename = $trait->getFileName();
+        }
+
+        if (!\is_string($filename)) {
+            return '';
         }
 
         $file = new \SplFileObject($filename);
@@ -165,10 +178,12 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
             return true;
         }
 
-        if ($class->getParentClass() === null) {
-            return false;
+        foreach ($class->getParents() as $parentClass) {
+            if ($parentClass->getName() === TestCase::class) {
+                return true;
+            }
         }
 
-        return $class->getParentClass()->getName() === TestCase::class;
+        return false;
     }
 }

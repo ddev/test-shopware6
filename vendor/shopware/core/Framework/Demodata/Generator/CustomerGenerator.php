@@ -4,13 +4,16 @@ namespace Shopware\Core\Framework\Demodata\Generator;
 
 use Doctrine\DBAL\Connection;
 use Faker\Generator;
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroup\CustomerGroupCollection;
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityWriterInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteContext;
 use Shopware\Core\Framework\Demodata\DemodataContext;
 use Shopware\Core\Framework\Demodata\DemodataGeneratorInterface;
+use Shopware\Core\Framework\Demodata\DemodataService;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\NumberRange\ValueGenerator\NumberRangeValueGeneratorInterface;
@@ -19,20 +22,20 @@ use Shopware\Core\Test\TestDefaults;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CustomerGenerator implements DemodataGeneratorInterface
 {
     /**
-     * @var list<string>
+     * @var array<string>
      */
     private array $salutationIds = [];
-
-    private string|false|null $paymentMethodId = false;
 
     private Generator $faker;
 
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerGroupCollection> $customerGroupRepository
      */
     public function __construct(
         private readonly EntityWriterInterface $writer,
@@ -91,11 +94,11 @@ class CustomerGenerator implements DemodataGeneratorInterface
             'lastName' => 'Mustermann',
             'email' => 'test@example.com',
             'password' => 'shopware',
-            'defaultPaymentMethodId' => $this->getDefaultPaymentMethod(),
             'groupId' => TestDefaults::FALLBACK_CUSTOMER_GROUP,
             'salesChannelId' => $salesChannelIds[array_rand($salesChannelIds)],
             'defaultBillingAddressId' => $billingAddressId,
             'defaultShippingAddressId' => $shippingAddressId,
+            'customFields' => [DemodataService::DEMODATA_CUSTOM_FIELDS_KEY => true],
             'addresses' => [
                 [
                     'id' => $shippingAddressId,
@@ -142,6 +145,7 @@ class CustomerGenerator implements DemodataGeneratorInterface
 
         $payload = [];
         for ($i = 0; $i < $numberOfItems; ++$i) {
+            $randomDate = $context->getFaker()->dateTimeBetween('-2 years');
             $id = Uuid::randomHex();
             $firstName = $context->getFaker()->firstName();
             $lastName = $context->getFaker()->format('lastName');
@@ -176,13 +180,14 @@ class CustomerGenerator implements DemodataGeneratorInterface
                 // use dummy hashed password, so not need to compute the hash for every customer
                 // password is `shopware`
                 'password' => '$2y$10$XFRhv2TdOz9GItRt6ZgHl.e/HpO5Mfea6zDNXI9Q8BasBRtWbqSTS',
-                'defaultPaymentMethodId' => $this->getDefaultPaymentMethod(),
                 'groupId' => $customerGroups[array_rand($customerGroups)],
                 'salesChannelId' => $salesChannelIds[array_rand($salesChannelIds)],
                 'defaultBillingAddressId' => $addresses[array_rand($addresses)]['id'],
                 'defaultShippingAddressId' => $addresses[array_rand($addresses)]['id'],
                 'addresses' => $addresses,
                 'tags' => $this->getTags($tags),
+                'createdAt' => $randomDate->format(Defaults::STORAGE_DATE_TIME_FORMAT),
+                'customFields' => [DemodataService::DEMODATA_CUSTOM_FIELDS_KEY => true],
             ];
 
             $payload[] = $customer;
@@ -213,7 +218,7 @@ class CustomerGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @param list<string> $tags
+     * @param array<string> $tags
      *
      * @return array<array{id: string}>
      */
@@ -222,7 +227,7 @@ class CustomerGenerator implements DemodataGeneratorInterface
         $tagAssignments = [];
 
         if (!empty($tags)) {
-            $chosenTags = $this->faker->randomElements($tags, $this->faker->randomDigit(), false);
+            $chosenTags = $this->faker->randomElements($tags, $this->faker->numberBetween(1, \count($tags)));
 
             if (!empty($chosenTags)) {
                 $tagAssignments = array_map(
@@ -236,7 +241,7 @@ class CustomerGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     private function getIds(string $table): array
     {
@@ -250,22 +255,5 @@ class CustomerGenerator implements DemodataGeneratorInterface
         }
 
         return $this->salutationIds[array_rand($this->salutationIds)];
-    }
-
-    private function getDefaultPaymentMethod(): ?string
-    {
-        if ($this->paymentMethodId === false) {
-            $id = $this->connection->fetchOne(
-                'SELECT `id` FROM `payment_method` WHERE `active` = 1 ORDER BY `position` ASC'
-            );
-
-            if (!$id) {
-                return $this->paymentMethodId = null;
-            }
-
-            return $this->paymentMethodId = Uuid::fromBytesToHex($id);
-        }
-
-        return $this->paymentMethodId;
     }
 }

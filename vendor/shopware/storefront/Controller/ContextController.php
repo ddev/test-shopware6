@@ -4,18 +4,21 @@ namespace Shopware\Storefront\Controller;
 
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RoutingException;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannel\AbstractContextSwitchRoute;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Storefront\Framework\Routing\RequestTransformer;
 use Shopware\Storefront\Framework\Routing\Router;
+use Shopware\Storefront\Framework\Routing\StorefrontRouteScope;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -23,8 +26,8 @@ use Symfony\Component\Routing\RouterInterface;
  * @internal
  * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put data
  */
-#[Route(defaults: ['_routeScope' => ['storefront']])]
-#[Package('storefront')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
+#[Package('framework')]
 class ContextController extends StorefrontController
 {
     /**
@@ -49,8 +52,12 @@ class ContextController extends StorefrontController
     public function switchLanguage(Request $request, SalesChannelContext $context): RedirectResponse
     {
         $languageId = $request->request->get('languageId');
-        if (!$languageId || !\is_string($languageId)) {
+        if (!$languageId) {
             throw RoutingException::missingRequestParameter('languageId');
+        }
+
+        if (!\is_string($languageId) || !Uuid::isValid($languageId)) {
+            throw RoutingException::invalidRequestParameter('languageId');
         }
 
         try {
@@ -65,6 +72,11 @@ class ContextController extends StorefrontController
         $params = $request->get('redirectParameters', '[]');
         if (\is_string($params)) {
             $params = json_decode($params, true);
+        }
+
+        $languageCode = $request->request->get('languageCode_' . $languageId);
+        if ($languageCode) {
+            $params['_locale'] = $languageCode;
         }
 
         $route = (string) $request->request->get('redirectTo', 'frontend.home.page');

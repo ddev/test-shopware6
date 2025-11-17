@@ -26,6 +26,7 @@ use Shopware\Core\Framework\Demodata\DemodataService;
 use Shopware\Core\Framework\Demodata\Event\DemodataRequestCreatedEvent;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\CustomField\Aggregate\CustomFieldSet\CustomFieldSetDefinition;
+use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainDefinition;
 use Shopware\Core\System\Tag\TagDefinition;
 use Shopware\Core\System\User\UserDefinition;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -42,7 +43,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
     name: 'framework:demodata',
     description: 'Generates demo data',
 )]
-#[Package('core')]
+#[Package('fundamentals@after-sales')]
 class DemodataCommand extends Command
 {
     /**
@@ -73,7 +74,7 @@ class DemodataCommand extends Command
         $this->addOption('order-attributes', null, InputOption::VALUE_OPTIONAL, 'Order attribute count');
         $this->addOption('customer-attributes', null, InputOption::VALUE_OPTIONAL, 'Customer attribute count');
         $this->addOption('media-attributes', null, InputOption::VALUE_OPTIONAL, 'Media attribute count');
-
+        $this->addOption('multiplier', null, InputOption::VALUE_OPTIONAL, 'Applies to all counts');
         $this->addOption('reset-defaults', null, InputOption::VALUE_NONE, 'Set all counts to 0 unless specified');
     }
 
@@ -90,9 +91,12 @@ class DemodataCommand extends Command
         $io = new ShopwareStyle($input, $output);
         $io->title('Demodata Generator');
 
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
 
         $request = new DemodataRequest();
+
+        $request->multiplier = (int) ($input->getOption('multiplier') ?? 1);
+        $request->multiplier = max($request->multiplier, 1);
 
         $request->add(TagDefinition::class, $this->getCount($input, 'tags'));
         $request->add(RuleDefinition::class, $this->getCount($input, 'rules'));
@@ -117,6 +121,7 @@ class DemodataCommand extends Command
 
         $request->add(MailTemplateDefinition::class, $this->getCount($input, 'mail-template'));
         $request->add(MailHeaderFooterDefinition::class, $this->getCount($input, 'mail-header-footer'));
+        $request->add(SalesChannelDomainDefinition::class, $this->getCount($input, 'sales-channel-domain'));
 
         $this->eventDispatcher->dispatch(new DemodataRequestCreatedEvent($request, $context, $input));
 

@@ -1,3 +1,4 @@
+{% block sw_external_link %}
 <a
     v-if="$attrs.hasOwnProperty('href')"
     v-bind="$attrs"
@@ -7,7 +8,7 @@
     :class="classes"
 >
     <slot></slot>
-    <sw-icon
+    <mt-icon
         class="sw-external-link__icon"
         :size="iconSize"
         :name="icon"
@@ -24,9 +25,10 @@
     @keydown.enter="onClick"
 >
     <slot></slot>
-    <sw-icon
+    <mt-icon
         class="sw-external-link__icon"
         :size="iconSize"
         :name="icon"
     />
 </span>
+{% endblock %}

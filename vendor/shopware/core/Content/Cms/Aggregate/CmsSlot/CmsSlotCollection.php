@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @extends EntityCollection<CmsSlotEntity>
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class CmsSlotCollection extends EntityCollection
 {
     /**
@@ -17,7 +17,7 @@ class CmsSlotCollection extends EntityCollection
     private ?array $slotCache = null;
 
     /**
-     * @param string        $key
+     * @param string $key
      * @param CmsSlotEntity $entity
      */
     public function set($key, $entity): void

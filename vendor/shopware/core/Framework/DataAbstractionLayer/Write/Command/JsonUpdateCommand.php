@@ -9,12 +9,12 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class JsonUpdateCommand extends UpdateCommand
 {
     /**
      * @param array<string, mixed> $payload
-     * @param array<string> $primaryKey
+     * @param array<string, string> $primaryKey
      */
     public function __construct(
         EntityDefinition $definition,

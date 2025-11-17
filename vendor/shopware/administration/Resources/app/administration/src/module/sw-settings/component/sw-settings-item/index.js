@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-settings-item.html.twig';
 import './sw-settings-item.scss';
@@ -24,13 +24,6 @@ export default {
             required: false,
             type: Boolean,
             default: false,
-        },
-        backgroundEnabled: {
-            required: false,
-            type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
-            // eslint-disable-next-line vue/no-boolean-default
-            default: true,
         },
     },
 

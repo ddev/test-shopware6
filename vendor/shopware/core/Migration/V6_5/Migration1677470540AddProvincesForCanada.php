@@ -15,7 +15,7 @@ use Shopware\Core\Migration\Traits\Translations;
 /**
  * @internal
  */
-#[Package('system-settings')]
+#[Package('fundamentals@discovery')]
 class Migration1677470540AddProvincesForCanada extends MigrationStep
 {
     use ImportTranslationsTrait;
@@ -149,9 +149,5 @@ class Migration1677470540AddProvincesForCanada extends MigrationStep
         foreach ($countryStateTranslations as $translations) {
             $this->importTranslation('country_state_translation', $translations, $connection);
         }
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 }

@@ -5,7 +5,7 @@ namespace Shopware\Core\Framework\App\ScheduledTask;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 
-#[Package('core')]
+#[Package('framework')]
 class DeleteCascadeAppsTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -15,6 +15,11 @@ class DeleteCascadeAppsTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 1 Day
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
     }
 }

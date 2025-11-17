@@ -3,15 +3,16 @@
 namespace Shopware\Core\Framework\App\Command;
 
 use Shopware\Core\Framework\Adapter\Console\ShopwareStyle;
+use Shopware\Core\Framework\App\AppException;
 use Shopware\Core\Framework\App\AppService;
 use Shopware\Core\Framework\App\Exception\AppValidationException;
 use Shopware\Core\Framework\App\Exception\UserAbortedCommandException;
+use Shopware\Core\Framework\App\Lifecycle\Parameters\AppInstallParameters;
 use Shopware\Core\Framework\App\Lifecycle\RefreshableAppDryRun;
 use Shopware\Core\Framework\App\Manifest\Manifest;
 use Shopware\Core\Framework\App\Validation\ManifestValidator;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SystemConfig\Exception\XmlParsingException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -20,10 +21,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @internal only for use by the app-system, will be considered internal from v6.4.0 onward
+ * @internal only for use by the app-system
  */
 #[AsCommand(name: 'app:refresh', description: 'Refreshes an app', aliases: ['app:update'])]
-#[Package('core')]
+#[Package('framework')]
 class RefreshAppCommand extends Command
 {
     public function __construct(
@@ -59,7 +60,7 @@ class RefreshAppCommand extends Command
     {
         $io = new ShopwareStyle($input, $output);
 
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
 
         $refreshableApps = $this->appService->getRefreshableAppInfo($context);
         $requestedApps = $input->getArgument('name');
@@ -92,7 +93,11 @@ class RefreshAppCommand extends Command
             }
         }
 
-        $fails = $this->appService->doRefreshApps($input->getOption('activate'), $context, $refreshableApps->getAppNames());
+        $fails = $this->appService->doRefreshApps(
+            new AppInstallParameters(activate: $input->getOption('activate'), acceptPermissions: true),
+            $context,
+            $refreshableApps->getAppNames()
+        );
 
         $this->appPrinter->printInstalledApps($io, $context);
         $this->appPrinter->printIncompleteInstallations($io, $fails);
@@ -112,7 +117,7 @@ class RefreshAppCommand extends Command
         foreach ($refreshableManifests as $refreshableManifest) {
             try {
                 $this->manifestValidator->validate($refreshableManifest, $context);
-            } catch (AppValidationException|XmlParsingException $e) {
+            } catch (AppValidationException $e) {
                 $invalids[] = $e->getMessage();
             }
         }
@@ -132,15 +137,21 @@ class RefreshAppCommand extends Command
 
     private function grantPermissions(RefreshableAppDryRun $refreshableApps, ShopwareStyle $io): void
     {
+        $default = true;
+        if (!empty($refreshableApps->getToBeDeleted())) {
+            $default = false;
+        }
+
         if (!$io->confirm(
-            sprintf(
+            \sprintf(
                 "%d apps will be installed, %d apps will be updated and %d apps will be deleted.\nDo you want to continue?",
                 \count($refreshableApps->getToBeInstalled()),
                 \count($refreshableApps->getToBeUpdated()),
                 \count($refreshableApps->getToBeDeleted())
-            )
+            ),
+            $default
         )) {
-            throw new UserAbortedCommandException();
+            throw AppException::userAborted();
         }
 
         foreach ($refreshableApps->getToBeInstalled() as $app) {
@@ -162,10 +173,10 @@ class RefreshAppCommand extends Command
             $this->appPrinter->printPermissions($app, $io, $install);
 
             if (!$io->confirm(
-                sprintf('Do you want to grant these permissions for app "%s"?', $app->getMetadata()->getName()),
+                \sprintf('Do you want to grant these permissions for app "%s"?', $app->getMetadata()->getName()),
                 false
             )) {
-                throw new UserAbortedCommandException();
+                throw AppException::userAborted();
             }
         }
     }

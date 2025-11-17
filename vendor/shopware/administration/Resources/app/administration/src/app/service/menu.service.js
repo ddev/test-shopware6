@@ -1,7 +1,7 @@
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * @module app/service/menu
  * @method createMenuService
  * @memberOf module:app/service/menu
@@ -62,7 +62,10 @@ export default function createMenuService(moduleFactory) {
 
             if (appModule.source) {
                 entry.path = 'sw.extension.module';
-                entry.params = { appName: app.name, moduleName: appModule.name };
+                entry.params = {
+                    appName: app.name,
+                    moduleName: appModule.name,
+                };
             }
 
             return entry;
@@ -70,7 +73,7 @@ export default function createMenuService(moduleFactory) {
     }
 
     function getTranslatedLabel(label) {
-        const locale = Shopware.State.get('session').currentLocale;
+        const locale = Shopware.Store.get('session').currentLocale;
         const fallbackLocale = Shopware.Context.app.fallbackLocale;
 
         return label[locale] || label[fallbackLocale];

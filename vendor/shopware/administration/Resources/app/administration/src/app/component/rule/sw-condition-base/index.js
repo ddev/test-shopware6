@@ -6,15 +6,16 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
  * @private
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Base condition for the condition-tree. This component must be a child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-base :condition="condition"></sw-condition-base>
  */
-Component.register('sw-condition-base', {
+export default {
     template,
+
     inheritAttrs: false,
 
     inject: [
@@ -48,7 +49,7 @@ Component.register('sw-condition-base', {
         conditionClasses() {
             return {
                 'has--error': this.hasError,
-                'is--disabled': this.hasNoComponent || this.disabled,
+                'is--disabled': this.isDisabled,
             };
         },
 
@@ -70,6 +71,10 @@ Component.register('sw-condition-base', {
             return this.condition.value;
         },
 
+        isDisabled() {
+            return this.disabled || this.hasNoComponent;
+        },
+
         hasNoComponent() {
             const component = this.conditionDataProviderService.getComponentByCondition(this.condition);
 
@@ -88,10 +93,11 @@ Component.register('sw-condition-base', {
     watch: {
         value() {
             if (this.hasError) {
-                this.$store.commit('error/removeApiError', { expression: this.valueErrorPath });
+                Shopware.Store.get('error').removeApiError(this.valueErrorPath);
             }
             if (this.isEmpty && !!this.inputKey) {
-                this.$delete(this.condition.value, this.inputKey);
+                // eslint-disable-next-line vue/no-mutating-props
+                delete this.condition.value[this.inputKey];
             }
         },
     },
@@ -116,4 +122,4 @@ Component.register('sw-condition-base', {
             }
         },
     },
-});
+};

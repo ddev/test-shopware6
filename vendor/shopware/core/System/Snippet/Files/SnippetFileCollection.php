@@ -4,12 +4,12 @@ namespace Shopware\Core\System\Snippet\Files;
 
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Collection;
-use Shopware\Core\System\Snippet\Exception\InvalidSnippetFileException;
+use Shopware\Core\System\Snippet\SnippetException;
 
 /**
  * @extends Collection<AbstractSnippetFile>
  */
-#[Package('system-settings')]
+#[Package('discovery')]
 class SnippetFileCollection extends Collection
 {
     /**
@@ -73,7 +73,7 @@ class SnippetFileCollection extends Collection
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return list<array{author: string, iso: string, isBase: bool, name: string, path: string}>
      */
     public function toArray(): array
     {
@@ -102,7 +102,7 @@ class SnippetFileCollection extends Collection
     }
 
     /**
-     * @return array<int, AbstractSnippetFile>
+     * @return list<AbstractSnippetFile>
      */
     public function getSnippetFilesByIso(string $iso): array
     {
@@ -111,9 +111,6 @@ class SnippetFileCollection extends Collection
         return $list[$iso] ?? [];
     }
 
-    /**
-     * @throws InvalidSnippetFileException
-     */
     public function getBaseFileByIso(string $iso): AbstractSnippetFile
     {
         foreach ($this->getSnippetFilesByIso($iso) as $file) {
@@ -124,7 +121,7 @@ class SnippetFileCollection extends Collection
             return $file;
         }
 
-        throw new InvalidSnippetFileException($iso);
+        throw SnippetException::snippetFileNotRegistered($iso);
     }
 
     public function getApiAlias(): string
@@ -150,13 +147,12 @@ class SnippetFileCollection extends Collection
     }
 
     /**
-     * @return array<string, array<int, AbstractSnippetFile>>
+     * @return array<string, list<AbstractSnippetFile>>
      */
     private function getListSortedByIso(): array
     {
         $list = [];
 
-        /** @var AbstractSnippetFile $element */
         foreach ($this->getIterator() as $element) {
             $list[$element->getIso()][] = $element;
         }

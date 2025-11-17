@@ -7,7 +7,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\PrimaryKey;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\IdField;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
@@ -18,11 +18,16 @@ use Shopware\Core\Framework\Validation\Constraint\Uuid as UuidConstraint;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class IdFieldSerializer extends AbstractFieldSerializer
 {
     public function normalize(Field $field, array $data, WriteParameterBag $parameters): array
     {
+        if (!$field->is(PrimaryKey::class)) {
+            // we only need to save the reference to the entity into the context if it is a primary key
+            return $data;
+        }
+
         $key = $field->getPropertyName();
         if (!isset($data[$key])) {
             $data[$key] = Uuid::randomHex();
@@ -39,8 +44,8 @@ class IdFieldSerializer extends AbstractFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        if (!$field instanceof IdField) {
-            throw DataAbstractionLayerException::invalidSerializerField(IdField::class, $field);
+        if (!$field instanceof StorageAware) {
+            throw DataAbstractionLayerException::invalidSerializerField(self::class, $field);
         }
 
         $value = $data->getValue();
@@ -52,6 +57,10 @@ class IdFieldSerializer extends AbstractFieldSerializer
 
         if (!$value) {
             return yield $field->getStorageName() => null;
+        }
+
+        if (!\is_string($value)) {
+            throw DataAbstractionLayerException::invalidIdFieldType($field, $value);
         }
 
         $parameters->getContext()->set($parameters->getDefinition()->getEntityName(), $data->getKey(), $value);

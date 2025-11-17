@@ -8,24 +8,18 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class DomainVerificationRequestStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $content;
+    protected string $fileName;
 
     /**
-     * @var string
+     * @deprecated tag:v6.8.0 - reason:parameter-name-change - Parameter `filename` will be renamed to `fileName` and become a promoted property
      */
-    protected $fileName;
-
     public function __construct(
-        string $content,
-        string $filename
+        protected string $content,
+        string $filename,
     ) {
-        $this->content = $content;
         $this->fileName = $filename;
     }
 

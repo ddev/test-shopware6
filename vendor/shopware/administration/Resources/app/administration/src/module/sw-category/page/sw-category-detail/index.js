@@ -1,14 +1,14 @@
-import pageState from './state';
+import './store';
 import template from './sw-category-detail.html.twig';
 import './sw-category-detail.scss';
 
 const { Context, Mixin } = Shopware;
 const { Criteria, ChangesetGenerator, EntityCollection } = Shopware.Data;
 const { cloneDeep, merge } = Shopware.Utils.object;
-const type = Shopware.Utils.types;
+const { isPlainObject, isArray, isEqual } = Shopware.Utils.types;
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -19,6 +19,7 @@ export default {
         'cmsService',
         'repositoryFactory',
         'seoUrlService',
+        'systemConfigApiService',
     ],
 
     mixins: [
@@ -100,19 +101,19 @@ export default {
         },
 
         landingPage() {
-            if (!Shopware.State.get('swCategoryDetail')) {
+            if (!Shopware.Store.get('swCategoryDetail')) {
                 return {};
             }
 
-            return Shopware.State.get('swCategoryDetail').landingPage;
+            return Shopware.Store.get('swCategoryDetail').landingPage;
         },
 
         category() {
-            if (!Shopware.State.get('swCategoryDetail')) {
+            if (!Shopware.Store.get('swCategoryDetail')) {
                 return {};
             }
 
-            return Shopware.State.get('swCategoryDetail').category;
+            return Shopware.Store.get('swCategoryDetail').category;
         },
 
         showEntryPointOverwriteModal() {
@@ -120,12 +121,16 @@ export default {
         },
 
         cmsPage() {
-            return Shopware.State.get('cmsPageState').currentPage;
+            return Shopware.Store.get('cmsPage').currentPage;
+        },
+
+        cmsPageState() {
+            return Shopware.Store.get('cmsPage');
         },
 
         cmsPageId() {
             if (this.landingPage) {
-                return this.landingPage.cmsPageId;
+                return this.landingPage.cmsPageId ?? null;
             }
 
             return this.category ? this.category.cmsPageId : null;
@@ -205,10 +210,10 @@ export default {
 
         categoryCriteria() {
             const criteria = new Criteria(1, 1);
-            criteria.getAssociation('seoUrls')
-                .addFilter(Criteria.equals('isCanonical', true));
+            criteria.getAssociation('seoUrls').addFilter(Criteria.equals('isCanonical', true));
 
-            criteria.addAssociation('tags')
+            criteria
+                .addAssociation('tags')
                 .addAssociation('media')
                 .addAssociation('navigationSalesChannels.homeCmsPage.previewMedia')
                 .addAssociation('serviceSalesChannels')
@@ -247,42 +252,38 @@ export default {
             }
 
             if (this.category) {
-                this.category.slotConfig = null;
-                Shopware.State.dispatch('cmsPageState/resetCmsPageState')
-                    .then(this.getAssignedCmsPage);
+                this.cmsPageState.resetCmsPageState();
+                this.getAssignedCmsPage();
             }
 
             if (this.landingPage) {
-                this.landingPage.slotConfig = null;
-                Shopware.State.dispatch('cmsPageState/resetCmsPageState')
-                    .then(this.getAssignedCmsPageForLandingPage);
+                this.cmsPageState.resetCmsPageState();
+                this.getAssignedCmsPageForLandingPage();
             }
         },
     },
 
     beforeCreate() {
-        Shopware.State.registerModule('swCategoryDetail', pageState);
-        Shopware.State.dispatch('cmsPageState/resetCmsPageState');
+        Shopware.Store.get('cmsPage').resetCmsPageState();
     },
 
     created() {
         this.createdComponent();
     },
 
-    beforeDestroy() {
-        Shopware.State.unregisterModule('swCategoryDetail');
-    },
-
     beforeRouteLeave(to, from, next) {
         if (this.forceDiscardChanges) {
             this.forceDiscardChanges = false;
+            Shopware.Store.get('shopwareApps').selectedIds = [];
             next();
 
             return;
         }
 
         if (!this.category) {
+            Shopware.Store.get('shopwareApps').selectedIds = [];
             next();
+
             return;
         }
 
@@ -292,12 +293,17 @@ export default {
          */
         const { changes, deletionQueue } = this.changesetGenerator.generate(this.category);
         if (changes === null) {
+            Shopware.Store.get('shopwareApps').selectedIds = [];
             next();
+
             return;
         }
 
-        const keysToDelete = ['id', 'versionId'];
-        const changedKeys = Object.keys(changes).filter(key => !keysToDelete.includes(key));
+        const keysToDelete = [
+            'id',
+            'versionId',
+        ];
+        const changedKeys = Object.keys(changes).filter((key) => !keysToDelete.includes(key));
         const hasDeletions = deletionQueue.length > 0;
 
         /*
@@ -311,12 +317,16 @@ export default {
             changes.cmsPageId === null &&
             !hasDeletions
         ) {
+            Shopware.Store.get('shopwareApps').selectedIds = [];
             next();
+
             return;
         }
 
         if (changedKeys.length === 0 && !hasDeletions) {
+            Shopware.Store.get('shopwareApps').selectedIds = [];
             next();
+
             return;
         }
 
@@ -390,9 +400,7 @@ export default {
             criteria.getAssociation('sections').addSorting(Criteria.sort('position'));
 
             criteria.addAssociation('sections.blocks');
-            criteria.getAssociation('sections.blocks')
-                .addSorting(Criteria.sort('position', 'ASC'))
-                .addAssociation('slots');
+            criteria.getAssociation('sections.blocks').addSorting(Criteria.sort('position', 'ASC')).addAssociation('slots');
 
             return this.cmsPageRepository.search(criteria).then((response) => {
                 const cmsPage = response.get(cmsPageId);
@@ -417,19 +425,16 @@ export default {
                 }
 
                 this.updateCmsPageDataMapping();
-                Shopware.State.commit('cmsPageState/setCurrentPage', cmsPage);
+                this.cmsPageState.setCurrentPage(cmsPage);
 
                 return this.cmsPage;
             });
         },
 
         updateCmsPageDataMapping() {
-            Shopware.State.commit('cmsPageState/setCurrentMappingEntity', 'category');
-            Shopware.State.commit(
-                'cmsPageState/setCurrentMappingTypes',
-                this.cmsService.getEntityMappingTypes('category'),
-            );
-            Shopware.State.commit('cmsPageState/setCurrentDemoEntity', this.category);
+            this.cmsPageState.setCurrentMappingEntity('category');
+            this.cmsPageState.setCurrentMappingTypes(this.cmsService.getEntityMappingTypes('category'));
+            this.cmsPageState.setCurrentDemoEntity(this.category);
         },
 
         getAssignedCmsPageForLandingPage() {
@@ -445,7 +450,8 @@ export default {
             criteria.getAssociation('sections').addSorting(Criteria.sort('position'));
 
             criteria.addAssociation('sections.blocks');
-            criteria.getAssociation('sections.blocks')
+            criteria
+                .getAssociation('sections.blocks')
                 .addSorting(Criteria.sort('position', 'ASC'))
                 .getAssociation('slots')
                 .addAssociation('translations');
@@ -472,18 +478,15 @@ export default {
                 }
 
                 this.updateCmsPageDataMappingForLandingPage();
-                Shopware.State.commit('cmsPageState/setCurrentPage', cmsPage);
+                this.cmsPageState.setCurrentPage(cmsPage);
                 return this.cmsPage;
             });
         },
 
         updateCmsPageDataMappingForLandingPage() {
-            Shopware.State.commit('cmsPageState/setCurrentMappingEntity', 'landing_page');
-            Shopware.State.commit(
-                'cmsPageState/setCurrentMappingTypes',
-                this.cmsService.getEntityMappingTypes('landing_page'),
-            );
-            Shopware.State.commit('cmsPageState/setCurrentDemoEntity', this.landingPage);
+            this.cmsPageState.setCurrentMappingEntity('landing_page');
+            this.cmsPageState.setCurrentMappingTypes(this.cmsService.getEntityMappingTypes('landing_page'));
+            this.cmsPageState.setCurrentDemoEntity(this.landingPage);
         },
 
         async setLandingPage() {
@@ -491,24 +494,25 @@ export default {
 
             try {
                 if (this.landingPageId === null) {
-                    Shopware.State.commit('shopwareApps/setSelectedIds', []);
+                    Shopware.Store.get('shopwareApps').selectedIds = [];
 
-                    await Shopware.State.dispatch('swCategoryDetail/setActiveLandingPage', { landingPage: null });
-                    await Shopware.State.dispatch('cmsPageState/resetCmsPageState');
+                    Shopware.Store.get('swCategoryDetail').landingPage = null;
+                    this.cmsPageState.resetCmsPageState();
 
                     return;
                 }
 
-
-                Shopware.State.commit('shopwareApps/setSelectedIds', [this.landingPageId]);
-                await Shopware.State.dispatch('swCategoryDetail/loadActiveLandingPage', {
+                Shopware.Store.get('shopwareApps').selectedIds = [
+                    this.landingPageId,
+                ];
+                await Shopware.Store.get('swCategoryDetail').loadActiveLandingPage({
                     repository: this.landingPageRepository,
                     apiContext: Shopware.Context.api,
                     id: this.landingPageId,
                     criteria: this.landingPageCriteria,
                 });
 
-                await Shopware.State.dispatch('cmsPageState/resetCmsPageState');
+                this.cmsPageState.resetCmsPageState();
                 await this.getAssignedCmsPageForLandingPage();
                 await this.loadLandingPageCustomFieldSet();
             } catch {
@@ -525,22 +529,28 @@ export default {
             this.isLoading = true;
 
             if (this.categoryId === null) {
-                Shopware.State.commit('shopwareApps/setSelectedIds', []);
+                Shopware.Store.get('shopwareApps').selectedIds = [];
 
-                return Shopware.State.dispatch('swCategoryDetail/setActiveCategory', { category: null })
-                    .then(() => Shopware.State.dispatch('cmsPageState/resetCmsPageState'))
-                    .then(() => {
-                        this.isLoading = false;
-                    });
+                Shopware.Store.get('swCategoryDetail').category = null;
+                this.cmsPageState.resetCmsPageState();
+                this.isLoading = false;
+                return;
             }
 
-            Shopware.State.commit('shopwareApps/setSelectedIds', [this.categoryId]);
-            return Shopware.State.dispatch('swCategoryDetail/loadActiveCategory', {
-                repository: this.categoryRepository,
-                apiContext: Shopware.Context.api,
-                id: this.categoryId,
-                criteria: this.categoryCriteria,
-            }).then(() => Shopware.State.dispatch('cmsPageState/resetCmsPageState'))
+            Shopware.Store.get('shopwareApps').selectedIds = [
+                this.categoryId,
+            ];
+            Shopware.Store.get('swCategoryDetail')
+                .loadActiveCategory({
+                    repository: this.categoryRepository,
+                    apiContext: Shopware.Context.api,
+                    id: this.categoryId,
+                    criteria: this.categoryCriteria,
+                })
+                .then(() => {
+                    this.cmsPageState.resetCmsPageState();
+                    return Promise.resolve();
+                })
                 .then(this.getAssignedCmsPage)
                 .then(this.loadCustomFieldSet)
                 .then(() => {
@@ -551,10 +561,12 @@ export default {
         loadCustomFieldSet() {
             this.isCustomFieldLoading = true;
 
-            return this.customFieldSetRepository.search(this.customFieldSetCriteria)
+            return this.customFieldSetRepository
+                .search(this.customFieldSetCriteria)
                 .then((customFieldSet) => {
-                    return this.$store.commit('swCategoryDetail/setCustomFieldSets', customFieldSet);
-                }).finally(() => {
+                    Shopware.Store.get('swCategoryDetail').customFieldSets = customFieldSet;
+                })
+                .finally(() => {
                     this.isCustomFieldLoading = true;
                 });
         },
@@ -562,10 +574,12 @@ export default {
         loadLandingPageCustomFieldSet() {
             this.isCustomFieldLoading = true;
 
-            return this.customFieldSetRepository.search(this.customFieldSetLandingPageCriteria)
+            return this.customFieldSetRepository
+                .search(this.customFieldSetLandingPageCriteria)
                 .then((customFieldSet) => {
-                    return this.$store.commit('swCategoryDetail/setCustomFieldSets', customFieldSet);
-                }).finally(() => {
+                    Shopware.Store.get('swCategoryDetail').customFieldSets = customFieldSet;
+                })
+                .finally(() => {
                     this.isCustomFieldLoading = true;
                 });
         },
@@ -586,16 +600,16 @@ export default {
 
         onLeaveModalConfirm(destination) {
             // Discard all category related errors that may have occurred
-            Shopware.State.dispatch(
-                'error/removeApiError',
-                { expression: 'category' },
-            );
+            Shopware.Store.get('error').removeApiError('category');
 
             this.forceDiscardChanges = true;
             this.isDisplayingLeavePageWarning = false;
 
             this.$nextTick(() => {
-                this.$router.push({ name: destination.name, params: destination.params });
+                this.$router.push({
+                    name: destination.name,
+                    params: destination.params,
+                });
             });
         },
 
@@ -642,7 +656,7 @@ export default {
 
             const pageOverrides = this.getCmsPageOverrides();
 
-            if (type.isPlainObject(pageOverrides)) {
+            if (isPlainObject(pageOverrides)) {
                 this.category.slotConfig = cloneDeep(pageOverrides);
             }
 
@@ -656,20 +670,29 @@ export default {
             this.isLoading = true;
             await this.updateSeoUrls();
 
-            return this.categoryRepository.save(this.category, { ...Shopware.Context.api }).then(() => {
-                this.isSaveSuccessful = true;
-                this.entryPointOverwriteConfirmed = false;
-                return this.setCategory();
-            }).catch(() => {
-                this.isLoading = false;
-                this.entryPointOverwriteConfirmed = false;
+            const response = await this.systemConfigApiService.getValues('core.cms');
 
-                this.createNotificationError({
-                    message: this.$tc(
-                        'global.notification.notificationSaveErrorMessageRequiredFieldsInvalid',
-                    ),
+            this.defaultCategoryId = response['core.cms.default_category_cms_page'];
+
+            if (this.category.cmsPageId === this.defaultCategoryId) {
+                this.category.cmsPageId = null;
+            }
+
+            return this.categoryRepository
+                .save(this.category, { ...Shopware.Context.api })
+                .then(() => {
+                    this.isSaveSuccessful = true;
+                    this.entryPointOverwriteConfirmed = false;
+                    return this.setCategory();
+                })
+                .catch(() => {
+                    this.isLoading = false;
+                    this.entryPointOverwriteConfirmed = false;
+
+                    this.createNotificationError({
+                        message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
+                    });
                 });
-            });
         },
 
         checkForEntryPointOverwrite() {
@@ -711,7 +734,7 @@ export default {
 
             const pageOverrides = this.getCmsPageOverrides();
 
-            if (type.isPlainObject(pageOverrides)) {
+            if (isPlainObject(pageOverrides)) {
                 this.landingPage.slotConfig = cloneDeep(pageOverrides);
             }
 
@@ -724,54 +747,93 @@ export default {
             }
 
             this.isLoading = true;
-            return this.landingPageRepository.save(this.landingPage, Shopware.Context.api).then(() => {
-                this.isSaveSuccessful = true;
+            return this.landingPageRepository
+                .save(this.landingPage, Shopware.Context.api)
+                .then(() => {
+                    this.isSaveSuccessful = true;
 
-                if (this.landingPageId === 'create') {
-                    this.$router.push({ name: 'sw.category.landingPageDetail', params: { id: this.landingPage.id } });
-                    return Promise.resolve();
-                }
+                    if (this.landingPageId === 'create') {
+                        this.$router.push({
+                            name: 'sw.category.landingPageDetail',
+                            params: { id: this.landingPage.id },
+                        });
+                        return Promise.resolve();
+                    }
 
-                return this.setLandingPage();
-            }).catch(() => {
-                this.isLoading = false;
+                    return this.setLandingPage();
+                })
+                .catch(() => {
+                    this.isLoading = false;
 
-                if (this.landingPage.salesChannels.length === 0) {
-                    this.addLandingPageSalesChannelError();
+                    if (this.landingPage.salesChannels.length === 0) {
+                        this.addLandingPageSalesChannelError();
 
-                    return;
-                }
+                        return;
+                    }
 
-                this.createNotificationError({
-                    message: this.$tc(
-                        'global.notification.notificationSaveErrorMessageRequiredFieldsInvalid',
-                    ),
+                    this.createNotificationError({
+                        message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
+                    });
                 });
-            });
         },
 
         addLandingPageSalesChannelError() {
-            const shopwareError = new Shopware.Classes.ShopwareError(
-                {
-                    code: 'landing_page_sales_channel_blank',
-                    detail: 'This value should not be blank.',
-                    status: '400',
-                },
-            );
+            const shopwareError = new Shopware.Classes.ShopwareError({
+                code: 'landing_page_sales_channel_blank',
+                detail: 'This value should not be blank.',
+                status: '400',
+            });
 
-            Shopware.State.dispatch(
-                'error/addApiError',
-                {
-                    expression: `landing_page.${this.landingPage.id}.salesChannels`,
-                    error: shopwareError,
-                },
-            );
+            Shopware.Store.get('error').addApiError({
+                expression: `landing_page.${this.landingPage.id}.salesChannels`,
+                error: shopwareError,
+            });
 
             this.createNotificationError({
-                message: this.$tc(
-                    'global.notification.notificationSaveErrorMessageRequiredFieldsInvalid',
-                ),
+                message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
             });
+        },
+
+        extractSlotOverrides(origin, changes) {
+            const slotOverrides = {};
+
+            if (changes === null) {
+                return slotOverrides;
+            }
+
+            if (isArray(changes.sections)) {
+                changes.sections.forEach((section) => {
+                    const originSection = origin?.sections?.find((oSection) => oSection.id === section.id);
+
+                    if (isArray(section.blocks)) {
+                        section.blocks.forEach((block) => {
+                            const originBlock = originSection?.blocks?.find((oBlock) => oBlock.id === block.id);
+
+                            if (isArray(block.slots)) {
+                                block.slots.forEach((slot) => {
+                                    const originSlot = originBlock?.slots?.find((oSlot) => oSlot.id === slot.id);
+                                    const originSlotConfig = originSlot?.translated.config;
+
+                                    if (slot.config && originSlotConfig) {
+                                        Object.keys(slot.config).forEach((key) => {
+                                            if (!isEqual(slot.config[key], originSlotConfig[key])) {
+                                                if (!slotOverrides[slot.id]) {
+                                                    slotOverrides[slot.id] = {};
+                                                }
+                                                slotOverrides[slot.id][key] = slot.config[key];
+                                            }
+                                        });
+                                    } else if (slot.config) {
+                                        slotOverrides[slot.id] = slot.config;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            return slotOverrides;
         },
 
         getCmsPageOverrides() {
@@ -782,27 +844,8 @@ export default {
             this.deleteSpecifcKeys(this.cmsPage.sections);
 
             const { changes } = this.changesetGenerator.generate(this.cmsPage);
-
-            const slotOverrides = {};
-            if (changes === null) {
-                return slotOverrides;
-            }
-
-            if (type.isArray(changes.sections)) {
-                changes.sections.forEach((section) => {
-                    if (type.isArray(section.blocks)) {
-                        section.blocks.forEach((block) => {
-                            if (type.isArray(block.slots)) {
-                                block.slots.forEach((slot) => {
-                                    slotOverrides[slot.id] = slot.config;
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-
-            return slotOverrides;
+            const origin = this.cmsPage.getOrigin();
+            return this.extractSlotOverrides(origin, changes);
         },
 
         deleteSpecifcKeys(sections) {
@@ -842,32 +885,30 @@ export default {
         },
 
         updateSeoUrls() {
-            if (!Shopware.State.list().includes('swSeoUrl')) {
+            if (!Shopware.Store.list().includes('swSeoUrl')) {
                 return Promise.resolve();
             }
 
-            const seoUrls = Shopware.State.getters['swSeoUrl/getNewOrModifiedUrls']();
+            const seoUrls = Shopware.Store.get('swSeoUrl').newOrModifiedUrls;
 
-            return Promise.all(seoUrls.map((seoUrl) => {
-                if (seoUrl.seoPathInfo) {
-                    seoUrl.isModified = true;
-                    return this.seoUrlService.updateCanonicalUrl(seoUrl, seoUrl.languageId);
-                }
+            return Promise.all(
+                seoUrls.map((seoUrl) => {
+                    if (seoUrl.seoPathInfo) {
+                        seoUrl.isModified = true;
+                        return this.seoUrlService.updateCanonicalUrl(seoUrl, seoUrl.languageId);
+                    }
 
-                return Promise.resolve();
-            }));
+                    return Promise.resolve();
+                }),
+            );
         },
 
         onLandingPageDelete() {
-            Shopware.State.commit('swCategoryDetail/setLandingPagesToDelete', {
-                landingPagesToDelete: null,
-            });
+            Shopware.Store.get('swCategoryDetail').landingPagesToDelete = null;
         },
 
         onCategoryDelete() {
-            Shopware.State.commit('swCategoryDetail/setCategoriesToDelete', {
-                categoriesToDelete: null,
-            });
+            Shopware.Store.get('swCategoryDetail').categoriesToDelete = null;
         },
     },
 };

@@ -1,13 +1,18 @@
 const { Module } = Shopware;
 
 /**
- * @package services-settings
+ * @sw-package framework
  * @private
  */
 Shopware.Component.register('sw-settings-usage-data', () => import('./page/sw-settings-usage-data'));
+/**
+ * @sw-package framework
+ * @private
+ */
+Shopware.Component.register('sw-settings-usage-data-general', () => import('./component/sw-settings-usage-data-general'));
 
 /**
- * @package services-settings
+ * @sw-package framework
  * @private
  */
 Module.register('sw-settings-usage-data', {
@@ -30,6 +35,19 @@ Module.register('sw-settings-usage-data', {
                 parentPath: 'sw.settings.index.system',
                 privilege: 'system.system_config',
             },
+            redirect: {
+                name: 'sw.settings.usage.data.index.general',
+            },
+            children: {
+                general: {
+                    component: 'sw-settings-usage-data-general',
+                    path: 'general',
+                    meta: {
+                        parentPath: 'sw.settings.index.system',
+                        privilege: 'system.system_config',
+                    },
+                },
+            },
         },
     },
 
@@ -42,7 +60,7 @@ Module.register('sw-settings-usage-data', {
 });
 
 /**
- * @package services-settings
+ * @sw-package framework
  * @private
  */
 export {};

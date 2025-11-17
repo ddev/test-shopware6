@@ -3,34 +3,35 @@
 namespace Shopware\Core\Framework\Util;
 
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SystemConfig\Exception\XmlElementNotFoundException;
-use Shopware\Core\System\SystemConfig\Exception\XmlParsingException;
 use Symfony\Component\Config\Util\XmlUtils;
 
-#[Package('core')]
+#[Package('framework')]
 abstract class XmlReader
 {
     /**
      * @var string should be set in instance that extends this class
      */
-    protected $xsdFile;
+    protected string $xsdFile;
 
     /**
      * load and validate xml file - parse to array
      *
-     * @throws XmlParsingException
+     * @return array<array<string, mixed>>
      */
     public function read(string $xmlFile): array
     {
         try {
             $dom = XmlUtils::loadFile($xmlFile, $this->xsdFile);
         } catch (\Exception $e) {
-            throw new XmlParsingException($xmlFile, $e->getMessage());
+            throw UtilException::xmlParsingException($xmlFile, $e->getMessage());
         }
 
         return $this->parseFile($dom);
     }
 
+    /**
+     * @return list<\DOMElement>
+     */
     public static function getAllChildren(\DOMNode $node): array
     {
         $children = [];
@@ -43,6 +44,9 @@ abstract class XmlReader
         return $children;
     }
 
+    /**
+     * @return list<\DOMElement>
+     */
     public static function getChildByName(\DOMNode $node, string $name): array
     {
         $children = [];
@@ -75,21 +79,25 @@ abstract class XmlReader
         return (bool) static::phpize($value);
     }
 
+    /**
+     * @param \DOMNodeList<\DOMElement> $optionsList
+     *
+     * @return array<string, mixed>|null
+     */
     public static function parseOptionsNodeList(\DOMNodeList $optionsList): ?array
     {
         if ($optionsList->length === 0) {
             return null;
         }
 
-        $optionList = $optionsList->item(0)->childNodes;
+        $optionList = $optionsList->item(0)?->childNodes;
 
-        if ($optionList->length === 0) {
+        if (!$optionList instanceof \DOMNodeList || $optionList->length === 0) {
             return null;
         }
 
         $options = [];
 
-        /** @var \DOMElement $option */
         foreach ($optionList as $option) {
             if ($option instanceof \DOMElement) {
                 $options[$option->nodeName] = static::phpize($option->nodeValue);
@@ -99,22 +107,19 @@ abstract class XmlReader
         return $options;
     }
 
-    /**
-     * @throws XmlElementNotFoundException
-     */
     public static function getElementChildValueByName(\DOMElement $element, string $name, bool $throwException = false): ?string
     {
         $children = $element->getElementsByTagName($name);
 
         if ($children->length === 0) {
             if ($throwException) {
-                throw new XmlElementNotFoundException($name);
+                throw UtilException::xmlElementNotFound($name);
             }
 
             return null;
         }
 
-        return $children->item(0)->nodeValue;
+        return $children->item(0)?->nodeValue;
     }
 
     public static function validateTextAttribute(string $type, string $defaultValue = ''): string
@@ -148,6 +153,8 @@ abstract class XmlReader
 
     /**
      * This method is the main entry point to parse a xml file.
+     *
+     * @return array<array<string, mixed>>
      */
     abstract protected function parseFile(\DOMDocument $xml): array;
 }

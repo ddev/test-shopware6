@@ -2,28 +2,11 @@
 
 namespace Shopware\Core\Content\Media;
 
-use Shopware\Core\Content\Media\Exception\CouldNotRenameFileException;
-use Shopware\Core\Content\Media\Exception\DisabledUrlUploadFeatureException;
-use Shopware\Core\Content\Media\Exception\DuplicatedMediaFileNameException;
-use Shopware\Core\Content\Media\Exception\EmptyMediaFilenameException;
-use Shopware\Core\Content\Media\Exception\EmptyMediaIdException;
-use Shopware\Core\Content\Media\Exception\FileExtensionNotSupportedException;
-use Shopware\Core\Content\Media\Exception\IllegalFileNameException;
-use Shopware\Core\Content\Media\Exception\IllegalUrlException;
-use Shopware\Core\Content\Media\Exception\MediaFolderNotFoundException;
-use Shopware\Core\Content\Media\Exception\MediaNotFoundException;
-use Shopware\Core\Content\Media\Exception\MissingFileException;
-use Shopware\Core\Content\Media\Exception\MissingFileExtensionException;
-use Shopware\Core\Content\Media\Exception\StrategyNotFoundException;
-use Shopware\Core\Content\Media\Exception\ThumbnailCouldNotBeSavedException;
-use Shopware\Core\Content\Media\Exception\ThumbnailNotSupportedException;
-use Shopware\Core\Content\Media\Exception\UploadException;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\HttpException;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class MediaException extends HttpException
 {
     public const MEDIA_INVALID_CONTENT_LENGTH = 'CONTENT__MEDIA_INVALID_CONTENT_LENGTH';
@@ -42,6 +25,7 @@ class MediaException extends HttpException
     public const MEDIA_EMPTY_FILE_NAME = 'CONTENT__MEDIA_EMPTY_FILE_NAME';
     public const MEDIA_FOLDER_NOT_FOUND = 'CONTENT__MEDIA_FOLDER_NOT_FOUND';
     public const MEDIA_FOLDER_NAME_NOT_FOUND = 'CONTENT__MEDIA_FOLDER_NAME_NOT_FOUND';
+    public const MEDIA_DEFAULT_FOLDER_ENTITY_NOT_FOUND = 'CONTENT__MEDIA_DEFAULT_FOLDER_ENTITY_NOT_FOUND';
     public const MEDIA_FILE_TYPE_NOT_SUPPORTED = 'CONTENT__MEDIA_FILE_TYPE_NOT_SUPPORTED';
     public const MEDIA_COULD_NOT_RENAME_FILE = 'CONTENT__MEDIA_COULD_NOT_RENAME_FILE';
     public const MEDIA_EMPTY_ID = 'CONTENT__MEDIA_EMPTY_ID';
@@ -62,12 +46,28 @@ class MediaException extends HttpException
     public const MEDIA_NOT_FOUND = 'CONTENT__MEDIA_NOT_FOUND';
     public const MEDIA_DUPLICATED_FILE_NAME = 'CONTENT__MEDIA_DUPLICATED_FILE_NAME';
 
+    public const MEDIA_FILE_NAME_IS_TOO_LONG = 'CONTENT__MEDIA_FILE_NAME_IS_TOO_LONG';
+    public const MEDIA_REVERSE_PROXY_CANNOT_BAN_URL = 'MEDIA_REVERSE_PROXY__CANNOT_BAN_URL';
+    public const MEDIA_INVALID_MIME_TYPE = 'CONTENT__MEDIA_INVALID_MIME_TYPE';
+
+    public const MEDIA_THUMBNAIL_GENERATION_DISABLED = 'CONTENT__MEDIA_THUMBNAIL_GENERATION_DISABLED';
+    public const MEDIA_UNKNOWN_LOCATION_TYPE = 'CONTENT__MEDIA_UNKNOWN_LOCATION_TYPE';
+    public const CONTENT_MEDIA_NO_FORM_DATA_FIELD_PROVIDED = 'CONTENT__MEDIA_NO_FORM_DATA_FIELD_PROVIDED';
+    public const CONTENT_MEDIA_NO_MIME_TYPE_PROVIDED = 'CONTENT__MEDIA_NO_MIME_TYPE_PROVIDED';
+
+    public static function cannotBanRequest(string $url, string $error, ?\Throwable $e = null): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::MEDIA_REVERSE_PROXY_CANNOT_BAN_URL,
+            'BAN request failed to {{ url }} failed with error: {{ error }}',
+            ['url' => $url, 'error' => $error],
+            $e
+        );
+    }
+
     public static function invalidContentLength(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException('Expected content-length did not match actual size.');
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_INVALID_CONTENT_LENGTH,
@@ -77,10 +77,6 @@ class MediaException extends HttpException
 
     public static function invalidUrl(string $url): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException(sprintf('Provided URL "%s" is invalid.', $url));
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_INVALID_URL,
@@ -91,10 +87,6 @@ class MediaException extends HttpException
 
     public static function illegalUrl(string $url): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new IllegalUrlException($url);
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_ILLEGAL_URL,
@@ -105,10 +97,6 @@ class MediaException extends HttpException
 
     public static function disableUrlUploadFeature(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new DisabledUrlUploadFeatureException();
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_DISABLE_URL_UPLOAD_FEATURE,
@@ -118,10 +106,6 @@ class MediaException extends HttpException
 
     public static function cannotOpenSourceStreamToRead(string $url): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException(sprintf('Cannot open source stream to read from %s.', $url));
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_CANNOT_OPEN_SOURCE_STREAM_TO_READ,
@@ -132,10 +116,6 @@ class MediaException extends HttpException
 
     public static function cannotOpenSourceStreamToWrite(string $fileName): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException(sprintf('Cannot open source stream to write upload data: %s.', $fileName));
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_CANNOT_OPEN_SOURCE_STREAM_TO_WRITE,
@@ -146,12 +126,8 @@ class MediaException extends HttpException
 
     public static function cannotCopyMedia(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException('Error while copying media from source.');
-        }
-
         return new self(
-            Response::HTTP_CONFLICT,
+            Response::HTTP_BAD_REQUEST,
             self::MEDIA_CANNOT_COPY_MEDIA,
             'Error while copying media from source.'
         );
@@ -159,10 +135,6 @@ class MediaException extends HttpException
 
     public static function fileSizeLimitExceeded(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException('Source file exceeds maximum file size limit.');
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_FILE_SIZE_LIMIT_EXCEEDED,
@@ -172,10 +144,6 @@ class MediaException extends HttpException
 
     public static function missingFileExtension(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new MissingFileExtensionException();
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_MISSING_FILE_EXTENSION,
@@ -185,10 +153,6 @@ class MediaException extends HttpException
 
     public static function illegalFileName(string $filename, string $cause): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new IllegalFileNameException($filename, $cause);
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_ILLEGAL_FILE_NAME,
@@ -199,10 +163,6 @@ class MediaException extends HttpException
 
     public static function mediaNotFound(string $mediaId): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new MediaNotFoundException($mediaId);
-        }
-
         return new self(
             Response::HTTP_NOT_FOUND,
             self::MEDIA_NOT_FOUND,
@@ -213,10 +173,6 @@ class MediaException extends HttpException
 
     public static function invalidFile(string $cause): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException(sprintf('Provided file is invalid: %s.', $cause));
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_INVALID_FILE,
@@ -227,10 +183,6 @@ class MediaException extends HttpException
 
     public static function emptyMediaFilename(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new EmptyMediaFilenameException();
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_EMPTY_FILE_NAME,
@@ -240,12 +192,8 @@ class MediaException extends HttpException
 
     public static function duplicatedMediaFileName(string $fileName, string $fileExtension): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new DuplicatedMediaFileNameException($fileName, $fileExtension);
-        }
-
         return new self(
-            Response::HTTP_CONFLICT,
+            Response::HTTP_BAD_REQUEST,
             self::MEDIA_DUPLICATED_FILE_NAME,
             'A file with the name "{{ fileName }}.{{ fileExtension }}" already exists.',
             ['fileName' => $fileName, 'fileExtension' => $fileExtension]
@@ -254,10 +202,6 @@ class MediaException extends HttpException
 
     public static function missingFile(string $mediaId): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new MissingFileException($mediaId);
-        }
-
         return new self(
             Response::HTTP_NOT_FOUND,
             self::MEDIA_MISSING_FILE,
@@ -268,10 +212,6 @@ class MediaException extends HttpException
 
     public static function mediaFolderIdNotFound(string $folderId): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new MediaFolderNotFoundException($folderId);
-        }
-
         return new self(
             Response::HTTP_NOT_FOUND,
             self::MEDIA_FOLDER_NOT_FOUND,
@@ -290,12 +230,18 @@ class MediaException extends HttpException
         );
     }
 
+    public static function defaultMediaFolderWithEntityNotFound(string $entity): self
+    {
+        return new self(
+            Response::HTTP_NOT_FOUND,
+            self::MEDIA_DEFAULT_FOLDER_ENTITY_NOT_FOUND,
+            self::$couldNotFindMessage,
+            ['entity' => 'a default folder', 'field' => 'entity', 'value' => $entity]
+        );
+    }
+
     public static function fileExtensionNotSupported(string $mediaId, string $extension): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new FileExtensionNotSupportedException($mediaId, $extension);
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_FILE_TYPE_NOT_SUPPORTED,
@@ -306,12 +252,8 @@ class MediaException extends HttpException
 
     public static function couldNotRenameFile(string $mediaId, string $oldFileName): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new CouldNotRenameFileException($mediaId, $oldFileName);
-        }
-
         return new self(
-            Response::HTTP_CONFLICT,
+            Response::HTTP_BAD_REQUEST,
             self::MEDIA_COULD_NOT_RENAME_FILE,
             'Could not rename file for media with id: {{ mediaId }}. Rollback to filename: "{{ oldFileName }}"',
             ['mediaId' => $mediaId, 'oldFileName' => $oldFileName]
@@ -320,10 +262,6 @@ class MediaException extends HttpException
 
     public static function emptyMediaId(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new EmptyMediaIdException();
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_EMPTY_ID,
@@ -361,10 +299,6 @@ class MediaException extends HttpException
 
     public static function thumbnailNotSupported(string $mediaId): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new ThumbnailNotSupportedException($mediaId);
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_FILE_NOT_SUPPORTED_FOR_THUMBNAIL,
@@ -375,12 +309,8 @@ class MediaException extends HttpException
 
     public static function thumbnailCouldNotBeSaved(string $url): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new ThumbnailCouldNotBeSavedException($url);
-        }
-
         return new self(
-            Response::HTTP_CONFLICT,
+            Response::HTTP_BAD_REQUEST,
             self::MEDIA_THUMBNAIL_NOT_SAVED,
             'Thumbnail could not be saved to location: {{ location }}.',
             ['location' => $url]
@@ -407,10 +337,6 @@ class MediaException extends HttpException
 
     public static function strategyNotFound(string $strategyName): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new StrategyNotFoundException($strategyName);
-        }
-
         return new self(
             Response::HTTP_NOT_FOUND,
             self::MEDIA_STRATEGY_NOT_FOUND,
@@ -439,10 +365,6 @@ class MediaException extends HttpException
 
     public static function missingUrlParameter(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UploadException('Parameter url is missing.');
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::MEDIA_MISSING_URL_PARAMETER,
@@ -476,6 +398,62 @@ class MediaException extends HttpException
             self::MEDIA_INVALID_URL,
             'The url generator parameter "{{ key }}" is invalid.',
             ['key' => $key]
+        );
+    }
+
+    public static function fileNameTooLong(int $maxLength): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::MEDIA_FILE_NAME_IS_TOO_LONG,
+            'The provided file name is too long, the maximum length is {{ maxLength }} characters.',
+            ['maxLength' => $maxLength]
+        );
+    }
+
+    public static function invalidMimeType(string $mimeType): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::MEDIA_INVALID_MIME_TYPE,
+            'The mime type "{{ mimeType }}" is invalid.',
+            ['mimeType' => $mimeType]
+        );
+    }
+
+    public static function thumbnailGenerationDisabled(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::MEDIA_THUMBNAIL_GENERATION_DISABLED,
+            'Remote thumbnails are enabled. Skipping thumbnail generation.'
+        );
+    }
+
+    public static function unknownLocationType(): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::MEDIA_UNKNOWN_LOCATION_TYPE,
+            'Unknown location type'
+        );
+    }
+
+    public static function fileNotProvided(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CONTENT_MEDIA_NO_FORM_DATA_FIELD_PROVIDED,
+            'No file provided in request body'
+        );
+    }
+
+    public static function mimeTypeNotProvided(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CONTENT_MEDIA_NO_MIME_TYPE_PROVIDED,
+            'mimeType is not provided'
         );
     }
 }

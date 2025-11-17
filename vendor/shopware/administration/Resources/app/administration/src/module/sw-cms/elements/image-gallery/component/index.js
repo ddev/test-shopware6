@@ -1,12 +1,12 @@
-import CMS from '../../../constant/sw-cms.constant';
 import template from './sw-cms-el-image-gallery.html.twig';
 import './sw-cms-el-image-gallery.scss';
 
 const { Mixin, Filter } = Shopware;
+const { CMS } = Shopware.Constants;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -118,9 +118,7 @@ export default {
             this.initElementConfig('image-gallery');
             this.initElementData('image-gallery');
 
-            if (!this.isProductPage
-                || this.element?.translated?.config?.sliderItems
-                || this.element?.data?.sliderItems) {
+            if (!this.isProductPage || this.element?.translated?.config?.sliderItems || this.element?.data?.sliderItems) {
                 return;
             }
 
@@ -144,16 +142,24 @@ export default {
                 const previewPlant = CMS.MEDIA.previewPlant.slice(CMS.MEDIA.previewPlant.lastIndexOf('/') + 1);
 
                 return [
-                    { url: this.assetFilter(`administration/static/img/cms/${previewMountain}`) },
-                    { url: this.assetFilter(`administration/static/img/cms/${previewGlasses}`) },
-                    { url: this.assetFilter(`administration/static/img/cms/${previewPlant}`) },
+                    {
+                        url: this.assetFilter(`administration/administration/static/img/cms/${previewMountain}`),
+                    },
+                    {
+                        url: this.assetFilter(`administration/administration/static/img/cms/${previewGlasses}`),
+                    },
+                    {
+                        url: this.assetFilter(`administration/administration/static/img/cms/${previewPlant}`),
+                    },
                 ];
             }
 
-            return this.element.config.sliderItems.value.map(media => {
+            return this.element.config.sliderItems.value.map((media) => {
                 const fileName = media.fileName.slice(media.fileName.lastIndexOf('/') + 1);
 
-                return { url: this.assetFilter(`/administration/static/img/cms/${fileName}`) };
+                return {
+                    url: this.assetFilter(`/administration/administration/static/img/cms/${fileName}`),
+                };
             });
         },
 

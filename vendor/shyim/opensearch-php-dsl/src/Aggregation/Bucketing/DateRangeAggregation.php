@@ -34,7 +34,7 @@ class DateRangeAggregation extends AbstractAggregation
         string $field,
         ?string $format = null,
         array $ranges = [],
-        bool $keyed = false
+        bool $keyed = false,
     ) {
         parent::__construct($name);
 
@@ -90,9 +90,6 @@ class DateRangeAggregation extends AbstractAggregation
         return $this;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getArray()
     {
         if (empty($this->ranges)) {

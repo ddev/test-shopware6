@@ -7,43 +7,41 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class VariantStruct extends StoreStruct
 {
     final public const TYPE_RENT = 'rent';
     final public const TYPE_BUY = 'buy';
     final public const TYPE_FREE = 'free';
+    final public const RENT_DURATION_MONTHLY = 1;
+    final public const RENT_DURATION_YEARLY = 12;
+
+    protected int $id;
+
+    protected string $type;
+
+    protected float $netPrice;
+
+    protected float $netPricePerMonth;
+
+    protected bool $trialPhaseIncluded = false;
+
+    protected int $duration;
+
+    protected ?DiscountCampaignStruct $discountCampaign = null;
 
     /**
-     * @var int
+     * @return VariantStruct
      */
-    protected $id;
-
-    /**
-     * @var string
-     */
-    protected $type;
-
-    /**
-     * @var float
-     */
-    protected $netPrice;
-
-    /**
-     * @var bool
-     */
-    protected $trialPhaseIncluded = false;
-
-    /**
-     * @var DiscountCampaignStruct|null
-     */
-    protected $discountCampaign;
-
     public static function fromArray(array $data): StoreStruct
     {
-        $variant = new self();
+        $variant = (new self())->assign($data);
 
-        return $variant->assign($data);
+        if (isset($data['discountCampaign']) && \is_array($data['discountCampaign'])) {
+            $variant->setDiscountCampaign(DiscountCampaignStruct::fromArray($data['discountCampaign']));
+        }
+
+        return $variant;
     }
 
     public function getId(): int
@@ -59,6 +57,16 @@ class VariantStruct extends StoreStruct
     public function getNetPrice(): float
     {
         return $this->netPrice;
+    }
+
+    public function getNetPricePerMonth(): float
+    {
+        return $this->netPricePerMonth;
+    }
+
+    public function getDuration(): int
+    {
+        return $this->duration;
     }
 
     public function isTrialPhaseIncluded(): bool

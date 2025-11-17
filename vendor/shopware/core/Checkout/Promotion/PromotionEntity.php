@@ -20,7 +20,7 @@ use Shopware\Core\Framework\Rule\Container\AndRule;
 use Shopware\Core\Framework\Rule\Container\OrRule;
 use Shopware\Core\Framework\Rule\Rule;
 
-#[Package('buyers-experience')]
+#[Package('checkout')]
 class PromotionEntity extends Entity
 {
     use EntityCustomFieldsTrait;
@@ -28,139 +28,71 @@ class PromotionEntity extends Entity
 
     final public const CODE_TYPE_NO_CODE = 'no_code';
 
-    /**
-     * @var string|null
-     */
-    protected $name;
+    protected ?string $name = null;
 
-    /**
-     * @var bool
-     */
-    protected $active;
+    protected bool $active;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $validFrom;
+    protected ?\DateTimeInterface $validFrom = null;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $validUntil;
+    protected ?\DateTimeInterface $validUntil = null;
 
-    /**
-     * @var int|null
-     */
-    protected $maxRedemptionsGlobal;
+    protected ?int $maxRedemptionsGlobal = null;
 
-    /**
-     * @var int|null
-     */
-    protected $maxRedemptionsPerCustomer;
+    protected ?int $maxRedemptionsPerCustomer = null;
 
     protected int $priority;
 
-    /**
-     * @var bool
-     */
-    protected $exclusive;
+    protected bool $exclusive;
 
-    /**
-     * @var bool
-     */
-    protected $useCodes = false;
+    protected bool $useCodes = false;
 
-    /**
-     * @var bool
-     */
-    protected $useSetGroups = false;
+    protected bool $useSetGroups = false;
 
     /**
      * Stores if the persona condition uses rules or customer assignments.
      * Default mode is "use rules".
-     *
-     * @var bool
      */
-    protected $customerRestriction = false;
+    protected bool $customerRestriction = false;
 
     protected bool $preventCombination = false;
 
-    /**
-     * @var bool
-     */
-    protected $useIndividualCodes;
+    protected bool $useIndividualCodes;
 
-    /**
-     * @var string
-     */
-    protected $individualCodePattern;
+    protected ?string $individualCodePattern = null;
 
-    /**
-     * @var PromotionSalesChannelCollection|null
-     */
-    protected $salesChannels;
+    protected ?PromotionSalesChannelCollection $salesChannels = null;
 
-    /**
-     * @var string|null
-     */
-    protected $code;
+    protected ?string $code = null;
 
-    /**
-     * @var PromotionDiscountCollection|null
-     */
-    protected $discounts;
+    protected ?PromotionDiscountCollection $discounts = null;
 
-    /**
-     * @var PromotionIndividualCodeCollection|null
-     */
-    protected $individualCodes;
+    protected ?PromotionIndividualCodeCollection $individualCodes = null;
 
-    /**
-     * @var PromotionSetGroupCollection|null
-     */
-    protected $setgroups;
+    protected ?PromotionSetGroupCollection $setgroups = null;
 
-    /**
-     * @var RuleCollection|null
-     */
-    protected $orderRules;
+    protected ?RuleCollection $orderRules = null;
 
-    /**
-     * @var RuleCollection|null
-     */
-    protected $personaRules;
+    protected ?RuleCollection $personaRules = null;
 
-    /**
-     * @var CustomerCollection|null
-     */
-    protected $personaCustomers;
+    protected ?CustomerCollection $personaCustomers = null;
 
-    /**
-     * @var RuleCollection|null
-     */
-    protected $cartRules;
+    protected ?RuleCollection $cartRules = null;
 
     protected ?OrderLineItemCollection $orderLineItems = null;
 
-    /**
-     * @var PromotionTranslationCollection|null
-     */
-    protected $translations;
+    protected ?PromotionTranslationCollection $translations = null;
 
-    /**
-     * @var int
-     */
-    protected $orderCount;
+    protected int $orderCount;
 
     /**
      * @var array<string, int>|null
      */
-    protected $ordersPerCustomerCount;
+    protected ?array $ordersPerCustomerCount = null;
 
     /**
-     * @var array<string>
+     * @var string[]
      */
-    protected $exclusionIds;
+    protected array $exclusionIds = [];
 
     public function getName(): ?string
     {
@@ -299,10 +231,8 @@ class PromotionEntity extends Entity
     /**
      * Gets the placeholder pattern that will be used
      * to generate new individual codes.
-     *
-     * @return string the pattern for individual code generation
      */
-    public function getIndividualCodePattern(): string
+    public function getIndividualCodePattern(): ?string
     {
         return $this->individualCodePattern;
     }
@@ -527,10 +457,6 @@ class PromotionEntity extends Entity
      */
     public function getExclusionIds(): array
     {
-        if ($this->exclusionIds === null) {
-            return [];
-        }
-
         return $this->exclusionIds;
     }
 

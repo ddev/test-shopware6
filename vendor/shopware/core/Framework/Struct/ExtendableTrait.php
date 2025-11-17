@@ -4,15 +4,15 @@ namespace Shopware\Core\Framework\Struct;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 trait ExtendableTrait
 {
     /**
      * Contains an array of extension structs.
      *
-     * @var Struct[]
+     * @var array<string, Struct>
      */
-    protected $extensions = [];
+    protected array $extensions = [];
 
     /**
      * Adds a new extension struct into the class storage.
@@ -81,15 +81,12 @@ trait ExtendableTrait
         return isset($this->extensions[$name]);
     }
 
+    /**
+     * @param class-string<Struct> $type
+     */
     public function hasExtensionOfType(string $name, string $type): bool
     {
-        $extension = $this->getExtension($name);
-
-        if ($extension === null) {
-            return false;
-        }
-
-        return $extension::class === $type;
+        return $this->getExtension($name) instanceof $type;
     }
 
     /**

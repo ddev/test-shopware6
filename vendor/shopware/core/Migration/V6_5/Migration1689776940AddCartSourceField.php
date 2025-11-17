@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1689776940AddCartSourceField extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -19,17 +19,11 @@ class Migration1689776940AddCartSourceField extends MigrationStep
 
     public function update(Connection $connection): void
     {
-        if ($this->columnExists($connection, 'order', 'source')) {
-            return;
-        }
-
-        $connection->executeStatement('
-            ALTER TABLE `order`
-            ADD COLUMN `source` VARCHAR(255) NULL;
-        ');
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
+        $this->addColumn(
+            connection: $connection,
+            table: 'order',
+            column: 'source',
+            type: 'VARCHAR(255)'
+        );
     }
 }

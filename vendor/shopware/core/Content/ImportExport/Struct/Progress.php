@@ -5,7 +5,7 @@ namespace Shopware\Core\Content\ImportExport\Struct;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class Progress extends Struct
 {
     final public const STATE_PROGRESS = 'progress';
@@ -14,44 +14,20 @@ class Progress extends Struct
     final public const STATE_FAILED = 'failed';
     final public const STATE_ABORTED = 'aborted';
 
-    /**
-     * @var string
-     */
-    protected $logId;
+    protected ?string $invalidRecordsLogId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $invalidRecordsLogId;
+    protected int $offset = 0;
 
-    /**
-     * @var int
-     */
-    protected $offset = 0;
+    protected ?int $total = null;
 
-    /**
-     * @var int|null
-     */
-    protected $total;
-
-    /**
-     * @var int
-     */
-    protected $processedRecords = 0;
-
-    /**
-     * @var string
-     */
-    protected $state;
+    protected int $processedRecords = 0;
 
     public function __construct(
-        string $logId,
-        string $state,
+        protected string $logId,
+        protected string $state,
         int $offset = 0,
         ?int $total = null
     ) {
-        $this->logId = $logId;
-        $this->state = $state;
         $this->offset = $offset;
         $this->total = $total;
     }

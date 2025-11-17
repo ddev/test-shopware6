@@ -2,11 +2,13 @@ import template from './sw-extension-domains-modal.html.twig';
 import './sw-extension-domains-modal.scss';
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
     template,
+
+    emits: ['modal-close'],
 
     props: {
         extensionLabel: {
@@ -22,10 +24,9 @@ export default {
 
     computed: {
         modalTitle() {
-            return this.$t(
-                'sw-extension-store.component.sw-extension-domains-modal.modalTitle',
-                { extensionLabel: this.extensionLabel },
-            );
+            return this.$t('sw-extension-store.component.sw-extension-domains-modal.modalTitle', {
+                extensionLabel: this.extensionLabel,
+            });
         },
     },
 

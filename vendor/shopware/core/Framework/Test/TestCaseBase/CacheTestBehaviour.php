@@ -2,23 +2,22 @@
 
 namespace Shopware\Core\Framework\Test\TestCaseBase;
 
+use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\Before;
 use Shopware\Core\Framework\Test\TestCacheClearer;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 trait CacheTestBehaviour
 {
-    /**
-     * @before
-     *
-     * @after
-     */
+    #[Before]
+    #[After]
     public function clearCacheData(): void
     {
         /** @var TestCacheClearer $cacheClearer */
-        $cacheClearer = $this->getContainer()->get(TestCacheClearer::class);
+        $cacheClearer = static::getContainer()->get(TestCacheClearer::class);
         $cacheClearer->clear();
 
-        $this->getContainer()
+        static::getContainer()
             ->get('services_resetter')
             ->reset();
     }

@@ -15,7 +15,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 /**
  * To allow custom server parameters,
  */
-#[Package('core')]
+#[Package('framework')]
 class TwigAppVariable extends AppVariable
 {
     private ?Request $request = null;
@@ -23,7 +23,7 @@ class TwigAppVariable extends AppVariable
     /**
      * @internal
      *
-     * @param list<string> $allowList
+     * @param array<string> $allowList
      */
     public function __construct(
         private readonly AppVariable $appVariable,

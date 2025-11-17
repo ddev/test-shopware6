@@ -5,7 +5,7 @@ const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -33,7 +33,7 @@ export default {
 
         showControls() {
             if (this.element.config.showControls.value) {
-                return '';
+                return 'controls=1&';
             }
 
             return 'controls=0&';
@@ -78,6 +78,9 @@ export default {
             }
 
             return `is--${this.element.config.displayMode.value}`;
+        },
+        iframeTitle() {
+            return this.element.config.iframeTitle.value;
         },
     },
 

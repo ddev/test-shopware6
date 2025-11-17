@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1698682149MakeTranslatableFieldsNullable extends MigrationStep
 {
     /**
@@ -69,19 +69,25 @@ class Migration1698682149MakeTranslatableFieldsNullable extends MigrationStep
     {
         foreach ($this->toUpdate as $table => $columns) {
             foreach ($columns as $column) {
+                $type = $this->getFieldType($connection, $table, $column);
+
                 $connection->executeStatement(
-                    sprintf(
-                        'ALTER TABLE `%s` MODIFY `%s` VARCHAR(255) DEFAULT NULL;',
+                    \sprintf(
+                        'ALTER TABLE `%s` MODIFY `%s` %s DEFAULT NULL;',
                         $table,
-                        $column
+                        $column,
+                        $type
                     )
                 );
             }
         }
     }
 
-    public function updateDestructive(Connection $connection): void
+    private function getFieldType(Connection $connection, string $table, string $column): string
     {
-        // implement update destructive
+        /** @var array{Type: string} $row */
+        $row = $connection->fetchAssociative('SHOW COLUMNS FROM ' . $table . ' WHERE Field = ?', [$column]);
+
+        return $row['Type'];
     }
 }

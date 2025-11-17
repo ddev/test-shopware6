@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Api\Context\SalesChannelApiSource;
 use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class ApiAware extends Flag
 {
     private const BASE_URLS = [
@@ -50,7 +50,23 @@ class ApiAware extends Flag
             return true;
         }
 
-        return isset($this->whitelist[$source]);
+        if (isset($this->whitelist[$source])) {
+            return true;
+        }
+
+        $parentSources = class_parents($source);
+
+        if (!$parentSources) {
+            return false;
+        }
+
+        foreach ($parentSources as $parentSource) {
+            if (isset($this->whitelist[$parentSource])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function parse(): \Generator

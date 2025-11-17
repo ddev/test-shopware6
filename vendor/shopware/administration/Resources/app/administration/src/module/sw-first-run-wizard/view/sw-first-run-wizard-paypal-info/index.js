@@ -2,13 +2,18 @@ import template from './sw-first-run-wizard-paypal-info.html.twig';
 import './sw-first-run-wizard-paypal-info.scss';
 
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
     inject: ['extensionStoreActionService'],
+
+    emits: [
+        'frw-set-title',
+        'buttons-update',
+    ],
 
     data() {
         return {
@@ -47,7 +52,7 @@ export default {
                     key: 'back',
                     label: this.$tc('sw-first-run-wizard.general.buttonBack'),
                     position: 'left',
-                    variant: null,
+                    variant: 'secondary',
                     action: 'sw.first.run.wizard.index.mailer.selection',
                     disabled: false,
                 },
@@ -55,7 +60,7 @@ export default {
                     key: 'skip',
                     label: this.$tc('sw-first-run-wizard.general.buttonSkip'),
                     position: 'right',
-                    variant: null,
+                    variant: 'secondary',
                     action: 'sw.first.run.wizard.index.plugins',
                     disabled: false,
                 },
@@ -73,34 +78,37 @@ export default {
         },
 
         installPayPal() {
-            return this.extensionStoreActionService.downloadExtension(this.pluginName)
-                .then(() => {
-                    return this.extensionStoreActionService.installExtension(this.pluginName, 'plugin');
-                });
+            return this.extensionStoreActionService.downloadExtension(this.pluginName).then(() => {
+                return this.extensionStoreActionService.installExtension(this.pluginName, 'plugin');
+            });
         },
 
         activatePayPalAndRedirect() {
             this.isInstallingPlugin = true;
-            this.installPromise.then(() => {
-                return this.extensionStoreActionService.activateExtension(this.pluginName, 'plugin');
-            }).then(() => {
-                // need a force reload, after plugin was activated
-                const { origin, pathname } = document.location;
-                const url = `${origin}${pathname}/#/sw/first/run/wizard/index/paypal/credentials`;
+            this.installPromise
+                .then(() => {
+                    return this.extensionStoreActionService.activateExtension(this.pluginName, 'plugin');
+                })
+                .then(async () => {
+                    await this.$router.push({
+                        name: 'sw.first.run.wizard.index.paypal.credentials',
+                    });
 
-                document.location.href = url;
+                    // need a force reload, after plugin was activated
+                    window.location.reload();
 
-                return Promise.resolve(true);
-            }).catch((error) => {
-                this.isInstallingPlugin = false;
-                this.pluginInstallationFailed = true;
+                    return Promise.resolve(true);
+                })
+                .catch((error) => {
+                    this.isInstallingPlugin = false;
+                    this.pluginInstallationFailed = true;
 
-                if (error.response?.data?.errors) {
-                    this.pluginError = error.response.data.errors.pop();
-                }
+                    if (error.response?.data?.errors) {
+                        this.pluginError = error.response.data.errors.pop();
+                    }
 
-                return true;
-            });
+                    return true;
+                });
         },
     },
 };

@@ -1,9 +1,8 @@
+/**
+ * @sw-package after-sales
+ */
 import template from './sw-order-document-settings-modal.html.twig';
 import './sw-order-document-settings-modal.scss';
-
-/**
- * @package checkout
- */
 
 const { Mixin, Utils } = Shopware;
 const { isEmpty } = Utils.types;
@@ -12,7 +11,18 @@ const { isEmpty } = Utils.types;
 export default {
     template,
 
-    inject: ['numberRangeService', 'feature', 'repositoryFactory'],
+    inject: [
+        'numberRangeService',
+        'repositoryFactory',
+    ],
+
+    emits: [
+        'loading-document',
+        'document-create',
+        'preview-show',
+        'page-leave-confirm',
+        'page-leave',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -44,7 +54,7 @@ export default {
             uploadDocument: false,
             documentConfig: {
                 custom: {},
-                documentNumber: 0,
+                documentNumber: '',
                 documentComment: '',
                 documentDate: '',
             },
@@ -58,6 +68,24 @@ export default {
     },
 
     computed: {
+        invalidInput() {
+            return (
+                !this.documentConfig?.documentNumber ||
+                !this.documentConfig?.documentDate ||
+                !this.documentPreconditionsFulfilled
+            );
+        },
+
+        documentNumberErrorMessage() {
+            if (!this.documentConfig?.documentNumber) {
+                return {
+                    detail: this.$tc('global.notification.notificationSaveErrorMessageRequiredField'),
+                };
+            }
+
+            return null;
+        },
+
         documentPreconditionsFulfilled() {
             // can be overwritten in extending component
             return true;
@@ -75,6 +103,20 @@ export default {
         mediaRepository() {
             return this.repositoryFactory.create('media');
         },
+
+        // XML content has no HTML preview (NEXT-40492)
+        htmlPreviewDisabled() {
+            return this.currentDocumentType?.technicalName?.startsWith('zugferd_') ?? false;
+        },
+
+        documentNumber: {
+            get() {
+                return String(this.documentConfig.documentNumber);
+            },
+            set(value) {
+                this.documentConfig.documentNumber = value;
+            },
+        },
     },
 
     created() {
@@ -85,11 +127,15 @@ export default {
         async createdComponent() {
             this.documentConfig.documentNumber = await this.reserveDocumentNumber(true);
             this.documentNumberPreview = this.documentConfig.documentNumber;
-            this.documentConfig.documentDate = (new Date()).toISOString();
+            this.documentConfig.documentDate = new Date().toISOString();
         },
 
         async onCreateDocument(additionalAction = false) {
             this.$emit('loading-document');
+
+            if (this.invalidInput) {
+                return;
+            }
 
             if (this.documentNumberPreview === this.documentConfig.documentNumber) {
                 const documentNumber = await this.reserveDocumentNumber(false);
@@ -113,13 +159,18 @@ export default {
                 this.documentConfig,
                 additionalAction,
                 referencedDocumentId,
-                (this.uploadDocument ? this.selectedDocumentFile : null),
+                this.uploadDocument ? this.selectedDocumentFile : null,
             );
         },
 
         async reserveDocumentNumber(isPreview) {
+            let technicalName = this.currentDocumentType.technicalName;
+            if (technicalName?.startsWith('zugferd_')) {
+                technicalName = 'invoice';
+            }
+
             const { number } = await this.numberRangeService.reserve(
-                `document_${this.currentDocumentType.technicalName}`,
+                `document_${technicalName}`,
                 this.order.salesChannelId,
                 isPreview,
             );
@@ -131,8 +182,8 @@ export default {
             // override in specific document-settings-modals to add additional data to your document
         },
 
-        onPreview() {
-            this.$emit('preview-show', this.documentConfig);
+        onPreview(fileType = 'pdf') {
+            this.$emit('preview-show', { ...this.documentConfig, fileTypes: [fileType] }, fileType);
         },
 
         onConfirm() {
@@ -160,7 +211,7 @@ export default {
         },
 
         successfulUploadFromUrl(res) {
-            this.mediaRepository.get(res.targetId).then(response => {
+            this.mediaRepository.get(res.targetId).then((response) => {
                 this.validateFile(response);
             });
         },

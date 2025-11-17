@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1673426317ImproveStateMachineHistoryQueryPerformance extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -46,9 +46,5 @@ class Migration1673426317ImproveStateMachineHistoryQueryPerformance extends Migr
                 ) STORED;
             ');
         }
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 }

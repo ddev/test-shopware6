@@ -14,7 +14,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1590408550AclResources extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -53,7 +53,7 @@ class Migration1590408550AclResources extends MigrationStep
     }
 
     /**
-     * @return array<string, array{priv: string}>
+     * @return array<string, list<array{priv: string}>>
      */
     private function getRoles(Connection $connection): array
     {
@@ -64,7 +64,10 @@ class Migration1590408550AclResources extends MigrationStep
                     ON `role`.id = `resource`.acl_role_id
         ');
 
-        return FetchModeHelper::group($roles);
+        /** @var array<string, list<array{priv: string}>> $grouped */
+        $grouped = FetchModeHelper::group($roles);
+
+        return $grouped;
     }
 
     private function tableExists(Connection $connection, string $table): bool

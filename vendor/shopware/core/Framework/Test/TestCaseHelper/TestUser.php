@@ -82,7 +82,7 @@ class TestUser
             'password' => $this->password,
         ];
 
-        $browser->request('POST', '/api/oauth/token', $authPayload);
+        $browser->request('POST', '/api/oauth/token', $authPayload, [], [], json_encode($authPayload, \JSON_THROW_ON_ERROR));
 
         $data = json_decode((string) $browser->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
 
@@ -100,7 +100,7 @@ class TestUser
 
         $accessToken = $data['access_token'];
         \assert(\is_string($accessToken));
-        $browser->setServerParameter('HTTP_Authorization', sprintf('Bearer %s', $accessToken));
+        $browser->setServerParameter('HTTP_Authorization', \sprintf('Bearer %s', $accessToken));
     }
 
     public function getPassword(): string

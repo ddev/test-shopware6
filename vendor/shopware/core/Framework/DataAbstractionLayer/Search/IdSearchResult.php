@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class IdSearchResult extends Struct
 {
     use StateAwareTrait;
@@ -18,12 +18,12 @@ class IdSearchResult extends Struct
     /**
      * @var array<string, array<string, mixed>>
      */
-    protected $data;
+    protected array $data;
 
     /**
      * @var list<string>|list<array<string, string>>
      */
-    protected $ids;
+    protected array $ids;
 
     /**
      * @param array<array<string, mixed>> $data
@@ -37,6 +37,29 @@ class IdSearchResult extends Struct
         $this->ids = array_column($data, 'primaryKey');
 
         $this->data = array_map(fn ($row) => $row['data'], $data);
+    }
+
+    /**
+     * @param array<string> $ids
+     */
+    public static function fromIds(
+        array $ids,
+        Criteria $criteria,
+        Context $context,
+        ?int $total = null
+    ): self {
+        $mapped = [];
+        foreach ($ids as $id) {
+            $key = \is_array($id) ? implode('-', $id) : $id;
+            $mapped[$key] = ['primaryKey' => $id, 'data' => []];
+        }
+
+        return new self(
+            total: $total ?? \count($ids),
+            data: $mapped,
+            criteria: $criteria,
+            context: $context
+        );
     }
 
     public function firstId(): ?string

@@ -1,19 +1,39 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import ErrorResolverSystemConfig from 'src/core/data/error-resolver.system-config.data';
+import { deepCloneWithEntity } from 'src/core/service/extension-api-data.service';
 import template from './sw-system-config.html.twig';
 import './sw-system-config.scss';
 
 const { Mixin } = Shopware;
-const { object, string: { kebabCase } } = Shopware.Utils;
+const {
+    object,
+    string: { kebabCase },
+} = Shopware.Utils;
 const { mapSystemConfigErrors } = Shopware.Component.getComponentHelper();
+
+/**
+ * Component which automatically renders all fields for a given system_config schema. It allows the user to edit these
+ * configuration values.
+ *
+ * N.B: This component handles the data completely independently, therefore you need to trigger the saving of
+ *      data manually with a $ref. Due to the fact that the data is stored inside this component, destroying
+ *      the component could lead to unsaved changes. One primary case for this could be if it will be used
+ *      inside tabs. Because if the user changes the tab content then this component gets destroyed and therefore
+ *      also the corresponding data.
+ */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
     inject: ['systemConfigApiService'],
+
+    emits: [
+        'loading-changed',
+        'config-changed',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -39,7 +59,6 @@ export default {
         inherit: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -84,6 +103,12 @@ export default {
             deep: true,
         },
 
+        domain: {
+            handler() {
+                this.createdComponent();
+            },
+        },
+
         isLoading(value) {
             this.$emit('loading-changed', value);
         },
@@ -111,6 +136,7 @@ export default {
                 this.isLoading = false;
             }
         },
+
         async readConfig() {
             this.config = await this.systemConfigApiService.getConfig(this.domain);
             this.config.every((card) => {
@@ -123,6 +149,7 @@ export default {
                 });
             });
         },
+
         readAll() {
             this.isLoading = true;
             // Return when data for this salesChannel was already loaded
@@ -133,30 +160,28 @@ export default {
 
             return this.loadCurrentSalesChannelConfig();
         },
+
         async loadCurrentSalesChannelConfig() {
             this.isLoading = true;
 
             try {
                 const values = await this.systemConfigApiService.getValues(this.domain, this.currentSalesChannelId);
 
-                this.$set(this.actualConfigData, this.currentSalesChannelId, values);
+                this.actualConfigData[this.currentSalesChannelId] = values;
             } finally {
                 this.isLoading = false;
             }
         },
+
         saveAll() {
             this.isLoading = true;
-            return this.systemConfigApiService
-                .batchSave(this.actualConfigData)
-                .finally(() => {
-                    this.isLoading = false;
-                });
+            return this.systemConfigApiService.batchSave(this.actualConfigData).finally(() => {
+                this.isLoading = false;
+            });
         },
+
         createErrorNotification(errors) {
-            let message = `<div>${this.$tc(
-                'sw-config-form-renderer.configLoadErrorMessage',
-                errors.length,
-            )}</div><ul>`;
+            let message = `<div>${this.$tc('sw-config-form-renderer.configLoadErrorMessage', {}, errors.length)}</div><ul>`;
 
             errors.forEach((error) => {
                 message = `${message}<li>${error.detail}</li>`;
@@ -168,6 +193,7 @@ export default {
                 autoClose: false,
             });
         },
+
         onSalesChannelChanged(salesChannelId) {
             this.currentSalesChannelId = salesChannelId;
             this.readAll();
@@ -194,7 +220,12 @@ export default {
             }
 
             // Add select properties
-            if (['single-select', 'multi-select'].includes(bind.type)) {
+            if (
+                [
+                    'single-select',
+                    'multi-select',
+                ].includes(bind.type)
+            ) {
                 bind.config.labelProperty = 'name';
                 bind.config.valueProperty = 'id';
             }
@@ -222,7 +253,11 @@ export default {
         },
 
         getInheritedValue(element) {
-            const value = this.actualConfigData.null[element.name];
+            let value = this.actualConfigData.null[element.name];
+
+            if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
+                value = deepCloneWithEntity(value);
+            }
 
             if (value) {
                 return value;

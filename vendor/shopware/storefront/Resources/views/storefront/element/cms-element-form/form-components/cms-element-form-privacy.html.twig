@@ -1,35 +1,7 @@
+{# @deprecated tag:v6.8.0 - `cms-element-form-privacy.html.twig` will be removed, use block `component_privacy_notice` instead #}
 {% block cms_form_privacy_opt_in %}
-    {% set identifierTemplate = 'form-privacy-opt-in-%s' %}
-    {% if requiresTermsOfService is not defined %}
-        {% set requiresTermsOfService = true %}
-    {% endif %}
+    {# @deprecated tag:v6.8.0 - `cms-element-form-privacy.html.twig` will be removed, use block `component_privacy_notice` instead #}
+    {% block cms_form_privacy_opt_in_title %}{% endblock %}
 
-    {% block cms_form_privacy_opt_in_title %}
-        <div>{{ "general.privacyTitle"|trans }} {{ "general.required"|trans }}</div>
-    {% endblock %}
-
-    <div class="form-text privacy-notice form-check">
-        {% block cms_form_privacy_opt_in_input %}
-            <input name="privacy"
-                   type="checkbox"
-                   class="form-check-input"
-                   id="{{ identifierTemplate|format(_key) }}"
-                   required>
-        {% endblock %}
-
-        {% block cms_form_privacy_opt_in_label %}
-            <label for="{{ identifierTemplate|format(_key) }}" class="form-check-label">
-                {% if requiresTermsOfService == true %}
-                    {{ "general.privacyNoticeText"|trans({
-                        '%privacyUrl%': path('frontend.cms.page', { id: config('core.basicInformation.privacyPage') }),
-                        '%tosUrl%': path('frontend.cms.page', { id: config('core.basicInformation.tosPage')} )
-                    })|raw }}
-                {% else %}
-                    {{ "contact.privacyNoticeText"|trans({
-                        '%privacyUrl%': path('frontend.cms.page', { id: config('core.basicInformation.privacyPage') })
-                    })|raw }}
-                {% endif %}
-            </label>
-        {% endblock %}
-    </div>
+    {% sw_include '@Storefront/storefront/component/privacy-notice.html.twig' %}
 {% endblock %}

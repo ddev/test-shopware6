@@ -10,16 +10,16 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @internal
  */
 #[AsMessageHandler(handles: CollectEntityDataMessage::class)]
-#[Package('merchant-services')]
-final class CollectEntityDataMessageHandler
+#[Package('data-services')]
+final readonly class CollectEntityDataMessageHandler
 {
     public function __construct(
-        private readonly EntityDispatchService $entityDispatchService,
+        private EntityDispatchService $entityDispatchService,
     ) {
     }
 
     public function __invoke(CollectEntityDataMessage $message): void
     {
-        $this->entityDispatchService->dispatchIterateEntityMessages();
+        $this->entityDispatchService->dispatchIterateEntityMessages($message);
     }
 }

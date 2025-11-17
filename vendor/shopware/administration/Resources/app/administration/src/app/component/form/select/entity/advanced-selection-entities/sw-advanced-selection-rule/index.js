@@ -1,23 +1,27 @@
 import template from './sw-advanced-selection-rule.html.twig';
 import './sw-advanced-selection-rule.scss';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
  * @private
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Configures the advanced selection in entity selects.
  * Should only be used as a parameter `advanced-selection-component="sw-advanced-selection-rule"`
  * to `sw-entity-...-select` components.
  * @status prototype
  */
-Component.register('sw-advanced-selection-rule', {
+export default {
     template,
 
     inject: [
         'ruleConditionDataProviderService',
         'feature',
+    ],
+
+    emits: [
+        'selection-submit',
+        'modal-close',
     ],
 
     props: {
@@ -77,42 +81,49 @@ Component.register('sw-advanced-selection-rule', {
         },
 
         columns() {
-            const columns = [{
-                property: 'name',
-                dataIndex: 'name',
-                inlineEdit: 'string',
-                label: 'sw-settings-rule.list.columnName',
-                routerLink: 'sw.settings.rule.detail',
-                width: '250px',
-                allowResize: true,
-                primary: true,
-            }, {
-                property: 'priority',
-                label: 'sw-settings-rule.list.columnPriority',
-                inlineEdit: 'number',
-                allowResize: true,
-            }, {
-                property: 'description',
-                label: 'sw-settings-rule.list.columnDescription',
-                width: '250px',
-                allowResize: true,
-            }, {
-                property: 'updatedAt',
-                label: 'sw-settings-rule.list.columnDateCreated',
-                align: 'right',
-                allowResize: true,
-            }, {
-                property: 'invalid',
-                label: 'sw-product-stream.list.columnStatus',
-                allowResize: true,
-            }, {
-                property: 'tags',
-                label: 'sw-settings-rule.list.columnTags',
-                width: '250px',
-                allowResize: true,
-                sortable: false,
-                visible: false,
-            }];
+            const columns = [
+                {
+                    property: 'name',
+                    dataIndex: 'name',
+                    inlineEdit: 'string',
+                    label: 'sw-settings-rule.list.columnName',
+                    routerLink: 'sw.settings.rule.detail',
+                    width: '250px',
+                    allowResize: true,
+                    primary: true,
+                },
+                {
+                    property: 'priority',
+                    label: 'sw-settings-rule.list.columnPriority',
+                    inlineEdit: 'number',
+                    allowResize: true,
+                },
+                {
+                    property: 'description',
+                    label: 'sw-settings-rule.list.columnDescription',
+                    width: '250px',
+                    allowResize: true,
+                },
+                {
+                    property: 'updatedAt',
+                    label: 'sw-settings-rule.list.columnDateCreated',
+                    align: 'right',
+                    allowResize: true,
+                },
+                {
+                    property: 'invalid',
+                    label: 'sw-product-stream.list.columnStatus',
+                    allowResize: true,
+                },
+                {
+                    property: 'tags',
+                    label: 'sw-settings-rule.list.columnTags',
+                    width: '250px',
+                    allowResize: true,
+                    sortable: false,
+                    visible: false,
+                },
+            ];
 
             this.assignmentProperties.forEach((propertyName) => {
                 const labelPostfix = propertyName.charAt(0).toUpperCase() + propertyName.slice(1);
@@ -157,7 +168,7 @@ Component.register('sw-advanced-selection-rule', {
                     property: 'tags',
                     label: this.$tc('sw-settings-rule.filter.tagFilter.label'),
                     placeholder: this.$tc('sw-settings-rule.filter.tagFilter.placeholder'),
-                    criteria: (new Criteria(1, 25)).addSorting(Criteria.sort('name')),
+                    criteria: new Criteria(1, 25).addSorting(Criteria.sort('name')),
                 },
             };
 
@@ -166,7 +177,10 @@ Component.register('sw-advanced-selection-rule', {
 
         conditionFilterOptions() {
             const conditions = this.ruleConditionDataProviderService.getConditions().map((condition) => {
-                return { value: condition.type, label: this.$tc(condition.label) };
+                return {
+                    value: condition.type,
+                    label: this.$tc(condition.label),
+                };
             });
             conditions.sort((a, b) => a.label.localeCompare(b.label));
 
@@ -176,9 +190,12 @@ Component.register('sw-advanced-selection-rule', {
         groupFilterOptions() {
             const groupFilter = [];
             Object.values(this.ruleConditionDataProviderService.getGroups()).forEach((group) => {
-                const conditionFilterString = this.ruleConditionDataProviderService.getByGroup(group.id).map((condition) => {
-                    return condition.type;
-                }).join('|');
+                const conditionFilterString = this.ruleConditionDataProviderService
+                    .getByGroup(group.id)
+                    .map((condition) => {
+                        return condition.type;
+                    })
+                    .join('|');
 
                 groupFilter.push({
                     value: conditionFilterString,
@@ -192,14 +209,19 @@ Component.register('sw-advanced-selection-rule', {
 
         associationFilterOptions() {
             const associations = [];
-            Object.entries(this.getRuleDefinition.properties).forEach(([key, value]) => {
-                if (value.type === 'association' && key !== 'conditions' && key !== 'tags') {
-                    associations.push({
-                        value: key,
-                        label: this.$tc(`sw-settings-rule.filter.assignmentFilter.values.${key}`),
-                    });
-                }
-            });
+            Object.entries(this.getRuleDefinition.properties).forEach(
+                ([
+                    key,
+                    value,
+                ]) => {
+                    if (value.type === 'association' && key !== 'conditions' && key !== 'tags') {
+                        associations.push({
+                            value: key,
+                            label: this.$tc(`sw-settings-rule.filter.assignmentFilter.values.${key}`),
+                        });
+                    }
+                },
+            );
             associations.sort((a, b) => a.label.localeCompare(b.label));
 
             return associations;
@@ -225,19 +247,24 @@ Component.register('sw-advanced-selection-rule', {
                 const property = this.getRuleDefinition.properties[propertyName];
 
                 if (property.relation === 'many_to_many' || property.relation === 'one_to_many') {
-                    aggregations.push(Criteria.terms(
-                        propertyName,
-                        'id',
-                        null,
-                        null,
-                        Criteria.count(propertyName, `rule.${propertyName}.id`),
-                    ));
+                    aggregations.push(
+                        Criteria.terms(
+                            propertyName,
+                            'id',
+                            null,
+                            null,
+                            Criteria.count(propertyName, `rule.${propertyName}.id`),
+                        ),
+                    );
                 }
             });
 
             return aggregations;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -245,7 +272,7 @@ Component.register('sw-advanced-selection-rule', {
 
     methods: {
         getColumnClass(item) {
-            return (this.isRestricted(item)) ? 'sw-advanced-selection-rule-disabled' : '';
+            return this.isRestricted(item) ? 'sw-advanced-selection-rule-disabled' : '';
         },
 
         tooltipConfig(rule) {
@@ -317,4 +344,4 @@ Component.register('sw-advanced-selection-rule', {
             return counts;
         },
     },
-});
+};

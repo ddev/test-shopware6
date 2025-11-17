@@ -16,12 +16,12 @@ use Shopware\Storefront\Page\PageLoadedHook;
  *
  * @final
  */
-#[Package('storefront')]
+#[Package('discovery')]
 class CountryStateDataPageletLoadedHook extends PageLoadedHook
 {
     use SalesChannelContextAwareTrait;
 
-    final public const HOOK_NAME = 'country-sate-data-pagelet-loaded';
+    final public const HOOK_NAME = 'country-state-data-pagelet-loaded';
 
     public function __construct(
         private readonly CountryStateDataPagelet $pagelet,

@@ -23,7 +23,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 abstract class AbstractFieldSerializer implements FieldSerializerInterface
 {
     /**
@@ -174,7 +174,7 @@ abstract class AbstractFieldSerializer implements FieldSerializerInterface
         $flag = $field->getFlag(AllowHtml::class);
 
         if ($flag instanceof AllowHtml && $flag->isSanitized()) {
-            $fieldKey = sprintf('%s.%s', (string) $existence->getEntityName(), $field->getPropertyName());
+            $fieldKey = \sprintf('%s.%s', (string) $existence->getEntityName(), $field->getPropertyName());
 
             return $sanitizer->sanitize((string) $data->getValue(), [], false, $fieldKey);
         }

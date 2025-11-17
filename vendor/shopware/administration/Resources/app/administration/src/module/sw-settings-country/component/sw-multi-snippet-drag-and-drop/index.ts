@@ -1,4 +1,4 @@
-import type { PropType } from 'vue';
+import type { ComponentObjectPropsOptions } from 'vue';
 import type { DragConfig } from 'src/app/directive/dragdrop.directive';
 import template from './sw-multi-snippet-drag-and-drop.html.twig';
 import './sw-multi-snippet-drag-and-drop.scss';
@@ -6,28 +6,23 @@ import './sw-multi-snippet-drag-and-drop.scss';
 const { Component } = Shopware;
 
 interface DragItem {
-    index: number,
-    linePosition?: number | null,
-    snippet: string[]
+    index: number;
+    linePosition?: number | null;
+    snippet: string[];
 }
 
 const DEFAULT_MIN_LINES = 1 as number;
 const DEFAULT_MAX_LINES = 10 as number;
 
 /**
- * @package buyers-experience
+ * @sw-package fundamentals@discovery
  *
  * @private
  */
-Component.register('sw-multi-snippet-drag-and-drop', {
+export default Component.wrapComponentConfig({
     template,
 
     inject: ['feature'],
-
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
 
     props: {
         value: {
@@ -66,16 +61,28 @@ Component.register('sw-multi-snippet-drag-and-drop', {
         dragConfig: {
             type: Object,
             required: false,
-            default(): DragConfig<DragItem> {
-                return this.defaultConfig;
+            default(props: ComponentObjectPropsOptions<{ disabled: boolean }>): DragConfig<DragItem> {
+                return {
+                    delay: 200,
+                    dragGroup: 'sw-multi-snippet',
+                    validDragCls: 'is--valid-drag',
+                    preventEvent: true,
+                    disabled: props.disabled,
+                } as unknown as DragConfig<DragItem>;
             },
         },
 
         dropConfig: {
             type: Object,
             required: false,
-            default(): DragConfig<DragItem> {
-                return this.defaultConfig;
+            default(props: ComponentObjectPropsOptions<{ disabled: boolean }>): DragConfig<DragItem> {
+                return {
+                    delay: 200,
+                    dragGroup: 'sw-multi-snippet',
+                    validDragCls: 'is--valid-drag',
+                    preventEvent: true,
+                    disabled: props.disabled,
+                } as unknown as DragConfig<DragItem>;
             },
         },
 
@@ -87,8 +94,8 @@ Component.register('sw-multi-snippet-drag-and-drop', {
     },
 
     data(): {
-        defaultConfig: DragConfig<DragItem>,
-        } {
+        defaultConfig: DragConfig<DragItem>;
+    } {
         return {
             defaultConfig: {
                 delay: 200,
@@ -129,17 +136,17 @@ Component.register('sw-multi-snippet-drag-and-drop', {
             return this.totalLines >= DEFAULT_MAX_LINES;
         },
 
-        isMinLines() :boolean {
+        isMinLines(): boolean {
             return this.totalLines <= DEFAULT_MIN_LINES;
         },
     },
 
     methods: {
-        onDragStart(config: DragConfig, element: string, dragElement: string): void {
+        onDragStart(config: DragConfig<DragItem>, element: HTMLElement, dragElement: HTMLElement): void {
             this.$emit('drag-start', { config, element, dragElement });
         },
 
-        onDragEnter(dragData: DragConfig, dropData: DragConfig) {
+        onDragEnter(dragData: DragItem, dropData: DragItem) {
             if (!dragData || !dropData) {
                 return;
             }
@@ -153,24 +160,12 @@ Component.register('sw-multi-snippet-drag-and-drop', {
             }
 
             if (dragData.linePosition === dropData.linePosition) {
-                const newValue = Object.assign(
-                    [],
-                    this.value,
-                    {
-                        [dragData.index]: this.value[dropData.index],
-                        [dropData.index]: this.value[dragData.index],
-                    },
-                );
+                const newValue = Object.assign([], this.value, {
+                    [dragData.index]: this.value[dropData.index],
+                    [dropData.index]: this.value[dragData.index],
+                });
 
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:value', this.linePosition, newValue);
-                } else {
-                    this.$emit(
-                        'change',
-                        this.linePosition,
-                        newValue,
-                    );
-                }
+                this.$emit('update:value', this.linePosition, newValue);
 
                 return;
             }
@@ -183,20 +178,13 @@ Component.register('sw-multi-snippet-drag-and-drop', {
                 return true;
             }
 
-            // @ts-expect-error
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
             return this.selectionDisablingMethod(selection);
         },
 
         onClickDismiss(index: number) {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.linePosition, this.value.filter((_, key) => key !== index));
-
-                return;
-            }
-
             this.$emit(
-                'change',
+                'update:value',
                 this.linePosition,
                 this.value.filter((_, key) => key !== index),
             );
@@ -211,13 +199,7 @@ Component.register('sw-multi-snippet-drag-and-drop', {
         },
 
         onDelete() {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.linePosition);
-
-                return;
-            }
-
-            this.$emit('change', this.linePosition);
+            this.$emit('update:value', this.linePosition);
         },
 
         openModal() {

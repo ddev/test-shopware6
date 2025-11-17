@@ -3,9 +3,11 @@
 namespace Shopware\Core\System\SalesChannel\Context\Cleanup;
 
 use Doctrine\DBAL\Connection;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskHandler;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -13,24 +15,27 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @internal
  */
 #[AsMessageHandler(handles: CleanupSalesChannelContextTask::class)]
-#[Package('buyers-experience')]
+#[Package('discovery')]
 final class CleanupSalesChannelContextTaskHandler extends ScheduledTaskHandler
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ScheduledTaskCollection> $repository
      */
     public function __construct(
         EntityRepository $repository,
+        LoggerInterface $logger,
         private readonly Connection $connection,
         private readonly int $days
     ) {
-        parent::__construct($repository);
+        parent::__construct($repository, $logger);
     }
 
     public function run(): void
     {
         $time = new \DateTime();
-        $time->modify(sprintf('-%d day', $this->days));
+        $time->modify(\sprintf('-%d day', $this->days));
 
         $this->connection->executeStatement(
             'DELETE FROM sales_channel_api_context WHERE updated_at <= :timestamp',

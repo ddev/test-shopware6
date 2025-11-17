@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1614249488ChangeProductSortingsToCheapestPrice extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -27,7 +27,7 @@ class Migration1614249488ChangeProductSortingsToCheapestPrice extends MigrationS
 
     public function updateDestructive(Connection $connection): void
     {
-        $connection->executeStatement('ALTER TABLE `product` DROP `listing_prices`');
+        $this->dropColumnIfExists($connection, 'product', 'listing_prices');
     }
 
     private function migrateSortings(Connection $connection): void

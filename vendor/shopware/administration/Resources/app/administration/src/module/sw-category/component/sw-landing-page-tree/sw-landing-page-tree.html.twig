@@ -1,20 +1,18 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_landing_page_tree %}
 <div class="sw-landing-page-tree">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_landing_page_tree_inner %}
     <sw-tree
         v-if="!isLoadingInitialData"
         ref="landingPageTree"
         class="sw-landing-page-tree__inner"
         :items="landingPages"
-        :sortable="false"
+        :sortable="false || undefined"
         :searchable="false"
         :translation-context="translationContext"
         :on-change-route="changeLandingPage"
         :disable-context-menu="disableContextMenu"
-        :allow-delete-categories="allowDelete"
+        :allow-delete-categories="allowDelete || undefined"
         :allow-create-categories="false"
         :active-tree-item-id="landingPageId"
         @batch-delete="deleteCheckedItems"
@@ -40,7 +38,6 @@
             }"
         >
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_landing_page_tree_items %}
             <sw-tree-item
                 v-for="item in treeItems"
@@ -48,15 +45,15 @@
                 :item="item"
                 :should-show-active-state="true"
                 :allow-duplicate="true"
-                :allow-new-categories="false"
-                :allow-delete-categories="allowDelete"
+                :allow-new-categories="false || undefined"
+                :allow-delete-categories="allowDelete || undefined"
                 :active="item.active"
                 :translation-context="translationContext"
                 :on-change-route="onChangeRoute"
-                :sortable="sortable"
+                :sortable="sortable || undefined"
                 :dragged-item="draggedItem"
                 :disable-context-menu="disableContextMenu"
-                :display-checkbox="allowEdit"
+                :display-checkbox="allowEdit || undefined"
                 :context-menu-tooltip-text="contextMenuTooltipText"
                 :new-element-id="newElementId"
                 :get-item-url="getLandingPageUrl"
@@ -74,22 +71,19 @@
                         toolTip
                     }"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_landing_page_tree_items_actions %}
                     <sw-context-button
                         v-tooltip="toolTip"
                         class="sw-tree-item__context_button"
-                        :disabled="disableContextMenu"
+                        :disabled="disableContextMenu || undefined"
                     >
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_landing_page_tree_items_actions_edit %}
                         <sw-context-menu-item @click="onChangeRoute(item)">
                             {{ $tc('global.default.edit') }}
                         </sw-context-menu-item>
                         {% endblock %}
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_landing_page_tree_items_actions_duplicate %}
                         <sw-context-menu-item
                             class="sw-context-menu__duplicate-action"
@@ -99,7 +93,6 @@
                         </sw-context-menu-item>
                         {% endblock %}
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_landing_page_tree_items_actions_delete %}
                         <sw-context-menu-item
                             class="sw-context-menu__group-button-delete"
@@ -131,18 +124,18 @@
         <sw-skeleton variant="tree-item" />
     </div>
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_landing_page_tree_action %}
     <div class="sw-landing-page-tree__add-button">
-        <sw-button
+        <mt-button
             class="sw-landing-page-tree__add-button-button"
-            :router-link="newLandingPageUrl()"
             size="small"
-            variant="ghost"
-            :disabled="disableContextMenu || !acl.can('landing_page.creator')"
+            ghost
+            :disabled="disableContextMenu || !acl.can('landing_page.creator') || undefined"
+            variant="secondary"
+            @click="$router.push(newLandingPageUrl())"
         >
             {{ $tc('sw-landing-page.general.buttonCreate') }}
-        </sw-button>
+        </mt-button>
     </div>
     {% endblock %}
 

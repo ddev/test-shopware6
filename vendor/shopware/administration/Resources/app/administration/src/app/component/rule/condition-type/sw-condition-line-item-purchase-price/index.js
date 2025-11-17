@@ -5,9 +5,10 @@ const { Component } = Shopware;
 const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  */
-Component.extend('sw-condition-line-item-purchase-price', 'sw-condition-base-line-item', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     inject: ['feature'],
@@ -40,12 +41,14 @@ Component.extend('sw-condition-line-item-purchase-price', 'sw-condition-base-lin
             },
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.isNet', 'value.amount']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.isNet',
+            'value.amount',
+        ]),
 
         currentError() {
-            return this.conditionValueIsNetError
-                || this.conditionValueOperatorError
-                || this.conditionValueAmountError;
+            return this.conditionValueIsNetError || this.conditionValueOperatorError || this.conditionValueAmountError;
         },
     },
 
@@ -56,4 +59,4 @@ Component.extend('sw-condition-line-item-purchase-price', 'sw-condition-base-lin
             }
         },
     },
-});
+};

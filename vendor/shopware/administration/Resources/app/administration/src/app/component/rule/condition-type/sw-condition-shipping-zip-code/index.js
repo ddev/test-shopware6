@@ -6,14 +6,15 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Condition for the ShippingZipCodeRule. This component must a be child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-shipping-zip-code :condition="condition" :level="0"></sw-condition-shipping-zip-code>
  */
-Component.extend('sw-condition-shipping-zip-code', 'sw-condition-base', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     data() {
@@ -61,7 +62,10 @@ Component.extend('sw-condition-shipping-zip-code', 'sw-condition-base', {
             return `${defaultPlaceholder} ${this.$tc('global.sw-condition.condition.zipCodeWildcardPlaceholder')}`;
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.zipCodes']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.zipCodes',
+        ]),
 
         currentError() {
             return this.conditionValueOperatorError || this.conditionValueZipCodesError;
@@ -90,7 +94,11 @@ Component.extend('sw-condition-shipping-zip-code', 'sw-condition-base', {
             this.ensureValueExist();
 
             if (this.condition.value.operator !== undefined) {
-                this.isNumeric = !['=', '!=', 'empty'].includes(this.condition.value.operator);
+                this.isNumeric = ![
+                    '=',
+                    '!=',
+                    'empty',
+                ].includes(this.condition.value.operator);
             }
         },
         onChangeNumeric(value) {
@@ -103,4 +111,4 @@ Component.extend('sw-condition-shipping-zip-code', 'sw-condition-base', {
             this.condition.value.operator = undefined;
         },
     },
-});
+};

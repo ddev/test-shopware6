@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package fundamentals@discovery
  */
 import template from './sw-settings-country-currency-hamburger-menu.html.twig';
 import './sw-settings-country-currency-hamburger-menu.scss';
@@ -9,6 +9,8 @@ export default {
     template,
 
     inject: ['acl'],
+
+    emits: ['currency-change'],
 
     props: {
         isLoading: {

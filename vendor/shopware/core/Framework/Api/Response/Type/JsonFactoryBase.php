@@ -4,6 +4,7 @@ namespace Shopware\Core\Framework\Api\Response\Type;
 
 use Shopware\Core\Framework\Api\Response\ResponseFactoryInterface;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -12,7 +13,7 @@ use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 abstract class JsonFactoryBase implements ResponseFactoryInterface
 {
     public function createRedirectResponse(EntityDefinition $definition, string $id, Request $request, Context $context): Response
@@ -34,10 +35,8 @@ abstract class JsonFactoryBase implements ResponseFactoryInterface
     }
 
     /**
-     * @template TEntityCollection of EntityCollection
-     *
-     * @param EntitySearchResult<TEntityCollection> $searchResult
-     * @param array<string, mixed>                 $parameters
+     * @param EntitySearchResult<covariant EntityCollection<covariant Entity>> $searchResult
+     * @param array<string, mixed> $parameters
      *
      * @return array{first?: string, prev?: string, next?: string, last?: string}
      */
@@ -96,7 +95,7 @@ abstract class JsonFactoryBase implements ResponseFactoryInterface
     }
 
     /**
-     * @param array<string, mixed>  $parameters
+     * @param array<string, mixed> $parameters
      */
     protected function buildPaginationUrl(string $uri, array $parameters, int $limit, int $page): string
     {

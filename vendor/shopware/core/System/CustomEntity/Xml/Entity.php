@@ -3,6 +3,7 @@
 namespace Shopware\Core\System\CustomEntity\Xml;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\CustomEntity\Xml\Config\ConfigXmlElement;
 use Shopware\Core\System\CustomEntity\Xml\Field\Field;
@@ -12,7 +13,7 @@ use Symfony\Component\Config\Util\XmlUtils;
 /**
  * @internal only for use by the app-system, will be considered internal from v6.4.0 onward
  */
-#[Package('core')]
+#[Package('framework')]
 class Entity extends XmlElement
 {
     protected string $name;
@@ -141,12 +142,12 @@ class Entity extends XmlElement
     private static function parseChild(\DOMElement $child, array $values): array
     {
         if ($child->tagName === 'fields') {
-            $values[$child->tagName] = self::parseChildNodes($child, static fn (\DOMElement $element): Field => FieldFactory::createFromXml($element));
+            $values[$child->tagName] = XmlParserUtils::parseChildrenAsList($child, static fn (\DOMElement $element): Field => FieldFactory::createFromXml($element));
 
             return $values;
         }
 
-        $values[self::kebabCaseToCamelCase($child->tagName)] = $child->nodeValue;
+        $values[XmlParserUtils::kebabCaseToCamelCase($child->tagName)] = $child->nodeValue;
 
         return $values;
     }

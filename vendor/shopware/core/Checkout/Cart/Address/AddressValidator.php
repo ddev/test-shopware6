@@ -2,13 +2,17 @@
 
 namespace Shopware\Core\Checkout\Cart\Address;
 
+use Shopware\Core\Checkout\Cart\Address\Error\BillingAddressCountryRegionMissingError;
 use Shopware\Core\Checkout\Cart\Address\Error\BillingAddressSalutationMissingError;
 use Shopware\Core\Checkout\Cart\Address\Error\ShippingAddressBlockedError;
+use Shopware\Core\Checkout\Cart\Address\Error\ShippingAddressCountryRegionMissingError;
 use Shopware\Core\Checkout\Cart\Address\Error\ShippingAddressSalutationMissingError;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartValidatorInterface;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
 use Shopware\Core\Content\Product\State;
+use Shopware\Core\Framework\DataAbstractionLayer\Entity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
@@ -26,8 +30,10 @@ class AddressValidator implements CartValidatorInterface, ResetInterface
 
     /**
      * @internal
+     *
+     * @param EntityRepository<EntityCollection<Entity>> $salesChannelCountryRepository
      */
-    public function __construct(private readonly EntityRepository $repository)
+    public function __construct(private readonly EntityRepository $salesChannelCountryRepository)
     {
     }
 
@@ -74,6 +80,18 @@ class AddressValidator implements CartValidatorInterface, ResetInterface
         if (!$customer->getActiveShippingAddress()->getSalutationId() && $validateShipping) {
             $errors->add(new ShippingAddressSalutationMissingError($customer->getActiveShippingAddress()));
         }
+
+        if ($customer->getActiveBillingAddress()->getCountry()?->getForceStateInRegistration()) {
+            if (!$customer->getActiveBillingAddress()->getCountryState()) {
+                $errors->add(new BillingAddressCountryRegionMissingError($customer->getActiveBillingAddress()));
+            }
+        }
+
+        if ($customer->getActiveShippingAddress()->getCountry()?->getForceStateInRegistration()) {
+            if (!$customer->getActiveShippingAddress()->getCountryState()) {
+                $errors->add(new ShippingAddressCountryRegionMissingError($customer->getActiveShippingAddress()));
+            }
+        }
     }
 
     public function reset(): void
@@ -87,11 +105,10 @@ class AddressValidator implements CartValidatorInterface, ResetInterface
             return $this->available[$countryId];
         }
 
-        $criteria = new Criteria([$countryId]);
-        $criteria->addFilter(new EqualsFilter('salesChannels.id', $context->getSalesChannelId()));
+        $criteria = (new Criteria())
+            ->addFilter(new EqualsFilter('salesChannelId', $context->getSalesChannelId()))
+            ->addFilter(new EqualsFilter('countryId', $countryId));
 
-        $salesChannelCountryIds = $this->repository->searchIds($criteria, $context->getContext());
-
-        return $this->available[$countryId] = $salesChannelCountryIds->has($countryId);
+        return $this->available[$countryId] = $this->salesChannelCountryRepository->searchIds($criteria, $context->getContext())->getTotal() !== 0;
     }
 }

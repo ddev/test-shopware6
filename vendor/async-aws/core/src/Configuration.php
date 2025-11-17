@@ -31,6 +31,8 @@ final class Configuration
     public const OPTION_ROLE_SESSION_NAME = 'roleSessionName';
     public const OPTION_CONTAINER_CREDENTIALS_RELATIVE_URI = 'containerCredentialsRelativeUri';
     public const OPTION_ENDPOINT_DISCOVERY_ENABLED = 'endpointDiscoveryEnabled';
+    public const OPTION_POD_IDENTITY_CREDENTIALS_FULL_URI = 'podIdentityCredentialsFullUri';
+    public const OPTION_POD_IDENTITY_AUTHORIZATION_TOKEN_FILE = 'podIdentityAuthorizationTokenFile';
 
     // S3 specific option
     public const OPTION_PATH_STYLE_ENDPOINT = 'pathStyleEndpoint';
@@ -53,6 +55,8 @@ final class Configuration
         self::OPTION_ENDPOINT_DISCOVERY_ENABLED => true,
         self::OPTION_PATH_STYLE_ENDPOINT => true,
         self::OPTION_SEND_CHUNKED_BODY => true,
+        self::OPTION_POD_IDENTITY_CREDENTIALS_FULL_URI => true,
+        self::OPTION_POD_IDENTITY_AUTHORIZATION_TOKEN_FILE => true,
     ];
 
     // Put fallback options into groups to avoid mixing of provided config and environment variables
@@ -66,6 +70,7 @@ final class Configuration
         ],
         [self::OPTION_SHARED_CREDENTIALS_FILE => 'AWS_SHARED_CREDENTIALS_FILE'],
         [self::OPTION_SHARED_CONFIG_FILE => 'AWS_CONFIG_FILE'],
+        [self::OPTION_ENDPOINT => 'AWS_ENDPOINT_URL'],
         [
             self::OPTION_ROLE_ARN => 'AWS_ROLE_ARN',
             self::OPTION_WEB_IDENTITY_TOKEN_FILE => 'AWS_WEB_IDENTITY_TOKEN_FILE',
@@ -73,6 +78,8 @@ final class Configuration
         ],
         [self::OPTION_CONTAINER_CREDENTIALS_RELATIVE_URI => 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI'],
         [self::OPTION_ENDPOINT_DISCOVERY_ENABLED => ['AWS_ENDPOINT_DISCOVERY_ENABLED', 'AWS_ENABLE_ENDPOINT_DISCOVERY']],
+        [self::OPTION_POD_IDENTITY_CREDENTIALS_FULL_URI => 'AWS_CONTAINER_CREDENTIALS_FULL_URI'],
+        [self::OPTION_POD_IDENTITY_AUTHORIZATION_TOKEN_FILE => 'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE'],
     ];
 
     private const DEFAULT_OPTIONS = [
@@ -104,7 +111,7 @@ final class Configuration
     public static function create(array $options): self
     {
         if (0 < \count($invalidOptions = array_diff_key($options, self::AVAILABLE_OPTIONS))) {
-            throw new InvalidArgument(sprintf('Invalid option(s) "%s" passed to "%s::%s". ', implode('", "', array_keys($invalidOptions)), __CLASS__, __METHOD__));
+            throw new InvalidArgument(\sprintf('Invalid option(s) "%s" passed to "%s::%s". ', implode('", "', array_keys($invalidOptions)), __CLASS__, __METHOD__));
         }
 
         // Force each option to be string or null
@@ -146,7 +153,7 @@ final class Configuration
     public function get(string $name): ?string
     {
         if (!isset(self::AVAILABLE_OPTIONS[$name])) {
-            throw new InvalidArgument(sprintf('Invalid option "%s" passed to "%s::%s". ', $name, __CLASS__, __METHOD__));
+            throw new InvalidArgument(\sprintf('Invalid option "%s" passed to "%s::%s". ', $name, __CLASS__, __METHOD__));
         }
 
         return $this->data[$name] ?? null;
@@ -158,7 +165,7 @@ final class Configuration
     public function has(string $name): bool
     {
         if (!isset(self::AVAILABLE_OPTIONS[$name])) {
-            throw new InvalidArgument(sprintf('Invalid option "%s" passed to "%s::%s". ', $name, __CLASS__, __METHOD__));
+            throw new InvalidArgument(\sprintf('Invalid option "%s" passed to "%s::%s". ', $name, __CLASS__, __METHOD__));
         }
 
         return isset($this->data[$name]);
@@ -170,7 +177,7 @@ final class Configuration
     public function isDefault(string $name): bool
     {
         if (!isset(self::AVAILABLE_OPTIONS[$name])) {
-            throw new InvalidArgument(sprintf('Invalid option "%s" passed to "%s::%s". ', $name, __CLASS__, __METHOD__));
+            throw new InvalidArgument(\sprintf('Invalid option "%s" passed to "%s::%s". ', $name, __CLASS__, __METHOD__));
         }
 
         return empty($this->userData[$name]);
@@ -195,7 +202,8 @@ final class Configuration
                 // Read environment files
                 $envVariableNames = (array) $envVariableNames;
                 foreach ($envVariableNames as $envVariableName) {
-                    if (null !== $envVariableValue = EnvVar::get($envVariableName)) {
+                    $envVariableValue = EnvVar::get($envVariableName);
+                    if (null !== $envVariableValue && '' !== $envVariableValue) {
                         $options[$option] = $envVariableValue;
 
                         break;

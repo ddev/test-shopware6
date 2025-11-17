@@ -1,13 +1,10 @@
 import template from './sw-sidebar-item.html.twig';
 import './sw-sidebar-item.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type code-only
  * @component-example
@@ -20,8 +17,21 @@ const { Component } = Shopware;
  * </sw-sidebar-item>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-sidebar-item', {
+export default {
     template,
+
+    inject: {
+        registerSidebarItem: {
+            from: 'registerSidebarItem',
+            default: null,
+        },
+    },
+
+    emits: [
+        'toggle-active',
+        'close-content',
+        'click',
+    ],
 
     props: {
         title: {
@@ -45,7 +55,10 @@ Component.register('sw-sidebar-item', {
             required: false,
             default: 'top',
             validator(value) {
-                return ['top', 'bottom'].includes(value);
+                return [
+                    'top',
+                    'bottom',
+                ].includes(value);
             },
         },
 
@@ -79,6 +92,8 @@ Component.register('sw-sidebar-item', {
     data() {
         return {
             isActive: false,
+            toggleActiveListener: [],
+            closeContentListener: [],
         };
     },
 
@@ -113,18 +128,17 @@ Component.register('sw-sidebar-item', {
 
     methods: {
         createdComponent() {
-            let parent = this.$parent;
-
-            while (parent) {
-                if (parent.$options.name === 'sw-sidebar') {
-                    parent.registerSidebarItem(this);
-                    return;
-                }
-
-                parent = parent.$parent;
+            if (this.registerSidebarItem) {
+                this.registerSidebarItem(this);
             }
+        },
 
-            throw new Error('Component sw-sidebar-item must be registered as a (indirect) child of sw-sidebar');
+        registerToggleActiveListener(listener) {
+            this.toggleActiveListener.push(listener);
+        },
+
+        registerCloseContentListener(listener) {
+            this.closeContentListener.push(listener);
         },
 
         openContent() {
@@ -133,6 +147,9 @@ Component.register('sw-sidebar-item', {
             }
 
             this.$emit('toggle-active', this);
+            this.toggleActiveListener.forEach((listener) => {
+                listener(this);
+            });
         },
 
         closeContent() {
@@ -140,6 +157,9 @@ Component.register('sw-sidebar-item', {
                 this.isActive = false;
 
                 this.$emit('close-content');
+                this.closeContentListener.forEach((listener) => {
+                    listener(this);
+                });
             }
         },
 
@@ -155,4 +175,4 @@ Component.register('sw-sidebar-item', {
             }
         },
     },
-});
+};

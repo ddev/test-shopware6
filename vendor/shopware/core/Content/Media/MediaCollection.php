@@ -8,11 +8,11 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @extends EntityCollection<MediaEntity>
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class MediaCollection extends EntityCollection
 {
     /**
-     * @return list<string>
+     * @return array<array-key, string>
      */
     public function getUserIds(): array
     {

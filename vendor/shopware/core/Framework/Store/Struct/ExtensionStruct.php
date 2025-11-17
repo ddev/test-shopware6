@@ -3,6 +3,7 @@
 namespace Shopware\Core\Framework\Store\Struct;
 
 use Shopware\Core\Framework\App\AppEntity;
+use Shopware\Core\Framework\FrameworkException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\PluginEntity;
 use Shopware\Core\Framework\Struct\Struct;
@@ -10,7 +11,7 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class ExtensionStruct extends Struct
 {
     final public const EXTENSION_TYPE_APP = 'app';
@@ -96,6 +97,8 @@ class ExtensionStruct extends Struct
 
     protected ?PermissionCollection $permissions = null;
 
+    protected ?PermissionCollection $requestedPermissions = null;
+
     protected bool $active = false;
 
     /**
@@ -140,6 +143,8 @@ class ExtensionStruct extends Struct
 
     protected bool $allowDisable = true;
 
+    protected bool $allowUpdate = true;
+
     /**
      * @var array<string>
      */
@@ -151,6 +156,15 @@ class ExtensionStruct extends Struct
 
     protected string $storeUrl;
 
+    protected bool $managedByComposer = false;
+
+    protected bool $inAppFeaturesAvailable = false;
+
+    /**
+     * @var list<string>
+     */
+    protected array $inAppPurchases = [];
+
     /**
      * @param array<string, mixed> $data
      *
@@ -159,15 +173,15 @@ class ExtensionStruct extends Struct
     public static function fromArray(array $data): ExtensionStruct
     {
         if (!isset($data['name'])) {
-            throw new \InvalidArgumentException('Entry "name" in payload missing');
+            throw FrameworkException::invalidArgumentException('Entry "name" in payload missing');
         }
 
         if (!isset($data['label'])) {
-            throw new \InvalidArgumentException('Entry "label" in payload missing');
+            throw FrameworkException::invalidArgumentException('Entry "label" in payload missing');
         }
 
         if (!isset($data['type'])) {
-            throw new \InvalidArgumentException('Entry "type" in payload missing');
+            throw FrameworkException::invalidArgumentException('Entry "type" in payload missing');
         }
 
         return (new self())->assign($data);
@@ -555,6 +569,16 @@ class ExtensionStruct extends Struct
         $this->allowDisable = $allowDisable;
     }
 
+    public function isAllowUpdate(): bool
+    {
+        return $this->allowUpdate;
+    }
+
+    public function setAllowUpdate(bool $allowUpdate): void
+    {
+        $this->allowUpdate = $allowUpdate;
+    }
+
     /**
      * @return array<string>
      */
@@ -599,5 +623,31 @@ class ExtensionStruct extends Struct
     public function setStoreUrl(string $storeUrl): void
     {
         $this->storeUrl = $storeUrl;
+    }
+
+    public function isInAppFeaturesAvailable(): bool
+    {
+        return $this->inAppFeaturesAvailable;
+    }
+
+    public function setInAppFeaturesAvailable(bool $inAppFeaturesAvailable): void
+    {
+        $this->inAppFeaturesAvailable = $inAppFeaturesAvailable;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getInAppPurchases(): array
+    {
+        return $this->inAppPurchases;
+    }
+
+    /**
+     * @param list<string> $inAppPurchases
+     */
+    public function setInAppPurchases(array $inAppPurchases): void
+    {
+        $this->inAppPurchases = $inAppPurchases;
     }
 }

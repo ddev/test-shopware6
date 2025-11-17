@@ -2,7 +2,7 @@ import template from './sw-sales-channel-detail-theme.html.twig';
 import './sw-sales-channel-detail-theme.scss';
 
 /**
- * @package sales-channel
+ * @package discovery
  */
 
 const { Component, Mixin } = Shopware;
@@ -34,7 +34,7 @@ Component.register('sw-sales-channel-detail-theme', {
             showThemeSelectionModal: false,
             showChangeModal: false,
             newThemeId: null,
-            isLoading: false
+            isLoading: false,
         };
     },
 
@@ -48,13 +48,7 @@ Component.register('sw-sales-channel-detail-theme', {
         'salesChannel.extensions.themes': {
             deep: true,
             handler() {
-                if (!this.salesChannel || !this.salesChannel.extensions || this.salesChannel.extensions.themes.length < 1) {
-                    return;
-                }
-
-                this.theme = this.salesChannel.extensions.themes[0];
-
-                this.getTheme(this.theme.id);
+                this.getTheme(this.salesChannel?.extensions?.themes[0]?.id);
             }
         }
     },
@@ -65,9 +59,7 @@ Component.register('sw-sales-channel-detail-theme', {
 
     methods: {
         createdComponent() {
-            if (!this.salesChannel ||
-                !this.salesChannel.extensions ||
-                this.salesChannel.extensions.themes.length < 1) {
+            if (!this.salesChannel?.extensions?.themes[0]) {
                 return;
             }
 
@@ -75,7 +67,7 @@ Component.register('sw-sales-channel-detail-theme', {
             this.getTheme(this.theme.id);
         },
 
-        getTheme(themeId) {
+        async getTheme(themeId) {
             if (themeId === null) {
                 return;
             }
@@ -83,9 +75,7 @@ Component.register('sw-sales-channel-detail-theme', {
             const criteria = new Criteria();
             criteria.addAssociation('previewMedia');
 
-            this.themeRepository.get(themeId, Shopware.Context.api, criteria).then((theme) => {
-                this.theme = theme;
-            });
+            this.theme = await this.themeRepository.get(themeId, Shopware.Context.api, criteria);
         },
 
         openThemeModal() {
@@ -108,39 +98,11 @@ Component.register('sw-sales-channel-detail-theme', {
             }
         },
 
-        onChangeTheme(themeId) {
+        async onChangeTheme(themeId) {
             this.showThemeSelectionModal = false;
 
-            this.newThemeId = themeId;
-            this.showChangeModal = true;
+            await this.getTheme(themeId);
+            this.salesChannel.extensions.themes[0] = this.theme;
         },
-
-        onCloseChangeModal() {
-            this.showChangeModal = false;
-            this.newThemeId = null;
-        },
-
-        onConfirmChange() {
-            if (this.newThemeId) {
-                this.onThemeSelect(this.newThemeId);
-            }
-
-            this.showChangeModal = false;
-            this.newThemeId = null;
-        },
-
-        onThemeSelect(selectedThemeId) {
-            this.isLoading = true;
-            this.getTheme(selectedThemeId);
-            this.themeService.assignTheme(selectedThemeId, this.salesChannel.id).then(() => {
-                this.isLoading = false;
-            }).catch(() => {
-                this.createNotificationError({
-                    title: this.$tc('sw-theme-manager.general.titleError'),
-                    message: this.$tc('sw-theme-manager.general.messageSaveError')
-                });
-                this.isLoading = false;
-            });
-        }
-    }
+    },
 });

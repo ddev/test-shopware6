@@ -2,7 +2,7 @@ import template from './sw-order-select-document-type-modal.html.twig';
 import './sw-order-select-document-type-modal.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Criteria } = Shopware.Data;
@@ -13,13 +13,12 @@ export default {
 
     inject: [
         'repositoryFactory',
-        'feature',
     ],
 
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
+    emits: [
+        'modal-close',
+        'update:value',
+    ],
 
     props: {
         order: {
@@ -66,14 +65,19 @@ export default {
         },
 
         documentTypeCriteria() {
-            return (new Criteria(1, 100))
-                .addSorting(Criteria.sort('name', 'ASC'));
+            return new Criteria(1, 100).addSorting(Criteria.sort('name', 'ASC'));
         },
 
         documentCriteria() {
             const criteria = new Criteria(1, 100);
             criteria.addFilter(Criteria.equals('order.id', this.order.id));
-            criteria.addFilter(Criteria.equals('documentType.technicalName', 'invoice'));
+            criteria.addFilter(
+                Criteria.equalsAny('documentType.technicalName', [
+                    'invoice',
+                    'zugferd_invoice',
+                    'zugferd_embedded_invoice',
+                ]),
+            );
 
             return criteria;
         },
@@ -107,7 +111,7 @@ export default {
                     });
 
                     if (this.documentTypes.length) {
-                        this.documentType = this.documentTypes.find(documentType => !documentType.disabled).value;
+                        this.documentType = this.documentTypes.find((documentType) => !documentType.disabled).value;
                         this.onRadioFieldChange();
                     }
 
@@ -118,19 +122,10 @@ export default {
 
         documentTypeAvailable(documentType) {
             return (
-                (
-                    documentType.technicalName !== 'storno' &&
-                    documentType.technicalName !== 'credit_note'
-                ) ||
-                (
-                    (
-                        documentType.technicalName === 'storno' ||
-                        (
-                            documentType.technicalName === 'credit_note' &&
-                            this.creditItems.length !== 0
-                        )
-                    ) && this.invoiceExists
-                )
+                (documentType.technicalName !== 'storno' && documentType.technicalName !== 'credit_note') ||
+                ((documentType.technicalName === 'storno' ||
+                    (documentType.technicalName === 'credit_note' && this.creditItems.length !== 0)) &&
+                    this.invoiceExists)
             );
         },
 
@@ -141,13 +136,7 @@ export default {
         },
 
         onRadioFieldChange() {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.documentTypeCollection.get(this.documentType));
-
-                return;
-            }
-
-            this.$emit('change', this.documentTypeCollection.get(this.documentType));
+            this.$emit('update:value', this.documentTypeCollection.get(this.documentType));
         },
     },
 };

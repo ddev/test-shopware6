@@ -29,7 +29,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class PriceDefinitionFieldSerializer extends JsonFieldSerializer
 {
     /**
@@ -49,7 +49,7 @@ class PriceDefinitionFieldSerializer extends JsonFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        $value = json_decode(json_encode($data->getValue(), \JSON_PRESERVE_ZERO_FRACTION | \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
+        $value = \json_decode(\json_encode($data->getValue(), \JSON_PRESERVE_ZERO_FRACTION | \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
 
         if ($value !== null) {
             if (!\array_key_exists('type', $value)) {
@@ -175,7 +175,6 @@ class PriceDefinitionFieldSerializer extends JsonFieldSerializer
     private function validateRules(array $data, string $basePath): ConstraintViolationList
     {
         $violationList = new ConstraintViolationList();
-        /** @var string|null $type */
         $type = null;
         if (\array_key_exists('_name', $data)) {
             $type = $data['_name'];
@@ -261,7 +260,7 @@ class PriceDefinitionFieldSerializer extends JsonFieldSerializer
     {
         $list = new ConstraintViolationList();
         foreach ($fieldValidations as $fieldName => $validations) {
-            $currentPath = sprintf('%s/%s', $basePath, $fieldName);
+            $currentPath = \sprintf('%s/%s', $basePath, $fieldName);
             $list->addAll(
                 $this->validator->startContext()
                     ->atPath($currentPath)
@@ -271,7 +270,7 @@ class PriceDefinitionFieldSerializer extends JsonFieldSerializer
         }
 
         foreach ($payload as $fieldName => $_value) {
-            $currentPath = sprintf('%s/%s', $basePath, $fieldName);
+            $currentPath = \sprintf('%s/%s', $basePath, $fieldName);
 
             if (!\array_key_exists($fieldName, $fieldValidations)) {
                 $list->add(

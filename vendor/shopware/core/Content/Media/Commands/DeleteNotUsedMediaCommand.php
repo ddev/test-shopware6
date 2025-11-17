@@ -2,7 +2,6 @@
 
 namespace Shopware\Core\Content\Media\Commands;
 
-use Doctrine\DBAL\Connection;
 use Shopware\Core\Content\Media\Event\UnusedMediaSearchEvent;
 use Shopware\Core\Content\Media\Event\UnusedMediaSearchStartEvent;
 use Shopware\Core\Content\Media\MediaEntity;
@@ -23,7 +22,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
     name: 'media:delete-unused',
     description: 'Deletes all media files which are not used in any entity',
 )]
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class DeleteNotUsedMediaCommand extends Command
 {
     /**
@@ -31,7 +30,6 @@ class DeleteNotUsedMediaCommand extends Command
      */
     public function __construct(
         private readonly UnusedMediaPurger $unusedMediaPurger,
-        private readonly Connection $connection,
         private readonly EventDispatcherInterface $eventDispatcher,
     ) {
         parent::__construct();
@@ -45,7 +43,7 @@ class DeleteNotUsedMediaCommand extends Command
         $this->addOption('folder-entity', null, InputOption::VALUE_REQUIRED, 'Restrict deletion of not used media in default location folders of the provided entity name');
         $this->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'The limit of media entries to query');
         $this->addOption('offset', null, InputOption::VALUE_OPTIONAL, 'The offset to start from');
-        $this->addOption('grace-period-days', null, InputOption::VALUE_REQUIRED, 'The offset to start from', 20);
+        $this->addOption('grace-period-days', null, InputOption::VALUE_REQUIRED, 'Restrict deletion of not used media uploaded in the last n days', 20);
         $this->addOption('dry-run', description: 'Show list of files to be deleted');
         $this->addOption('report', description: 'Generate a list of files to be deleted');
     }
@@ -56,14 +54,6 @@ class DeleteNotUsedMediaCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new ShopwareStyle($input, $output);
-
-        try {
-            $this->connection->fetchOne('SELECT JSON_OVERLAPS(JSON_ARRAY(1), JSON_ARRAY(1));');
-        } catch (\Exception $e) {
-            $io->error('Your database does not support the JSON_OVERLAPS function. Please update your database to MySQL 8.0 or MariaDB 10.9 or higher.');
-
-            return self::FAILURE;
-        }
 
         if ($input->getOption('report') && $input->getOption('dry-run')) {
             $io->error('The options --report and --dry-run cannot be used together, pick one or the other.');
@@ -97,15 +87,15 @@ class DeleteNotUsedMediaCommand extends Command
             private int $totalMediaDeletionCandidates = 0;
 
             public function __construct(
-                private ShopwareStyle $io,
-                private int $limit,
+                private readonly ShopwareStyle $io,
+                private readonly int $limit,
             ) {
             }
 
             public function start(UnusedMediaSearchStartEvent $event): void
             {
                 $this->totalMediaDeletionCandidates = $event->totalMediaDeletionCandidates;
-                $this->io->note(sprintf('Out of a total of %d media items there are %d candidates for removal', $event->totalMedia, $event->totalMediaDeletionCandidates));
+                $this->io->note(\sprintf('Out of a total of %d media items there are %d candidates for removal', $event->totalMedia, $event->totalMediaDeletionCandidates));
                 $this->progressBar = $this->io->createProgressBar($event->totalMediaDeletionCandidates);
                 $this->progressBar->setFormat('debug');
                 $this->progressBar->start();
@@ -142,12 +132,12 @@ class DeleteNotUsedMediaCommand extends Command
         );
 
         if ($count === 0) {
-            $io->success(sprintf('There are no unused media files uploaded before the grace period of %d days.', (int) $input->getOption('grace-period-days')));
+            $io->success(\sprintf('There are no unused media files uploaded before the grace period of %d days.', (int) $input->getOption('grace-period-days')));
 
             return self::SUCCESS;
         }
 
-        $io->success(sprintf('Successfully deleted %d media files.', $count));
+        $io->success(\sprintf('Successfully deleted %d media files.', $count));
 
         return self::SUCCESS;
     }
@@ -161,7 +151,7 @@ class DeleteNotUsedMediaCommand extends Command
             $input->getOption('folder-entity'),
         );
 
-        $output->write(implode(',', array_map(fn ($col) => sprintf('"%s"', $col), ['Filename', 'Title', 'Uploaded At', 'File Size'])));
+        $output->write(implode(',', array_map(fn ($col) => \sprintf('"%s"', $col), ['Filename', 'Title', 'Uploaded At', 'File Size'])));
         foreach ($mediaBatches as $mediaBatch) {
             foreach ($mediaBatch as $media) {
                 $row = [
@@ -171,7 +161,7 @@ class DeleteNotUsedMediaCommand extends Command
                     MemorySizeCalculator::formatToBytes($media->getFileSize() ?? 0),
                 ];
 
-                $output->write(sprintf("\n%s", implode(',', array_map(fn ($col) => sprintf('"%s"', $col), $row))));
+                $output->write(\sprintf("\n%s", implode(',', array_map(fn ($col) => \sprintf('"%s"', $col), $row))));
             }
         }
 
@@ -207,7 +197,7 @@ class DeleteNotUsedMediaCommand extends Command
             $cursor->moveToPosition(0, 0);
             $cursor->clearOutput();
             $io->title(
-                sprintf(
+                \sprintf(
                     'Files that will be deleted: Page %d. Records: %d - %d',
                     $batchNum + 1,
                     ($batchNum * 20) + 1,
@@ -237,7 +227,7 @@ class DeleteNotUsedMediaCommand extends Command
         });
 
         if ($totalCount === 0) {
-            $io->success(sprintf('There are no unused media files uploaded before the grace period of %d days.', (int) $input->getOption('grace-period-days')));
+            $io->success(\sprintf('There are no unused media files uploaded before the grace period of %d days.', (int) $input->getOption('grace-period-days')));
         } elseif ($finished) {
             $io->success('No more files to show.');
         } else {

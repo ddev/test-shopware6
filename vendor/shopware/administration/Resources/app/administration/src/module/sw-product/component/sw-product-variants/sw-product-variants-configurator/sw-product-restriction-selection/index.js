@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-restriction-selection.html.twig';
@@ -8,6 +8,8 @@ import './sw-product-restriction-selection.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: ['restriction-delete'],
 
     props: {
         groupsWithOptions: {
@@ -35,6 +37,16 @@ export default {
     computed: {
         availableGroups() {
             return this.groupsWithOptions;
+        },
+
+        availableGroupsOptions() {
+            return this.groupsWithOptions.map((groupWithOption) => {
+                return {
+                    id: groupWithOption.group.id,
+                    value: groupWithOption.group.id,
+                    label: groupWithOption.group.translated.name,
+                };
+            });
         },
     },
 
@@ -67,7 +79,7 @@ export default {
             this.optionLoading = false;
         },
 
-        'selectedOptions'() {
+        selectedOptions() {
             const selectedOptionArray = this.selectedOptions !== null ? this.selectedOptions : [];
 
             this.restriction.options = selectedOptionArray;

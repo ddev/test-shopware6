@@ -4,7 +4,7 @@ namespace Shopware\Core\Framework\Util;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class MemorySizeCalculator
 {
     /**
@@ -50,5 +50,22 @@ class MemorySizeCalculator
         $bytes /= (1 << (10 * $pow));
 
         return round($bytes, 2) . ' ' . $units[$pow];
+    }
+
+    public static function getMaxUploadSize(?int $maxSize = null): int
+    {
+        $values = [
+            self::convertToBytes((string) ini_get('upload_max_filesize')),
+            self::convertToBytes((string) ini_get('post_max_size')),
+        ];
+
+        if ($maxSize !== null) {
+            $values[] = $maxSize;
+        }
+
+        /** @var non-empty-array{0?: int<1, max>, 1?: int<1, max>, 2?: int<1, max>} $limits */
+        $limits = array_filter($values, static fn (int $value) => $value > 0);
+
+        return min($limits);
     }
 }

@@ -41,10 +41,16 @@ merge 16.11.2020
     {% endif %}
 
     <!DOCTYPE html>
-    <html>
+    <html lang="{{ locale }}">
     <head>
+        {% block document_head_meta_protection %}
+            <meta http-equiv="Content-Security-Policy" content="script-src 'none'; base-uri 'self';">
+            <meta name="date" content="{{ 'now'|date('c') }}">
+        {% endblock %}
+
         {% block document_head %}
             <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
             {#{% if config.title %}#}
             <title>{% block document_title_tag %}{% endblock %}</title>
             {#{% endif %}#}
@@ -58,6 +64,10 @@ merge 16.11.2020
             {% else %}
                 {% sw_include '@Framework/documents/style_base_portrait.css.twig' %}
             {% endif %}
+
+            {% if config.fileType == constant('Shopware\\Core\\Checkout\\Document\\Service\\HtmlRenderer::FILE_EXTENSION') %}
+                {% sw_include '@Framework/documents/style_base_html.css.twig' %}
+            {% endif %}
         {% endblock %}
     </head>
 
@@ -65,25 +75,28 @@ merge 16.11.2020
 
     {{ block('footer') }}
 
-    {% block document_body %}
-        {% set position = 1 %}
-        {% set prefix = '' %}
-        {% set level = 0 %}
+    <main>
+        {% block document_body %}
+            {% set position = 1 %}
+            {% set prefix = '' %}
+            {% set level = 0 %}
 
-        {% for lineItem in nestedLineItems %}
-            {{ block('loop') }}
+            {% for lineItem in nestedLineItems %}
+                {{ block('loop') }}
 
-            {% set position = position + 1 %}
-        {% endfor %}
+                {% set position = position + 1 %}
+            {% endfor %}
 
-        {{ block('summary') }}
+            {{ block('summary') }}
 
-        {{ block('payment_shipping')  }}
+            {{ block('payment_shipping')  }}
 
-        {{ block('comment')  }}
+            {{ block('comment')  }}
 
-        {{ block('shipping_address')  }}
-    {% endblock %}
+            {{ block('shipping_address')  }}
+        {% endblock %}
+    </main>
+
     </body>
     </html>
 {% endblock %}

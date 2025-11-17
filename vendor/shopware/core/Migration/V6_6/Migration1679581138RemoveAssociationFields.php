@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1679581138RemoveAssociationFields extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -19,12 +19,13 @@ class Migration1679581138RemoveAssociationFields extends MigrationStep
 
     public function update(Connection $connection): void
     {
+        if ($this->columnExists($connection, 'media_default_folder', 'association_fields')) {
+            $connection->executeStatement('ALTER TABLE `media_default_folder` CHANGE `association_fields` `association_fields` JSON NULL');
+        }
     }
 
     public function updateDestructive(Connection $connection): void
     {
-        if ($this->columnExists($connection, 'media_default_folder', 'association_fields')) {
-            $connection->executeStatement('ALTER TABLE `media_default_folder` DROP COLUMN `association_fields`');
-        }
+        $this->dropColumnIfExists($connection, 'media_default_folder', 'association_fields');
     }
 }

@@ -3,7 +3,7 @@ import ApiService from '../api.service';
 /**
  * @class
  * @extends ApiService
- * @package system-settings
+ * @sw-package fundamentals@framework
  */
 class UserActivityApiService extends ApiService {
     constructor(httpClient, loginService, apiEndpoint = 'increment/user_activity') {
@@ -41,6 +41,25 @@ class UserActivityApiService extends ApiService {
 
         return this.httpClient
             .get('/_action/increment/user_activity', {
+                params,
+                headers,
+            })
+            .then((response) => {
+                return ApiService.handleResponse(response);
+            });
+    }
+
+    /**
+     * @param additionalParams
+     * @param additionalHeaders
+     * @returns {Promise<T>}
+     */
+    deleteActivityKeys(additionalParams = {}, additionalHeaders = {}) {
+        const params = additionalParams;
+        const headers = this.getBasicHeaders(additionalHeaders);
+
+        return this.httpClient
+            .delete('/_action/delete-increment/user_activity', {
                 params,
                 headers,
             })

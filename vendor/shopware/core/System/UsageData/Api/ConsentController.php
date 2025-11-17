@@ -6,6 +6,9 @@ use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
+use Shopware\Core\PlatformRequest;
+use Shopware\Core\System\UsageData\Consent\BannerService;
 use Shopware\Core\System\UsageData\Consent\ConsentService;
 use Shopware\Core\System\UsageData\Exception\ConsentAlreadyAcceptedException;
 use Shopware\Core\System\UsageData\Exception\ConsentAlreadyRequestedException;
@@ -16,19 +19,20 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  *
  * @param EntityRepository<UserConfigCollection> $userConfigRepository
  */
-#[Package('merchant-services')]
-#[Route(defaults: ['_routeScope' => ['api']])]
+#[Package('data-services')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
 class ConsentController extends AbstractController
 {
     public function __construct(
         private readonly ConsentService $consentService,
+        private readonly BannerService $bannerService,
     ) {
     }
 
@@ -44,7 +48,7 @@ class ConsentController extends AbstractController
 
         return new JsonResponse([
             'isConsentGiven' => $this->consentService->isConsentAccepted(),
-            'isBannerHidden' => $this->consentService->hasUserHiddenConsentBanner($userId, Context::createDefaultContext()),
+            'isBannerHidden' => $this->bannerService->hasUserHiddenConsentBanner($userId, Context::createDefaultContext()),
         ]);
     }
 
@@ -79,7 +83,7 @@ class ConsentController extends AbstractController
     {
         $userId = $this->getUserIdFromContext($context);
 
-        $this->consentService->hideConsentBannerForUser($userId, $context);
+        $this->bannerService->hideConsentBannerForUser($userId, $context);
 
         return new Response(status: Response::HTTP_NO_CONTENT);
     }

@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * @internal
  */
-#[Package('storefront')]
+#[Package('checkout')]
 class AffiliateTrackingListener implements EventSubscriberInterface
 {
     final public const AFFILIATE_CODE_KEY = OrderService::AFFILIATE_CODE_KEY;
@@ -41,7 +41,12 @@ class AffiliateTrackingListener implements EventSubscriberInterface
             return;
         }
 
+        if (!$request->hasSession()) {
+            return;
+        }
+
         $session = $request->getSession();
+
         $affiliateCode = $request->query->get(self::AFFILIATE_CODE_KEY);
         $campaignCode = $request->query->get(self::CAMPAIGN_CODE_KEY);
         if ($affiliateCode) {

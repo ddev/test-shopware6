@@ -18,7 +18,7 @@ use Symfony\Component\RateLimiter\Util\TimeUtil;
  *
  * @phpstan-import-type TimeBackoffLimit from TimeBackoff
  */
-#[Package('core')]
+#[Package('framework')]
 class TimeBackoffLimiter implements LimiterInterface
 {
     use ResetLimiterTrait;
@@ -33,7 +33,7 @@ class TimeBackoffLimiter implements LimiterInterface
         private readonly array $limits,
         \DateInterval $reset,
         StorageInterface $storage,
-        LockInterface|null $lock = new NoLock()
+        ?LockInterface $lock = new NoLock()
     ) {
         $this->id = $id;
         $this->reset = TimeUtil::dateIntervalToSeconds($reset);
@@ -60,7 +60,7 @@ class TimeBackoffLimiter implements LimiterInterface
             $limit = $backoff->getCurrentLimit($now);
 
             if ($tokens > $limit) {
-                throw new \InvalidArgumentException(sprintf('Cannot reserve more tokens (%d) than the size of the rate limiter (%d).', $tokens, $limit));
+                throw new \InvalidArgumentException(\sprintf('Cannot reserve more tokens (%d) than the size of the rate limiter (%d).', $tokens, $limit));
             }
 
             $attempts = $backoff->getAttempts();

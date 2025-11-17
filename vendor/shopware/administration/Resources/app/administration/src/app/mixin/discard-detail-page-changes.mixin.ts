@@ -1,12 +1,12 @@
-import type { NavigationGuardNext, Route } from 'vue-router';
+import type { NavigationGuardNext } from 'vue-router';
 
 const { Mixin } = Shopware;
 const { types } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
+ * @private
  *
- * @deprecated tag:v6.6.0 - Will be removed without replacement
  * Mixin which resets entity changes on page leave or if the id of the entity changes.
  * This also affects changes in associations of the entity
  *
@@ -16,7 +16,7 @@ const { types } = Shopware.Utils;
  *   ],
  *
  */
-export default Mixin.register('discard-detail-page-changes', (...entityNames: Array<string|Array<string>>) => {
+export default Mixin.register('discard-detail-page-changes', (...entityNames: Array<string | Array<string>>) => {
     const entities: string[] = [];
 
     function tryAddEntity(name: string) {
@@ -41,7 +41,8 @@ export default Mixin.register('discard-detail-page-changes', (...entityNames: Ar
     }
 
     return Shopware.Component.wrapComponentConfig({
-        beforeRouteLeave(to: Route, from: Route, next: NavigationGuardNext) {
+        beforeRouteLeave(to, from, next: NavigationGuardNext) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             this.discardChanges();
 
             next();
@@ -49,17 +50,18 @@ export default Mixin.register('discard-detail-page-changes', (...entityNames: Ar
 
         watch: {
             '$route.params.id'() {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 this.discardChanges();
             },
         },
 
         methods: {
-            discardChanges() {
+            discardChanges(): void {
                 entities.forEach((entityName) => {
                     // @ts-expect-error - we check if the entity exists on the component
                     // eslint-disable-next-line max-len
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-                    const entity: EntitySchema.Entity<any> = this[entityName];
+                    const entity: Entity<any> = this[entityName];
 
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                     if (entity && typeof entity.discardChanges === 'function') {
@@ -74,6 +76,10 @@ export default Mixin.register('discard-detail-page-changes', (...entityNames: Ar
                         `Could not discard changes for entity with name "${entityName}".`,
                     );
                 });
+
+                // reset all api errors
+                const errorStore = Shopware.Store.get('error');
+                errorStore.resetApiErrors();
             },
         },
     });

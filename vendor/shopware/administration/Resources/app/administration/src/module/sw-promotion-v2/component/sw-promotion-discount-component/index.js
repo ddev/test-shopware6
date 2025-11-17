@@ -8,7 +8,7 @@ const { Criteria } = Shopware.Data;
 const discountHandler = new DiscountHandler();
 
 /**
- * @package buyers-experience
+ * @sw-package checkout
  *
  * @private
  */
@@ -18,9 +18,10 @@ export default {
     inject: [
         'repositoryFactory',
         'acl',
-        'feature',
         'ruleConditionDataProviderService',
     ],
+
+    emits: ['discount-delete'],
 
     mixins: [
         Mixin.getByName('placeholder'),
@@ -71,6 +72,9 @@ export default {
             return this.repositoryFactory.create('currency');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - will be removed, does not offer additional filtering compared to default ruleFilter
+         */
         ruleFilter() {
             const criteria = new Criteria(1, 25);
 
@@ -96,9 +100,18 @@ export default {
 
         scopes() {
             const scopes = [
-                { key: DiscountScopes.CART, name: this.$tc('sw-promotion.detail.main.discounts.valueScopeCart') },
-                { key: DiscountScopes.DELIVERY, name: this.$tc('sw-promotion.detail.main.discounts.valueScopeDelivery') },
-                { key: DiscountScopes.SET, name: this.$tc('sw-promotion.detail.main.discounts.valueScopeSet') },
+                {
+                    key: DiscountScopes.CART,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueScopeCart'),
+                },
+                {
+                    key: DiscountScopes.DELIVERY,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueScopeDelivery'),
+                },
+                {
+                    key: DiscountScopes.SET,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueScopeSet'),
+                },
             ];
 
             let index = 1;
@@ -109,39 +122,42 @@ export default {
                 index += 1;
             });
 
-            // if our groups are not yet loaded (async)
-            // make sure that we have at least our selected entry visible
-            // to avoid an accidental save with another value
-            if (this.availableSetGroups.length <= 0) {
-                const nameValue = `${this.$tc('sw-promotion.detail.main.discounts.valueScopeSetGroup')}`;
-                scopes.push({ key: DiscountScopes.SETGROUP, name: nameValue });
-            }
-
             return scopes;
         },
 
         types() {
             const availableTypes = [
-                { key: DiscountTypes.ABSOLUTE, name: this.$tc('sw-promotion.detail.main.discounts.valueTypeAbsolute') },
-                { key: DiscountTypes.PERCENTAGE, name: this.$tc('sw-promotion.detail.main.discounts.valueTypePercentage') },
-                { key: DiscountTypes.FIXED_UNIT, name: this.$tc('sw-promotion.detail.main.discounts.valueTypeFixedUnit') },
+                {
+                    key: DiscountTypes.ABSOLUTE,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueTypeAbsolute'),
+                },
+                {
+                    key: DiscountTypes.PERCENTAGE,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueTypePercentage'),
+                },
+                {
+                    key: DiscountTypes.FIXED_UNIT,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueTypeFixedUnit'),
+                },
             ];
 
             // do not allow a fixed-total price for cart. this would mean the whole
             // cart is sold for price X.
             // we do only allow this option if the scope is something else
             if (!this.cartScope) {
-                availableTypes.push(
-                    { key: DiscountTypes.FIXED, name: this.$tc('sw-promotion.detail.main.discounts.valueTypeFixed') },
-                );
+                availableTypes.push({
+                    key: DiscountTypes.FIXED,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueTypeFixed'),
+                });
             }
 
             // if we do have a cart scope, only allow the fixed value if
             // at least advanced rules have been activated
             if (this.cartScope && this.discount.considerAdvancedRules) {
-                availableTypes.push(
-                    { key: DiscountTypes.FIXED, name: this.$tc('sw-promotion.detail.main.discounts.valueTypeFixed') },
-                );
+                availableTypes.push({
+                    key: DiscountTypes.FIXED,
+                    name: this.$tc('sw-promotion.detail.main.discounts.valueTypeFixed'),
+                });
             }
 
             return availableTypes;
@@ -160,15 +176,24 @@ export default {
         },
 
         showAbsoluteAdvancedPricesSettings() {
-            return (this.discount.type === DiscountTypes.ABSOLUTE || this.discount.type === DiscountTypes.FIXED);
+            return (
+                this.discount.type === DiscountTypes.ABSOLUTE ||
+                this.discount.type === DiscountTypes.FIXED ||
+                this.discount.type === DiscountTypes.FIXED_UNIT
+            );
         },
 
         // only show advanced max value settings if
         // at least a base max value has been set
         showMaxValueAdvancedPrices() {
-            return this.discount.type === DiscountTypes.PERCENTAGE && this.discount.maxValue !== null;
+            return (
+                this.discount.type === DiscountTypes.PERCENTAGE &&
+                this.discount.maxValue !== null &&
+                this.discount.maxValue !== undefined
+            );
         },
 
+        /** @deprecated tag:v6.8.0 - Will be removed without replacement */
         maxValueAdvancedPricesTooltip() {
             if (
                 this.discount.type === DiscountTypes.PERCENTAGE &&
@@ -189,19 +214,17 @@ export default {
         },
 
         displayAdvancedRuleOption() {
-            return (this.discount.scope !== DiscountScopes.DELIVERY);
+            return this.discount.scope !== DiscountScopes.DELIVERY;
         },
 
         graduationSorters() {
             const result = [];
 
             this.sorterKeys.forEach((keyValue) => {
-                result.push(
-                    {
-                        key: keyValue,
-                        name: this.$tc(`sw-promotion-v2.detail.conditions.filter.sorter.${keyValue}`),
-                    },
-                );
+                result.push({
+                    key: keyValue,
+                    name: this.$tc(`sw-promotion-v2.detail.conditions.filter.sorter.${keyValue}`),
+                });
             });
 
             return result;
@@ -211,12 +234,10 @@ export default {
             const result = [];
 
             this.pickerKeys.forEach((keyValue) => {
-                result.push(
-                    {
-                        key: keyValue,
-                        name: this.$tc(`sw-promotion-v2.detail.conditions.filter.picker.${keyValue}`),
-                    },
-                );
+                result.push({
+                    key: keyValue,
+                    name: this.$tc(`sw-promotion-v2.detail.conditions.filter.picker.${keyValue}`),
+                });
             });
 
             return result;
@@ -231,7 +252,7 @@ export default {
         },
 
         isSet() {
-            return (this.discount.scope === DiscountScopes.SET);
+            return this.discount.scope === DiscountScopes.SET;
         },
 
         graduationAppliers() {
@@ -258,12 +279,10 @@ export default {
 
             let i;
             for (i = 1; i <= maxCount; i += 1) {
-                appliers.push(
-                    {
-                        key: i,
-                        name: this.$tc('sw-promotion-v2.detail.conditions.filter.applier.SELECT', 0, { count: i }),
-                    },
-                );
+                appliers.push({
+                    key: i.toString(),
+                    name: this.$tc('sw-promotion-v2.detail.conditions.filter.applier.SELECT', { count: i }, 0),
+                });
             }
 
             return appliers;
@@ -279,19 +298,17 @@ export default {
 
             let i;
             for (i = 1; i < 10; i += 1) {
-                counts.push(
-                    {
-                        key: i,
-                        name: this.$tc('sw-promotion-v2.detail.conditions.filter.counter.SELECT', 0, { count: i }),
-                    },
-                );
+                counts.push({
+                    key: i.toString(),
+                    name: this.$tc('sw-promotion-v2.detail.conditions.filter.counter.SELECT', { count: i }, 0),
+                });
             }
 
             return counts;
         },
 
         isPickingModeVisible() {
-            if (this.discount.scope.startsWith(DiscountScopes.SETGROUP)) {
+            if (this.discount.scope?.startsWith(DiscountScopes.SETGROUP)) {
                 return true;
             }
 
@@ -312,12 +329,71 @@ export default {
 
         promotionDiscountSnippet() {
             return this.$tc(
-                this.ruleConditionDataProviderService
-                    .getAwarenessConfigurationByAssignmentName('promotionDiscounts').snippet,
+                this.ruleConditionDataProviderService.getAwarenessConfigurationByAssignmentName('promotionDiscounts')
+                    .snippet,
                 2,
             );
         },
 
+        fieldScopeOptions() {
+            return this.scopes.map((scope, index) => {
+                return {
+                    id: index,
+                    value: scope.key,
+                    label: scope.name,
+                };
+            });
+        },
+
+        applyCountOptions() {
+            return this.graduationAppliers.map((applier, index) => {
+                return {
+                    id: index,
+                    value: applier.key,
+                    label: applier.name,
+                };
+            });
+        },
+
+        maxCountOptions() {
+            return this.graduationCounts.map((count, index) => {
+                return {
+                    id: index,
+                    value: count.key,
+                    label: count.name,
+                };
+            });
+        },
+
+        sorterOptions() {
+            return this.graduationSorters.map((sorter, index) => {
+                return {
+                    id: index,
+                    value: sorter.key,
+                    label: sorter.name,
+                };
+            });
+        },
+
+        pickerOptions() {
+            return this.graduationPickers.map((picker, index) => {
+                return {
+                    id: index,
+                    value: picker.key,
+                    label: picker.name,
+                };
+            });
+        },
+
+        discountTypeOptions() {
+            return this.types.map((type, index) => {
+                return {
+                    id: index,
+                    value: type.key,
+                    label: type.name,
+                };
+            });
+        },
     },
     created() {
         this.createdComponent();
@@ -329,18 +405,13 @@ export default {
 
             this.currencyRepository.search(new Criteria(1, 25)).then((response) => {
                 this.currencies = response;
-                this.defaultCurrency = this.currencies.find(currency => currency.isSystemDefault);
+                this.defaultCurrency = this.currencies.find((currency) => currency.isSystemDefault);
                 this.currencySymbol = this.defaultCurrency.symbol;
             });
 
-            // remember the actual scope
-            // our setgroup are loaded async.
-            // so that would reset the dropdown to the first entry "cart".
-            // this means we have to reset it after our loading
-            const previousScope = this.discount.scope;
-
+            this.isLoading = true;
             this.loadSetGroups().then(() => {
-                this.discount.scope = previousScope;
+                this.isLoading = false;
             });
 
             this.loadSorters().then((keys) => {
@@ -355,8 +426,8 @@ export default {
         },
 
         onDiscountScopeChanged(value) {
-            this.cartScope = (value === DiscountScopes.CART);
-            this.shippingScope = (value === DiscountScopes.DELIVERY);
+            this.cartScope = value === DiscountScopes.CART;
+            this.shippingScope = value === DiscountScopes.DELIVERY;
 
             if (value === DiscountScopes.DELIVERY) {
                 this.discount.considerAdvancedRules = false;
@@ -387,6 +458,8 @@ export default {
 
         onDiscountValueChanged(value) {
             this.discount.value = discountHandler.getFixedValue(value, this.discount.type);
+
+            this.recalculatePrices();
         },
 
         // The number field does not allow a NULL input
@@ -399,6 +472,8 @@ export default {
                 this.discount.maxValue = null;
                 // clear any currency values if max value is gone
                 this.clearAdvancedPrices();
+            } else {
+                this.recalculatePrices();
             }
         },
 
@@ -408,37 +483,40 @@ export default {
                     // if we have a max-value setting active
                     // then our advanced prices is for this
                     // otherwise its for the promotion value itself
-                    if (this.showMaxValueAdvancedPrices) {
-                        this.prepareAdvancedPrices(currency, this.discount.maxValue);
-                    } else {
-                        this.prepareAdvancedPrices(currency, this.discount.value);
-                    }
+                    // now create the value with the calculated and translated value
+                    const newAdvancedCurrencyPrices = this.advancedPricesRepo.create(Shopware.Context.api);
+                    newAdvancedCurrencyPrices.discountId = this.discount.id;
+                    newAdvancedCurrencyPrices.price = this.calculatePrice(currency);
+                    newAdvancedCurrencyPrices.currencyId = currency.id;
+                    newAdvancedCurrencyPrices.currency = currency;
+
+                    this.discount.promotionDiscountPrices.add(newAdvancedCurrencyPrices);
                 }
             });
             this.displayAdvancedPrices = true;
         },
 
-        prepareAdvancedPrices(currency, basePrice) {
-            // first get the minimum value that is allowed
-            let setPrice = discountHandler.getMinValue();
-            // if basePrice is undefined take the minimum price
-            if (basePrice !== undefined) {
-                setPrice = basePrice;
-            }
-            // foreign currencies are translated at the exchange rate of the default currency
-            setPrice *= currency.factor;
-            // even if translated correctly the value may not be less than the allowed minimum value
-            if (setPrice < discountHandler.getMinValue()) {
-                setPrice = discountHandler.getMinValue();
-            }
-            // now create the value with the calculated and translated value
-            const newAdvancedCurrencyPrices = this.advancedPricesRepo.create(Shopware.Context.api);
-            newAdvancedCurrencyPrices.discountId = this.discount.id;
-            newAdvancedCurrencyPrices.price = setPrice;
-            newAdvancedCurrencyPrices.currencyId = currency.id;
-            newAdvancedCurrencyPrices.currency = currency;
+        recalculatePrices() {
+            this.discount.promotionDiscountPrices.forEach((price) => {
+                const currency = this.currencies.get(price.currencyId);
+                if (!currency) {
+                    return;
+                }
 
-            this.discount.promotionDiscountPrices.add(newAdvancedCurrencyPrices);
+                price.price = this.calculatePrice(currency);
+            });
+        },
+
+        calculatePrice(currency) {
+            const price = this.showMaxValueAdvancedPrices ? this.discount.maxValue : this.discount.value;
+
+            // if basePrice is undefined or lower than minimum, take the minimum price
+            if (!price || price < discountHandler.getMinValue()) {
+                return discountHandler.getMinValue();
+            }
+
+            // foreign currencies are translated at the exchange rate of the default currency
+            return price * currency.factor;
         },
 
         clearAdvancedPrices() {
@@ -462,7 +540,7 @@ export default {
         },
 
         onCloseAdvancedPricesModal() {
-            if ((this.discount.type === DiscountTypes.PERCENTAGE) && this.discount.maxValue === null) {
+            if (this.discount.type === DiscountTypes.PERCENTAGE && this.discount.maxValue === null) {
                 // clear any currency values if max value is gone
                 this.clearAdvancedPrices();
             } else {
@@ -490,9 +568,7 @@ export default {
 
         async loadSetGroups() {
             const criteria = new Criteria(1, 25);
-            criteria.addFilter(
-                Criteria.equals('promotionId', this.promotion.id),
-            );
+            criteria.addFilter(Criteria.equals('promotionId', this.promotion.id));
 
             await this.repositoryGroups.search(criteria).then((groups) => {
                 this.availableSetGroups = groups;
@@ -502,30 +578,29 @@ export default {
         },
 
         async loadSorters() {
-            return this.httpClient.get(
-                '/_action/promotion/setgroup/sorter',
-                {
+            return this.httpClient
+                .get('/_action/promotion/setgroup/sorter', {
                     headers: this.syncService.getBasicHeaders(),
-                },
-            ).then((response) => {
-                return response.data;
-            });
+                })
+                .then((response) => {
+                    return response.data;
+                });
         },
 
         async loadPickers() {
-            return this.httpClient.get(
-                '/_action/promotion/discount/picker',
-                {
+            return this.httpClient
+                .get('/_action/promotion/discount/picker', {
                     headers: this.syncService.getBasicHeaders(),
-                },
-            ).then((response) => {
-                return response.data;
-            });
+                })
+                .then((response) => {
+                    return response.data;
+                });
         },
 
         loadRestrictedRules() {
-            this.ruleConditionDataProviderService.getRestrictedRules('promotionSetGroups')
-                .then((result) => { this.restrictedRules = result; });
+            this.ruleConditionDataProviderService.getRestrictedRules('promotionSetGroups').then((result) => {
+                this.restrictedRules = result;
+            });
         },
     },
 };

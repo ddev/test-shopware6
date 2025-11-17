@@ -13,7 +13,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Storefront\Framework\Routing\StorefrontRouteScope;
 use Shopware\Storefront\Page\Wishlist\GuestWishlistPageLoadedHook;
 use Shopware\Storefront\Page\Wishlist\GuestWishlistPageLoader;
 use Shopware\Storefront\Page\Wishlist\WishlistPageLoadedHook;
@@ -26,15 +28,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * @internal
  * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put data
  */
-#[Route(defaults: ['_routeScope' => ['storefront']])]
-#[Package('storefront')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
+#[Package('framework')]
 class WishlistController extends StorefrontController
 {
     /**
@@ -104,6 +106,7 @@ class WishlistController extends StorefrontController
     public function ajaxList(Request $request, SalesChannelContext $context, CustomerEntity $customer): Response
     {
         $criteria = new Criteria();
+        $criteria->setTitle('wishlist::list');
         $this->eventDispatcher->dispatch(new WishListPageProductCriteriaEvent($criteria, $context, $request));
 
         try {
@@ -176,7 +179,7 @@ class WishlistController extends StorefrontController
             $this->addFlash(self::DANGER, $this->trans('error.message-default'));
         }
 
-        return $this->redirectToRoute('frontend.home.page');
+        return $this->redirectToRoute('frontend.wishlist.page');
     }
 
     #[Route(path: '/wishlist/merge', name: 'frontend.wishlist.product.merge', options: ['seo' => false], defaults: ['XmlHttpRequest' => true, '_loginRequired' => true], methods: ['POST'])]

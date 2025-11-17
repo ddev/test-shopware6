@@ -1,24 +1,45 @@
+import type { NotificationVariant } from 'src/app/store/notification.store';
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default function initializeNotifications(): void {
     // Handle incoming notifications from the ExtensionAPI
-    Shopware.ExtensionAPI.handle('notificationDispatch', async (notificationOptions) => {
-        // @ts-expect-error
-        const viewRoot = Shopware.Application.view.root;
-        // @ts-expect-error
-        const $tc = viewRoot.$tc.bind(viewRoot);
-
-        const message = notificationOptions.message ?? $tc('global.notification.noMessage');
-        const title = notificationOptions.title ?? $tc('global.notification.noTitle');
+    Shopware.ExtensionAPI.handle('notificationDispatch', (notificationOptions) => {
+        // @ts-expect-error - t is callable
+        const message = notificationOptions.message ?? Shopware.Snippet.tc('global.notification.noMessage');
+        // @ts-expect-error - tc is callable
+        const title = notificationOptions.title ?? Shopware.Snippet.tc('global.notification.noTitle');
         const actions = notificationOptions.actions ?? [];
         const appearance = notificationOptions.appearance ?? 'notification';
         const growl = notificationOptions.growl ?? true;
-        const variant = notificationOptions.variant ?? 'info';
 
-        await Shopware.State.dispatch('notification/createNotification', {
+        let variant: NotificationVariant = 'info';
+
+        if (notificationOptions.variant) {
+            // @ts-expect-error - new variant types are not yet in the SDK
+            if (notificationOptions.variant === 'success' || notificationOptions.variant === 'positive') {
+                variant = 'positive';
+            }
+
+            // @ts-expect-error - new variant types are not yet in the SDK
+            if (notificationOptions.variant === 'error' || notificationOptions.variant === 'critical') {
+                variant = 'critical';
+            }
+
+            // @ts-expect-error - new variant types are not yet in the SDK
+            if (notificationOptions.variant === 'warning' || notificationOptions.variant === 'attention') {
+                variant = 'attention';
+            }
+
+            // @ts-expect-error - new variant types are not yet in the SDK
+            if (notificationOptions.variant === 'info' || notificationOptions.variant === 'neutral') {
+                variant = 'info';
+            }
+        }
+
+        Shopware.Store.get('notification').createNotification({
             variant: variant,
             title: title,
             message: message,

@@ -3,7 +3,7 @@ import template from './sw-settings-login-registration.html.twig';
 const { Mixin } = Shopware;
 
 /**
- * @package services-settings
+ * @sw-package fundamentals@framework
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -46,15 +46,17 @@ export default {
             Promise.all([
                 this.$refs.systemConfig.saveAll(),
                 this.$refs.systemConfigSystemWide.saveAll(),
-            ]).then(() => {
-                this.isLoading = false;
-                this.isSaveSuccessful = true;
-            }).catch((err) => {
-                this.isLoading = false;
-                this.createNotificationError({
-                    message: err,
+            ])
+                .then(() => {
+                    this.isLoading = false;
+                    this.isSaveSuccessful = true;
+                })
+                .catch((err) => {
+                    this.isLoading = false;
+                    this.createNotificationError({
+                        message: err,
+                    });
                 });
-            });
         },
 
         onLoginRegistrationLoadingChanged(loading) {

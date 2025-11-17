@@ -8,7 +8,7 @@
         <defaults public="true" />
 
         <service id="Shopware\Storefront\Controller\Api\CaptchaController" public="true">
-            <argument type="tagged" tag="shopware.storefront.captcha"/>
+            <argument type="tagged_iterator" tag="shopware.storefront.captcha"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
@@ -27,22 +27,11 @@
             <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextService"/>
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
             <argument type="service" id="Shopware\Core\Checkout\Order\SalesChannel\OrderService"/>
-            <call method="setContainer">
-                <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
-        </service>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Header\HeaderPageletLoader"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Footer\FooterPageletLoader"/>
 
-        <service id="Shopware\Storefront\Controller\AccountPaymentController">
-            <argument type="service" id="Shopware\Storefront\Page\Account\PaymentMethod\AccountPaymentMethodPageLoader"/>
-            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\ChangePaymentMethodRoute"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -57,9 +46,6 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\AddressController">
@@ -69,12 +55,10 @@
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\ListAddressRoute"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\UpsertAddressRoute"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\DeleteAddressRoute"/>
-            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\ChangeCustomerProfileRoute"/>
+            <argument type="service" id="Shopware\Core\System\SalesChannel\SalesChannel\ContextSwitchRoute"/>
+            <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextService"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -84,14 +68,11 @@
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\ResetPasswordRoute"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\LoginRoute"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\LogoutRoute"/>
+            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\ImitateCustomerRoute"/>
             <argument type="service" id="Shopware\Storefront\Checkout\Cart\SalesChannel\StorefrontCartFacade"/>
             <argument type="service" id="Shopware\Storefront\Page\Account\RecoverPassword\AccountRecoverPasswordPageLoader"/>
-            <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextService"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -109,9 +90,6 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\CheckoutController">
@@ -120,28 +98,32 @@
             <argument type="service" id="Shopware\Storefront\Page\Checkout\Confirm\CheckoutConfirmPageLoader"/>
             <argument type="service" id="Shopware\Storefront\Page\Checkout\Finish\CheckoutFinishPageLoader"/>
             <argument type="service" id="Shopware\Core\Checkout\Order\SalesChannel\OrderService"/>
-            <argument type="service" id="Shopware\Core\Checkout\Payment\PaymentService"/>
+            <argument type="service" id="Shopware\Core\Checkout\Payment\PaymentProcessor"/>
             <argument type="service" id="Shopware\Storefront\Page\Checkout\Offcanvas\OffcanvasCartPageLoader"/>
-            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\LogoutRoute"/>
             <argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartLoadRoute"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Header\HeaderPageletLoader"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Footer\FooterPageletLoader"/>
+
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
+        </service>
+
+        <service id="Shopware\Storefront\Controller\ContextGatewayController">
+            <argument type="service" id="Shopware\Core\Framework\Gateway\Context\SalesChannel\ContextGatewayRoute"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartService"/>
+
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
             </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\CookieController">
-            <argument type="service" id="Shopware\Storefront\Framework\Cookie\CookieProviderInterface"/>
-            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+            <argument type="service" id="Shopware\Core\Content\Cookie\SalesChannel\CookieRoute"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -150,15 +132,13 @@
             <argument type="service" id="Shopware\Core\Content\Category\SalesChannel\CategoryRoute"/>
             <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Listing\ProductListingRoute"/>
             <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Detail\ProductDetailRoute"/>
-            <argument type="service" id="Shopware\Storefront\Page\Product\Review\ProductReviewLoader"/>
+            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Review\ProductReviewLoader"/>
             <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\FindVariant\FindProductVariantRoute"/>
             <argument type="service" id="event_dispatcher"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -170,9 +150,6 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\ContextController">
@@ -182,9 +159,6 @@
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -196,35 +170,28 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
-        <service id="Shopware\Storefront\Controller\ErrorController" lazy="true">
+        <service id="Shopware\Storefront\Controller\ErrorController" public="true">
             <argument type="service" id="Shopware\Storefront\Framework\Twig\ErrorTemplateResolver"/>
-            <argument type="service" id="Shopware\Storefront\Pagelet\Header\HeaderPageletLoader"/>
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
             <argument type="service" id="Shopware\Storefront\Page\Navigation\Error\ErrorPageLoader"/>
-            <argument type="service" id="Shopware\Storefront\Pagelet\Footer\FooterPageletLoader"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\NavigationController">
             <argument type="service" id="Shopware\Storefront\Page\Navigation\NavigationPageLoader"/>
             <argument type="service" id="Shopware\Storefront\Pagelet\Menu\Offcanvas\MenuOffcanvasPageletLoader"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Header\HeaderPageletLoader"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Footer\FooterPageletLoader"/>
+            <argument type="service" id="Shopware\Core\Content\Category\Service\CategoryUrlGenerator"/>
+            <argument type="service" id="Shopware\Core\Content\Seo\SeoUrlPlaceholderHandlerInterface"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -236,9 +203,6 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\ProductController">
@@ -247,14 +211,10 @@
             <argument type="service" id="Shopware\Storefront\Page\Product\QuickView\MinimalQuickViewPageLoader"/>
             <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Review\ProductReviewSaveRoute"/>
             <argument type="service" id="Shopware\Core\Content\Seo\SeoUrlPlaceholderHandlerInterface"/>
-            <argument type="service" id="Shopware\Storefront\Page\Product\Review\ProductReviewLoader"/>
-            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService" />
+            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Review\ProductReviewLoader"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -263,9 +223,6 @@
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -279,12 +236,11 @@
             <argument type="service" id="customer.repository"/>
             <argument type="service" id="Shopware\Storefront\Page\Account\CustomerGroupRegistration\CustomerGroupRegistrationPageLoader"/>
             <argument type="service" id="sales_channel_domain.repository"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Header\HeaderPageletLoader"/>
+            <argument type="service" id="Shopware\Storefront\Pagelet\Footer\FooterPageletLoader"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -294,9 +250,6 @@
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -308,25 +261,15 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\SitemapController">
             <argument type="service" id="Shopware\Storefront\Page\Sitemap\SitemapPageLoader"/>
+            <argument type="service" id="Shopware\Core\Content\Sitemap\SalesChannel\SitemapFileRoute"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
-        </service>
-
-        <service id="Shopware\Storefront\Page\Product\Review\ProductReviewLoader">
-            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Review\ProductReviewRoute"/>
-            <argument type="service" id="event_dispatcher"/>
         </service>
 
         <service id="Shopware\Storefront\Controller\CountryStateController" public="true">
@@ -338,12 +281,10 @@
 
         <service id="Shopware\Storefront\Controller\DocumentController" public="true">
             <argument type="service" id="Shopware\Core\Checkout\Document\SalesChannel\DocumentRoute"/>
+            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\LogoutRoute"/>
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -352,9 +293,6 @@
 
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
-            </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
             </call>
         </service>
 
@@ -377,9 +315,6 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\CaptchaController" public="true">
@@ -389,14 +324,18 @@
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
-            <call method="setTwig">
-                <argument type="service" id="twig"/>
-            </call>
         </service>
 
         <service id="Shopware\Storefront\Controller\VerificationHashController" public="true">
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
 
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+
+        <service id="Shopware\Storefront\Controller\RobotsController" public="true">
+            <argument type="service" id="Shopware\Storefront\Page\Robots\RobotsPageLoader"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>

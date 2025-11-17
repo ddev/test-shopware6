@@ -12,10 +12,7 @@ class ReflectionHelper
      */
     public static function getMethod(string $className, string $methodName): \ReflectionMethod
     {
-        $method = (new \ReflectionClass($className))->getMethod($methodName);
-        $method->setAccessible(true);
-
-        return $method;
+        return (new \ReflectionClass($className))->getMethod($methodName);
     }
 
     /**
@@ -23,14 +20,19 @@ class ReflectionHelper
      */
     public static function getProperty(string $className, string $propertyName): \ReflectionProperty
     {
-        $property = (new \ReflectionClass($className))->getProperty($propertyName);
-        $property->setAccessible(true);
-
-        return $property;
+        return (new \ReflectionClass($className))->getProperty($propertyName);
     }
 
     public static function getPropertyValue(object $object, string $propertyName): mixed
     {
         return static::getProperty($object::class, $propertyName)->getValue($object);
+    }
+
+    /**
+     * @param class-string<object> $className
+     */
+    public static function getFileName(string $className): string|false
+    {
+        return (new \ReflectionClass($className))->getFileName();
     }
 }

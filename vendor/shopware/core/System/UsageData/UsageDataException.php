@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * @internal
  */
-#[Package('merchant-services')]
+#[Package('data-services')]
 class UsageDataException extends HttpException
 {
     public const MISSING_USER_IN_CONTEXT_SOURCE = 'SYSTEM__USAGE_DATA_MISSING_USER_IN_CONTEXT_SOURCE';
@@ -26,6 +26,7 @@ class UsageDataException extends HttpException
     public const ENTITY_NOT_TAGGED = 'SYSTEM__USAGE_DATA_ENTITY_NOT_TAGGED';
     public const SYSTEM__USAGE_DATA_FAILED_TO_COMPRESS_ENTITY_DISPATCH_PAYLOAD = 'SYSTEM__USAGE_DATA_FAILED_TO_COMPRESS_ENTITY_DISPATCH_PAYLOAD';
     public const SYSTEM__USAGE_DATA_FAILED_TO_LOAD_DEFAULT_ALLOW_LIST = 'SYSTEM__USAGE_DATA_FAILED_TO_LOAD_DEFAULT_ALLOW_LIST';
+    public const SYSTEM__USAGE_DATA_SHOP_ID_CHANGED = 'SYSTEM__USAGE_DATA_SHOP_ID_CHANGED';
 
     /**
      * @param class-string<ContextSource> $contextSource

@@ -2,7 +2,7 @@ import template from './sw-theme-modal.html.twig';
 import './sw-theme-modal.scss';
 
 /**
- * @package sales-channel
+ * @package discovery
  */
 
 const { Component, Mixin } = Shopware;
@@ -17,13 +17,21 @@ Component.register('sw-theme-modal', {
         Mixin.getByName('listing')
     ],
 
+    props: {
+        selectedThemeId: {
+            type: String,
+            default: null,
+            required: false,
+        },
+    },
+
     data() {
         return {
             selected: null,
             isLoading: false,
             sortBy: 'createdAt',
             sortDirection: 'DESC',
-            term: null,
+            term: '',
             total: null,
             themes: []
         };
@@ -35,7 +43,15 @@ Component.register('sw-theme-modal', {
         }
     },
 
+    created() {
+        this.createdComponent();
+    },
+
     methods: {
+        createdComponent() {
+            this.selected = this.selectedThemeId;
+        },
+
         getList() {
             this.isLoading = true;
             const criteria = new Criteria(this.page, this.limit);
@@ -44,10 +60,7 @@ Component.register('sw-theme-modal', {
             criteria.addFilter(Criteria.equals('active', true));
 
             criteria.addSorting(Criteria.sort(this.sortBy, this.sortDirection));
-
-            if (this.term !== null) {
-                criteria.setTerm(this.term);
-            }
+            criteria.setTerm(this.term);
 
             return this.themeRepository.search(criteria, Shopware.Context.api).then((searchResult) => {
                 this.total = searchResult.total;
@@ -70,8 +83,7 @@ Component.register('sw-theme-modal', {
         },
 
         onSearch(value) {
-            this.term = value.length > 0 ? value.length : null;
-
+            this.term = value;
             this.page = 1;
             this.getList();
         },

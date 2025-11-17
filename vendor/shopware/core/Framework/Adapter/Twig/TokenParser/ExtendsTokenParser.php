@@ -5,38 +5,28 @@ namespace Shopware\Core\Framework\Adapter\Twig\TokenParser;
 use Shopware\Core\Framework\Adapter\AdapterException;
 use Shopware\Core\Framework\Adapter\Twig\TemplateFinderInterface;
 use Shopware\Core\Framework\Adapter\Twig\TemplateScopeDetector;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Twig\Node\EmptyNode;
 use Twig\Node\Expression\AbstractExpression;
 use Twig\Node\Expression\ArrayExpression;
 use Twig\Node\Expression\ConstantExpression;
 use Twig\Node\Node;
-use Twig\Parser;
 use Twig\Token;
 use Twig\TokenParser\AbstractTokenParser;
 use Twig\TokenStream;
 
-#[Package('core')]
+/**
+ * @internal
+ *
+ * @see \Twig\TokenParser\ExtendsTokenParser
+ */
+#[Package('framework')]
 final class ExtendsTokenParser extends AbstractTokenParser
 {
-    /**
-     * @var Parser
-     */
-    protected $parser;
-
-    /**
-     * @deprecated tag:v6.6.0 - Parameter $templateScopeDetector will be required
-     */
     public function __construct(
         private readonly TemplateFinderInterface $finder,
-        private readonly ?TemplateScopeDetector $templateScopeDetector = null,
+        private readonly TemplateScopeDetector $templateScopeDetector,
     ) {
-        if ($templateScopeDetector === null) {
-            Feature::triggerDeprecationOrThrow(
-                'v6.6.0.0',
-                \sprintf('The parameter $templateScopeDetector of the class "%s" will be required.', static::class),
-            );
-        }
     }
 
     public function parse(Token $token): Node
@@ -70,7 +60,7 @@ final class ExtendsTokenParser extends AbstractTokenParser
 
         $stream->injectTokens($tokens);
 
-        return new Node();
+        return new EmptyNode($token->getLine());
     }
 
     public function getTag(): string
@@ -90,7 +80,7 @@ final class ExtendsTokenParser extends AbstractTokenParser
             ];
         }
 
-        $expression = $this->parser->getExpressionParser()->parseExpression();
+        $expression = $this->parser->parseExpression();
         $options = $this->convertExpressionToArray($expression);
 
         if (!isset($options['template']) || !\is_string($options['template'])) {
@@ -113,11 +103,6 @@ final class ExtendsTokenParser extends AbstractTokenParser
      */
     private function shouldEndFile(array $scopes, string $source): bool
     {
-        if ($this->templateScopeDetector === null) {
-            // @deprecated tag:v6.6.0 - Remove this check
-            return false;
-        }
-
         return !\array_intersect($this->templateScopeDetector->getScopes(), $scopes) && !str_starts_with($source, '@Storefront');
     }
 

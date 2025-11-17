@@ -11,11 +11,11 @@ use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelType\SalesChannelTyp
 /**
  * @extends EntityCollection<SalesChannelEntity>
  */
-#[Package('core')]
+#[Package('discovery')]
 class SalesChannelCollection extends EntityCollection
 {
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getLanguageIds(): array
     {
@@ -28,7 +28,7 @@ class SalesChannelCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getCurrencyIds(): array
     {
@@ -41,7 +41,7 @@ class SalesChannelCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getPaymentMethodIds(): array
     {
@@ -54,7 +54,7 @@ class SalesChannelCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getShippingMethodIds(): array
     {
@@ -67,7 +67,7 @@ class SalesChannelCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getCountryIds(): array
     {
@@ -80,7 +80,7 @@ class SalesChannelCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getTypeIds(): array
     {

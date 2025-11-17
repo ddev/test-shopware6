@@ -8,88 +8,40 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class StorePluginStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $name;
+    protected string $name;
 
-    /**
-     * @var string
-     */
-    protected $label;
+    protected string $label;
 
-    /**
-     * @var string
-     */
-    protected $shortDescription;
+    protected string $shortDescription;
 
-    /**
-     * @var string|null
-     */
-    protected $iconPath;
+    protected ?string $iconPath = null;
 
-    /**
-     * @var string|null
-     */
-    protected $version;
+    protected ?string $version = null;
 
-    /**
-     * @var string|null
-     */
-    protected $description;
+    protected ?string $description = null;
 
-    /**
-     * @var string|null
-     */
-    protected $changelog;
+    protected ?string $changelog = null;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $releaseDate;
+    protected ?\DateTimeInterface $releaseDate = null;
 
-    /**
-     * @var bool
-     */
-    protected $installed = false;
+    protected bool $installed = false;
 
-    /**
-     * @var bool
-     */
-    protected $active = false;
+    protected bool $active = false;
 
-    /**
-     * @var string|null
-     */
-    protected $language;
+    protected ?string $language = null;
 
-    /**
-     * @var string|null
-     */
-    protected $region;
+    protected ?string $region = null;
 
-    /**
-     * @var string|null
-     */
-    protected $category;
+    protected ?string $category = null;
 
-    /**
-     * @var string|null
-     */
-    protected $manufacturer;
+    protected ?string $manufacturer = null;
 
-    /**
-     * @var int|null
-     */
-    protected $position;
+    protected ?int $position = null;
 
-    /**
-     * @var bool
-     */
-    protected $isCategoryLead;
+    protected bool $isCategoryLead;
 
     /**
      * @var 'plugin'|'app'

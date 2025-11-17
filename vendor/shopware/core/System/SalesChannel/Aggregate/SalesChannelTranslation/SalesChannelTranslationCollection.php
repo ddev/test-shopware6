@@ -8,11 +8,11 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @extends EntityCollection<SalesChannelTranslationEntity>
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelTranslationCollection extends EntityCollection
 {
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getSalesChannelIds(): array
     {
@@ -25,7 +25,7 @@ class SalesChannelTranslationCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getLanguageIds(): array
     {

@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-custom-field-set-detail-base.html.twig';
 
@@ -7,7 +7,12 @@ import template from './sw-custom-field-set-detail-base.html.twig';
 export default {
     template,
 
-    inject: ['customFieldDataProviderService', 'acl'],
+    inject: [
+        'customFieldDataProviderService',
+        'acl',
+    ],
+
+    emits: ['reset-errors'],
 
     props: {
         set: {
@@ -35,10 +40,10 @@ export default {
     computed: {
         locales() {
             if (this.set.config.translated && this.set.config.translated === true) {
-                return Object.keys(this.$root.$i18n.messages);
+                return Object.keys(this.$root.$i18n.messages.value);
             }
 
-            return [this.$root.$i18n.fallbackLocale];
+            return [this.$root.$i18n.fallbackLocale.value];
         },
 
         customFieldSetRelationRepository() {
@@ -46,10 +51,7 @@ export default {
                 return undefined;
             }
 
-            return Shopware.Service('repositoryFactory').create(
-                this.set.relations.entity,
-                this.set.relations.source,
-            );
+            return Shopware.Service('repositoryFactory').create(this.set.relations.entity, this.set.relations.source);
         },
 
         selectedRelationEntityNames() {
@@ -57,7 +59,7 @@ export default {
                 return [];
             }
 
-            return this.set.relations.map(relation => relation.entityName);
+            return this.set.relations.map((relation) => relation.entityName);
         },
 
         relationEntityNames() {
@@ -67,21 +69,18 @@ export default {
 
             const entityNames = this.customFieldDataProviderService.getEntityNames();
 
-            return entityNames.map(entityName => {
+            return entityNames.map((entityName) => {
                 const relation = this.customFieldSetRelationRepository.create();
                 relation.entityName = entityName;
-                this.$set(relation, 'searchField', {});
 
-                Object.keys(this.$root.$i18n.messages).forEach(locale => {
+                relation.searchField = {};
+
+                Object.keys(this.$root.$i18n.messages).forEach((locale) => {
                     if (!this.$te(`global.entities.${entityName}`)) {
                         return;
                     }
 
-                    this.$set(
-                        relation.searchField,
-                        locale,
-                        this.$tc(`global.entities.${entityName}`, 2, locale),
-                    );
+                    relation.searchField[locale] = this.$tc(`global.entities.${entityName}`, 2, locale);
                 });
 
                 return relation;
@@ -90,13 +89,12 @@ export default {
     },
 
     methods: {
-
         onAddRelation(relation) {
             this.set.relations.push(relation);
         },
 
         onRemoveRelation(relationToRemove) {
-            const matchingRelation = this.set.relations.find(relation => {
+            const matchingRelation = this.set.relations.find((relation) => {
                 return relation.entityName === relationToRemove.entityName;
             });
 
@@ -110,8 +108,8 @@ export default {
         searchRelationEntityNames({ options, searchTerm }) {
             const lowerSearchTerm = searchTerm.toLowerCase();
 
-            return options.filter(option => {
-                return Object.values(option.searchField).some(label => {
+            return options.filter((option) => {
+                return Object.values(option.searchField).some((label) => {
                     return label.toLowerCase().includes(lowerSearchTerm);
                 });
             });

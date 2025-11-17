@@ -10,9 +10,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\Log\Package;
 
 /**
- * @internal only for use by the app-system, will be considered internal from v6.4.0 onward
+ * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class ActionButtonTranslationDefinition extends EntityTranslationDefinition
 {
     final public const ENTITY_NAME = 'app_action_button_translation';

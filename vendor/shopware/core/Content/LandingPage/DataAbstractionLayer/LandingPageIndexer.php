@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\LandingPage\DataAbstractionLayer;
 
 use Shopware\Core\Content\LandingPage\Event\LandingPageIndexerEvent;
+use Shopware\Core\Content\LandingPage\LandingPageCollection;
 use Shopware\Core\Content\LandingPage\LandingPageDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IteratorFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -11,19 +12,15 @@ use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexer;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexingMessage;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
-use Shopware\Storefront\Framework\Seo\SeoUrlRoute\SeoUrlUpdateListener;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class LandingPageIndexer extends EntityIndexer
 {
     /**
-     * @deprecated tag:v6.6.0 - Will be removed, as landing page entities don't have a ManyToManyIdField
-     */
-    final public const MANY_TO_MANY_ID_FIELD_UPDATER = 'landing_page.many-to-many-id-field';
-
-    /**
      * @internal
+     *
+     * @param EntityRepository<LandingPageCollection> $repository
      */
     public function __construct(
         private readonly IteratorFactory $iteratorFactory,
@@ -64,8 +61,11 @@ class LandingPageIndexer extends EntityIndexer
     public function handle(EntityIndexingMessage $message): void
     {
         $ids = $message->getData();
-        $ids = array_unique(array_filter($ids));
+        if (!\is_array($ids)) {
+            return;
+        }
 
+        $ids = array_unique(array_filter($ids));
         if (empty($ids)) {
             return;
         }
@@ -77,8 +77,7 @@ class LandingPageIndexer extends EntityIndexer
     public function getOptions(): array
     {
         return [
-            self::MANY_TO_MANY_ID_FIELD_UPDATER,
-            SeoUrlUpdateListener::LANDING_PAGE_SEO_URL_UPDATER,
+            'landing_page.seo-url',
         ];
     }
 

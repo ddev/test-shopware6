@@ -7,45 +7,21 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\User\UserEntity;
 
-#[Package('system-settings')]
+#[Package('fundamentals@framework')]
 class UserConfigEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $id;
+    protected string $key;
 
     /**
-     * @var string
+     * @var array<string, mixed>|null
      */
-    protected $key;
+    protected ?array $value = null;
 
-    /**
-     * @var array|null
-     */
-    protected $value;
+    protected string $userId;
 
-    /**
-     * @var string
-     */
-    protected $userId;
-
-    /**
-     * @var UserEntity|null
-     */
-    protected $user;
-
-    public function getId(): string
-    {
-        return $this->id;
-    }
-
-    public function setId(string $id): void
-    {
-        $this->id = $id;
-    }
+    protected ?UserEntity $user = null;
 
     public function getKey(): string
     {
@@ -57,11 +33,17 @@ class UserConfigEntity extends Entity
         $this->key = $key;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getValue(): ?array
     {
         return $this->value;
     }
 
+    /**
+     * @param array<string, mixed>|null $value
+     */
     public function setValue(?array $value): void
     {
         $this->value = $value;

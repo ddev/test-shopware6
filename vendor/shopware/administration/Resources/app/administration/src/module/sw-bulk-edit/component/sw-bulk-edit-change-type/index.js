@@ -1,5 +1,5 @@
 /**
- * @package system-settings
+ * @sw-package framework
  */
 import template from './sw-bulk-edit-change-type.html.twig';
 import './sw-bulk-edit-change-type.scss';
@@ -10,10 +10,7 @@ export default {
 
     inject: ['feature'],
 
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
+    emits: ['update:value'],
 
     props: {
         value: {
@@ -56,13 +53,7 @@ export default {
             set(newValue) {
                 this.isDisplayingValue = newValue !== 'clear';
 
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:value', newValue);
-
-                    return;
-                }
-
-                this.$emit('change', newValue);
+                this.$emit('update:value', newValue);
             },
         },
 
@@ -85,14 +76,14 @@ export default {
             if (this.allowAdd) {
                 options.push({
                     value: 'add',
-                    label: this.$tc('sw-bulk-edit.changeTypes.add'),
+                    label: this.$tc('global.default.add'),
                 });
             }
 
             if (this.allowRemove) {
                 options.push({
                     value: 'remove',
-                    label: this.$tc('sw-bulk-edit.changeTypes.remove'),
+                    label: this.$tc('global.default.remove'),
                 });
             }
 

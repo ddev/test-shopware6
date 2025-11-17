@@ -4,11 +4,12 @@ namespace Shopware\Core\Framework\App\Manifest\Xml\Storefront;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
 use Shopware\Core\Framework\Log\Package;
+use Symfony\Component\Config\Util\XmlUtils;
 
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class Storefront extends XmlElement
 {
     protected int $templateLoadPriority = 0;
@@ -28,7 +29,7 @@ class Storefront extends XmlElement
             }
 
             if ($node->tagName === 'template-load-priority') {
-                $values['templateLoadPriority'] = (int) $node->textContent;
+                $values['templateLoadPriority'] = XmlUtils::phpize($node->textContent);
             }
         }
 

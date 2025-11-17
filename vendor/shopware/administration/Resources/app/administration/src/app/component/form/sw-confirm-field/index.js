@@ -1,21 +1,25 @@
 import template from './sw-confirm-field.html.twig';
 import './sw-confirm-field.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Text field with additional confirmation buttons inlined in the field itself.
  * @status ready
  * @example-type static
  * @component-example
  * <sw-confirm-field placeholder="Enter value..."></sw-confirm-field>
  */
-Component.register('sw-confirm-field', {
+export default {
     template,
+
+    emits: [
+        'remove-error',
+        'blur',
+        'submit-cancel',
+        'input',
+    ],
 
     props: {
         value: {
@@ -80,7 +84,7 @@ Component.register('sw-confirm-field', {
         },
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.$emit('remove-error');
     },
 
@@ -141,4 +145,4 @@ Component.register('sw-confirm-field', {
             this.$emit('remove-error');
         },
     },
-});
+};

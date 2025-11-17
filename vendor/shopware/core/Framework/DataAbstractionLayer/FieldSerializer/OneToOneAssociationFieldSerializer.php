@@ -3,13 +3,11 @@
 namespace Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer;
 
 use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\DecodeByHydratorException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\FkField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\OneToOneAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
-use Shopware\Core\Framework\DataAbstractionLayer\Write\FieldException\ExpectedArrayException;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteCommandExtractor;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
 use Shopware\Core\Framework\Log\Package;
@@ -18,7 +16,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class OneToOneAssociationFieldSerializer implements FieldSerializerInterface
 {
     /**
@@ -42,7 +40,9 @@ class OneToOneAssociationFieldSerializer implements FieldSerializerInterface
         }
 
         if (!\is_array($value)) {
-            throw new ExpectedArrayException($parameters->getPath());
+            throw DataAbstractionLayerException::expectedArray(
+                \sprintf('%s/%s', $parameters->getPath(), $key)
+            );
         }
 
         /** @var Field $keyField */
@@ -53,13 +53,7 @@ class OneToOneAssociationFieldSerializer implements FieldSerializerInterface
             $referenceField = $field->getReferenceField();
             $pkField = $reference->getFields()->getByStorageName($referenceField);
             if ($pkField === null) {
-                throw new \RuntimeException(
-                    sprintf(
-                        'Could not find reference field "%s" in definition "%s"',
-                        $referenceField,
-                        $reference::class
-                    )
-                );
+                throw DataAbstractionLayerException::definitionFieldDoesNotExist($reference::class, $referenceField);
             }
 
             // id provided? otherwise set new one to return it and yield the id into the FkField
@@ -102,7 +96,9 @@ class OneToOneAssociationFieldSerializer implements FieldSerializerInterface
         }
 
         if (!\is_array($data->getValue())) {
-            throw new ExpectedArrayException($parameters->getPath());
+            throw DataAbstractionLayerException::expectedArray(
+                \sprintf('%s/%s', $parameters->getPath(), $data->getKey())
+            );
         }
 
         $reference = $field->getReferenceDefinition();
@@ -121,6 +117,6 @@ class OneToOneAssociationFieldSerializer implements FieldSerializerInterface
 
     public function decode(Field $field, mixed $value): never
     {
-        throw new DecodeByHydratorException($field);
+        throw DataAbstractionLayerException::decodeHandledByHydrator($field);
     }
 }

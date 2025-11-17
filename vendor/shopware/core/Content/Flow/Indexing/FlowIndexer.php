@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\Flow\Indexing;
 
 use Shopware\Core\Content\Flow\Events\FlowIndexerEvent;
+use Shopware\Core\Content\Flow\FlowCollection;
 use Shopware\Core\Content\Flow\FlowDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IteratorFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -16,13 +17,15 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 /**
  * @final
  */
-#[Package('services-settings')]
+#[Package('after-sales')]
 class FlowIndexer extends EntityIndexer
 {
     public const NAME = 'flow.indexer';
 
     /**
      * @internal
+     *
+     * @param EntityRepository<FlowCollection> $repository
      */
     public function __construct(
         private readonly IteratorFactory $iteratorFactory,
@@ -65,8 +68,12 @@ class FlowIndexer extends EntityIndexer
 
     public function handle(EntityIndexingMessage $message): void
     {
-        $ids = array_unique(array_filter($message->getData()));
+        $ids = $message->getData();
+        if (!\is_array($ids)) {
+            return;
+        }
 
+        $ids = array_unique(array_filter($ids));
         if (empty($ids)) {
             return;
         }

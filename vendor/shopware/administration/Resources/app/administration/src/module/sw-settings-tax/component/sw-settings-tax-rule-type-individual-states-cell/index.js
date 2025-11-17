@@ -1,7 +1,7 @@
 import template from './sw-settings-tax-rule-type-individual-states-cell.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Context } = Shopware;
@@ -47,10 +47,7 @@ export default {
             this.loadStates();
         },
         loadStates() {
-            if (!this.taxRule.data
-                || !this.taxRule.data.states
-                || !this.taxRule.data.states.length
-            ) {
+            if (!this.taxRule.data || !this.taxRule.data.states || !this.taxRule.data.states.length) {
                 this.individualStates = [];
                 return;
             }
@@ -58,8 +55,8 @@ export default {
             const criteria = new Criteria(1, 25);
             criteria.setIds(this.taxRule.data.states);
 
-            this.stateRepository.search(criteria, Context.api).then(states => {
-                this.individualStates = states.map(state => state.name);
+            this.stateRepository.search(criteria, Context.api).then((states) => {
+                this.individualStates = states.map((state) => state.name);
             });
         },
     },

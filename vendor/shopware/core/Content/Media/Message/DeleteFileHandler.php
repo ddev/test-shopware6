@@ -13,15 +13,15 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @internal
  */
 #[AsMessageHandler]
-#[Package('buyers-experience')]
-final class DeleteFileHandler
+#[Package('discovery')]
+final readonly class DeleteFileHandler
 {
     /**
      * @internal
      */
     public function __construct(
-        private readonly FilesystemOperator $filesystemPublic,
-        private readonly FilesystemOperator $filesystemPrivate
+        private FilesystemOperator $filesystemPublic,
+        private FilesystemOperator $filesystemPrivate
     ) {
     }
 

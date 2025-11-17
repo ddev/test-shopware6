@@ -10,6 +10,7 @@ use Shopware\Core\Framework\Adapter\Cache\CacheInvalidator;
 use Shopware\Core\Framework\DataAbstractionLayer\CompiledFieldCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityDefinitionQueryHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\QueryBuilder;
+use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\FetchModeHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
@@ -33,17 +34,15 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class RuleAreaUpdater implements EventSubscriberInterface
 {
-    /**
-     * @internal
-     */
     public function __construct(
         private readonly Connection $connection,
         private readonly RuleDefinition $definition,
         private readonly RuleConditionRegistry $conditionRegistry,
-        private readonly CacheInvalidator $cacheInvalidator
+        private readonly CacheInvalidator $cacheInvalidator,
+        private readonly DefinitionInstanceRegistry $definitionRegistry
     ) {
     }
 
@@ -60,8 +59,8 @@ class RuleAreaUpdater implements EventSubscriberInterface
         $associatedEntities = $this->getAssociationEntities();
 
         foreach ($event->getCommands() as $command) {
-            $definition = $command->getDefinition();
-            $entity = $definition->getEntityName();
+            $entity = $command->getEntityName();
+            $definition = $this->definitionRegistry->getByEntityName($entity);
 
             if (!$command instanceof ChangeSetAware || !\in_array($entity, $associatedEntities, true)) {
                 continue;
@@ -85,8 +84,12 @@ class RuleAreaUpdater implements EventSubscriberInterface
     {
         $associationFields = $this->getAssociationFields();
         $ruleIds = [];
+        $events = $event->getEvents();
+        if ($events === null) {
+            return;
+        }
 
-        foreach ($event->getEvents() ?? [] as $nestedEvent) {
+        foreach ($events as $nestedEvent) {
             if (!$nestedEvent instanceof EntityWrittenEvent) {
                 continue;
             }
@@ -104,13 +107,13 @@ class RuleAreaUpdater implements EventSubscriberInterface
             return;
         }
 
-        $this->update(Uuid::fromBytesToHexList(array_unique(array_filter($ruleIds))));
+        $this->update(array_values(Uuid::fromBytesToHexList(array_filter(array_unique($ruleIds)))));
 
         $this->cacheInvalidator->invalidate([CachedRuleLoader::CACHE_KEY]);
     }
 
     /**
-     * @param list<string> $ids
+     * @param array<string> $ids
      */
     public function update(array $ids): void
     {
@@ -123,7 +126,6 @@ class RuleAreaUpdater implements EventSubscriberInterface
             $this->connection->prepare('UPDATE `rule` SET `areas` = :areas WHERE `id` = :id')
         );
 
-        /** @var array<string, string[]> $associations */
         foreach ($areas as $id => $associations) {
             $areas = [];
 
@@ -155,10 +157,10 @@ class RuleAreaUpdater implements EventSubscriberInterface
     }
 
     /**
-     * @param FkField[] $fields
-     * @param string[] $ruleIds
+     * @param array<FkField> $fields
+     * @param array<string> $ruleIds
      *
-     * @return string[]
+     * @return array<string>
      */
     private function hydrateRuleIds(array $fields, EntityWrittenEvent $nestedEvent, array $ruleIds): array
     {
@@ -186,9 +188,9 @@ class RuleAreaUpdater implements EventSubscriberInterface
     }
 
     /**
-     * @param list<string> $ids
+     * @param array<string> $ids
      *
-     * @return array<string, string[][]>
+     * @return array<string, array<string, string>>
      */
     private function getAreas(array $ids, CompiledFieldCollection $associationFields): array
     {
@@ -197,8 +199,8 @@ class RuleAreaUpdater implements EventSubscriberInterface
             ->from('rule')
             ->andWhere('`rule`.`id` IN (:ids)');
 
-        /** @var AssociationField $associationField */
-        foreach ($associationFields->getElements() as $associationField) {
+        foreach ($associationFields as $associationField) {
+            \assert($associationField instanceof AssociationField);
             $this->addSelect($query, $associationField);
         }
         $this->addFlowConditionSelect($query);
@@ -213,7 +215,10 @@ class RuleAreaUpdater implements EventSubscriberInterface
             ArrayParameterType::STRING
         );
 
-        return FetchModeHelper::groupUnique($query->executeQuery()->fetchAllAssociative());
+        /** @var array<string, array<string, string>> $result */
+        $result = FetchModeHelper::groupUnique($query->executeQuery()->fetchAllAssociative());
+
+        return $result;
     }
 
     private function addSelect(QueryBuilder $query, AssociationField $associationField): void
@@ -223,7 +228,7 @@ class RuleAreaUpdater implements EventSubscriberInterface
 
         if ($associationField instanceof OneToOneAssociationField || $associationField instanceof ManyToOneAssociationField) {
             $template = 'IF(%s.%s IS NOT NULL, 1, 0) AS %s';
-            $query->addSelect(sprintf($template, '`rule`', $this->escape($associationField->getStorageName()), $propertyName));
+            $query->addSelect(\sprintf($template, '`rule`', $this->escape($associationField->getStorageName()), $propertyName));
 
             return;
         }
@@ -236,9 +241,9 @@ class RuleAreaUpdater implements EventSubscriberInterface
             $subQuery = (new QueryBuilder($this->connection))
                 ->select('1')
                 ->from($mappingTable)
-                ->andWhere(sprintf('%s = `rule`.%s', $mappingLocalColumn, $localColumn));
+                ->andWhere(\sprintf('%s = `rule`.%s', $mappingLocalColumn, $localColumn));
 
-            $query->addSelect(sprintf($template, $subQuery->getSQL(), $propertyName));
+            $query->addSelect(\sprintf($template, $subQuery->getSQL(), $propertyName));
 
             return;
         }
@@ -251,9 +256,9 @@ class RuleAreaUpdater implements EventSubscriberInterface
             $subQuery = (new QueryBuilder($this->connection))
                 ->select('1')
                 ->from($referenceTable)
-                ->andWhere(sprintf('%s = `rule`.%s', $referenceColumn, $localColumn));
+                ->andWhere(\sprintf('%s = `rule`.%s', $referenceColumn, $localColumn));
 
-            $query->addSelect(sprintf($template, $subQuery->getSQL(), $propertyName));
+            $query->addSelect(\sprintf($template, $subQuery->getSQL(), $propertyName));
         }
     }
 
@@ -265,7 +270,7 @@ class RuleAreaUpdater implements EventSubscriberInterface
             ->andWhere('`rule_id` = `rule`.`id`')
             ->andWhere('`type` IN (:flowTypes)');
 
-        $query->addSelect(sprintf('EXISTS(%s) AS flowCondition', $subQuery->getSQL()));
+        $query->addSelect(\sprintf('EXISTS(%s) AS flowCondition', $subQuery->getSQL()));
     }
 
     private function escape(string $string): string
@@ -281,18 +286,16 @@ class RuleAreaUpdater implements EventSubscriberInterface
     }
 
     /**
-     * @return FkField[]
+     * @return array<FkField>
      */
     private function getForeignKeyFields(EntityDefinition $definition): array
     {
-        /** @var FkField[] $fields */
-        $fields = $definition->getFields()->filterInstance(FkField::class)->filter(fn (FkField $fk): bool => $fk->getReferenceDefinition()->getEntityName() === $this->definition->getEntityName())->getElements();
-
-        return $fields;
+        /** @phpstan-ignore-next-line PHPStan cannot detect correctly, that the array only contains FkFields */
+        return $definition->getFields()->filterInstance(FkField::class)->filter(fn (FkField $fk): bool => $fk->getReferenceDefinition()->getEntityName() === $this->definition->getEntityName())->getElements();
     }
 
     /**
-     * @return string[]
+     * @return array<string>
      */
     private function getAssociationEntities(): array
     {
@@ -301,7 +304,6 @@ class RuleAreaUpdater implements EventSubscriberInterface
 
     private function getAssociationDefinitionByEntity(CompiledFieldCollection $collection, string $entityName): ?EntityDefinition
     {
-        /** @var AssociationField|null $field */
         $field = $collection->filter(function (AssociationField $associationField) use ($entityName): bool {
             if (!$associationField instanceof OneToManyAssociationField) {
                 return false;
@@ -310,6 +312,6 @@ class RuleAreaUpdater implements EventSubscriberInterface
             return $associationField->getReferenceDefinition()->getEntityName() === $entityName;
         })->first();
 
-        return $field ? $field->getReferenceDefinition() : null;
+        return $field instanceof AssociationField ? $field->getReferenceDefinition() : null;
     }
 }

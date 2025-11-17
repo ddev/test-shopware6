@@ -2,10 +2,9 @@ import template from './sw-tax-rule-card.html.twig';
 import './sw-tax-rule-card.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
-const { Context } = Shopware;
 const { Criteria } = Shopware.Data;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -15,7 +14,6 @@ export default {
     inject: [
         'repositoryFactory',
         'acl',
-        'feature',
     ],
 
     props: {
@@ -76,36 +74,43 @@ export default {
             criteria.addFilter(Criteria.equals('taxId', this.tax.id));
 
             if (this.term) {
-                criteria.addFilter(Criteria.multi('OR', [
-                    Criteria.contains('taxRate', this.term),
-                    Criteria.contains('type.technicalName', this.term),
-                    Criteria.contains('type.typeName', this.term),
-                    Criteria.contains('country.name', this.term),
-                ]));
+                criteria.addFilter(
+                    Criteria.multi('OR', [
+                        Criteria.contains('taxRate', this.term),
+                        Criteria.contains('type.technicalName', this.term),
+                        Criteria.contains('type.typeName', this.term),
+                        Criteria.contains('country.name', this.term),
+                    ]),
+                );
             }
 
             return criteria;
         },
 
         getColumns() {
-            return [{
-                property: 'country.name',
-                dataIndex: 'country.name',
-                label: 'sw-settings-tax.taxRuleCard.labelCountryName',
-                primary: true,
-            }, {
-                property: 'type.typeName',
-                dataIndex: 'type.typeName',
-                label: 'sw-settings-tax.taxRuleCard.labelAppliesOn',
-            }, {
-                property: 'taxRate',
-                dataIndex: 'taxRate',
-                label: 'sw-settings-tax.taxRuleCard.labelTaxRate',
-            }, {
-                property: 'activeFrom',
-                dataIndex: 'activeFrom',
-                label: 'sw-settings-tax.taxRuleCard.labelActiveFrom',
-            }];
+            return [
+                {
+                    property: 'country.name',
+                    dataIndex: 'country.name',
+                    label: 'sw-settings-tax.taxRuleCard.labelCountryName',
+                    primary: true,
+                },
+                {
+                    property: 'type.typeName',
+                    dataIndex: 'type.typeName',
+                    label: 'sw-settings-tax.taxRuleCard.labelAppliesOn',
+                },
+                {
+                    property: 'taxRate',
+                    dataIndex: 'taxRate',
+                    label: 'sw-settings-tax.taxRuleCard.labelTaxRate',
+                },
+                {
+                    property: 'activeFrom',
+                    dataIndex: 'activeFrom',
+                    label: 'sw-settings-tax.taxRuleCard.labelActiveFrom',
+                },
+            ];
         },
 
         assetFilter() {
@@ -129,7 +134,7 @@ export default {
         getList() {
             this.taxRulesLoading = true;
 
-            return this.taxRuleRepository.search(this.taxRuleCriteria, Context.api).then((response) => {
+            return this.taxRuleRepository.search(this.taxRuleCriteria).then((response) => {
                 this.total = response.total;
                 this.taxRules = response;
                 this.taxRulesLoading = false;
@@ -181,19 +186,19 @@ export default {
         onConfirmDelete(id) {
             this.showDeleteModal = false;
 
-            return this.taxRuleRepository.delete(id, Context.api).then(() => {
+            return this.taxRuleRepository.delete(id).then(() => {
                 this.getList();
             });
         },
 
+        hasTypeCellComponent(taxRule) {
+            const subComponentName = `sw-settings-tax-rule-type-${taxRule.type.technicalName.replace(/_/g, '-')}-cell`;
+
+            return Shopware.Component.getComponentRegistry().has(subComponentName);
+        },
+
         getTypeCellComponent(taxRule) {
-            const subComponentName = taxRule.type.technicalName.replace(/_/g, '-');
-
-            if (this.feature.isActive('VUE3')) {
-                return Shopware.Component.getComponentRegistry().get(`sw-settings-tax-rule-type-${subComponentName}-cell`);
-            }
-
-            return this.$options.components[`sw-settings-tax-rule-type-${subComponentName}-cell`];
+            return `sw-settings-tax-rule-type-${taxRule.type.technicalName.replace(/_/g, '-')}-cell`;
         },
     },
 };

@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Struct\Collection;
  *
  * @extends Collection<TElement>
  */
-#[Package('core')]
+#[Package('framework')]
 class EntityCollection extends Collection
 {
     /**
@@ -44,27 +44,19 @@ class EntityCollection extends Collection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getIds(): array
     {
-        $ids = $this->fmap(static function (Entity $entity) {
+        return $this->fmap(static function (Entity $entity) {
             return $entity->getUniqueIdentifier();
         });
-
-        /** @var list<string> $ids */
-        return $ids;
     }
 
     /**
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
      * @param mixed $value
-     *
-     * @return static
      */
-    #[\ReturnTypeWillChange]
-    public function filterByProperty(string $property, $value)
+    public function filterByProperty(string $property, $value): static
     {
         return $this->filter(
             static function (Entity $struct) use ($property, $value) {
@@ -74,12 +66,9 @@ class EntityCollection extends Collection
     }
 
     /**
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
-     * @return static
+     * @param mixed $value
      */
-    #[\ReturnTypeWillChange]
-    public function filterAndReduceByProperty(string $property, $value)
+    public function filterAndReduceByProperty(string $property, $value): static
     {
         $filtered = [];
 
@@ -99,7 +88,6 @@ class EntityCollection extends Collection
      */
     public function merge(self $collection): void
     {
-        /** @var TElement $entity */
         foreach ($collection as $entity) {
             if ($this->has($entity->getUniqueIdentifier())) {
                 continue;
@@ -125,20 +113,15 @@ class EntityCollection extends Collection
     }
 
     /**
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
      * @param array<string> $ids
-     *
-     * @return static
      */
-    #[\ReturnTypeWillChange]
-    public function getList(array $ids)
+    public function getList(array $ids): static
     {
         return $this->createNew(array_intersect_key($this->elements, array_flip($ids)));
     }
 
     /**
-     * @param array<array<string>|string> $ids
+     * @param array<array-key, array<string>|string> $ids
      */
     public function sortByIdArray(array $ids): void
     {
@@ -188,17 +171,14 @@ class EntityCollection extends Collection
         $values = [];
         foreach ($this->elements as $element) {
             if (empty($fields)) {
-                // @phpstan-ignore-next-line not possible to typehint or docblock the trait
                 $values[$element->getUniqueIdentifier()] = $element->getCustomFields();
 
                 continue;
             }
 
-            // @phpstan-ignore-next-line not possible to typehint or docblock the trait
             $values[$element->getUniqueIdentifier()] = $element->getCustomFieldsValues(...$fields);
         }
 
-        /** @var array<string, mixed> $values */
         return $values;
     }
 
@@ -226,11 +206,9 @@ class EntityCollection extends Collection
 
         $values = [];
         foreach ($this->elements as $element) {
-            // @phpstan-ignore-next-line not possible to typehint or docblock the trait
             $values[$element->getUniqueIdentifier()] = $element->getCustomFieldsValue($field);
         }
 
-        /** @var array<string, mixed> $values */
         return $values;
     }
 
@@ -267,7 +245,6 @@ class EntityCollection extends Collection
                 continue;
             }
 
-            // @phpstan-ignore-next-line not possible to typehint or docblock the trait
             $element->changeCustomFields($value);
         }
     }
@@ -285,9 +262,7 @@ class EntityCollection extends Collection
         }
         $uses = \class_uses($first);
         if ($uses === false || !\in_array(EntityCustomFieldsTrait::class, $uses, true)) {
-            throw new \RuntimeException(
-                sprintf('%s() is only supported for entities that use the EntityCustomFieldsTrait', $methodName)
-            );
+            throw DataAbstractionLayerException::notCustomFieldsSupport($methodName);
         }
 
         return true;

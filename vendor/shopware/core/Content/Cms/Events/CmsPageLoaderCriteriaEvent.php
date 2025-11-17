@@ -10,32 +10,14 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class CmsPageLoaderCriteriaEvent extends NestedEvent implements ShopwareSalesChannelEvent
 {
-    /**
-     * @var Request
-     */
-    protected $request;
-
-    /**
-     * @var Criteria
-     */
-    protected $criteria;
-
-    /**
-     * @var SalesChannelContext
-     */
-    protected $salesChannelContext;
-
     public function __construct(
-        Request $request,
-        Criteria $criteria,
-        SalesChannelContext $salesChannelContext
+        protected Request $request,
+        protected Criteria $criteria,
+        protected SalesChannelContext $salesChannelContext,
     ) {
-        $this->request = $request;
-        $this->criteria = $criteria;
-        $this->salesChannelContext = $salesChannelContext;
     }
 
     public function getRequest(): Request

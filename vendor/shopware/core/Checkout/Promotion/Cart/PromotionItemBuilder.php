@@ -10,14 +10,15 @@ use Shopware\Core\Checkout\Cart\Price\Struct\PercentagePriceDefinition;
 use Shopware\Core\Checkout\Cart\Price\Struct\QuantityPriceDefinition;
 use Shopware\Core\Checkout\Promotion\Aggregate\PromotionDiscount\PromotionDiscountEntity;
 use Shopware\Core\Checkout\Promotion\Aggregate\PromotionDiscountPrice\PromotionDiscountPriceCollection;
-use Shopware\Core\Checkout\Promotion\Exception\UnknownPromotionDiscountTypeException;
 use Shopware\Core\Checkout\Promotion\PromotionEntity;
+use Shopware\Core\Checkout\Promotion\PromotionException;
 use Shopware\Core\Content\Rule\RuleCollection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Rule\Container\OrRule;
 use Shopware\Core\Framework\Rule\Rule;
+use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('buyers-experience')]
+#[Package('checkout')]
 class PromotionItemBuilder
 {
     /**
@@ -25,6 +26,15 @@ class PromotionItemBuilder
      * within placeholder items
      */
     final public const PLACEHOLDER_PREFIX = 'promotion-';
+
+    // If a promotion is global, it can be automatically added to the cart if the conditions are met
+    final public const PROMOTION_TYPE_GLOBAL = 'global';
+
+    // If a promotion is individual, it can only be added to the cart if the customer has a valid code (limited usage)
+    final public const PROMOTION_TYPE_INDIVIDUAL = 'individual';
+
+    // If a promotion is fixed, it can only be added to the cart if the customer has a valid code (unlimited usage)
+    final public const PROMOTION_TYPE_FIXED = 'fixed';
 
     /**
      * Builds a new placeholder promotion line item that does not have
@@ -39,7 +49,7 @@ class PromotionItemBuilder
         // that might not be from the promotion scope
         $uniqueKey = self::PLACEHOLDER_PREFIX . $code;
 
-        $item = new LineItem($uniqueKey, PromotionProcessor::LINE_ITEM_TYPE);
+        $item = new LineItem(Uuid::fromStringToHex($uniqueKey), PromotionProcessor::LINE_ITEM_TYPE);
         $item->setLabel($uniqueKey);
         $item->setGood(false);
 
@@ -58,7 +68,7 @@ class PromotionItemBuilder
      * It will automatically reference all provided "product" item Ids within the payload.
      *
      * @throws CartException
-     * @throws UnknownPromotionDiscountTypeException
+     * @throws PromotionException
      */
     public function buildDiscountLineItem(string $code, PromotionEntity $promotion, PromotionDiscountEntity $discount, string $currencyId, float $currencyFactor = 1.0): LineItem
     {
@@ -112,7 +122,7 @@ class PromotionItemBuilder
         }
 
         if ($promotionDefinition === null) {
-            throw new UnknownPromotionDiscountTypeException($discount);
+            throw PromotionException::unknownPromotionDiscountType($discount);
         }
 
         // build our discount line item
@@ -176,6 +186,7 @@ class PromotionItemBuilder
         $promotionItem->setPayload($discount->getPayload());
         $promotionItem->setPriceDefinition($priceDefinition);
         $promotionItem->setPrice($price);
+        $promotionItem->setExtensions($discount->getExtensions());
 
         return $promotionItem;
     }
@@ -194,6 +205,9 @@ class PromotionItemBuilder
         // to save how many times a promotion has been used, we need to know the promotion's id during checkout
         $payload['promotionId'] = $promotion->getId();
 
+        // set promotion priority for sorting
+        $payload['priority'] = $promotion->getPriority();
+
         // set discountId
         $payload['discountId'] = $discount->getId();
 
@@ -207,13 +221,13 @@ class PromotionItemBuilder
         $payload['value'] = (string) $discount->getValue();
 
         // specifies the type of the promotion code (fixed, individual, global)
-        $promotionCodeType = 'fixed';
+        $promotionCodeType = self::PROMOTION_TYPE_FIXED;
         if ($promotion->isUseIndividualCodes()) {
-            $promotionCodeType = 'individual';
+            $promotionCodeType = self::PROMOTION_TYPE_INDIVIDUAL;
         }
 
         if ($code === '') {
-            $promotionCodeType = 'global';
+            $promotionCodeType = self::PROMOTION_TYPE_GLOBAL;
         }
         $payload['promotionCodeType'] = $promotionCodeType;
 
@@ -228,6 +242,9 @@ class PromotionItemBuilder
 
         // specifies if the promotion is not combinable with any other promotion
         $payload['preventCombination'] = $promotion->isPreventCombination();
+
+        // set whether the promotion has limited redemptions
+        $payload['limitedRedemptions'] = $promotion->getMaxRedemptionsGlobal() || $promotion->getMaxRedemptionsPerCustomer();
 
         // If all combinations are prevented the exclusions dont matter
         // otherwise sets a list of excluded promotion ids
@@ -258,6 +275,7 @@ class PromotionItemBuilder
         }
 
         $payload['filter'] = [
+            'considerAdvancedRules' => false,
             'sorterKey' => null,
             'applierKey' => null,
             'usageKey' => null,
@@ -266,6 +284,7 @@ class PromotionItemBuilder
 
         if ($discount->isConsiderAdvancedRules()) {
             $payload['filter'] = [
+                'considerAdvancedRules' => true,
                 'sorterKey' => $discount->getSorterKey(),
                 'applierKey' => $discount->getApplierKey(),
                 'usageKey' => $discount->getUsageKey(),

@@ -1,13 +1,17 @@
+/**
+ * @sw-package framework
+ */
+
 import './sw-notification-center-item.scss';
 import template from './sw-notification-center-item.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-notification-center-item', {
+export default {
     template,
+
+    emits: ['center-close'],
 
     props: {
         notification: {
@@ -34,13 +38,15 @@ Component.register('sw-notification-center-item', {
         isNotificationFromSameDay() {
             const timestamp = this.notification.timestamp;
             const now = new Date();
-            return timestamp.getDate() === now.getDate() &&
+            return (
+                timestamp.getDate() === now.getDate() &&
                 timestamp.getMonth() === now.getMonth() &&
-                timestamp.getFullYear() === now.getFullYear();
+                timestamp.getFullYear() === now.getFullYear()
+            );
         },
 
         onDelete() {
-            Shopware.State.commit('notification/removeNotification', this.notification);
+            Shopware.Store.get('notification').removeNotification(this.notification);
         },
 
         handleAction(action) {
@@ -54,4 +60,4 @@ Component.register('sw-notification-center-item', {
             this.$emit('center-close');
         },
     },
-});
+};

@@ -1,5 +1,5 @@
 {
-    "openapi": "3.0.0",
+    "openapi": "3.1.0",
     "info": [],
     "paths": [],
     "components": {
@@ -19,11 +19,6 @@
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "contextToken": {
-                                    "deprecated": true,
-                                    "description": "Deprecated since v6.6.0.0. Please retrieve the context token from the response header instead.",
-                                    "type": "string"
-                                },
                                 "redirectUrl": {
                                     "description": "Define the URL which browser will be redirected to",
                                     "type": "string"

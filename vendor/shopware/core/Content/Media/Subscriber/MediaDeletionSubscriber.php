@@ -16,11 +16,8 @@ use Shopware\Core\Content\Media\Message\DeleteFileMessage;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityDeleteEvent;
-use Shopware\Core\Framework\DataAbstractionLayer\Event\EntitySearchedEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -30,7 +27,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 /**
  * @internal
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class MediaDeletionSubscriber implements EventSubscriberInterface
 {
     final public const SYNCHRONE_FILE_DELETE = 'synchrone-file-delete';
@@ -47,7 +44,8 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
         private readonly MessageBusInterface $messageBus,
         private readonly DeleteFileHandler $deleteFileHandler,
         private readonly Connection $connection,
-        private readonly EntityRepository $mediaRepository
+        private readonly EntityRepository $mediaRepository,
+        private readonly bool $remoteThumbnailsEnable = false
     ) {
     }
 
@@ -55,63 +53,32 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
     {
         return [
             EntityDeleteEvent::class => 'beforeDelete',
-            EntitySearchedEvent::class => 'securePrivateFolders',
         ];
-    }
-
-    public function securePrivateFolders(EntitySearchedEvent $event): void
-    {
-        if ($event->getContext()->getScope() === Context::SYSTEM_SCOPE) {
-            return;
-        }
-
-        if ($event->getDefinition()->getEntityName() === MediaFolderDefinition::ENTITY_NAME) {
-            $event->getCriteria()->addFilter(
-                new MultiFilter('OR', [
-                    new EqualsFilter('media_folder.configuration.private', false),
-                    new EqualsFilter('media_folder.configuration.private', null),
-                ])
-            );
-
-            return;
-        }
-
-        if ($event->getDefinition()->getEntityName() === MediaDefinition::ENTITY_NAME) {
-            $event->getCriteria()->addFilter(
-                new MultiFilter('OR', [
-                    new EqualsFilter('private', false),
-                    new MultiFilter('AND', [
-                        new EqualsFilter('private', true),
-                        new EqualsFilter('mediaFolder.defaultFolder.entity', 'product_download'),
-                    ]),
-                ])
-            );
-        }
     }
 
     public function beforeDelete(EntityDeleteEvent $event): void
     {
-        /** @var list<string> $affected */
-        $affected = array_values($event->getIds(MediaThumbnailDefinition::ENTITY_NAME));
+        /** @var array<string> $affected */
+        $affected = $event->getIds(MediaThumbnailDefinition::ENTITY_NAME);
         if (!empty($affected)) {
             $this->handleThumbnailDeletion($event, $affected, $event->getContext());
         }
 
-        /** @var list<string> $affected */
-        $affected = array_values($event->getIds(MediaFolderDefinition::ENTITY_NAME));
+        /** @var array<string> $affected */
+        $affected = $event->getIds(MediaFolderDefinition::ENTITY_NAME);
         if (!empty($affected)) {
             $this->handleFolderDeletion($affected, $event->getContext());
         }
 
-        /** @var list<string> $affected */
-        $affected = array_values($event->getIds(MediaDefinition::ENTITY_NAME));
+        /** @var array<string> $affected */
+        $affected = $event->getIds(MediaDefinition::ENTITY_NAME);
         if (!empty($affected)) {
             $this->handleMediaDeletion($affected, $event->getContext());
         }
     }
 
     /**
-     * @param list<string> $affected
+     * @param array<string> $affected
      */
     private function handleMediaDeletion(array $affected, Context $context): void
     {
@@ -132,7 +99,7 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
                 $publicPaths[] = $mediaEntity->getPath();
             }
 
-            if (!$mediaEntity->getThumbnails()) {
+            if ($this->remoteThumbnailsEnable || !$mediaEntity->getThumbnails()) {
                 continue;
             }
 
@@ -144,11 +111,15 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
         $this->performFileDelete($context, $publicPaths, Visibility::PUBLIC);
         $this->performFileDelete($context, $privatePaths, Visibility::PRIVATE);
 
+        if ($this->remoteThumbnailsEnable) {
+            return;
+        }
+
         $this->thumbnailRepository->delete($thumbnails, $context);
     }
 
     /**
-     * @param list<string> $affected
+     * @param array<string> $affected
      */
     private function handleFolderDeletion(array $affected, Context $context): void
     {
@@ -172,9 +143,9 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param list<string> $ids
+     * @param array<string> $ids
      *
-     * @return list<string>
+     * @return array<string>
      */
     private function fetchChildrenIds(array $ids): array
     {
@@ -196,7 +167,7 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param list<string> $affected
+     * @param array<string> $affected
      */
     private function handleThumbnailDeletion(EntityDeleteEvent $event, array $affected, Context $context): void
     {
@@ -227,7 +198,7 @@ class MediaDeletionSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param list<string> $ids
+     * @param array<string> $ids
      */
     private function getThumbnails(array $ids, Context $context): MediaThumbnailCollection
     {

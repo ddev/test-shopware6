@@ -4,6 +4,7 @@ namespace Shopware\Core\Framework\App\Hmac\Guzzle;
 
 use GuzzleHttp\Exception\InvalidArgumentException;
 use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Promise\PromiseInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Shopware\Core\Framework\App\AppLocaleProvider;
@@ -11,7 +12,7 @@ use Shopware\Core\Framework\App\Hmac\RequestSigner;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class AuthMiddleware
 {
     final public const APP_REQUEST_TYPE = 'request_type';
@@ -69,7 +70,7 @@ class AuthMiddleware
                 return $handler($request, $options);
             }
 
-            $promise = function (ResponseInterface $response) use ($secret, $signature, $request) {
+            $successCallback = function (ResponseInterface $response) use ($secret, $signature, $request) {
                 if ($response->getStatusCode() !== 401) {
                     if (!$signature->isResponseAuthentic($response, $secret)) {
                         throw new ServerException(
@@ -82,11 +83,16 @@ class AuthMiddleware
 
                 return $response;
             };
+            $promise = $handler($request, $options);
+            \assert($promise instanceof PromiseInterface);
 
-            return $handler($request, $options)->then($promise);
+            return $promise->then($successCallback);
         };
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function getDefaultHeaderRequest(RequestInterface $request, array $options): RequestInterface
     {
         if (isset($options[self::APP_REQUEST_CONTEXT])) {

@@ -2,7 +2,9 @@
 
 namespace Shopware\Core\Framework\Test\Seo;
 
+use PHPUnit\Framework\TestCase;
 use Shopware\Core\Checkout\Cart\CartRuleLoader;
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
@@ -13,6 +15,7 @@ use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Shopware\Core\Test\TestDefaults;
@@ -29,15 +32,15 @@ trait StorefrontSalesChannelTestHelper
         ]);
 
         /** @var Container $container */
-        $container = $this->getContainer();
+        $container = static::getContainer();
 
-        /** @var EntityRepository $salesChannelRepository */
+        /** @var EntityRepository<SalesChannelCollection> $salesChannelRepository */
         $salesChannelRepository = $container->get('sales_channel.repository');
-        /** @var SalesChannelEntity $salesChannel */
         $salesChannel = $salesChannelRepository->search(
             (new Criteria())->addFilter(new EqualsFilter('typeId', Defaults::SALES_CHANNEL_TYPE_STOREFRONT)),
             Context::createDefaultContext()
-        )->first();
+        )->getEntities()->first();
+        TestCase::assertNotNull($salesChannel);
 
         $header = 'HTTP_' . str_replace('-', '_', mb_strtoupper(PlatformRequest::HEADER_ACCESS_KEY));
         $browser->setServerParameter($header, $salesChannel->getAccessKey());
@@ -69,8 +72,8 @@ trait StorefrontSalesChannelTestHelper
         array $languageIds = [],
         ?string $categoryEntrypoint = null
     ): SalesChannelContext {
-        /** @var EntityRepository $repo */
-        $repo = $this->getContainer()->get('sales_channel.repository');
+        /** @var EntityRepository<SalesChannelCollection> $repo */
+        $repo = static::getContainer()->get('sales_channel.repository');
         $languageIds[] = $defaultLanguageId;
         $languageIds = array_unique($languageIds);
 
@@ -121,8 +124,8 @@ trait StorefrontSalesChannelTestHelper
 
     public function updateSalesChannelNavigationEntryPoint(string $id, string $categoryId): void
     {
-        /** @var EntityRepository $repo */
-        $repo = $this->getContainer()->get('sales_channel.repository');
+        /** @var EntityRepository<SalesChannelCollection> $repo */
+        $repo = static::getContainer()->get('sales_channel.repository');
 
         $repo->update([['id' => $id, 'navigationCategoryId' => $categoryId]], Context::createDefaultContext());
     }
@@ -130,40 +133,37 @@ trait StorefrontSalesChannelTestHelper
     private function createCustomerWithEmail(string $customerId, string $email, string $password, SalesChannelEntity $salesChannel): CustomerEntity
     {
         /** @var Container $container */
-        $container = $this->getContainer();
+        $container = static::getContainer();
 
         $defaultBillingAddress = Uuid::randomHex();
-        /** @var EntityRepository $customerRepository */
-        $customerRepository = $container->get('customer.repository');
-        $customerRepository->upsert(
-            [
-                [
-                    'id' => $customerId,
-                    'name' => 'test',
-                    'email' => $email,
-                    'password' => $password,
-                    'firstName' => 'foo',
-                    'lastName' => 'bar',
-                    'groupId' => $salesChannel->getCustomerGroupId(),
-                    'salutationId' => $this->getValidSalutationId(),
-                    'defaultPaymentMethodId' => $salesChannel->getPaymentMethodId(),
-                    'salesChannelId' => $salesChannel->getId(),
-                    'defaultBillingAddress' => [
-                        'id' => $defaultBillingAddress,
-                        'countryId' => $salesChannel->getCountryId(),
-                        'salutationId' => $this->getValidSalutationId(),
-                        'firstName' => 'foo',
-                        'lastName' => 'bar',
-                        'zipcode' => '48599',
-                        'city' => 'gronau',
-                        'street' => 'Schillerstr.',
-                    ],
-                    'defaultShippingAddressId' => $defaultBillingAddress,
-                    'customerNumber' => 'asdf',
-                ],
+
+        $customer = [
+            'id' => $customerId,
+            'name' => 'test',
+            'email' => $email,
+            'password' => $password,
+            'firstName' => 'foo',
+            'lastName' => 'bar',
+            'groupId' => $salesChannel->getCustomerGroupId(),
+            'salutationId' => $this->getValidSalutationId(),
+            'salesChannelId' => $salesChannel->getId(),
+            'defaultBillingAddress' => [
+                'id' => $defaultBillingAddress,
+                'countryId' => $salesChannel->getCountryId(),
+                'salutationId' => $this->getValidSalutationId(),
+                'firstName' => 'foo',
+                'lastName' => 'bar',
+                'zipcode' => '48599',
+                'city' => 'gronau',
+                'street' => 'Schillerstr.',
             ],
-            Context::createDefaultContext()
-        );
+            'defaultShippingAddressId' => $defaultBillingAddress,
+            'customerNumber' => 'asdf',
+        ];
+
+        /** @var EntityRepository<CustomerCollection> */
+        $customerRepository = $container->get('customer.repository');
+        $customerRepository->upsert([$customer], Context::createDefaultContext());
 
         $customer = $customerRepository->search(new Criteria([$customerId]), Context::createDefaultContext())->first();
 
@@ -174,11 +174,11 @@ trait StorefrontSalesChannelTestHelper
 
     private function createNewContext(SalesChannelEntity $salesChannel): SalesChannelContext
     {
-        $factory = $this->getContainer()->get(SalesChannelContextFactory::class);
+        $factory = static::getContainer()->get(SalesChannelContextFactory::class);
 
         $context = $factory->create(Uuid::randomHex(), $salesChannel->getId(), []);
 
-        $ruleLoader = $this->getContainer()->get(CartRuleLoader::class);
+        $ruleLoader = static::getContainer()->get(CartRuleLoader::class);
         $ruleLoader->loadByToken($context, $context->getToken());
 
         return $context;

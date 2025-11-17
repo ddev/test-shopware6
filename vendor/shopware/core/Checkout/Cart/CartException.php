@@ -8,11 +8,20 @@ use Shopware\Core\Checkout\Cart\Exception\CustomerNotLoggedInException;
 use Shopware\Core\Checkout\Cart\Exception\InvalidCartException;
 use Shopware\Core\Checkout\Cart\Exception\LineItemNotFoundException;
 use Shopware\Core\Checkout\Customer\Exception\AddressNotFoundException;
+use Shopware\Core\Checkout\Order\Exception\EmptyCartException;
+use Shopware\Core\Content\Flow\Exception\CustomerDeletedException;
+use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidPriceFieldTypeException;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\HttpException;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Rule\Exception\UnsupportedOperatorException;
+use Shopware\Core\Framework\Script\Execution\Hook;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @codeCoverageIgnore
+ */
 #[Package('checkout')]
 class CartException extends HttpException
 {
@@ -20,6 +29,7 @@ class CartException extends HttpException
     public const TOKEN_NOT_FOUND_CODE = 'CHECKOUT__CART_TOKEN_NOT_FOUND';
     public const CUSTOMER_NOT_LOGGED_IN_CODE = 'CHECKOUT__CUSTOMER_NOT_LOGGED_IN';
     public const INSUFFICIENT_PERMISSION_CODE = 'CHECKOUT__INSUFFICIENT_PERMISSION';
+    public const CART_DELIVERY_DATE_NOT_SUPPORTED_UNIT = 'CHECKOUT__CART_DELIVERY_DATE_NOT_SUPPORTED_UNIT';
     public const CART_DELIVERY_NOT_FOUND_CODE = 'CHECKOUT__CART_DELIVERY_POSITION_NOT_FOUND';
     public const CART_INVALID_CODE = 'CHECKOUT__CART_INVALID';
     public const CART_INVALID_LINE_ITEM_PAYLOAD_CODE = 'CHECKOUT__CART_INVALID_LINE_ITEM_PAYLOAD';
@@ -31,6 +41,7 @@ class CartException extends HttpException
     public const CART_LINE_ITEM_NOT_REMOVABLE_CODE = 'CHECKOUT__CART_LINE_ITEM_NOT_REMOVABLE';
     public const CART_LINE_ITEM_NOT_STACKABLE_CODE = 'CHECKOUT__CART_LINE_ITEM_NOT_STACKABLE';
     public const CART_LINE_ITEM_TYPE_NOT_SUPPORTED_CODE = 'CHECKOUT__CART_LINE_ITEM_TYPE_NOT_SUPPORTED';
+    public const CART_LINE_ITEM_TYPE_NOT_UPDATABLE_CODE = 'CHECKOUT__CART_LINE_ITEM_TYPE_NOT_UPDATABLE';
     public const CART_MISSING_LINE_ITEM_PRICE_CODE = 'CHECKOUT__CART_MISSING_LINE_ITEM_PRICE';
     public const CART_INVALID_PRICE_DEFINITION_CODE = 'CHECKOUT__CART_MISSING_PRICE_DEFINITION';
     public const CART_MIXED_LINE_ITEM_TYPE_CODE = 'CHECKOUT__CART_MIXED_LINE_ITEM_TYPE';
@@ -48,6 +59,47 @@ class CartException extends HttpException
     public const TAX_ID_PARAMETER_IS_MISSING = 'CHECKOUT__TAX_ID_PARAMETER_IS_MISSING';
     public const PRICE_PARAMETER_IS_MISSING = 'CHECKOUT__PRICE_PARAMETER_IS_MISSING';
     public const PRICES_PARAMETER_IS_MISSING = 'CHECKOUT__PRICES_PARAMETER_IS_MISSING';
+    public const CART_LINE_ITEM_INVALID = 'CHECKOUT__CART_LINE_ITEM_INVALID';
+    public const VALUE_NOT_SUPPORTED = 'CONTENT__RULE_VALUE_NOT_SUPPORTED';
+    public const CART_HASH_MISMATCH = 'CHECKOUT__CART_HASH_MISMATCH';
+    public const CART_WRONG_DATA_TYPE = 'CHECKOUT__CART_WRONG_DATA_TYPE';
+    public const SHIPPING_METHOD_NOT_FOUND = 'CHECKOUT__SHIPPING_METHOD_NOT_FOUND';
+    public const CHECKOUT_CURRENCY_NOT_FOUND = 'CHECKOUT__CURRENCY_NOT_FOUND';
+    public const CART_PRODUCT_NOT_FOUND = 'CHECKOUT__CART_PRODUCT_NOT_FOUND';
+    public const INVALID_COMPRESSION_METHOD = 'CHECKOUT__CART_INVALID_COMPRESSION_METHOD';
+    public const CART_MIGRATION_INVALID_SOURCE = 'CHECKOUT_CART_MIGRATION_INVALID_SOURCE';
+    public const CART_MIGRATION_MISSING_REDIS_CONNECTION = 'CHECKOUT__CART_MIGRATION_MISSING_REDIS_CONNECTION';
+    public const CART_EMPTY = 'CHECKOUT__CART_EMPTY';
+    public const HOOK_INJECTION_EXCEPTION = 'CHECKOUT__HOOK_INJECTION_EXCEPTION';
+    public const LINE_ITEM_GROUP_PACKAGER_NOT_FOUND = 'CHECKOUT__GROUP_PACKAGER_NOT_FOUND';
+    public const LINE_ITEM_GROUP_SORTER_NOT_FOUND = 'CHECKOUT__GROUP_SORTER_NOT_FOUND';
+    public const UNEXPECTED_VALUE_EXCEPTION = 'CHECKOUT__UNEXPECTED_VALUE_EXCEPTION';
+    public const INVALID_REQUEST_PARAMETER_CODE = 'FRAMEWORK__INVALID_REQUEST_PARAMETER';
+    public const INVALID_PRICE_FIELD_TYPE = 'FRAMEWORK__INVALID_PRICE_FIELD_TYPE';
+    public const RULE_OPERATOR_NOT_SUPPORTED = 'CHECKOUT__RULE_OPERATOR_NOT_SUPPORTED';
+    public const CART_LOCKED = 'CHECKOUT__CART_LOCKED';
+    public const CART_SERIALIZATION_TOO_LARGE = 'CHECKOUT__CART_SERIALIZATION_TOO_LARGE';
+
+    public static function shippingMethodNotFound(string $id, ?\Throwable $e = null): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::SHIPPING_METHOD_NOT_FOUND,
+            self::$couldNotFindMessage,
+            ['entity' => 'shipping method', 'field' => 'id', 'value' => $id],
+            $e
+        );
+    }
+
+    public static function deliveryDateNotSupportedUnit(string $unit): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::CART_DELIVERY_DATE_NOT_SUPPORTED_UNIT,
+            'Not supported unit {{ unit }}',
+            ['unit' => $unit]
+        );
+    }
 
     public static function deserializeFailed(): self
     {
@@ -55,6 +107,15 @@ class CartException extends HttpException
             Response::HTTP_BAD_REQUEST,
             self::DESERIALIZE_FAILED_CODE,
             'Failed to deserialize cart.'
+        );
+    }
+
+    public static function invalidCompressionMethod(string $method): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::INVALID_COMPRESSION_METHOD,
+            \sprintf('Invalid cache compression method: %s', $method),
         );
     }
 
@@ -205,6 +266,16 @@ class CartException extends HttpException
             Response::HTTP_BAD_REQUEST,
             self::CART_LINE_ITEM_TYPE_NOT_SUPPORTED_CODE,
             'Line item type "{{ type }}" is not supported.',
+            ['type' => $type]
+        );
+    }
+
+    public static function lineItemTypeNotUpdatable(string $type): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CART_LINE_ITEM_TYPE_NOT_UPDATABLE_CODE,
+            'Line item type "{{ type }}" cannot be updated.',
             ['type' => $type]
         );
     }
@@ -374,8 +445,203 @@ class CartException extends HttpException
         );
     }
 
+    public static function lineItemInvalid(string $reason): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CART_LINE_ITEM_INVALID,
+            'Line item is invalid: ' . $reason
+        );
+    }
+
+    /**
+     * @deprecated tag:v6.8.0 - reason:return-type-change - Will return self
+     */
+    public static function unsupportedOperator(string $operator, string $class): self|UnsupportedOperatorException
+    {
+        if (!Feature::isActive('v6.8.0.0')) {
+            return new UnsupportedOperatorException($operator, $class);
+        }
+
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::RULE_OPERATOR_NOT_SUPPORTED,
+            'Unsupported operator {{ operator }} in {{ class }}',
+            ['operator' => $operator, 'class' => $class]
+        );
+    }
+
+    public static function unsupportedValue(string $type, string $class): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::VALUE_NOT_SUPPORTED,
+            'Unsupported value of type {{ type }} in {{ class }}',
+            ['type' => $type, 'class' => $class]
+        );
+    }
+
     public static function addressNotFound(string $id): ShopwareHttpException
     {
         return new AddressNotFoundException($id);
+    }
+
+    public static function hashMismatch(string $token): self
+    {
+        return new self(
+            Response::HTTP_CONFLICT,
+            self::CART_HASH_MISMATCH,
+            'Content hash mismatch for cart token: {{ token }}',
+            ['token' => $token]
+        );
+    }
+
+    public static function wrongCartDataType(string $fieldKey, string $expectedType): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CART_WRONG_DATA_TYPE,
+            'Cart data {{ fieldKey }} does not match expected type "{{ expectedType }}"',
+            ['fieldKey' => $fieldKey, 'expectedType' => $expectedType]
+        );
+    }
+
+    public static function currencyCannotBeFound(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CHECKOUT_CURRENCY_NOT_FOUND,
+            'Currency cannot be found.'
+        );
+    }
+
+    public static function productNotFound(string $productId): self
+    {
+        return new self(
+            Response::HTTP_NOT_FOUND,
+            self::CART_PRODUCT_NOT_FOUND,
+            'Product for id {{ productId }} not found.',
+            ['productId' => $productId]
+        );
+    }
+
+    /**
+     * @param list<string> $validSourceStorages
+     */
+    public static function cartMigrationInvalidSource(string $from, array $validSourceStorages): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CART_MIGRATION_INVALID_SOURCE,
+            'Invalid source storage: {{ from }}. Valid values are: {{ }}.',
+            ['from' => $from, 'validSourceStorages' => implode(', ', $validSourceStorages)]
+        );
+    }
+
+    public static function cartMigrationMissingRedisConnection(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::CART_MIGRATION_MISSING_REDIS_CONNECTION,
+            'Redis connection is missing. Please check if "%shopware.cart.storage.config.dsn%" container parameter is correctly configured'
+        );
+    }
+
+    /**
+     * The {@see CustomerDeletedException} is a flow exception and should not be converted to a real domain exception
+     */
+    public static function orderCustomerDeleted(string $orderId): CustomerDeletedException
+    {
+        return new CustomerDeletedException($orderId);
+    }
+
+    public static function cartEmpty(): self|EmptyCartException
+    {
+        return new EmptyCartException();
+    }
+
+    public static function hookInjectionException(Hook $hook, string $class, string $required): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::HOOK_INJECTION_EXCEPTION,
+            'Class {{ class }} is only executable in combination with hooks that implement the {{ required }} interface. Hook {{ hook }} does not implement this interface',
+            ['class' => $class, 'required' => $required, 'hook' => $hook->getName()]
+        );
+    }
+
+    public static function lineItemGroupPackagerNotFoundException(string $key): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::LINE_ITEM_GROUP_PACKAGER_NOT_FOUND,
+            'Packager "{{ key }}" has not been found!',
+            ['key' => $key]
+        );
+    }
+
+    public static function lineItemGroupSorterNotFoundException(string $key): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::LINE_ITEM_GROUP_SORTER_NOT_FOUND,
+            'Sorter "{{ key }}" has not been found!',
+            ['key' => $key]
+        );
+    }
+
+    public static function unexpectedValueException(string $message): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::UNEXPECTED_VALUE_EXCEPTION,
+            $message
+        );
+    }
+
+    public static function invalidRequestParameter(string $name): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::INVALID_REQUEST_PARAMETER_CODE,
+            'The parameter "{{ parameter }}" is invalid.',
+            ['parameter' => $name]
+        );
+    }
+
+    /**
+     * @deprecated tag:v6.8.0 - reason:return-type-change - Will return self
+     */
+    public static function invalidPriceFieldTypeException(string $type): self|InvalidPriceFieldTypeException
+    {
+        if (!Feature::isActive('v6.8.0.0')) {
+            return new InvalidPriceFieldTypeException($type);
+        }
+
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::INVALID_PRICE_FIELD_TYPE,
+            'The price field does not contain a valid "type" value. Received {{ type }}',
+            ['type' => $type]
+        );
+    }
+
+    public static function cartLocked(string $token): self
+    {
+        return new self(
+            Response::HTTP_CONFLICT,
+            self::CART_LOCKED,
+            'Cart with token {{ token }} is locked due to concurrent write operation. Please try again later.',
+            ['token' => $token]
+        );
+    }
+
+    public static function serializedCartTooLarge(): self
+    {
+        return new self(
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+            self::CART_SERIALIZATION_TOO_LARGE,
+            'The serialized cart data exceeds the allowed payload size limit'
+        );
     }
 }

@@ -6,7 +6,7 @@ use Shopware\Core\Content\Product\DataAbstractionLayer\VariantListingConfig;
 use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\VariantListingConfigField;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
@@ -22,7 +22,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class VariantListingConfigFieldSerializer extends AbstractFieldSerializer
 {
     /**
@@ -41,8 +41,8 @@ class VariantListingConfigFieldSerializer extends AbstractFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        if (!$field instanceof VariantListingConfigField) {
-            throw DataAbstractionLayerException::invalidSerializerField(VariantListingConfigField::class, $field);
+        if (!$field instanceof StorageAware) {
+            throw DataAbstractionLayerException::invalidSerializerField(self::class, $field);
         }
 
         $this->validateIfNeeded($field, $existence, $data, $parameters);
@@ -73,27 +73,27 @@ class VariantListingConfigFieldSerializer extends AbstractFieldSerializer
     protected function getConstraints(Field $field): array
     {
         return [
-            new Collection([
-                'allowExtraFields' => true,
-                'allowMissingFields' => true,
-                'fields' => [
+            new Collection(
+                fields: [
                     'displayParent' => [new Type('boolean')],
                     'mainVariantId' => [new Uuid()],
                     'configuratorGroupConfig' => [
                         new Optional(
-                            new Collection([
-                                'allowExtraFields' => true,
-                                'allowMissingFields' => true,
-                                'fields' => [
+                            new Collection(
+                                fields: [
                                     'id' => [new NotBlank(), new Uuid()],
                                     'representation' => [new NotBlank(), new Type('string')],
                                     'expressionForListings' => [new NotBlank(), new Type('boolean')],
                                 ],
-                            ])
+                                allowExtraFields: true,
+                                allowMissingFields: true
+                            )
                         ),
                     ],
                 ],
-            ]),
+                allowExtraFields: true,
+                allowMissingFields: true
+            ),
         ];
     }
 }

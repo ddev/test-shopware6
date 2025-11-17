@@ -2,12 +2,14 @@ import template from './sw-order-state-change-modal-attach-documents.html.twig';
 import './sw-order-state-change-modal-attach-documents.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: ['on-confirm'],
 
     props: {
         order: {

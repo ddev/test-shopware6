@@ -5,10 +5,12 @@ const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
+
+    emits: ['element-update'],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -104,8 +106,8 @@ export default {
         },
 
         updateElementData(media = null) {
-            this.$set(this.element.data, 'previewMediaId', media === null ? null : media.id);
-            this.$set(this.element.data, 'previewMedia', media);
+            this.element.data.previewMediaId = media === null ? null : media.id;
+            this.element.data.previewMedia = media;
         },
 
         onOpenMediaModal() {

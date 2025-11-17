@@ -2,10 +2,12 @@
 
 namespace Shopware\Core\Content\Media\File;
 
+use League\Flysystem\CorruptedPathDetected;
+use League\Flysystem\WhitespacePathNormalizer;
 use Shopware\Core\Content\Media\MediaException;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class FileNameValidator
 {
     private const RESTRICTED_CHARACTERS = [
@@ -27,6 +29,15 @@ class FileNameValidator
         '}',
     ];
 
+    private const MAX_FILE_NAME_LENGTH = 255;
+
+    private readonly WhitespacePathNormalizer $whitespacePathNormalizer;
+
+    public function __construct()
+    {
+        $this->whitespacePathNormalizer = new WhitespacePathNormalizer();
+    }
+
     /**
      * @throws MediaException
      */
@@ -40,6 +51,17 @@ class FileNameValidator
         $this->validateFileNameDoesNotEndOrStartWithDot($fileName);
         $this->validateFileNameDoesNotContainForbiddenCharacter($fileName);
         $this->validateFileNameDoesNotContainC0Character($fileName);
+        $this->validateFileNameIsLessOrEqualThanMaxLength($fileName);
+        $this->validateFileNameDoesNotContainFunkyWhiteSpace($fileName);
+    }
+
+    private function validateFileNameDoesNotContainFunkyWhiteSpace(string $fileName): void
+    {
+        try {
+            $this->whitespacePathNormalizer->normalizePath($fileName);
+        } catch (CorruptedPathDetected) {
+            throw MediaException::illegalFileName($fileName, 'Filename must not contain funky whitespace');
+        }
     }
 
     private function validateFileNameDoesNotEndOrStartWithDot(string $fileName): void
@@ -57,7 +79,7 @@ class FileNameValidator
     {
         foreach (self::RESTRICTED_CHARACTERS as $character) {
             if (mb_strpos($fileName, $character) !== false) {
-                throw MediaException::illegalFileName($fileName, sprintf(
+                throw MediaException::illegalFileName($fileName, \sprintf(
                     'Filename must not contain "%s"',
                     $character
                 ));
@@ -69,7 +91,7 @@ class FileNameValidator
     {
         foreach (range(0, 31) as $controlCharacter) {
             if (mb_strpos($fileName, \chr($controlCharacter)) !== false) {
-                throw MediaException::illegalFileName($fileName, sprintf(
+                throw MediaException::illegalFileName($fileName, \sprintf(
                     'Filename must not contain character "%x"',
                     $controlCharacter
                 ));
@@ -82,5 +104,14 @@ class FileNameValidator
         if (mb_substr($fileName, -1) === ' ') {
             throw MediaException::illegalFileName($fileName, 'Filename must not end with spaces');
         }
+    }
+
+    private function validateFileNameIsLessOrEqualThanMaxLength(string $fileName): void
+    {
+        if (\strlen($fileName) <= self::MAX_FILE_NAME_LENGTH) {
+            return;
+        }
+
+        throw MediaException::fileNameTooLong(self::MAX_FILE_NAME_LENGTH);
     }
 }

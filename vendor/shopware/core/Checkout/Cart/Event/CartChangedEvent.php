@@ -3,29 +3,19 @@
 namespace Shopware\Core\Checkout\Cart\Event;
 
 use Shopware\Core\Checkout\Cart\Cart;
+use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\Event\ShopwareSalesChannelEvent;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Contracts\EventDispatcher\Event;
 
 #[Package('checkout')]
-class CartChangedEvent extends Event
+class CartChangedEvent extends Event implements CartEvent, ShopwareSalesChannelEvent
 {
-    /**
-     * @var Cart
-     */
-    protected $cart;
-
-    /**
-     * @var SalesChannelContext
-     */
-    protected $context;
-
     public function __construct(
-        Cart $cart,
-        SalesChannelContext $context
+        protected readonly Cart $cart,
+        protected readonly SalesChannelContext $salesChannelContext,
     ) {
-        $this->cart = $cart;
-        $this->context = $context;
     }
 
     public function getCart(): Cart
@@ -33,8 +23,13 @@ class CartChangedEvent extends Event
         return $this->cart;
     }
 
-    public function getContext(): SalesChannelContext
+    public function getContext(): Context
     {
-        return $this->context;
+        return $this->salesChannelContext->getContext();
+    }
+
+    public function getSalesChannelContext(): SalesChannelContext
+    {
+        return $this->salesChannelContext;
     }
 }

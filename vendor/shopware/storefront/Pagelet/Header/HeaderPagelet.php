@@ -2,8 +2,8 @@
 
 namespace Shopware\Storefront\Pagelet\Header;
 
-use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Category\Tree\Tree;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Currency\CurrencyCollection;
 use Shopware\Core\System\Currency\CurrencyEntity;
@@ -11,51 +11,27 @@ use Shopware\Core\System\Language\LanguageCollection;
 use Shopware\Core\System\Language\LanguageEntity;
 use Shopware\Storefront\Pagelet\NavigationPagelet;
 
-#[Package('storefront')]
+#[Package('framework')]
 class HeaderPagelet extends NavigationPagelet
 {
     /**
-     * @var LanguageCollection
+     * @deprecated tag:v6.8.0 - Will be removed, access the active language through the context
      */
-    protected $languages;
+    protected LanguageEntity $activeLanguage;
 
     /**
-     * @var CurrencyCollection
+     * @deprecated tag:v6.8.0 - Will be removed, access the active currency through the context
      */
-    protected $currencies;
-
-    /**
-     * @var LanguageEntity
-     */
-    protected $activeLanguage;
-
-    /**
-     * @var CurrencyEntity
-     */
-    protected $activeCurrency;
-
-    /**
-     * @var CategoryCollection
-     */
-    protected $serviceMenu;
+    protected CurrencyEntity $activeCurrency;
 
     /**
      * @internal
      */
     public function __construct(
         Tree $navigation,
-        LanguageCollection $languages,
-        CurrencyCollection $currencies,
-        LanguageEntity $activeLanguage,
-        CurrencyEntity $activeCurrency,
-        CategoryCollection $serviceMenu
+        protected LanguageCollection $languages,
+        protected CurrencyCollection $currencies,
     ) {
-        $this->languages = $languages;
-        $this->currencies = $currencies;
-        $this->activeLanguage = $activeLanguage;
-        $this->activeCurrency = $activeCurrency;
-        $this->serviceMenu = $serviceMenu;
-
         parent::__construct($navigation);
     }
 
@@ -69,18 +45,55 @@ class HeaderPagelet extends NavigationPagelet
         return $this->currencies;
     }
 
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed, access the active language through the context
+     */
+    public function setActiveLanguage(LanguageEntity $activeLanguage): void
+    {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
+        $this->activeLanguage = $activeLanguage;
+    }
+
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed, access the active language through the context
+     */
     public function getActiveLanguage(): LanguageEntity
     {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
         return $this->activeLanguage;
     }
 
-    public function getActiveCurrency(): CurrencyEntity
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed, access the active language through the context
+     */
+    public function setActiveCurrency(CurrencyEntity $activeCurrency): void
     {
-        return $this->activeCurrency;
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
+        $this->activeCurrency = $activeCurrency;
     }
 
-    public function getServiceMenu(): CategoryCollection
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed, access the active language through the context
+     */
+    public function getActiveCurrency(): CurrencyEntity
     {
-        return $this->serviceMenu;
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
+        return $this->activeCurrency;
     }
 }

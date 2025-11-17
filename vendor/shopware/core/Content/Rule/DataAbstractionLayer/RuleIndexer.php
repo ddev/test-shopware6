@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\Rule\DataAbstractionLayer;
 
 use Shopware\Core\Content\Rule\Event\RuleIndexerEvent;
+use Shopware\Core\Content\Rule\RuleCollection;
 use Shopware\Core\Content\Rule\RuleDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IteratorFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -16,7 +17,7 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 /**
  * @final
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class RuleIndexer extends EntityIndexer
 {
     final public const PAYLOAD_UPDATER = 'rule.payload';
@@ -25,6 +26,8 @@ class RuleIndexer extends EntityIndexer
 
     /**
      * @internal
+     *
+     * @param EntityRepository<RuleCollection> $repository
      */
     public function __construct(
         private readonly IteratorFactory $iteratorFactory,
@@ -69,6 +72,9 @@ class RuleIndexer extends EntityIndexer
     public function handle(EntityIndexingMessage $message): void
     {
         $ids = $message->getData();
+        if (!\is_array($ids)) {
+            return;
+        }
 
         $ids = array_unique(array_filter($ids));
         if (empty($ids)) {

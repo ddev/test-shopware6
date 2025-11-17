@@ -1,5 +1,4 @@
 import Plugin from 'src/plugin-system/plugin.class';
-import DomAccess from 'src/helper/dom-access.helper';
 import OffCanvas from 'src/plugin/offcanvas/offcanvas.plugin';
 import ViewportDetection from 'src/helper/viewport-detection.helper';
 
@@ -17,17 +16,15 @@ export default class OffCanvasAccountMenu extends Plugin {
         additionalClass: 'account-menu-offcanvas',
 
         /**
-         * class is used to hide the dropdown on viewports where the offcanvas is used
-         */
-        hiddenClass: 'd-none',
-
-        /**
          * from which direction the offcanvas opens
          */
         offcanvasPostion: 'left',
     };
 
     init() {
+        this._dropdown = this.el.parentNode.querySelector(`.${this.options.dropdownMenuSelector}`);
+        this._dropdownWrapper = this.el.parentNode;
+
         this._registerEventListeners();
     }
 
@@ -38,6 +35,7 @@ export default class OffCanvasAccountMenu extends Plugin {
      */
     _registerEventListeners() {
         this.el.addEventListener('click', this._onClickAccountMenuTrigger.bind(this, this.el));
+        this._dropdownWrapper.addEventListener('show.bs.dropdown', this._onClickPreventDropdown.bind(this));
 
         document.addEventListener('Viewport/hasChanged', this._onViewportHasChanged.bind(this));
     }
@@ -45,22 +43,30 @@ export default class OffCanvasAccountMenu extends Plugin {
     /**
      * On clicking the trigger item the account menu OffCanvas shall open
      * and the dropdown content may be fetched and shown inside the OffCanvas.
-     * @param trigger
      * @private
      */
-    _onClickAccountMenuTrigger(trigger) {
-
+    _onClickAccountMenuTrigger() {
         // if the current viewport is not allowed return
-        if (this._isInAllowedViewports() === false) return;
-
-        this._dropdown = DomAccess.querySelector(trigger.parentNode, `.${this.options.dropdownMenuSelector}`);
-
-        this._dropdown.classList.add(this.options.hiddenClass);
+        if (this._isInAllowedViewports() === false) {
+            return;
+        }
 
         OffCanvas.open(this._dropdown.innerHTML, null, this.options.offcanvasPostion, true, OffCanvas.REMOVE_OFF_CANVAS_DELAY());
         OffCanvas.setAdditionalClassName(this.options.additionalClass);
 
         this.$emitter.publish('onClickAccountMenuTrigger');
+    }
+
+    /**
+     * Prevent opening the Bootstrap dropdown in allowed viewports
+     *
+     * @param event
+     * @private
+     */
+    _onClickPreventDropdown(event) {
+        if (this._isInAllowedViewports() === true) {
+            event.preventDefault();
+        }
     }
 
     /**
@@ -78,10 +84,12 @@ export default class OffCanvasAccountMenu extends Plugin {
         }
 
         if (this._dropdown) {
-            if (this._isInAllowedViewports() === false) {
-                this._dropdown.classList.remove(this.options.hiddenClass);
-            } else {
-                this._dropdown.classList.add(this.options.hiddenClass);
+            const bsDropdownInstance = bootstrap.Dropdown.getInstance(this.el);
+
+            if (this._isInAllowedViewports() === true) {
+                if (bsDropdownInstance) {
+                    bsDropdownInstance.hide();
+                }
             }
         }
 

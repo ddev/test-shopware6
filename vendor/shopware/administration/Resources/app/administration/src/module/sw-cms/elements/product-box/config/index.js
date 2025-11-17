@@ -6,12 +6,14 @@ const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: ['element-update'],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -35,6 +37,57 @@ export default {
 
             return criteria;
         },
+
+        boxLayoutOptions() {
+            return [
+                {
+                    value: 'standard',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeStandard'),
+                },
+                {
+                    value: 'image',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeImage'),
+                },
+                {
+                    value: 'minimal',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeMinimal'),
+                },
+            ];
+        },
+
+        displayModeOptions() {
+            return [
+                {
+                    value: 'standard',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeStandard'),
+                },
+                {
+                    value: 'cover',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeCover'),
+                },
+                {
+                    value: 'contain',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeContain'),
+                },
+            ];
+        },
+
+        verticalAlignOptions() {
+            return [
+                {
+                    value: 'flex-start',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignTop'),
+                },
+                {
+                    value: 'center',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignCenter'),
+                },
+                {
+                    value: 'flex-end',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignBottom'),
+                },
+            ];
+        },
     },
 
     created() {
@@ -49,8 +102,8 @@ export default {
         onProductChange(productId) {
             if (!productId) {
                 this.element.config.product.value = null;
-                this.$set(this.element.data, 'productId', null);
-                this.$set(this.element.data, 'product', null);
+                this.element.data.productId = null;
+                this.element.data.product = null;
             } else {
                 const criteria = new Criteria(1, 25);
                 criteria.addAssociation('cover');
@@ -58,8 +111,9 @@ export default {
 
                 this.productRepository.get(productId, this.productSelectContext, criteria).then((product) => {
                     this.element.config.product.value = productId;
-                    this.$set(this.element.data, 'productId', productId);
-                    this.$set(this.element.data, 'product', product);
+
+                    this.element.data.productId = productId;
+                    this.element.data.product = product;
                 });
             }
 

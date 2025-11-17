@@ -10,31 +10,14 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 #[Package('checkout')]
-class BeforeLineItemQuantityChangedEvent implements ShopwareSalesChannelEvent
+class BeforeLineItemQuantityChangedEvent implements ShopwareSalesChannelEvent, CartEvent
 {
-    /**
-     * @var LineItem
-     */
-    protected $lineItem;
-
-    /**
-     * @var Cart
-     */
-    protected $cart;
-
-    /**
-     * @var SalesChannelContext
-     */
-    protected $salesChannelContext;
-
     public function __construct(
-        LineItem $lineItem,
-        Cart $cart,
-        SalesChannelContext $salesChannelContext
+        protected readonly LineItem $lineItem,
+        protected readonly Cart $cart,
+        protected readonly SalesChannelContext $salesChannelContext,
+        protected readonly int $beforeUpdateQuantity
     ) {
-        $this->lineItem = $lineItem;
-        $this->cart = $cart;
-        $this->salesChannelContext = $salesChannelContext;
     }
 
     public function getLineItem(): LineItem
@@ -55,5 +38,10 @@ class BeforeLineItemQuantityChangedEvent implements ShopwareSalesChannelEvent
     public function getSalesChannelContext(): SalesChannelContext
     {
         return $this->salesChannelContext;
+    }
+
+    public function getBeforeUpdateQuantity(): int
+    {
+        return $this->beforeUpdateQuantity;
     }
 }

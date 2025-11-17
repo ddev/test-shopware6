@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import template from './sw-import-export-edit-profile-modal.html.twig';
 import './sw-import-export-edit-profile-modal.scss';
@@ -21,6 +21,11 @@ export default {
         'importExportUpdateByMapping',
     ],
 
+    emits: [
+        'profile-close',
+        'profile-save',
+    ],
+
     mixins: [Mixin.getByName('notification')],
 
     props: {
@@ -34,7 +39,6 @@ export default {
         show: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return true;
@@ -50,16 +54,13 @@ export default {
     },
 
     computed: {
-        ...mapPropertyErrors(
-            'profile',
-            [
-                'name',
-                'sourceEntity',
-                'delimiter',
-                'enclosure',
-                'type',
-            ],
-        ),
+        ...mapPropertyErrors('profile', [
+            'name',
+            'sourceEntity',
+            'delimiter',
+            'enclosure',
+            'type',
+        ]),
 
         isNew() {
             if (!this.profile || !this.profile.isNew) {
@@ -70,15 +71,15 @@ export default {
         },
 
         modalTitle() {
-            return this.isNew ?
-                this.$tc('sw-import-export.profile.newProfileLabel') :
-                this.$tc('sw-import-export.profile.editProfileLabel');
+            return this.isNew
+                ? this.$tc('sw-import-export.profile.newProfileLabel')
+                : this.$tc('sw-import-export.profile.editProfileLabel');
         },
 
         saveLabelSnippet() {
-            return this.isNew ?
-                this.$tc('sw-import-export.profile.addProfileLabel') :
-                this.$tc('sw-import-export.profile.saveProfileLabel');
+            return this.isNew
+                ? this.$tc('sw-import-export.profile.addProfileLabel')
+                : this.$tc('sw-import-export.profile.saveProfileLabel');
         },
 
         showValidationError() {
@@ -125,17 +126,20 @@ export default {
             criteria.addFilter(Criteria.equals('sourceEntity', this.profile.sourceEntity));
             criteria.addFilter(Criteria.equals('systemDefault', true));
 
-            return this.profileRepository.search(criteria).then((results) => {
-                if (results.total > 0) {
-                    return results[0];
-                }
+            return this.profileRepository
+                .search(criteria)
+                .then((results) => {
+                    if (results.total > 0) {
+                        return results[0];
+                    }
 
-                return null;
-            }).catch(() => {
-                this.createNotificationError({
-                    message: this.$tc('sw-import-export.profile.messageSearchParentProfileError'),
+                    return null;
+                })
+                .catch(() => {
+                    this.createNotificationError({
+                        message: this.$tc('sw-import-export.profile.messageSearchParentProfileError'),
+                    });
                 });
-            });
         },
 
         checkValidation(parentProfile) {
@@ -146,8 +150,7 @@ export default {
 
             const parentMapping = parentProfile ? parentProfile.mapping : [];
             const isOnlyUpdateProfile =
-                this.profile.config.createEntities === false &&
-                this.profile.config.updateEntities === true;
+                this.profile.config.createEntities === false && this.profile.config.updateEntities === true;
             const validationErrors = this.importExportProfileMapping.validate(
                 this.profile.sourceEntity,
                 this.profile.mapping,

@@ -1,7 +1,5 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_newsletter_recipient_detail %}
 <sw-page class="sw-newsletter-recipient-detail">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_newsletter_recipient_detail_header %}
     <template #smart-bar-header>
         <h2 v-if="newsletterRecipient">
@@ -10,24 +8,31 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_newsletter_recipient_detail_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+        <mt-button
+            variant="secondary"
+            size="default"
+            @click="onCancel"
+        >
+            {{ $tc('global.default.cancel') }}
+        </mt-button>
+
         {% block sw_newsletter_recipient_detail_actions_edit %}
-        <sw-button
-            class="sw-newsletter-recipient-detail__open-edit-mode-action"
+        <sw-button-process
             variant="primary"
+            :is-loading="isLoading"
             :disabled="isLoading || !acl.can('newsletter_recipient.editor')"
-            @click="onClickSave"
+            :process-success="isSaveSuccessful"
+            @update:process-success="onSaveFinish"
+            @click="onSave"
         >
             {{ $tc('sw-newsletter-recipient.general.buttonSave') }}
-        </sw-button>
+        </sw-button-process>
         {% endblock %}
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_newsletter_recipient_detail_content %}
     <template #content>
         <sw-card-view>
@@ -36,26 +41,20 @@
                 <sw-skeleton />
             </template>
 
-            <sw-card
+            <mt-card
                 v-else-if="newsletterRecipient"
                 position-identifier="sw-newsletter-recipient-detail"
                 :title="$tc('sw-newsletter-recipient.general.information')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_newsletter_recipient_detail_form %}
 
                 <sw-container
                     columns="1fr 1fr"
                     gap="10px"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_newsletter_recipient_detail_form_salutation %}
                     <sw-entity-single-select
-                        {% if VUE3 %}
                         v-model:value="newsletterRecipient.salutationId"
-                        {% else %}
-                        v-model="newsletterRecipient.salutationId"
-                        {% endif %}
                         :disabled="!acl.can('newsletter_recipient.editor')"
                         :label="$tc('sw-newsletter-recipient.general.salutation')"
                         label-property="displayName"
@@ -64,14 +63,10 @@
                     />
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_newsletter_recipient_detail_form_title %}
-                    <sw-text-field
-                        {% if VUE3 %}
-                        v-model:value="newsletterRecipient.title"
-                        {% else %}
+
+                    <mt-text-field
                         v-model="newsletterRecipient.title"
-                        {% endif %}
                         :label="$tc('sw-newsletter-recipient.list.title')"
                         :disabled="!acl.can('newsletter_recipient.editor')"
                     />
@@ -82,54 +77,38 @@
                     columns="1fr 1fr"
                     gap="10px"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_newsletter_recipient_detail_form_first_name %}
-                    <sw-text-field
-                        {% if VUE3 %}
-                        v-model:value="newsletterRecipient.firstName"
-                        {% else %}
+
+                    <mt-text-field
                         v-model="newsletterRecipient.firstName"
-                        {% endif %}
                         :label="$tc('sw-newsletter-recipient.list.firstName')"
                         :disabled="!acl.can('newsletter_recipient.editor')"
                     />
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_newsletter_recipient_detail_form_last_name %}
-                    <sw-text-field
-                        {% if VUE3 %}
-                        v-model:value="newsletterRecipient.lastName"
-                        {% else %}
+
+                    <mt-text-field
                         v-model="newsletterRecipient.lastName"
-                        {% endif %}
                         :label="$tc('sw-newsletter-recipient.list.lastName')"
                         :disabled="!acl.can('newsletter_recipient.editor')"
                     />
                     {% endblock %}
                 </sw-container>
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_newsletter_recipient_detail_form_email %}
-                <sw-text-field
-                    {% if VUE3 %}
-                    v-model:value="newsletterRecipient.email"
-                    {% else %}
+
+                <mt-text-field
                     v-model="newsletterRecipient.email"
-                    {% endif %}
                     :label="$tc('sw-newsletter-recipient.list.email')"
                     :disabled="!acl.can('newsletter_recipient.editor')"
                 />
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_newsletter_recipient_detail_form_street %}
-                <sw-text-field
-                    {% if VUE3 %}
-                    v-model:value="newsletterRecipient.street"
-                    {% else %}
+
+                <mt-text-field
                     v-model="newsletterRecipient.street"
-                    {% endif %}
                     :label="$tc('sw-newsletter-recipient.list.street')"
                     :disabled="!acl.can('newsletter_recipient.editor')"
                 />
@@ -139,41 +118,28 @@
                     columns="1fr 1fr"
                     gap="10px"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_newsletter_recipient_detail_form_zip_code %}
-                    <sw-text-field
-                        {% if VUE3 %}
-                        v-model:value="newsletterRecipient.zipCode"
-                        {% else %}
+
+                    <mt-text-field
                         v-model="newsletterRecipient.zipCode"
-                        {% endif %}
                         :label="$tc('sw-newsletter-recipient.list.zipCode')"
                         :disabled="!acl.can('newsletter_recipient.editor')"
                     />
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_newsletter_recipient_detail_form_city %}
-                    <sw-text-field
-                        {% if VUE3 %}
-                        v-model:value="newsletterRecipient.city"
-                        {% else %}
+
+                    <mt-text-field
                         v-model="newsletterRecipient.city"
-                        {% endif %}
                         :label="$tc('sw-newsletter-recipient.list.city')"
                         :disabled="!acl.can('newsletter_recipient.editor')"
                     />
                     {% endblock %}
                 </sw-container>
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_newsletter_recipient_detail_form_language %}
                 <sw-entity-single-select
-                    {% if VUE3 %}
                     v-model:value="newsletterRecipient.languageId"
-                    {% else %}
-                    v-model="newsletterRecipient.languageId"
-                    {% endif %}
                     :label="$tc('sw-newsletter-recipient.general.language')"
                     :disabled="!acl.can('newsletter_recipient.editor')"
                     entity="language"
@@ -181,14 +147,9 @@
                 />
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_newsletter_recipient_detail_form_sales_channel %}
                 <sw-entity-single-select
-                    {% if VUE3 %}
                     v-model:value="newsletterRecipient.salesChannelId"
-                    {% else %}
-                    v-model="newsletterRecipient.salesChannelId"
-                    {% endif %}
                     :label="$tc('sw-newsletter-recipient.general.salesChannel')"
                     label-property="name"
                     :disabled="true"
@@ -197,21 +158,30 @@
                 />
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_newsletter_recipient_detail_form_tags %}
                 <sw-entity-tag-select
-                    {% if VUE3 %}
-                    v-model:entityCollection="newsletterRecipient.tags"
-                    {% else %}
-                    v-model="newsletterRecipient.tags"
-                    {% endif %}
+                    v-model:entity-collection="newsletterRecipient.tags"
                     :label="$tc('sw-newsletter-recipient.general.tags')"
                     :disabled="!acl.can('newsletter_recipient.editor')"
                 />
                 {% endblock %}
 
                 {% endblock %}
-            </sw-card>
+            </mt-card>
+
+            {% block sw_newsletter_recipient_detail_custom_fields %}
+            <mt-card
+                v-if="newsletterRecipient && customFieldSets && customFieldSets.length > 0"
+                position-identifier="sw-newsletter-customFields"
+                :title="$tc('sw-settings-custom-field.general.mainMenuItemGeneral')"
+            >
+                <sw-custom-field-set-renderer
+                    :entity="newsletterRecipient"
+                    :disabled="!acl.can('newsletter_recipient.editor')"
+                    :sets="customFieldSets"
+                />
+            </mt-card>
+            {% endblock %}
         </sw-card-view>
     </template>
     {% endblock %}

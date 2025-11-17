@@ -3,7 +3,7 @@
 namespace Shopware\Core\Migration\V6_3;
 
 use Doctrine\DBAL\Connection;
-use Shopware\Core\Content\MailTemplate\MailTemplateActions;
+use Shopware\Core\Content\Flow\Dispatching\Action\SendMailAction;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Migration\MigrationStep;
@@ -14,7 +14,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1596441551CustomerGroupRegistration extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -123,7 +123,6 @@ ADD `registration_seo_meta_description` longtext NULL AFTER `registration_only_c
 
     private function fetchLanguageId(string $code, Connection $connection): ?string
     {
-        /** @var string|null $langId */
         $langId = $connection->fetchOne('
         SELECT `language`.`id` FROM `language` INNER JOIN `locale` ON `language`.`locale_id` = `locale`.`id` WHERE `code` = :code LIMIT 1
         ', ['code' => $code]);
@@ -213,7 +212,7 @@ ADD `registration_seo_meta_description` longtext NULL AFTER `registration_only_c
             [
                 'id' => Uuid::randomBytes(),
                 'event_name' => $typeName,
-                'action_name' => MailTemplateActions::MAIL_TEMPLATE_MAIL_SEND_ACTION,
+                'action_name' => SendMailAction::ACTION_NAME,
                 'config' => json_encode([
                     'mail_template_type_id' => Uuid::fromBytesToHex($typeId),
                 ], \JSON_THROW_ON_ERROR),

@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1692608216IncreaseAppConfigKeyColumnSize extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -23,9 +23,5 @@ class Migration1692608216IncreaseAppConfigKeyColumnSize extends MigrationStep
             ALTER TABLE `app_config`
             MODIFY COLUMN `key` VARCHAR(255);
         ');
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 }

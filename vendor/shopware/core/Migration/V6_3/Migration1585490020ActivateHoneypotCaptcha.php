@@ -13,7 +13,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1585490020ActivateHoneypotCaptcha extends MigrationStep
 {
     private const CONFIG_KEY = 'core.basicInformation.activeCaptchas';
@@ -36,7 +36,7 @@ class Migration1585490020ActivateHoneypotCaptcha extends MigrationStep
         $connection->insert('system_config', [
             'id' => Uuid::randomBytes(),
             'configuration_key' => self::CONFIG_KEY,
-            'configuration_value' => sprintf('{"_value": ["%s"]}', self::CAPTCHA_NAME),
+            'configuration_value' => \sprintf('{"_value": ["%s"]}', self::CAPTCHA_NAME),
             'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT),
         ]);
     }

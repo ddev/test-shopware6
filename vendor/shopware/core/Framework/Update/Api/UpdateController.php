@@ -5,6 +5,7 @@ namespace Shopware\Core\Framework\Update\Api;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\KernelPluginLoader\StaticKernelPluginLoader;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Store\Services\AbstractExtensionLifecycle;
 use Shopware\Core\Framework\Update\Checkers\LicenseCheck;
 use Shopware\Core\Framework\Update\Checkers\WriteableCheck;
@@ -13,7 +14,7 @@ use Shopware\Core\Framework\Update\Event\UpdatePrePrepareEvent;
 use Shopware\Core\Framework\Update\Services\ApiClient;
 use Shopware\Core\Framework\Update\Services\ExtensionCompatibility;
 use Shopware\Core\Framework\Update\Steps\DeactivateExtensionsStep;
-use Shopware\Core\Kernel;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\NoContentResponse;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,13 +23,13 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('system-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('framework')]
 class UpdateController extends AbstractController
 {
     public const UPDATE_PREVIOUS_VERSION_KEY = 'core.update.previousVersion';
@@ -138,7 +139,6 @@ class UpdateController extends AbstractController
 
     private function rebootKernelWithoutPlugins(): ContainerInterface
     {
-        /** @var Kernel $kernel */
         $kernel = $this->container->get('kernel');
 
         $classLoad = $kernel->getPluginLoader()->getClassLoader();

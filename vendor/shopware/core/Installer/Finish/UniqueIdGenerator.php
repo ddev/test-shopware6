@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class UniqueIdGenerator
 {
     private readonly string $cacheFilePath;
@@ -19,7 +19,7 @@ class UniqueIdGenerator
 
     public function getUniqueId(): string
     {
-        if (file_exists($this->cacheFilePath)) {
+        if (\is_file($this->cacheFilePath)) {
             if ($id = file_get_contents($this->cacheFilePath)) {
                 return $id;
             }

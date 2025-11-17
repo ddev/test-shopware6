@@ -1,6 +1,11 @@
+/**
+ * @sw-package framework
+ */
+
+import './sw-settings-logging-list.scss';
 import template from './sw-settings-logging-list.html.twig';
 
-const { Mixin } = Shopware;
+const { Mixin, Component } = Shopware;
 const { Criteria } = Shopware.Data;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -52,14 +57,18 @@ export default {
 
         modalNameFromLogEntry() {
             const eventName = this.displayedLog.message;
-
             const subComponentName = eventName.replace(/[._]/g, '-');
-            if (this.$options.components[`sw-settings-logging-${subComponentName}-info`]) {
+
+            if (Component.getComponentRegistry().has(`sw-settings-logging-${subComponentName}-info`)) {
                 return `sw-settings-logging-${subComponentName}-info`;
             }
+
             return 'sw-settings-logging-entry-info';
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -82,15 +91,18 @@ export default {
             criteria.setTerm(this.term);
             criteria.addSorting(Criteria.sort(this.sortBy, this.sortDirection));
 
-            return this.logEntryRepository.search(criteria).then((response) => {
-                this.total = response.total;
-                this.logs = response;
-                this.isLoading = false;
+            return this.logEntryRepository
+                .search(criteria)
+                .then((response) => {
+                    this.total = response.total;
+                    this.logs = response;
+                    this.isLoading = false;
 
-                return response;
-            }).catch(() => {
-                this.isLoading = false;
-            });
+                    return response;
+                })
+                .catch(() => {
+                    this.isLoading = false;
+                });
         },
 
         logLevelToString(level) {
@@ -98,36 +110,43 @@ export default {
                 return Math.abs(x - level);
             });
 
-            const stringLevel = Object.keys(this.logLevels)[distances.findIndex((x) => {
-                return x === Math.min(...distances);
-            })];
+            const stringLevel = Object.keys(this.logLevels)[
+                distances.findIndex((x) => {
+                    return x === Math.min(...distances);
+                })
+            ];
 
             return this.$tc(`sw-settings-logging.list.level${stringLevel}`);
         },
 
         getLogColumns() {
-            return [{
-                property: 'createdAt',
-                dataIndex: 'createdAt',
-                label: 'sw-settings-logging.list.columnDate',
-                allowResize: true,
-                primary: true,
-            }, {
-                property: 'message',
-                dataIndex: 'message',
-                label: 'sw-settings-logging.list.columnMessage',
-                allowResize: true,
-            }, {
-                property: 'level',
-                dataIndex: 'level',
-                label: 'sw-settings-logging.list.columnLevel',
-                allowResize: true,
-            }, {
-                property: 'context',
-                dataIndex: 'context',
-                label: 'sw-settings-logging.list.columnContent',
-                allowResize: true,
-            }];
+            return [
+                {
+                    property: 'createdAt',
+                    dataIndex: 'createdAt',
+                    label: 'sw-settings-logging.list.columnDate',
+                    allowResize: true,
+                    primary: true,
+                },
+                {
+                    property: 'message',
+                    dataIndex: 'message',
+                    label: 'sw-settings-logging.list.columnMessage',
+                    allowResize: true,
+                },
+                {
+                    property: 'level',
+                    dataIndex: 'level',
+                    label: 'sw-settings-logging.list.columnLevel',
+                    allowResize: true,
+                },
+                {
+                    property: 'context',
+                    dataIndex: 'context',
+                    label: 'sw-settings-logging.list.columnContent',
+                    allowResize: true,
+                },
+            ];
         },
     },
 };

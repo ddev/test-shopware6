@@ -37,7 +37,7 @@ class GeoDistanceAggregation extends AbstractAggregation
         string $origin,
         array $ranges = [],
         ?string $unit = null,
-        ?string $distanceType = null
+        ?string $distanceType = null,
     ) {
         parent::__construct($name);
 
@@ -109,9 +109,6 @@ class GeoDistanceAggregation extends AbstractAggregation
         return $this;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getArray(): array
     {
         $data = [

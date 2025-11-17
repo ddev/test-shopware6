@@ -19,70 +19,34 @@ class PropertyGroupOptionEntity extends Entity
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $groupId;
+    protected string $groupId;
 
-    /**
-     * @var string|null
-     */
-    protected $name;
+    protected ?string $name = null;
 
-    /**
-     * @var int|null
-     */
-    protected $position;
+    protected ?int $position = null;
 
-    /**
-     * @var string|null
-     */
-    protected $colorHexCode;
+    protected ?string $colorHexCode = null;
 
-    /**
-     * @var string|null
-     */
-    protected $mediaId;
+    protected ?string $mediaId = null;
 
-    /**
-     * @var PropertyGroupEntity|null
-     */
-    protected $group;
+    protected ?PropertyGroupEntity $group = null;
 
-    /**
-     * @var PropertyGroupOptionTranslationCollection|null
-     */
-    protected $translations;
+    protected ?PropertyGroupOptionTranslationCollection $translations = null;
 
-    /**
-     * @var ProductConfiguratorSettingCollection|null
-     */
-    protected $productConfiguratorSettings;
+    protected ?ProductConfiguratorSettingCollection $productConfiguratorSettings = null;
 
-    /**
-     * @var ProductCollection|null
-     */
-    protected $productProperties;
+    protected ?ProductCollection $productProperties = null;
 
-    /**
-     * @var ProductCollection|null
-     */
-    protected $productOptions;
+    protected ?ProductCollection $productOptions = null;
 
-    /**
-     * @var MediaEntity|null
-     */
-    protected $media;
+    protected ?MediaEntity $media = null;
+
+    protected bool $combinable = false;
 
     /**
      * @internal
      */
     private ?ProductConfiguratorSettingEntity $configuratorSetting = null;
-
-    /**
-     * @internal
-     */
-    private bool $combinable = false;
 
     public function getGroupId(): string
     {
@@ -194,16 +158,6 @@ class PropertyGroupOptionEntity extends Entity
         $this->position = $position;
     }
 
-    public function getConfiguratorSetting(): ?ProductConfiguratorSettingEntity
-    {
-        return $this->configuratorSetting;
-    }
-
-    public function setConfiguratorSetting(ProductConfiguratorSettingEntity $configuratorSetting): void
-    {
-        $this->configuratorSetting = $configuratorSetting;
-    }
-
     public function getCombinable(): bool
     {
         return $this->combinable;
@@ -212,5 +166,15 @@ class PropertyGroupOptionEntity extends Entity
     public function setCombinable(bool $combinable): void
     {
         $this->combinable = $combinable;
+    }
+
+    public function getConfiguratorSetting(): ?ProductConfiguratorSettingEntity
+    {
+        return $this->configuratorSetting;
+    }
+
+    public function setConfiguratorSetting(ProductConfiguratorSettingEntity $configuratorSetting): void
+    {
+        $this->configuratorSetting = $configuratorSetting;
     }
 }

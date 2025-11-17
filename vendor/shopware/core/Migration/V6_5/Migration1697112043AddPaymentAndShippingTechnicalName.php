@@ -5,7 +5,6 @@ namespace Shopware\Core\Migration\V6_5;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\CashPayment;
-use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\DebitPayment;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\InvoicePayment;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\PrePayment;
 use Shopware\Core\Checkout\Payment\PaymentMethodDefinition;
@@ -28,29 +27,30 @@ class Migration1697112043AddPaymentAndShippingTechnicalName extends MigrationSte
 
     public function update(Connection $connection): void
     {
-        $manager = $connection->createSchemaManager();
-        $columns = $manager->listTableColumns(PaymentMethodDefinition::ENTITY_NAME);
-
-        if (!\array_key_exists('technical_name', $columns)) {
-            $connection->executeStatement('ALTER TABLE `payment_method` ADD COLUMN `technical_name` VARCHAR(255) NULL');
-        }
+        $this->addColumn(
+            connection: $connection,
+            table: 'payment_method',
+            column: 'technical_name',
+            type: 'VARCHAR(255)'
+        );
 
         if (!$this->indexExists($connection, PaymentMethodDefinition::ENTITY_NAME, 'uniq.technical_name')) {
-            $connection->executeStatement('ALTER TABLE `payment_method` ADD  CONSTRAINT `uniq.technical_name` UNIQUE (`technical_name`)');
+            $connection->executeStatement('ALTER TABLE `payment_method` ADD CONSTRAINT `uniq.technical_name` UNIQUE (`technical_name`)');
         }
 
-        $columns = $manager->listTableColumns(ShippingMethodDefinition::ENTITY_NAME);
-
-        if (!\array_key_exists('technical_name', $columns)) {
-            $connection->executeStatement('ALTER TABLE `shipping_method` ADD COLUMN `technical_name` VARCHAR(255) NULL');
-        }
+        $this->addColumn(
+            connection: $connection,
+            table: 'shipping_method',
+            column: 'technical_name',
+            type: 'VARCHAR(255)'
+        );
 
         if (!$this->indexExists($connection, ShippingMethodDefinition::ENTITY_NAME, 'uniq.technical_name')) {
-            $connection->executeStatement('ALTER TABLE `shipping_method` ADD  CONSTRAINT `uniq.technical_name` UNIQUE (`technical_name`)');
+            $connection->executeStatement('ALTER TABLE `shipping_method` ADD CONSTRAINT `uniq.technical_name` UNIQUE (`technical_name`)');
         }
 
         // set technical name for existing payment methods
-        // Shopware\Core\...\DebitPayment becomes payment_debitpayment
+        // Shopware\Core\...\CashPayment becomes payment_cashpayment
         // app payment methods will use 'payment_[appName_appPaymentMethodIdentifier]` as technical name
         $connection->executeStatement(
             '
@@ -60,17 +60,18 @@ class Migration1697112043AddPaymentAndShippingTechnicalName extends MigrationSte
                 WHERE `payment_method`.`technical_name` IS NULL
                 AND (`app_payment_method`.`identifier` IS NOT NULL OR `payment_method`.`handler_identifier` IN (:handlers))
             ',
-            ['handlers' => [DebitPayment::class, InvoicePayment::class, CashPayment::class, PrePayment::class], 'slash' => '\\'],
+            ['handlers' => [
+                'Shopware\\Core\\Checkout\\Payment\\Cart\\PaymentHandler\\DebitPayment',
+                InvoicePayment::class,
+                CashPayment::class,
+                PrePayment::class,
+            ], 'slash' => '\\'],
             ['handlers' => ArrayParameterType::STRING]
         );
 
         $this->updateShippingMethodName('Standard', $connection);
         $this->updateShippingMethodName('Express', $connection);
         $this->updateAppShippingMethods($connection);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 
     private function updateShippingMethodName(string $name, Connection $connection): void

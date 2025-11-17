@@ -7,23 +7,14 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer\ReferenceVersio
 use Shopware\Core\Framework\DataAbstractionLayer\Version\VersionDefinition;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class ReferenceVersionField extends FkField
 {
-    /**
-     * @var string
-     */
-    protected $versionReferenceClass;
+    protected string $versionReferenceClass;
 
-    /**
-     * @var EntityDefinition
-     */
-    protected $versionReferenceDefinition;
+    protected ?EntityDefinition $versionReferenceDefinition = null;
 
-    /**
-     * @var string|null
-     */
-    protected $storageName;
+    protected string $storageName;
 
     public function __construct(
         string $definition,
@@ -50,6 +41,7 @@ class ReferenceVersionField extends FkField
     {
         if ($this->versionReferenceDefinition === null) {
             $this->compileLazy();
+            \assert($this->versionReferenceDefinition !== null);
         }
 
         return $this->versionReferenceDefinition;
@@ -57,10 +49,6 @@ class ReferenceVersionField extends FkField
 
     public function getVersionReferenceClass(): string
     {
-        if ($this->versionReferenceClass === null) {
-            $this->compileLazy();
-        }
-
         return $this->versionReferenceClass;
     }
 

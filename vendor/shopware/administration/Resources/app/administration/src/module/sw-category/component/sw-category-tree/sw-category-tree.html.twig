@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_category_tree %}
 <div class="sw-category-tree">
     <sw-tree
@@ -13,7 +12,7 @@
         :translation-context="translationContext"
         :on-change-route="changeCategory"
         :disable-context-menu="disableContextMenu"
-        :allow-delete-categories="allowDelete"
+        :allow-delete-categories="allowDelete || undefined"
         initially-expanded-root
         @batch-delete="deleteCheckedItems"
         @delete-element="onDeleteCategory"
@@ -27,7 +26,6 @@
             <span></span>
         </template>
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_tree_items %}
         <template
             #items="{
@@ -49,15 +47,15 @@
                 :item="item"
                 :should-show-active-state="true"
                 :allow-duplicate="false"
-                :allow-new-categories="allowCreate"
-                :allow-delete-categories="allowDelete"
+                :allow-new-categories="allowCreate || undefined"
+                :allow-delete-categories="allowDelete || undefined"
                 :active="item.active"
                 :translation-context="translationContext"
                 :on-change-route="onChangeRoute"
                 :sortable="sortable"
                 :dragged-item="draggedItem"
                 :disable-context-menu="disableContextMenu"
-                :display-checkbox="allowEdit"
+                :display-checkbox="allowEdit || undefined"
                 :context-menu-tooltip-text="contextMenuTooltipText"
                 :new-element-id="newElementId"
                 :get-item-url="getCategoryUrl"

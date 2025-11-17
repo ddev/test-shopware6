@@ -3,13 +3,14 @@
 namespace Shopware\Core\Migration\V6_5;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Migration\MigrationStep;
 
 /**
  * @internal
  */
-#[Package('business-ops')]
+#[Package('after-sales')]
 class Migration1679584289AddCustomerReviewCount extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -19,9 +20,14 @@ class Migration1679584289AddCustomerReviewCount extends MigrationStep
 
     public function update(Connection $connection): void
     {
-        if (!$this->columnExists($connection, 'customer', 'review_count')) {
-            $connection->executeStatement('ALTER TABLE `customer` ADD COLUMN review_count INT DEFAULT 0;');
-        }
+        $this->addColumn(
+            connection: $connection,
+            table: 'customer',
+            column: 'review_count',
+            type: 'INT',
+            nullable: false,
+            default: '0'
+        );
 
         $offset = 0;
         do {
@@ -36,13 +42,8 @@ class Migration1679584289AddCustomerReviewCount extends MigrationStep
                     OFFSET :offset
                 ) AS meta_data ON `meta_data`.customer_id = `customer`.id
                 SET `customer`.review_count = `meta_data`.review_count
-            ', ['offset' => $offset], ['offset' => \PDO::PARAM_INT]);
+            ', ['offset' => $offset], ['offset' => ParameterType::INTEGER]);
             $offset += 1000;
         } while ($result > 0);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

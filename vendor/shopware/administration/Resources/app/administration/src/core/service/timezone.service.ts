@@ -1,11 +1,11 @@
 import { getTimeZones } from '@vvo/tzdb';
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default class TimezoneService {
     /**
-     * @package system-settings
+     * @sw-package framework
      *
      * Returns an array of all timezones in the world
      * @returns {Promise<string[]>}
@@ -17,7 +17,7 @@ export default class TimezoneService {
     }
 
     /**
-     * @package system-settings
+     * @sw-package framework
      *
      * Returns an array of time zones objects
      * @returns {object[]}
@@ -39,7 +39,7 @@ export default class TimezoneService {
     }
 
     /**
-     * @package system-settings
+     * @sw-package framework
      * @param number
      * Returns a string containing UTC, hours, and minutes
      * @returns {string}
@@ -49,7 +49,7 @@ export default class TimezoneService {
             return '(UTC)';
         }
 
-        let hours: number|string = Math.floor(number / 60);
+        let hours: number | string = Math.floor(number / 60);
         let minutes = `${Math.abs(number % 60)}`;
 
         if (hours > 0) {

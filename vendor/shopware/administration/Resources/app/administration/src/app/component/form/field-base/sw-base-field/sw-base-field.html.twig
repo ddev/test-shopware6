@@ -1,11 +1,8 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_base_field %}
 <div
     class="sw-field"
     :class="swFieldClasses"
-    {% if VUE3 %}
     v-bind="$attrs"
-    {% endif %}
     :label="label"
 >
     <div
@@ -17,7 +14,6 @@
             :disabled="disableInheritanceToggle"
             class="sw-field__inheritance-icon"
             :is-inherited="isInherited"
-            v-on="$listeners"
         />
 
         <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -->
@@ -51,7 +47,9 @@
         v-if="hasHint"
         class="sw-field__hint"
     >
-        <slot name="hint"></slot>
+        <slot name="hint">
+            {{ $tc(hint) }}
+        </slot>
     </div>
 </div>
 {% endblock %}

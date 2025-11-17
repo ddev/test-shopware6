@@ -7,34 +7,37 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class ReviewSummaryStruct extends StoreStruct
 {
     /**
-     * @var array
+     * @var list<array{rating: int<1, 5>, count: positive-int}>
      */
-    protected $ratingAssignment;
+    protected array $ratingAssignment;
+
+    protected float $averageRating;
+
+    protected int $numberOfRatings;
 
     /**
-     * @var float
+     * @return ReviewSummaryStruct
      */
-    protected $averageRating;
-
-    /**
-     * @var int
-     */
-    protected $numberOfRatings;
-
     public static function fromArray(array $data): StoreStruct
     {
         return (new self())->assign($data);
     }
 
+    /**
+     * @return list<array{rating: int<1, 5>, count: positive-int}>
+     */
     public function getRatingAssignment(): array
     {
         return $this->ratingAssignment;
     }
 
+    /**
+     * @param list<array{rating: int<1, 5>, count: positive-int}> $ratingAssignment
+     */
     public function setRatingAssignment(array $ratingAssignment): void
     {
         $this->ratingAssignment = $ratingAssignment;

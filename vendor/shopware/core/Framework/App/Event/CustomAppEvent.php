@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Event\FlowEventAware;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Contracts\EventDispatcher\Event;
 
-#[Package('core')]
+#[Package('framework')]
 class CustomAppEvent extends Event implements CustomAppAware, FlowEventAware
 {
     /**
@@ -17,7 +17,7 @@ class CustomAppEvent extends Event implements CustomAppAware, FlowEventAware
      */
     public function __construct(
         private readonly string $name,
-        private readonly array|null $appData,
+        private readonly ?array $appData,
         private readonly Context $context
     ) {
     }

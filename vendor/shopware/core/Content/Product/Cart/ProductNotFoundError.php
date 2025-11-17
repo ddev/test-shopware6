@@ -9,15 +9,8 @@ use Shopware\Core\Framework\Log\Package;
 #[Package('inventory')]
 class ProductNotFoundError extends Error
 {
-    /**
-     * @var string
-     */
-    protected $id;
-
-    public function __construct(string $id)
+    public function __construct(protected string $id)
     {
-        $this->id = $id;
-
         parent::__construct('The product %s could not be found');
     }
 

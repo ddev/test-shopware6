@@ -5,7 +5,7 @@ namespace Shopware\Administration\Snippet;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 
-#[Package('administration')]
+#[Package('discovery')]
 class CachedSnippetFinder implements SnippetFinderInterface
 {
     public const CACHE_TAG = 'admin-snippet';
@@ -15,7 +15,7 @@ class CachedSnippetFinder implements SnippetFinderInterface
      */
     public function __construct(
         private readonly SnippetFinder $snippetFinder,
-        private readonly AdapterInterface $cache
+        private readonly AdapterInterface $cache,
     ) {
     }
 

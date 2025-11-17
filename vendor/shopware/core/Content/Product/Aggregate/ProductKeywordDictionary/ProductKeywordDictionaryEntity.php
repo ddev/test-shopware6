@@ -12,40 +12,13 @@ class ProductKeywordDictionaryEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $id;
+    protected string $languageId;
 
-    /**
-     * @var string
-     */
-    protected $languageId;
+    protected string $keyword;
 
-    /**
-     * @var string
-     */
-    protected $keyword;
+    protected string $reversed;
 
-    /**
-     * @var string
-     */
-    protected $reversed;
-
-    /**
-     * @var LanguageEntity|null
-     */
-    protected $language;
-
-    public function getId(): string
-    {
-        return $this->id;
-    }
-
-    public function setId(string $id): void
-    {
-        $this->id = $id;
-    }
+    protected ?LanguageEntity $language = null;
 
     public function getLanguageId(): string
     {

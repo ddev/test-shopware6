@@ -21,8 +21,10 @@ use Symfony\Component\Validator\ConstraintViolationList;
 
 /**
  * @internal
+ *
+ * @phpstan-type Mapping array<string, array{current_default: string, new_default: string, inserts: list<string>, updateId: string, deletions: list<string>, state: list<string>}>
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelValidator implements EventSubscriberInterface
 {
     private const INSERT_VALIDATION_MESSAGE = 'The sales channel with id "%s" does not have a default sales channel language id in the language list.';
@@ -74,24 +76,24 @@ class SalesChannelValidator implements EventSubscriberInterface
      *     'current_default' => 'en',
      *     'new_default' => 'de',
      *     'inserts' => ['de', 'en'],
-     *     'updates' => ['de', 'de'],
+     *     'updateId' => 'de',
      *     'deletions' => ['gb'],
      *     'state' => ['en', 'gb']
      * ]
      *
-     * @return array<string, array<string, list<string>>>
+     * @return Mapping
      */
     private function extractMapping(PreWriteValidationEvent $event): array
     {
         $mapping = [];
         foreach ($event->getCommands() as $command) {
-            if ($command->getDefinition() instanceof SalesChannelDefinition) {
+            if ($command->getEntityName() === SalesChannelDefinition::ENTITY_NAME) {
                 $this->handleSalesChannelMapping($mapping, $command);
 
                 continue;
             }
 
-            if ($command->getDefinition() instanceof SalesChannelLanguageDefinition) {
+            if ($command->getEntityName() === SalesChannelLanguageDefinition::ENTITY_NAME) {
                 $this->handleSalesChannelLanguageMapping($mapping, $command);
             }
         }
@@ -100,7 +102,7 @@ class SalesChannelValidator implements EventSubscriberInterface
     }
 
     /**
-     * @param array<string, array<string, list<string>>> $mapping
+     * @param Mapping $mapping
      */
     private function handleSalesChannelMapping(array &$mapping, WriteCommand $command): void
     {
@@ -110,7 +112,7 @@ class SalesChannelValidator implements EventSubscriberInterface
 
         if ($command instanceof UpdateCommand) {
             $id = Uuid::fromBytesToHex($command->getPrimaryKey()['id']);
-            $mapping[$id]['updates'] = Uuid::fromBytesToHex($command->getPayload()['language_id']);
+            $mapping[$id]['updateId'] = Uuid::fromBytesToHex($command->getPayload()['language_id']);
 
             return;
         }
@@ -134,7 +136,7 @@ class SalesChannelValidator implements EventSubscriberInterface
     }
 
     /**
-     * @param array<string, list<string>> $mapping
+     * @param Mapping $mapping
      */
     private function handleSalesChannelLanguageMapping(array &$mapping, WriteCommand $command): void
     {
@@ -180,8 +182,8 @@ class SalesChannelValidator implements EventSubscriberInterface
                 $deletions[$id] = $channel['current_default'];
             }
 
-            if (isset($channel['updates']) && !$this->validUpdateCase($channel)) {
-                $updates[$id] = $channel['updates'];
+            if (isset($channel['updateId']) && !$this->validUpdateCase($channel)) {
+                $updates[$id] = $channel['updateId'];
             }
         }
 
@@ -205,7 +207,7 @@ class SalesChannelValidator implements EventSubscriberInterface
      */
     private function validUpdateCase(array $channel): bool
     {
-        $updateId = $channel['updates'];
+        $updateId = $channel['updateId'];
 
         return \in_array($updateId, $channel['state'], true)
             || empty($channel['new_default']) && $updateId === $channel['current_default']
@@ -244,8 +246,8 @@ class SalesChannelValidator implements EventSubscriberInterface
 
         foreach ($salesChannelIds as $id) {
             $violations->add(new ConstraintViolation(
-                sprintf(self::INSERT_VALIDATION_MESSAGE, $id),
-                sprintf(self::INSERT_VALIDATION_MESSAGE, '{{ salesChannelId }}'),
+                \sprintf(self::INSERT_VALIDATION_MESSAGE, $id),
+                \sprintf(self::INSERT_VALIDATION_MESSAGE, '{{ salesChannelId }}'),
                 ['{{ salesChannelId }}' => $id],
                 null,
                 '/',
@@ -272,8 +274,8 @@ class SalesChannelValidator implements EventSubscriberInterface
         foreach ($duplicates as $id => $duplicateLanguages) {
             foreach ($duplicateLanguages as $languageId) {
                 $violations->add(new ConstraintViolation(
-                    sprintf(self::DUPLICATED_ENTRY_VALIDATION_MESSAGE, $languageId, $id),
-                    sprintf(self::DUPLICATED_ENTRY_VALIDATION_MESSAGE, '{{ languageId }}', '{{ salesChannelId }}'),
+                    \sprintf(self::DUPLICATED_ENTRY_VALIDATION_MESSAGE, $languageId, $id),
+                    \sprintf(self::DUPLICATED_ENTRY_VALIDATION_MESSAGE, '{{ languageId }}', '{{ salesChannelId }}'),
                     [
                         '{{ salesChannelId }}' => $id,
                         '{{ languageId }}' => $languageId,
@@ -304,8 +306,8 @@ class SalesChannelValidator implements EventSubscriberInterface
 
         foreach ($salesChannelIds as $id) {
             $violations->add(new ConstraintViolation(
-                sprintf(self::DELETE_VALIDATION_MESSAGE, $id),
-                sprintf(self::DELETE_VALIDATION_MESSAGE, '{{ salesChannelId }}'),
+                \sprintf(self::DELETE_VALIDATION_MESSAGE, $id),
+                \sprintf(self::DELETE_VALIDATION_MESSAGE, '{{ salesChannelId }}'),
                 ['{{ salesChannelId }}' => $id],
                 null,
                 '/',
@@ -332,8 +334,8 @@ class SalesChannelValidator implements EventSubscriberInterface
 
         foreach ($salesChannelIds as $id) {
             $violations->add(new ConstraintViolation(
-                sprintf(self::UPDATE_VALIDATION_MESSAGE, $id),
-                sprintf(self::UPDATE_VALIDATION_MESSAGE, '{{ salesChannelId }}'),
+                \sprintf(self::UPDATE_VALIDATION_MESSAGE, $id),
+                \sprintf(self::UPDATE_VALIDATION_MESSAGE, '{{ salesChannelId }}'),
                 ['{{ salesChannelId }}' => $id],
                 null,
                 '/',
@@ -349,11 +351,11 @@ class SalesChannelValidator implements EventSubscriberInterface
     /**
      * @param array<string> $salesChannelIds
      *
-     * @return array<string, string>
+     * @return list<array<string, string>>
      */
     private function fetchCurrentLanguageStates(array $salesChannelIds): array
     {
-        /** @var array<string, mixed> $result */
+        /** @var list<array<string, mixed>> $result */
         $result = $this->connection->fetchAllAssociative(
             'SELECT LOWER(HEX(sales_channel.id)) AS sales_channel_id,
             LOWER(HEX(sales_channel.language_id)) AS current_default,
@@ -371,7 +373,7 @@ class SalesChannelValidator implements EventSubscriberInterface
 
     /**
      * @param array<string, mixed> $mapping
-     * @param array<string, mixed> $states
+     * @param list<array<string, mixed>> $states
      *
      * @return array<string, mixed>
      */
@@ -381,6 +383,13 @@ class SalesChannelValidator implements EventSubscriberInterface
             $id = (string) $record['sales_channel_id'];
             $mapping[$id]['current_default'] = $record['current_default'];
             $mapping[$id]['state'][] = $record['language_id'];
+            $mapping[$id]['inserts'] = array_filter(
+                $mapping[$id]['inserts'] ?? [],
+                fn ($value) => $value !== $record['language_id']
+            );
+            if (empty($mapping[$id]['inserts'])) {
+                unset($mapping[$id]['inserts']);
+            }
         }
 
         return $mapping;

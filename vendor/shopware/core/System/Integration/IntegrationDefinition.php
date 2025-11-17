@@ -8,21 +8,21 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\BoolField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CustomFields;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\DateTimeField;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Deprecated;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\PrimaryKey;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\RestrictDelete;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IdField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\ManyToManyAssociationField;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\OneToManyAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\OneToOneAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\PasswordField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\StringField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Integration\Aggregate\IntegrationRole\IntegrationRoleDefinition;
+use Shopware\Core\System\StateMachine\Aggregation\StateMachineHistory\StateMachineHistoryDefinition;
 
-#[Package('system-settings')]
+#[Package('fundamentals@framework')]
 class IntegrationDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'integration';
@@ -46,8 +46,6 @@ class IntegrationDefinition extends EntityDefinition
     {
         return [
             'admin' => false,
-            /** @deprecated tag:v6.6.0 - field will be removed */
-            'writeAccess' => false,
         ];
     }
 
@@ -58,7 +56,7 @@ class IntegrationDefinition extends EntityDefinition
 
     protected function defineFields(): FieldCollection
     {
-        $collection = new FieldCollection([
+        return new FieldCollection([
             (new IdField('id', 'id'))->addFlags(new PrimaryKey(), new Required()),
             (new StringField('label', 'label'))->addFlags(new Required()),
             (new StringField('access_key', 'accessKey'))->addFlags(new Required()),
@@ -69,13 +67,8 @@ class IntegrationDefinition extends EntityDefinition
             new DateTimeField('deleted_at', 'deletedAt'),
 
             (new OneToOneAssociationField('app', 'id', 'integration_id', AppDefinition::class, false))->addFlags(new RestrictDelete()),
+            new OneToManyAssociationField('stateMachineHistoryEntries', StateMachineHistoryDefinition::class, 'integration_id', 'id'),
             new ManyToManyAssociationField('aclRoles', AclRoleDefinition::class, IntegrationRoleDefinition::class, 'integration_id', 'acl_role_id'),
         ]);
-
-        if (!Feature::isActive('v6.6.0.0')) {
-            $collection->add((new BoolField('write_access', 'writeAccess'))->addFlags(new Deprecated('v6.5.0.0', 'v6.6.0.0')));
-        }
-
-        return $collection;
     }
 }

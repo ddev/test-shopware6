@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Content\Flow\Dispatching\Storer;
 
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerRecovery\CustomerRecoveryCollection;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerRecovery\CustomerRecoveryDefinition;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerRecovery\CustomerRecoveryEntity;
 use Shopware\Core\Content\Flow\Dispatching\Aware\CustomerRecoveryAware;
@@ -11,15 +12,16 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Event\FlowEventAware;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('services-settings')]
+#[Package('after-sales')]
 class CustomerRecoveryStorer extends FlowStorer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerRecoveryCollection> $customerRecoveryRepository
      */
     public function __construct(
         private readonly EntityRepository $customerRecoveryRepository,
@@ -55,24 +57,6 @@ class CustomerRecoveryStorer extends FlowStorer
         );
     }
 
-    /**
-     * @param array<int, mixed> $args
-     *
-     * @deprecated tag:v6.6.0 - Will be removed in v6.6.0.0
-     */
-    public function load(array $args): ?CustomerRecoveryEntity
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6_6_0_0',
-            Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0.0')
-        );
-
-        [$id, $context] = $args;
-        $criteria = new Criteria([$id]);
-
-        return $this->loadCustomerRecovery($criteria, $context, $id);
-    }
-
     private function lazyLoad(StorableFlow $storableFlow): ?CustomerRecoveryEntity
     {
         $id = $storableFlow->getStore(CustomerRecoveryAware::CUSTOMER_RECOVERY_ID);
@@ -97,10 +81,9 @@ class CustomerRecoveryStorer extends FlowStorer
 
         $this->dispatcher->dispatch($event, $event->getName());
 
-        $customerRecovery = $this->customerRecoveryRepository->search($criteria, $context)->get($id);
+        $customerRecovery = $this->customerRecoveryRepository->search($criteria, $context)->getEntities()->get($id);
 
         if ($customerRecovery) {
-            /** @var CustomerRecoveryEntity $customerRecovery */
             return $customerRecovery;
         }
 

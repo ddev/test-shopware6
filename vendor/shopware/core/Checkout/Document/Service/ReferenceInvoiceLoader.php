@@ -2,8 +2,11 @@
 
 namespace Shopware\Core\Checkout\Document\Service;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Checkout\Document\Renderer\InvoiceRenderer;
+use Shopware\Core\Checkout\Document\Renderer\ZugferdEmbeddedRenderer;
+use Shopware\Core\Checkout\Document\Renderer\ZugferdRenderer;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -11,13 +14,13 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal - Fetch the $referenceDocumentId if set, otherwise fetch the latest document
  */
-#[Package('checkout')]
-final class ReferenceInvoiceLoader
+#[Package('after-sales')]
+final readonly class ReferenceInvoiceLoader
 {
     /**
      * @internal
      */
-    public function __construct(private readonly Connection $connection)
+    public function __construct(private Connection $connection)
     {
     }
 
@@ -28,7 +31,7 @@ final class ReferenceInvoiceLoader
     {
         $builder = $this->connection->createQueryBuilder();
 
-        $builder->select([
+        $builder->select(
             'LOWER(HEX(`document`.`id`)) as id',
             'LOWER(HEX(`document`.`order_id`)) as orderId',
             'LOWER(HEX(`document`.`order_version_id`)) as orderVersionId',
@@ -36,19 +39,18 @@ final class ReferenceInvoiceLoader
             '`order`.`deep_link_code` as deepLinkCode',
             '`document`.`config` as config',
             '`document`.`document_number` as documentNumber',
-        ])->from('`document`', '`document`')
+        )->from('`document`', '`document`')
             ->innerJoin('`document`', '`document_type`', '`document_type`', '`document`.`document_type_id` = `document_type`.`id`')
             ->innerJoin('`document`', '`order`', '`order`', '`document`.`order_id` = `order`.`id`');
 
-        $builder->where('`document_type`.`technical_name` = :techName')
+        $builder->where('`document_type`.`technical_name` IN (:technicalNames)')
             ->andWhere('`document`.`order_id` = :orderId');
 
-        $builder->setParameters([
-            'techName' => InvoiceRenderer::TYPE,
-            'orderId' => Uuid::fromHexToBytes($orderId),
-        ]);
+        $builder->setParameter('technicalNames', [InvoiceRenderer::TYPE, ZugferdRenderer::TYPE, ZugferdEmbeddedRenderer::TYPE], ArrayParameterType::STRING);
+        $builder->setParameter('orderId', Uuid::fromHexToBytes($orderId));
 
-        $builder->orderBy('`document`.`updated_at`', 'DESC');
+        $builder->orderBy('`document`.`sent`', 'DESC');
+        $builder->addOrderBy('`document`.`created_at`', 'DESC');
 
         if (!empty($referenceDocumentId)) {
             $builder->andWhere('`document`.`id` = :documentId');

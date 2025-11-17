@@ -5,7 +5,7 @@ namespace Shopware\Core\Framework\DataAbstractionLayer\Version\Cleanup;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 
-#[Package('core')]
+#[Package('framework')]
 class CleanupVersionTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -15,6 +15,11 @@ class CleanupVersionTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 24 hours
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
     }
 }

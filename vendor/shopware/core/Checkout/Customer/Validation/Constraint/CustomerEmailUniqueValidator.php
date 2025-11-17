@@ -3,16 +3,11 @@
 namespace Shopware\Core\Checkout\Customer\Validation\Constraint;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Checkout\Customer\CustomerException;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
-use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
-/**
- * @Annotation
- *
- * @Target({"PROPERTY", "METHOD", "ANNOTATION"})
- */
 #[Package('checkout')]
 class CustomerEmailUniqueValidator extends ConstraintValidator
 {
@@ -26,7 +21,7 @@ class CustomerEmailUniqueValidator extends ConstraintValidator
     public function validate(mixed $value, Constraint $constraint): void
     {
         if (!$constraint instanceof CustomerEmailUnique) {
-            throw new UnexpectedTypeException($constraint, CustomerEmailUnique::class);
+            throw CustomerException::unexpectedType($constraint, CustomerEmailUnique::class);
         }
 
         if ($value === null || $value === '') {
@@ -35,7 +30,7 @@ class CustomerEmailUniqueValidator extends ConstraintValidator
 
         $query = $this->connection->createQueryBuilder();
 
-        /** @var array{email: string, guest: int, bound_sales_channel_id: string|null}[] $results */
+        /** @var list<array{email: string, guest: int, bound_sales_channel_id: string|null}> $results */
         $results = $query
             ->select('email', 'guest', 'LOWER(HEX(bound_sales_channel_id)) as bound_sales_channel_id')
             ->from('customer')
@@ -46,7 +41,7 @@ class CustomerEmailUniqueValidator extends ConstraintValidator
         $results = \array_filter($results, static function (array $entry) use ($constraint) {
             // Filter out guest entries
             if ($entry['guest']) {
-                return null;
+                return false;
             }
 
             if ($entry['bound_sales_channel_id'] === null) {
@@ -54,7 +49,7 @@ class CustomerEmailUniqueValidator extends ConstraintValidator
             }
 
             if ($entry['bound_sales_channel_id'] !== $constraint->getSalesChannelContext()->getSalesChannelId()) {
-                return null;
+                return false;
             }
 
             return true;
@@ -65,7 +60,7 @@ class CustomerEmailUniqueValidator extends ConstraintValidator
             return;
         }
 
-        $this->context->buildViolation($constraint->message)
+        $this->context->buildViolation($constraint->getMessage())
             ->setParameter('{{ email }}', $this->formatValue($value))
             ->setCode(CustomerEmailUnique::CUSTOMER_EMAIL_NOT_UNIQUE)
             ->addViolation();

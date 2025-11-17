@@ -45,7 +45,7 @@ use Shopware\Core\System\TaxProvider\TaxProviderDefinition;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class AppDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'app';
@@ -75,6 +75,9 @@ class AppDefinition extends EntityDefinition
             'cookies' => [],
             'allowedHosts' => [],
             'templateLoadPriority' => 0,
+            'sourceType' => 'local',
+            'selfManaged' => false,
+            'requestedPrivileges' => [],
         ];
     }
 
@@ -88,7 +91,7 @@ class AppDefinition extends EntityDefinition
         return new FieldCollection([
             (new IdField('id', 'id'))->addFlags(new PrimaryKey(), new Required()),
             (new StringField('name', 'name'))->addFlags(new Required()),
-            (new StringField('path', 'path'))->addFlags(new Required()),
+            (new StringField('path', 'path', 4096))->addFlags(new Required()),
             new StringField('author', 'author'),
             new StringField('copyright', 'copyright'),
             new StringField('license', 'license'),
@@ -106,6 +109,13 @@ class AppDefinition extends EntityDefinition
             new StringField('base_app_url', 'baseAppUrl', 1024),
             new ListField('allowed_hosts', 'allowedHosts', StringField::class),
             new IntField('template_load_priority', 'templateLoadPriority'),
+            new StringField('checkout_gateway_url', 'checkoutGatewayUrl'),
+            new StringField('context_gateway_url', 'contextGatewayUrl'),
+            new StringField('in_app_purchases_gateway_url', 'inAppPurchasesGatewayUrl'),
+            new StringField('source_type', 'sourceType'),
+            new JsonField('source_config', 'sourceConfig'),
+            new BoolField('self_managed', 'selfManaged'),
+            (new ListField('requested_privileges', 'requestedPrivileges', StringField::class))->addFlags(new Required()),
 
             (new TranslationsAssociationField(AppTranslationDefinition::class, 'app_id'))->addFlags(new Required(), new CascadeDelete()),
             new TranslatedField('label'),

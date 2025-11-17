@@ -1,10 +1,7 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_settings_list %}
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_settings_rule_index %}
 <sw-page class="sw-settings-rule-list">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_rule_list_search_bar %}
     <template #search-bar>
         <sw-search-bar
@@ -16,21 +13,18 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_rule_list_smart_bar_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_rule_list_smart_bar_header_title %}
         <h2>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_rule_list_smart_bar_header_title_text %}
-            {{ $tc('sw-settings.index.title') }} <sw-icon
+            {{ $tc('sw-settings.index.title') }}
+            <mt-icon
                 name="regular-chevron-right-xs"
-                small
+                size="12px"
             /> {{ $tc('sw-settings-rule.list.textHeadline') }}
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_rule_list_smart_bar_header_title_amount %}
             <span
                 v-if="!isLoading"
@@ -44,23 +38,22 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_rule_list_smart_bar_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_rule_list_smart_bar_actions_add %}
-        <sw-button
+        <mt-button
             v-tooltip="{
                 message: $tc('sw-privileges.tooltip.warning'),
                 disabled: acl.can('rule.creator'),
                 showOnDisabledElements: true
             }"
-            :router-link="{ name: 'sw.settings.rule.create' }"
-            :disabled="!acl.can('rule.creator')"
+            :disabled="!acl.can('rule.creator') || undefined"
             variant="primary"
+            size="default"
+            @click="$router.push({ name: 'sw.settings.rule.create' })"
         >
             {{ $tc('sw-settings-rule.list.buttonAddRule') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
     </template>
     {% endblock %}
@@ -71,13 +64,10 @@
         />
     </template>
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_rule_list_content %}
     <template #content>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_rule_list_content_card %}
         <div class="sw-settings-rule-list__content">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_rule_list_grid %}
             <sw-entity-listing
                 v-if="isLoading || rules"
@@ -89,9 +79,9 @@
                 :repository="ruleRepository"
                 :is-loading="isLoading"
                 :full-page="true"
-                :show-selection="acl.can('rule.deleter')"
-                :allow-edit="acl.can('rule.editor')"
-                :allow-delete="acl.can('rule.deleter')"
+                :show-selection="acl.can('rule.deleter') || undefined"
+                :allow-edit="acl.can('rule.editor') || undefined"
+                :allow-delete="acl.can('rule.deleter') || undefined"
                 detail-route="sw.settings.rule.detail"
                 :disable-data-fetching="true"
                 :sort-by="sortBy"
@@ -102,7 +92,6 @@
                 @items-delete-finish="getList"
             >
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_rule_list_grid_column_tags %}
                 <template #column-tags="{ item }">
                     <span class="sw-data-grid__cell-value">
@@ -112,27 +101,6 @@
                         >
                             {{ tag.name }}
                         </sw-label>
-                    </span>
-                </template>
-                {% endblock %}
-
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
-                {% block sw_settings_rule_list_grid_column_assignments %}
-                <template
-                    v-for="(propertyName, index) in assignmentProperties"
-                    {% if VUE3 %}
-                    :key="index"
-                    {% endif %}
-                    #[`column-${propertyName}`]="{ item }"
-                >
-                    <span
-                        {% if VUE2 %}
-                        :key="index"
-                        {% endif %}
-                        class="sw-data-grid__cell-value"
-                    >
-                        {{ getCounts(propertyName, item.id) }}
-                        {{ $tc(`sw-settings-rule.list.assignments.${propertyName}`, getCounts(propertyName, item.id)) }}
                     </span>
                 </template>
                 {% endblock %}
@@ -147,17 +115,18 @@
                 </template>
 
                 <template #column-updatedAt="{item}">
-                    {{ dateFilter(item.updatedAt) }}
+                    <sw-time-ago
+                        v-if="item.updatedAt"
+                        :date="item.updatedAt"
+                    />
                 </template>
 
                 <template #column-createdAt="{item}">
-                    {{ dateFilter(item.createdAt) }}
+                    <sw-time-ago :date="item.createdAt" />
                 </template>
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_rule_list_grid_columns_actions %}
                 <template #more-actions="{ item }">
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_settings_rule_list_grid_columns_actions_duplicate %}
                     <sw-context-menu-item
                         :disabled="!acl.can('rule.creator')"
@@ -171,22 +140,20 @@
             </sw-entity-listing>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_rule_list_empty_message %}
-            <sw-empty-state
+            <mt-empty-state
                 v-else-if="!isLoading && !total"
-                :title="$tc('sw-settings-rule.list.messageEmpty')"
+                :icon="$route.meta.$module.icon"
+                :headline="$tc('sw-settings-rule.list.messageEmpty')"
             />
             {% endblock %}
         </div>
         {% endblock %}
     </template>
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_rule_list_sidebar %}
     <template #sidebar>
         <sw-sidebar>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_rule_list_sidebar_refresh %}
             <sw-sidebar-item
                 icon="regular-undo"
@@ -195,7 +162,6 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_rule_list_sidebar_filter %}
             <sw-sidebar-filter-panel
                 entity="rule"

@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Struct\StateAwareTrait;
 /**
  * @extends Collection<AggregationResult>
  */
-#[Package('core')]
+#[Package('framework')]
 class AggregationResultCollection extends Collection
 {
     use StateAwareTrait;
@@ -23,7 +23,7 @@ class AggregationResultCollection extends Collection
     }
 
     /**
-     * @param string|int        $key
+     * @param string|int $key
      * @param AggregationResult $result
      */
     public function set($key, $result): void

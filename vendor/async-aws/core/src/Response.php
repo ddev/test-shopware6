@@ -417,6 +417,8 @@ final class Response
 
             if ((null !== $awsCode = ($awsError ? $awsError->getCode() : null)) && isset($this->exceptionMapping[$awsCode])) {
                 $exceptionClass = $this->exceptionMapping[$awsCode];
+            } elseif (isset($this->exceptionMapping['http_status_code_' . $statusCode])) {
+                $exceptionClass = $this->exceptionMapping['http_status_code_' . $statusCode];
             } elseif (500 <= $statusCode) {
                 $exceptionClass = ServerException::class;
             } elseif (400 <= $statusCode) {
@@ -458,7 +460,7 @@ final class Response
             $context['aws_message'] = $this->resolveResult->getAwsMessage();
             $context['aws_type'] = $this->resolveResult->getAwsType();
             $context['aws_detail'] = $this->resolveResult->getAwsDetail();
-            $message = sprintf('HTTP %d returned for "%s".', $code, $url);
+            $message = \sprintf('HTTP %d returned for "%s".', $code, $url);
         }
 
         if ($this->resolveResult instanceof Exception) {

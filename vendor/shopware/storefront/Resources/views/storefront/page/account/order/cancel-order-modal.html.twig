@@ -1,30 +1,35 @@
 {% block page_checkout_aside_cancel_order_modal %}
+    {% if order is not defined %}
+        {% set order = page.order %}
+    {% endif %}
+
+    {% if modalId is not defined %}
+        {% set modalId = 'cancelOrderModal-' ~ order.id %}
+    {% endif %}
+
     <div class="modal fade"
-         id="cancelOrderModal"
+         id="{{ modalId }}"
          data-backdrop="static"
          tabindex="-1"
          role="dialog"
-         aria-hidden="true">
-
+         aria-modal="true"
+         aria-hidden="true"
+         aria-labelledby="{{ modalId }}-header">
         {% block page_checkout_aside_cancel_order_modal_dialog %}
-            <div class="modal-dialog" role="dialog">
-
+            <div class="modal-dialog">
                 {% block page_checkout_aside_cancel_order_modal_content %}
                     <div class="modal-content">
-
                         {% block page_checkout_aside_cancel_order_modal_header %}
                             <div class="modal-header">
-
                                 {% block page_checkout_aside_cancel_order_modal_header_title %}
-                                    <h5 class="modal-title">{{ "account.editOrderCancelOrderModalHeader"|trans|sw_sanitize }}</h5>
+                                    <div id="{{ modalId }}-header" class="modal-title js-pseudo-modal-template-title-element h5">{{ 'account.editOrderCancelOrderModalHeader'|trans|sw_sanitize }}</div>
                                 {% endblock %}
 
                                 {% block page_checkout_aside_cancel_order_modal_header_close_button %}
-                                    <button class="close"
+                                    <button class="btn-close close"
                                             type="button"
                                             data-bs-dismiss="modal"
-                                            aria-label="Close">
-                                        {% sw_icon 'x' %}
+                                            aria-label="{{ 'global.default.close'|trans|striptags }}">
                                     </button>
                                 {% endblock %}
                             </div>
@@ -32,33 +37,31 @@
 
                         {% block page_checkout_aside_cancel_order_modal_body %}
                             <div class="modal-body">
-
                                 {% block page_checkout_aside_cancel_order_modal_body_text %}
-                                    <p>{{ "account.editOrderCancelOrderModalBodyText"|trans|sw_sanitize }}</p>
+                                    <p>{{ 'account.editOrderCancelOrderModalBodyText'|trans|sw_sanitize }}</p>
                                 {% endblock %}
 
                                 {% block page_checkout_aside_cancel_order_modal_body_question %}
-                                    <p>{{ "account.editOrderCancelOrderModalBodyQuestion"|trans|sw_sanitize }}</p>
+                                    <p>{{ 'account.editOrderCancelOrderModalBodyQuestion'|trans|sw_sanitize }}</p>
                                 {% endblock %}
                             </div>
                         {% endblock %}
 
                         {% block page_checkout_aside_cancel_order_modal_footer %}
                             <div class="modal-footer">
-
                                 {% block page_checkout_aside_cancel_order_modal_footer_form %}
                                     <form action="{{ path('frontend.account.order.cancel') }}"
                                           method="post">
                                         {% block page_checkout_aside_cancel_order_modal_footer_form_deeplinkcode %}
                                             <input type="hidden"
                                                    name="deepLinkCode"
-                                                   value="{{ page.order.deepLinkCode }}">
+                                                   value="{{ order.deepLinkCode }}">
                                         {% endblock %}
 
                                         {% block page_checkout_aside_cancel_order_modal_footer_form_order_id %}
                                             <input type="hidden"
                                                    name="orderId"
-                                                   value="{{ page.order.id }}">
+                                                   value="{{ order.id }}">
                                         {% endblock %}
 
                                         {% block page_checkout_aside_cancel_order_modal_footer_form_redirect %}
@@ -71,14 +74,14 @@
                                             <button class="btn"
                                                     type="button"
                                                     data-bs-dismiss="modal">
-                                                {{ "account.editOrderCancelOrderModalFooterButtonBack"|trans|sw_sanitize }}
+                                                {{ 'account.editOrderCancelOrderModalFooterButtonBack'|trans|sw_sanitize }}
                                             </button>
                                         {% endblock %}
 
                                         {% block page_checkout_aside_cancel_order_modal_footer_form_button %}
                                             <button type="submit"
                                                     class="btn btn-primary">
-                                                {{ "account.editOrderCancelOrderModalFooterButton"|trans|sw_sanitize }}
+                                                {{ 'account.editOrderCancelOrderModalFooterButton'|trans|sw_sanitize }}
                                             </button>
                                         {% endblock %}
                                     </form>

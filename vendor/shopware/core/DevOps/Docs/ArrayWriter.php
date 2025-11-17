@@ -4,7 +4,7 @@ namespace Shopware\Core\DevOps\Docs;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class ArrayWriter
 {
     /**
@@ -14,7 +14,7 @@ class ArrayWriter
 
     public function __construct(private readonly string $path)
     {
-        if (file_exists($path)) {
+        if (\is_file($path)) {
             $this->data = (array) require $path;
         }
     }

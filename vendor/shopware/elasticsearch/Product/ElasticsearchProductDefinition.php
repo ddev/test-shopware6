@@ -4,43 +4,42 @@ namespace Shopware\Elasticsearch\Product;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
-use OpenSearchDSL\Query\Compound\BoolQuery;
-use Psr\EventDispatcher\EventDispatcherInterface;
+use OpenSearchDSL\BuilderInterface;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\FetchModeHelper;
+use Shopware\Core\Framework\DataAbstractionLayer\Dbal\SqlHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
-use Shopware\Core\System\CustomField\CustomFieldTypes;
+use Shopware\Core\System\Language\LanguageLoaderInterface;
+use Shopware\Core\System\Language\SalesChannelLanguageLoader;
 use Shopware\Elasticsearch\Framework\AbstractElasticsearchDefinition;
-use Shopware\Elasticsearch\Product\Event\ElasticsearchProductCustomFieldsMappingEvent;
+use Shopware\Elasticsearch\Framework\ElasticsearchFieldBuilder;
+use Shopware\Elasticsearch\Framework\ElasticsearchFieldMapper;
+use Shopware\Elasticsearch\Framework\ElasticsearchIndexingUtils;
 
-#[Package('core')]
+/**
+ * @internal
+ */
+#[Package('framework')]
 class ElasticsearchProductDefinition extends AbstractElasticsearchDefinition
 {
     /**
-     * @var array<string, string>|null
-     */
-    private ?array $customFieldsTypes = null;
-
-    /**
      * @internal
-     *
-     * @param array<string, string> $customMapping
      */
     public function __construct(
-        protected ProductDefinition $definition,
+        private readonly EntityDefinition $definition,
         private readonly Connection $connection,
-        private array $customMapping,
-        protected EventDispatcherInterface $eventDispatcher,
         private readonly AbstractProductSearchQueryBuilder $searchQueryBuilder,
-        private readonly EsProductDefinition $newImplementation,
-        private bool $excludeSource,
-        private readonly string $environment
+        private readonly ElasticsearchFieldBuilder $fieldBuilder,
+        private readonly ElasticsearchFieldMapper $fieldMapper,
+        private readonly SalesChannelLanguageLoader $salesChannelLanguageLoader,
+        private readonly bool $excludeSource,
+        private readonly string $environment,
+        private readonly LanguageLoaderInterface $languageLoader
     ) {
     }
 
@@ -54,117 +53,94 @@ class ElasticsearchProductDefinition extends AbstractElasticsearchDefinition
      */
     public function getMapping(Context $context): array
     {
-        if (Feature::isActive('ES_MULTILINGUAL_INDEX')) {
-            return $this->newImplementation->getMapping($context);
+        $languageFields = $this->fieldBuilder->translated(self::getTextFieldConfig());
+        $salesChannelByLanguage = $this->salesChannelLanguageLoader->loadLanguages();
+        $allSalesChannels = array_values(array_unique(array_merge(...array_values($salesChannelByLanguage))));
+
+        $visibilities = [];
+
+        foreach ($allSalesChannels as $salesChannelId) {
+            $visibilities['visibility_' . $salesChannelId] = [
+                'type' => 'integer',
+            ];
         }
 
         $debug = $this->environment !== 'prod';
 
+        $properties = [
+            'id' => self::KEYWORD_FIELD,
+            'name' => $languageFields,
+            'description' => $languageFields,
+            'metaTitle' => $languageFields,
+            'metaDescription' => $languageFields,
+            'customSearchKeywords' => $languageFields,
+            'categories' => ElasticsearchFieldBuilder::nested([
+                'name' => $languageFields,
+            ]),
+            'manufacturer' => ElasticsearchFieldBuilder::nested([
+                'name' => $languageFields,
+            ]),
+            'deliveryTime' => ElasticsearchFieldBuilder::nested([
+                'name' => $languageFields,
+            ]),
+            'options' => ElasticsearchFieldBuilder::nested([
+                'groupId' => self::KEYWORD_FIELD,
+                'name' => $languageFields,
+            ]),
+            'properties' => ElasticsearchFieldBuilder::nested([
+                'groupId' => self::KEYWORD_FIELD,
+                'name' => $languageFields,
+                'group' => ElasticsearchFieldBuilder::nested(),
+            ]),
+            'parentId' => self::KEYWORD_FIELD,
+            'active' => self::BOOLEAN_FIELD,
+            'available' => self::BOOLEAN_FIELD,
+            'isCloseout' => self::BOOLEAN_FIELD,
+            'categoriesRo' => ElasticsearchFieldBuilder::nested(),
+            'childCount' => self::INT_FIELD,
+            'categoryTree' => self::KEYWORD_FIELD,
+            'categoryIds' => self::KEYWORD_FIELD,
+            'propertyIds' => self::KEYWORD_FIELD,
+            'optionIds' => self::KEYWORD_FIELD,
+            'tagIds' => self::KEYWORD_FIELD,
+            'autoIncrement' => self::INT_FIELD,
+            'manufacturerId' => self::KEYWORD_FIELD,
+            'manufacturerNumber' => self::getTextFieldConfig(),
+            'deliveryTimeId' => self::KEYWORD_FIELD,
+            'displayGroup' => self::KEYWORD_FIELD,
+            'ean' => self::getTextFieldConfig(),
+            'height' => self::FLOAT_FIELD,
+            'length' => self::FLOAT_FIELD,
+            'markAsTopseller' => self::BOOLEAN_FIELD,
+            'productNumber' => self::getTextFieldConfig(),
+            'ratingAverage' => self::FLOAT_FIELD,
+            'releaseDate' => ElasticsearchFieldBuilder::datetime(),
+            'createdAt' => ElasticsearchFieldBuilder::datetime(),
+            'sales' => self::INT_FIELD,
+            'stock' => self::INT_FIELD,
+            'availableStock' => self::INT_FIELD,
+            'shippingFree' => self::BOOLEAN_FIELD,
+            'taxId' => self::KEYWORD_FIELD,
+            'tags' => ElasticsearchFieldBuilder::nested(['name' => self::getTextFieldConfig()]),
+            'visibilities' => ElasticsearchFieldBuilder::nested([
+                'id' => null,
+                'salesChannelId' => self::KEYWORD_FIELD,
+                'visibility' => self::INT_FIELD,
+            ]),
+            'coverId' => self::KEYWORD_FIELD,
+            'weight' => self::FLOAT_FIELD,
+            'width' => self::FLOAT_FIELD,
+            'states' => self::KEYWORD_FIELD,
+            'customFields' => $this->fieldBuilder->customFields($this->getEntityDefinition()->getEntityName(), $context),
+            ...$visibilities,
+        ];
+
+        if (Feature::isActive('v6.8.0.0')) {
+            unset($properties['categoriesRo']);
+            unset($properties['visibilities']);
+        }
+
         $mapping = [
-            'properties' => [
-                'id' => self::KEYWORD_FIELD,
-                'parentId' => self::KEYWORD_FIELD,
-                'active' => self::BOOLEAN_FIELD,
-                'available' => self::BOOLEAN_FIELD,
-                'isCloseout' => self::BOOLEAN_FIELD,
-                'categoryTree' => self::KEYWORD_FIELD,
-                'categoryIds' => self::KEYWORD_FIELD,
-                'propertyIds' => self::KEYWORD_FIELD,
-                'optionIds' => self::KEYWORD_FIELD,
-                'tagIds' => self::KEYWORD_FIELD,
-                'categoriesRo' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'id' => self::KEYWORD_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'categories' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'id' => self::KEYWORD_FIELD,
-                        'name' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'childCount' => self::INT_FIELD,
-                'autoIncrement' => self::INT_FIELD,
-                'manufacturerNumber' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'description' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'metaTitle' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'metaDescription' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'displayGroup' => self::KEYWORD_FIELD,
-                'ean' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'height' => self::FLOAT_FIELD,
-                'length' => self::FLOAT_FIELD,
-                'manufacturer' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'id' => self::KEYWORD_FIELD,
-                        'name' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'markAsTopseller' => self::BOOLEAN_FIELD,
-                'name' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'options' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'id' => self::KEYWORD_FIELD,
-                        'name' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                        'groupId' => self::KEYWORD_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'productNumber' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'properties' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'id' => self::KEYWORD_FIELD,
-                        'name' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                        'groupId' => self::KEYWORD_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'ratingAverage' => self::FLOAT_FIELD,
-                'releaseDate' => [
-                    'type' => 'date',
-                    'format' => 'yyyy-MM-dd HH:mm:ss.000||strict_date_optional_time||epoch_millis',
-                    'ignore_malformed' => true,
-                ],
-                'createdAt' => [
-                    'type' => 'date',
-                    'format' => 'yyyy-MM-dd HH:mm:ss.000||strict_date_optional_time||epoch_millis',
-                    'ignore_malformed' => true,
-                ],
-                'sales' => self::INT_FIELD,
-                'stock' => self::INT_FIELD,
-                'availableStock' => self::INT_FIELD,
-                'shippingFree' => self::BOOLEAN_FIELD,
-                'taxId' => self::KEYWORD_FIELD,
-                'tags' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'id' => self::KEYWORD_FIELD,
-                        'name' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'visibilities' => [
-                    'type' => 'nested',
-                    'properties' => [
-                        'salesChannelId' => self::KEYWORD_FIELD,
-                        'visibility' => self::INT_FIELD,
-                        '_count' => self::INT_FIELD,
-                    ],
-                ],
-                'coverId' => self::KEYWORD_FIELD,
-                'weight' => self::FLOAT_FIELD,
-                'width' => self::FLOAT_FIELD,
-                'customFields' => $this->getCustomFieldsMapping($context),
-                'customSearchKeywords' => self::KEYWORD_FIELD + self::SEARCH_FIELD,
-                'states' => self::KEYWORD_FIELD,
-            ],
             'dynamic_templates' => [
                 [
                     'cheapest_price' => [
@@ -185,6 +161,7 @@ class ElasticsearchProductDefinition extends AbstractElasticsearchDefinition
                     ],
                 ],
             ],
+            'properties' => $properties,
         ];
 
         if (!$this->excludeSource && !$debug) {
@@ -197,81 +174,93 @@ class ElasticsearchProductDefinition extends AbstractElasticsearchDefinition
     /**
      * {@inheritdoc}
      */
-    public function buildTermQuery(Context $context, Criteria $criteria): BoolQuery
+    public function buildTermQuery(Context $context, Criteria $criteria): BuilderInterface
     {
         return $this->searchQueryBuilder->build($criteria, $context);
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
+     *
+     * @throws \JsonException
      */
     public function fetch(array $ids, Context $context): array
     {
-        if (Feature::isActive('ES_MULTILINGUAL_INDEX')) {
-            return $this->newImplementation->fetch($ids, $context);
-        }
-
         $data = $this->fetchProducts($ids, $context);
 
-        $groupIds = [];
-        foreach ($data as $row) {
-            foreach (json_decode($row['propertyIds'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR) as $id) {
-                $groupIds[(string) $id] = true;
-            }
-            foreach (json_decode($row['optionIds'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR) as $id) {
-                $groupIds[(string) $id] = true;
-            }
+        if (empty($data)) {
+            return [];
         }
-
-        $groups = $this->fetchPropertyGroups(\array_keys($groupIds), $context);
 
         $documents = [];
 
+        $groupIds = [];
+
+        /** @var array<string, string> $row */
+        foreach ($data as $row) {
+            foreach (ElasticsearchIndexingUtils::parseJson($row, 'propertyIds') as $id) {
+                $groupIds[(string) $id] = true;
+            }
+            foreach (ElasticsearchIndexingUtils::parseJson($row, 'optionIds') as $id) {
+                $groupIds[(string) $id] = true;
+            }
+        }
+
+        $groups = $this->fetchProperties(\array_keys($groupIds));
+
+        $languageMapping = $this->getLanguageMapping();
+
         foreach ($data as $id => $item) {
-            $visibilities = array_values(array_unique(array_filter(explode('|', $item['visibilities'] ?? ''))));
+            /** @var array<int|string, array<string, string|null>> $translation */
+            $translation = $item['translation'] ?? [];
+            /** @var array<int, array{id: string, languageId?: string}> $categories */
+            $categories = $item['categories'] ?? [];
 
-            $visibilities = array_map(static function (string $text) {
-                [$visibility, $salesChannelId] = explode(',', $text);
+            $names = ElasticsearchFieldMapper::translated(field: 'name', items: $translation);
+            $names = $this->fillFallbackTranslation($languageMapping, $names);
 
-                return [
-                    'visibility' => $visibility,
-                    'salesChannelId' => $salesChannelId,
-                    '_count' => 1,
-                ];
-            }, $visibilities);
+            $customFields = $this->mapCustomFields(
+                variantCustomFields: ElasticsearchFieldMapper::translated(field: 'customFields', items: $translation, stripText: false),
+                parentCustomFields: ElasticsearchFieldMapper::translated(field: 'parentCustomFields', items: $translation, stripText: false),
+                context: $context
+            );
 
-            $optionIds = json_decode($item['optionIds'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR);
-            $propertyIds = json_decode($item['propertyIds'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR);
-            $tagIds = json_decode($item['tagIds'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR);
-            $categoriesRo = json_decode($item['categoryTree'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR);
-            $categoryIds = json_decode($item['categoryIds'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR);
-            $states = json_decode($item['states'] ?? '[]', true, 512, \JSON_THROW_ON_ERROR);
+            /** @var array<string, string> $item */
+            $visibilities = ElasticsearchIndexingUtils::parseJson($item, 'visibilities');
 
-            $translations = $this->filterToOne(json_decode((string) $item['translation'], true, 512, \JSON_THROW_ON_ERROR));
-            $parentTranslations = $this->filterToOne(json_decode((string) $item['translation_parent'], true, 512, \JSON_THROW_ON_ERROR));
-            $manufacturer = $this->filterToOne(json_decode((string) $item['manufacturer_translation'], true, 512, \JSON_THROW_ON_ERROR));
-            $tags = $this->filterToOne(json_decode((string) $item['tags'], true, 512, \JSON_THROW_ON_ERROR), 'id');
-            $categories = $this->filterToMany(json_decode((string) $item['categories'], true, 512, \JSON_THROW_ON_ERROR));
+            $visibilitiesFlatten = [];
 
-            $customFields = $this->buildCustomFields($context, $parentTranslations, $translations);
+            foreach ($visibilities as $key => $visibility) {
+                if (!isset($visibility['salesChannelId'])) {
+                    unset($visibilities[$key]);
+                    continue;
+                }
 
-            $document = [
+                $visibilitiesFlatten['visibility_' . $visibility['salesChannelId']] = $visibility['visibility'] ?? 0;
+            }
+
+            // no visibilities found, skip this product
+            if (empty($visibilitiesFlatten)) {
+                continue;
+            }
+
+            /** @var array<string, string> $item */
+            $documents[$id] = [
                 'id' => $id,
-                'name' => $this->stripText($this->takeItem('name', $context, $translations, $parentTranslations) ?? ''),
-                'description' => $this->stripText($this->takeItem('description', $context, $translations, $parentTranslations) ?? ''),
-                'metaTitle' => $this->stripText($this->takeItem('metaTitle', $context, $translations, $parentTranslations) ?? ''),
-                'metaDescription' => $this->stripText($this->takeItem('metaDescription', $context, $translations, $parentTranslations) ?? ''),
-                'customSearchKeywords' => $this->takeItem('customSearchKeywords', $context, $translations, $parentTranslations) ?? '[]',
+                'autoIncrement' => (float) $item['autoIncrement'],
                 'ratingAverage' => (float) $item['ratingAverage'],
                 'active' => (bool) $item['active'],
                 'available' => (bool) $item['available'],
                 'isCloseout' => (bool) $item['isCloseout'],
                 'shippingFree' => (bool) $item['shippingFree'],
                 'markAsTopseller' => (bool) $item['markAsTopseller'],
-                'customFields' => $this->formatCustomFields($customFields, $context),
-                'visibilities' => $visibilities,
+                'visibilities' => array_map(function (array $visibility) {
+                    return array_merge([
+                        '_count' => 1,
+                    ], $visibility);
+                }, $visibilities),
                 'availableStock' => (int) $item['availableStock'],
-                'productNumber' => $item['productNumber'],
+                'productNumber' => array_filter([$item['productNumber'], $item['parentProductNumber'] ?? null]),
                 'ean' => $item['ean'],
                 'displayGroup' => $item['displayGroup'],
                 'sales' => (int) $item['sales'],
@@ -282,58 +271,64 @@ class ElasticsearchProductDefinition extends AbstractElasticsearchDefinition
                 'height' => (float) $item['height'],
                 'manufacturerId' => $item['productManufacturerId'],
                 'manufacturerNumber' => $item['manufacturerNumber'],
-                'manufacturer' => [
-                    'id' => $item['productManufacturerId'],
-                    'name' => $this->takeItem('name', $context, $manufacturer) ?? '',
-                    '_count' => 1,
-                ],
+                'deliveryTimeId' => $item['deliveryTimeId'],
                 'releaseDate' => isset($item['releaseDate']) ? (new \DateTime($item['releaseDate']))->format('c') : null,
                 'createdAt' => isset($item['createdAt']) ? (new \DateTime($item['createdAt']))->format('c') : null,
-                'optionIds' => $optionIds,
-                'options' => array_values(array_map(fn (string $optionId) => ['id' => $optionId, 'name' => $groups[$optionId]['name'], 'groupId' => $groups[$optionId]['property_group_id'], '_count' => 1], $optionIds)),
-                'categories' => array_values(array_map(fn ($category) => [
-                    'id' => $category[Defaults::LANGUAGE_SYSTEM]['id'],
-                    'name' => $this->takeItem('name', $context, $category) ?? '',
-                ], $categories)),
-                'categoriesRo' => array_values(array_map(fn (string $categoryId) => ['id' => $categoryId, '_count' => 1], $categoriesRo)),
-                'categoryIds' => $categoryIds,
-                'categoryTree' => $categoriesRo,
-                'properties' => array_values(array_map(fn (string $propertyId) => ['id' => $propertyId, 'name' => $groups[$propertyId]['name'], 'groupId' => $groups[$propertyId]['property_group_id'], '_count' => 1], $propertyIds)),
-                'propertyIds' => $propertyIds,
+                'categoryTree' => ElasticsearchIndexingUtils::parseJson($item, 'categoryTree'),
+                'categoriesRo' => array_values(array_map(fn (string $categoryId) => ['id' => $categoryId, '_count' => 1], ElasticsearchIndexingUtils::parseJson($item, 'categoryTree'))),
                 'taxId' => $item['taxId'],
-                'tags' => array_values(array_map(fn (string $tagId) => ['id' => $tagId, 'name' => $tags[$tagId]['name'], '_count' => 1], $tagIds)),
-                'tagIds' => $tagIds,
+                'tags' => array_filter(array_map(function (array $tag) {
+                    return empty($tag['id']) ? null : [
+                        'id' => $tag['id'],
+                        'name' => ElasticsearchIndexingUtils::stripText($tag['name'] ?? ''),
+                        '_count' => 1,
+                    ];
+                }, ElasticsearchIndexingUtils::parseJson($item, 'tags'))),
                 'parentId' => $item['parentId'],
                 'coverId' => $item['coverId'],
                 'childCount' => (int) $item['childCount'],
-                'states' => $states,
+                'categories' => ElasticsearchFieldMapper::toManyAssociations(items: $categories ?? [], translatedFields: ['name']),
+                'manufacturer' => [
+                    'id' => $item['productManufacturerId'],
+                    'name' => ElasticsearchFieldMapper::translated(field: 'manufacturerName', items: $translation),
+                    '_count' => 1,
+                ],
+                'deliveryTime' => [
+                    'id' => $item['deliveryTimeId'],
+                    'name' => ElasticsearchFieldMapper::translated(field: 'deliveryTimeName', items: $translation),
+                    '_count' => 1,
+                ],
+                'properties' => array_values(array_map(function (string $propertyId) use ($groups) {
+                    return array_merge([
+                        'id' => $propertyId,
+                        '_count' => 1,
+                    ], $groups[$propertyId] ?? []);
+                }, ElasticsearchIndexingUtils::parseJson($item, 'propertyIds'))),
+                'options' => array_values(array_map(function (string $optionId) use ($groups) {
+                    return array_merge([
+                        'id' => $optionId,
+                        '_count' => 1,
+                    ], $groups[$optionId] ?? []);
+                }, ElasticsearchIndexingUtils::parseJson($item, 'optionIds'))),
+                'categoryIds' => ElasticsearchIndexingUtils::parseJson($item, 'categoryIds'),
+                'optionIds' => ElasticsearchIndexingUtils::parseJson($item, 'optionIds'),
+                'propertyIds' => ElasticsearchIndexingUtils::parseJson($item, 'propertyIds'),
+                'tagIds' => ElasticsearchIndexingUtils::parseJson($item, 'tagIds'),
+                'states' => ElasticsearchIndexingUtils::parseJson($item, 'states'),
+                'customFields' => $customFields,
+                'name' => $names,
+                'description' => ElasticsearchFieldMapper::translated(field: 'description', items: $translation),
+                'metaTitle' => ElasticsearchFieldMapper::translated(field: 'metaTitle', items: $translation),
+                'metaDescription' => ElasticsearchFieldMapper::translated(field: 'metaDescription', items: $translation),
+                'customSearchKeywords' => ElasticsearchFieldMapper::translated(field: 'customSearchKeywords', items: $translation),
+                ...$this->mapCheapestPrice(ElasticsearchIndexingUtils::parseJson($item, 'cheapest_price_accessor')),
+                ...$visibilitiesFlatten,
             ];
 
-            if ($item['cheapest_price_accessor']) {
-                $cheapestPriceAccessor = json_decode((string) $item['cheapest_price_accessor'], true, 512, \JSON_THROW_ON_ERROR);
-
-                foreach ($cheapestPriceAccessor as $rule => $cheapestPriceCurrencies) {
-                    foreach ($cheapestPriceCurrencies as $currency => $taxes) {
-                        $key = 'cheapest_price_' . $rule . '_' . $currency . '_gross';
-                        $document[$key] = $taxes['gross'];
-
-                        $key = 'cheapest_price_' . $rule . '_' . $currency . '_net';
-                        $document[$key] = $taxes['net'];
-
-                        if (empty($taxes['percentage'])) {
-                            continue;
-                        }
-
-                        $key = 'cheapest_price_' . $rule . '_' . $currency . '_gross_percentage';
-                        $document[$key] = $taxes['percentage']['gross'];
-
-                        $key = 'cheapest_price_' . $rule . '_' . $currency . '_net_percentage';
-                        $document[$key] = $taxes['percentage']['net'];
-                    }
-                }
+            if (Feature::isActive('v6.8.0.0')) {
+                unset($documents[$id]['categoriesRo']);
+                unset($documents[$id]['visibilities']);
             }
-
-            $documents[$id] = $document;
         }
 
         return $documents;
@@ -342,85 +337,32 @@ class ElasticsearchProductDefinition extends AbstractElasticsearchDefinition
     /**
      * @param array<string> $ids
      *
-     * @return array<mixed>
+     * @return array<string, array<string, array<mixed>|string>>
      */
     private function fetchProducts(array $ids, Context $context): array
     {
-        $sql = <<<'SQL'
+        $languages = \array_keys($this->salesChannelLanguageLoader->loadLanguages());
+
+        // always add the system language to have a fallback
+        if (!\in_array(Defaults::LANGUAGE_SYSTEM, $languages, true)) {
+            $languages[] = Defaults::LANGUAGE_SYSTEM;
+        }
+
+        $baseSql = <<<'SQL'
 SELECT
     LOWER(HEX(p.id)) AS id,
     IFNULL(p.active, pp.active) AS active,
     p.available AS available,
-    CONCAT(
-        '[',
-            GROUP_CONCAT(DISTINCT
-                JSON_OBJECT(
-                    'languageId', lower(hex(product_main.language_id)),
-                    'name', product_main.name,
-                    'description', product_main.description,
-                    'metaTitle', product_main.meta_title,
-                    'metaDescription', product_main.meta_description,
-                    'customSearchKeywords', product_main.custom_search_keywords,
-                    'customFields', product_main.custom_fields
-                )
-            ),
-        ']'
-    ) as translation,
-    CONCAT(
-        '[',
-            GROUP_CONCAT(DISTINCT
-                JSON_OBJECT(
-                    'languageId', lower(hex(product_parent.language_id)),
-                    'name', product_parent.name,
-                    'description', product_parent.description,
-                    'metaTitle', product_parent.meta_title,
-                    'metaDescription', product_parent.meta_description,
-                    'customSearchKeywords', product_parent.custom_search_keywords,
-                    'customFields', product_parent.custom_fields
-                )
-            ),
-        ']'
-    ) as translation_parent,
-    CONCAT(
-        '[',
-            GROUP_CONCAT(DISTINCT
-                JSON_OBJECT(
-                    'languageId', lower(hex(product_manufacturer_translation.language_id)),
-                    'name', product_manufacturer_translation.name
-                )
-            ),
-        ']'
-    ) as manufacturer_translation,
-
-    CONCAT(
-        '[',
-        GROUP_CONCAT(DISTINCT
-                JSON_OBJECT(
-                    'id', lower(hex(tag.id)),
-                    'name', tag.name
-                )
-            ),
-        ']'
-    ) as tags,
-
-    CONCAT(
-        '[',
-        GROUP_CONCAT(DISTINCT
-                JSON_OBJECT(
-                    'id', lower(hex(category_translation.category_id)),
-                    'languageId', lower(hex(category_translation.language_id)),
-                    'name', category_translation.name
-                )
-            ),
-        ']'
-    ) as categories,
-
+    #tags#,
+    #visibilities#,
     IFNULL(p.manufacturer_number, pp.manufacturer_number) AS manufacturerNumber,
     IFNULL(p.available_stock, pp.available_stock) AS availableStock,
     IFNULL(p.rating_average, pp.rating_average) AS ratingAverage,
     p.product_number as productNumber,
+    pp.product_number as parentProductNumber,
     p.sales,
-    LOWER(HEX(IFNULL(p.product_manufacturer_id, pp.product_manufacturer_id))) AS productManufacturerId,
+    LOWER(HEX(p.manufacturer)) AS productManufacturerId,
+    LOWER(HEX(p.delivery_time_id)) as deliveryTimeId,
     IFNULL(p.shipping_free, pp.shipping_free) AS shippingFree,
     IFNULL(p.is_closeout, pp.is_closeout) AS isCloseout,
     LOWER(HEX(IFNULL(p.product_media_id, pp.product_media_id))) AS coverId,
@@ -440,7 +382,6 @@ SELECT
     IFNULL(p.ean, pp.ean) AS ean,
     IFNULL(p.mark_as_topseller, pp.mark_as_topseller) AS markAsTopseller,
     p.auto_increment as autoIncrement,
-    GROUP_CONCAT(CONCAT(product_visibility.visibility, ',', LOWER(HEX(product_visibility.sales_channel_id))) SEPARATOR '|') AS visibilities,
     p.display_group as displayGroup,
     IFNULL(p.cheapest_price_accessor, pp.cheapest_price_accessor) as cheapest_price_accessor,
     LOWER(HEX(p.parent_id)) as parentId,
@@ -450,270 +391,290 @@ SELECT
 FROM product p
     LEFT JOIN product pp ON(p.parent_id = pp.id AND pp.version_id = :liveVersionId)
     LEFT JOIN product_visibility ON(product_visibility.product_id = p.visibilities AND product_visibility.product_version_id = p.version_id)
-    LEFT JOIN product_translation product_main ON (product_main.product_id = p.id AND product_main.product_version_id = p.version_id AND product_main.language_id IN(:languageIds))
-    LEFT JOIN product_translation product_parent ON (product_parent.product_id = p.parent_id AND product_parent.product_version_id = p.version_id AND product_parent.language_id IN(:languageIds))
-
-    LEFT JOIN product_manufacturer_translation on (product_manufacturer_translation.product_manufacturer_id = IFNULL(p.product_manufacturer_id, pp.product_manufacturer_id) AND product_manufacturer_translation.product_manufacturer_version_id = p.version_id AND product_manufacturer_translation.language_id IN(:languageIds))
-
     LEFT JOIN product_tag ON (product_tag.product_id = p.tags AND product_tag.product_version_id = p.version_id)
-    LEFT JOIN tag ON (tag.id = product_tag.tag_id)
-
-    LEFT JOIN product_category ON (product_category.product_id = p.categories AND product_category.product_version_id = p.version_id)
-    LEFT JOIN category_translation ON (category_translation.category_id = product_category.category_id AND category_translation.category_version_id = product_category.category_version_id AND category_translation.language_id IN(:languageIds))
+    LEFT JOIN tag ON tag.id = product_tag.tag_id
 
 WHERE p.id IN (:ids) AND p.version_id = :liveVersionId AND (p.child_count = 0 OR p.parent_id IS NOT NULL OR JSON_EXTRACT(`p`.`variant_listing_config`, "$.displayParent") = 1)
 
 GROUP BY p.id
 SQL;
 
-        $data = $this->connection->fetchAllAssociative(
-            $sql,
+        $baseMapping = [
+            '#tags#' => SqlHelper::objectArray([
+                'name' => 'tag.name',
+                'id' => 'LOWER(HEX(tag.id))',
+            ], 'tags'),
+            '#visibilities#' => SqlHelper::objectArray([
+                'visibility' => 'product_visibility.visibility',
+                'salesChannelId' => 'LOWER(HEX(product_visibility.sales_channel_id))',
+            ], 'visibilities'),
+        ];
+
+        /** @var array<string, array<string, string>> $base */
+        $base = $this->connection->fetchAllAssociativeIndexed(
+            str_replace(array_keys($baseMapping), array_values($baseMapping), $baseSql),
             [
                 'ids' => $ids,
-                'languageIds' => Uuid::fromHexToBytesList($context->getLanguageIdChain()),
                 'liveVersionId' => Uuid::fromHexToBytes($context->getVersionId()),
             ],
             [
                 'ids' => ArrayParameterType::BINARY,
-                'languageIds' => ArrayParameterType::BINARY,
             ]
         );
 
-        return FetchModeHelper::groupUnique($data);
-    }
+        $validProductIds = array_keys($base);
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function getCustomFieldsMapping(Context $context): array
-    {
-        $fieldMapping = $this->getCustomFieldTypes($context);
-        $mapping = [
-            'type' => 'object',
-            'dynamic' => true,
-            'properties' => [],
+        $translationSql = <<<'SQL'
+SELECT
+    LOWER(HEX(p.id)) AS id,
+    IFNULL(product_main.name, product_parent.name) AS name,
+    IFNULL(product_main.description, product_parent.description) AS description,
+    IFNULL(product_main.meta_title, product_parent.meta_title) AS metaTitle,
+    IFNULL(product_main.meta_description, product_parent.meta_description) AS metaDescription,
+    product_main.custom_fields AS customFields,
+    product_parent.custom_fields AS parentCustomFields,
+    IFNULL(product_main.custom_search_keywords, product_parent.custom_search_keywords) AS customSearchKeywords,
+    manufacturer.name AS manufacturerName,
+    delivery_time_translation.name as deliveryTimeName,
+    #categories#
+FROM product p
+    LEFT JOIN product_translation product_main ON product_main.product_id = p.id AND product_main.product_version_id = p.version_id AND product_main.language_id = :languageId
+    LEFT JOIN product_translation product_parent ON product_parent.product_id = p.parent_id AND product_parent.product_version_id = p.version_id AND product_parent.language_id = :languageId
+    LEFT JOIN product_manufacturer_translation manufacturer ON manufacturer.product_manufacturer_id = p.manufacturer AND manufacturer.language_id = :languageId AND manufacturer.product_manufacturer_version_id = p.version_id AND manufacturer.name IS NOT NULL
+    LEFT JOIN product_category ON (product_category.product_id = p.categories AND product_category.product_version_id = p.version_id)
+    LEFT JOIN category_translation category ON category.category_id = product_category.category_id AND category.category_version_id = product_category.category_version_id AND category.name IS NOT NULL AND category.language_id = :languageId
+    LEFT JOIN delivery_time_translation ON delivery_time_translation.delivery_time_id = p.delivery_time_id AND delivery_time_translation.language_id = :languageId
+
+WHERE p.id IN (:ids) AND p.version_id = :liveVersionId
+
+GROUP BY p.id
+SQL;
+
+        $translationMapping = [
+            '#categories#' => SqlHelper::objectArray([
+                'languageId' => 'LOWER(HEX(category.language_id))',
+                'id' => 'LOWER(HEX(category.category_id))',
+                'name' => 'category.name',
+            ], 'categories'),
         ];
 
-        foreach ($fieldMapping as $name => $type) {
-            /** @var array<mixed> $esType */
-            $esType = CustomFieldUpdater::getTypeFromCustomFieldType($type);
+        $translationSql = str_replace(array_keys($translationMapping), array_values($translationMapping), $translationSql);
 
-            $mapping['properties'][$name] = $esType;
-        }
+        foreach ($languages as $languageId) {
+            /** @var array<string, array<string, string>> $translations */
+            $translations = $this->connection->fetchAllAssociativeIndexed(
+                $translationSql,
+                [
+                    'ids' => Uuid::fromHexToBytesList($validProductIds),
+                    'languageId' => Uuid::fromHexToBytes($languageId),
+                    'liveVersionId' => Uuid::fromHexToBytes($context->getVersionId()),
+                ],
+                [
+                    'ids' => ArrayParameterType::BINARY,
+                ]
+            );
 
-        return $mapping;
-    }
+            foreach ($translations as $id => $translation) {
+                $translation['languageId'] = $languageId;
+                /** @var array<mixed> $categories */
+                $categories = $base[$id]['categories'] ?? [];
+                $translatedCategories = ElasticsearchIndexingUtils::parseJson($translation, 'categories');
 
-    /**
-     * @param array<string, mixed> $customFields
-     *
-     * @return array<string, mixed>
-     */
-    private function formatCustomFields(array $customFields, Context $context): array
-    {
-        $types = $this->getCustomFieldTypes($context);
+                if (!empty($translation['customSearchKeywords'])) {
+                    $translation['customSearchKeywords'] = ElasticsearchIndexingUtils::parseJson($translation, 'customSearchKeywords');
+                }
 
-        foreach ($customFields as $name => $customField) {
-            $type = $types[$name] ?? null;
-
-            if ($type === null) {
-                unset($customFields[$name]);
-
-                continue;
-            }
-
-            if ($type === CustomFieldTypes::BOOL) {
-                $customFields[$name] = (bool) $customField;
-            } elseif (\is_int($customField)) {
-                $customFields[$name] = (float) $customField;
+                $base[$id]['translation'] ??= [];
+                \assert(\is_array($base[$id]['translation']));
+                $base[$id]['translation'][] = $translation;
+                $base[$id]['categories'] = [...$categories, ...$translatedCategories];
             }
         }
 
-        return $customFields;
+        return $base;
     }
 
     /**
-     * @param array<string> $propertyIds
+     * @param list<string> $propertyIds
      *
-     * @return array<string, array{id: string, name: string, property_group_id: string, translations: string}>
+     * @return array<string, array{id: string, groupId: string, group: array<string, string|int>, translations?: string, name: array<string, string|null>}>
      */
-    private function fetchPropertyGroups(array $propertyIds, Context $context): array
+    private function fetchProperties(array $propertyIds): array
     {
+        if (empty($propertyIds)) {
+            return [];
+        }
+
         $sql = <<<'SQL'
 SELECT
        LOWER(HEX(id)) as id,
-       LOWER(HEX(property_group_id)) as property_group_id,
-       CONCAT(
-               '[',
-               GROUP_CONCAT(
-                       JSON_OBJECT(
-                               'languageId', lower(hex(property_group_option_translation.language_id)),
-                               'name', property_group_option_translation.name
-                           )
-                   ),
-               ']'
-           ) as translations
+       LOWER(HEX(property_group_id)) as groupId,
+       #translations#
 FROM property_group_option
          LEFT JOIN property_group_option_translation
-                   ON (property_group_option_translation.property_group_option_id = property_group_option.id AND
-                       property_group_option_translation.language_id IN (:languageIds))
+            ON property_group_option_translation.property_group_option_id = property_group_option.id
 
 WHERE property_group_option.id in (:ids)
 GROUP BY property_group_option.id
 SQL;
 
-        /** @var array<string, array{id: string, property_group_id: string, translations: string}> $options */
+        /** @var array<string, array{id: string, groupId: string, translations: string}> $options */
         $options = $this->connection->fetchAllAssociativeIndexed(
-            $sql,
+            str_replace(
+                '#translations#',
+                SqlHelper::objectArray([
+                    'languageId' => 'LOWER(HEX(property_group_option_translation.language_id))',
+                    'name' => 'property_group_option_translation.name',
+                ], 'translations'),
+                $sql
+            ),
             [
                 'ids' => Uuid::fromHexToBytesList($propertyIds),
-                'languageIds' => Uuid::fromHexToBytesList($context->getLanguageIdChain()),
             ],
             [
                 'ids' => ArrayParameterType::BINARY,
-                'languageIds' => ArrayParameterType::BINARY,
             ]
         );
 
         foreach ($options as $optionId => $option) {
-            $translation = $this->filterToOne(json_decode($option['translations'], true, 512, \JSON_THROW_ON_ERROR));
+            $translation = ElasticsearchIndexingUtils::parseJson($option, 'translations');
 
-            $options[(string) $optionId]['name'] = (string) $this->takeItem('name', $context, $translation);
+            $options[$optionId]['group'] = [
+                'id' => $option['groupId'],
+                '_count' => 1,
+            ];
+            $options[$optionId]['name'] = ElasticsearchFieldMapper::translated('name', $translation);
+            unset($options[$optionId]['translations']);
         }
 
         return $options;
     }
 
     /**
-     * @return array<string, string>
-     */
-    private function getCustomFieldTypes(Context $context): array
-    {
-        if ($this->customFieldsTypes !== null) {
-            return $this->customFieldsTypes;
-        }
-
-        /** @var array<string, string> $mappings */
-        $mappings = $this->connection->fetchAllKeyValue('
-SELECT
-    custom_field.`name`,
-    custom_field.type
-FROM custom_field_set_relation
-    INNER JOIN custom_field ON(custom_field.set_id = custom_field_set_relation.set_id)
-WHERE custom_field_set_relation.entity_name = "product"
-') + $this->customMapping;
-
-        $event = new ElasticsearchProductCustomFieldsMappingEvent($mappings, $context);
-        $this->eventDispatcher->dispatch($event);
-
-        $this->customFieldsTypes = $event->getMappings();
-
-        return $this->customFieldsTypes;
-    }
-
-    /**
-     * @param array<mixed> $items
+     * @param array<string, array<string, array{gross: float, net: float, percentage: array{gross: float, net: float}}>> $cheapestPriceAccessor
      *
-     * @return mixed|null
+     * @return array<string, float>
      */
-    private function takeItem(string $key, Context $context, ...$items)
+    private function mapCheapestPrice(array $cheapestPriceAccessor): array
     {
-        foreach ($context->getLanguageIdChain() as $languageId) {
-            foreach ($items as $item) {
-                if (isset($item[$languageId][$key])) {
-                    return $item[$languageId][$key];
-                }
-            }
-        }
+        $mapped = [];
 
-        return null;
-    }
+        foreach ($cheapestPriceAccessor as $rule => $cheapestPriceCurrencies) {
+            foreach ($cheapestPriceCurrencies as $currency => $taxes) {
+                $key = 'cheapest_price_' . $rule . '_' . $currency . '_gross';
+                $mapped[$key] = $taxes['gross'];
 
-    /**
-     * @param array<mixed>[] $items
-     *
-     * @return array<int|string, mixed>
-     */
-    private function filterToOne(array $items, string $key = 'languageId'): array
-    {
-        $filtered = [];
+                $key = 'cheapest_price_' . $rule . '_' . $currency . '_net';
+                $mapped[$key] = $taxes['net'];
 
-        foreach ($items as $item) {
-            // Empty row
-            if ($item[$key] === null) {
-                continue;
-            }
-
-            $filtered[$item[$key]] = $item;
-        }
-
-        return $filtered;
-    }
-
-    /**
-     * @param array<mixed> $items
-     *
-     * @return array<mixed>
-     */
-    private function filterToMany(array $items): array
-    {
-        $filtered = [];
-
-        foreach ($items as $item) {
-            if ($item['id'] === null) {
-                continue;
-            }
-
-            if (!isset($filtered[$item['id']])) {
-                $filtered[$item['id']] = [];
-            }
-
-            $filtered[$item['id']][$item['languageId']] = $item;
-        }
-
-        return $filtered;
-    }
-
-    /**
-     * @param array<mixed> ...$sources
-     *
-     * @return array<mixed>
-     *
-     * @see \Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityHydrator::customFields
-     * @see \Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityHydrator::mergeJson
-     */
-    private function buildCustomFields(Context $context, array ...$sources): array
-    {
-        $merged = [];
-
-        // need to reverse the language chain to get the correct order merged
-        $languageIds = array_reverse($context->getLanguageIdChain());
-
-        foreach ($languageIds as $languageId) {
-            foreach ($sources as $source) {
-                if (!isset($source[$languageId]['customFields'])) {
+                if (empty($taxes['percentage'])) {
                     continue;
                 }
 
-                $languageTranslation = $source[$languageId]['customFields'];
+                $key = 'cheapest_price_' . $rule . '_' . $currency . '_gross_percentage';
+                $mapped[$key] = $taxes['percentage']['gross'];
 
-                // MariaDB's servers gives the result as string and not directly decodes
-                // @codeCoverageIgnoreStart
-                if (\is_string($languageTranslation)) {
-                    $languageTranslation = json_decode($languageTranslation, true, 512, \JSON_THROW_ON_ERROR);
-                }
-                // @codeCoverageIgnoreEnd
-
-                foreach ($languageTranslation as $key => $value) {
-                    if ($value === null) {
-                        continue;
-                    }
-
-                    $merged[$key] = $value;
-                }
+                $key = 'cheapest_price_' . $rule . '_' . $currency . '_net_percentage';
+                $mapped[$key] = $taxes['percentage']['net'];
             }
         }
 
-        return $merged;
+        return $mapped;
+    }
+
+    /**
+     * @param array<string, mixed> $variantCustomFields
+     * @param array<string, mixed> $parentCustomFields
+     *
+     * @throws \JsonException
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function mapCustomFields(array $variantCustomFields, array $parentCustomFields, Context $context): array
+    {
+        $customFields = [];
+
+        $customFieldsLanguageIds = array_unique(array_merge(array_keys($parentCustomFields), array_keys($variantCustomFields)));
+
+        foreach ($customFieldsLanguageIds as $languageId) {
+            $merged = [];
+
+            $chains = [
+                $parentCustomFields[$languageId] ?? [],
+                $variantCustomFields[$languageId] ?? [],
+            ];
+
+            /** @var array<mixed>|string $chain */
+            foreach ($chains as $chain) {
+                // chain is empty string, when no custom fields are set
+                if ($chain === '') {
+                    $chain = [];
+                }
+
+                if (\is_string($chain)) {
+                    $chain = json_decode($chain, true, 512, \JSON_THROW_ON_ERROR);
+                }
+
+                foreach ($chain as $k => $v) {
+                    if ($v === null) {
+                        continue;
+                    }
+
+                    $merged[$k] = $v;
+                }
+            }
+
+            $customFields[$languageId] = $merged;
+        }
+
+        return $this->fieldMapper->customFields(ProductDefinition::ENTITY_NAME, $customFields, $context);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function getLanguageMapping(): array
+    {
+        $languages = $this->languageLoader->loadLanguages();
+        $salesChannelLanguages = $this->salesChannelLanguageLoader->loadLanguages();
+
+        $mapping = [];
+
+        foreach ($languages as $languageId => $language) {
+            if (!isset($salesChannelLanguages[$languageId])) {
+                continue;
+            }
+            // If the language has parent language, we add the parent language into the mapping
+            if (isset($language['parentId'])) {
+                $mapping[$language['parentId']] = Defaults::LANGUAGE_SYSTEM;
+            }
+
+            $mapping[$languageId] = $language['parentId'] ?? Defaults::LANGUAGE_SYSTEM;
+        }
+
+        return $mapping;
+    }
+
+    /**
+     * @param array<string, string> $languageMapping
+     * @param array<string, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    private function fillFallbackTranslation(array $languageMapping, array $value): array
+    {
+        foreach ($languageMapping as $languageId => $fallback) {
+            if ($languageId === Defaults::LANGUAGE_SYSTEM) {
+                continue;
+            }
+
+            if (isset($value[$languageId])) {
+                continue;
+            }
+
+            $value[$languageId] = $value[$fallback] ?? $value[Defaults::LANGUAGE_SYSTEM];
+        }
+
+        return $value;
     }
 }

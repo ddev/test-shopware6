@@ -1,25 +1,30 @@
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default (publicObject, privateObject) => {
     return (function ClassesBuilder() {
         // public functions
         const Classes = function Classes() {
-            Object.entries(publicObject).forEach(([key, value]) => {
-                Object.defineProperty(this, key, {
+            Object.entries(publicObject).forEach(
+                ([
+                    key,
                     value,
-                    configurable: true,
-                    enumerable: true,
-                    writable: true,
-                });
-            });
+                ]) => {
+                    Object.defineProperty(this, key, {
+                        value,
+                        configurable: true,
+                        enumerable: true,
+                        writable: true,
+                    });
+                },
+            );
         };
 
         // private functions
         Classes.prototype = privateObject;
 
         return new Classes();
-    }());
+    })();
 };

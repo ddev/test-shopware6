@@ -3,10 +3,15 @@ import './sw-cms-el-config-product-listing-config-delete-modal.scss';
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
+
+    emits: [
+        'confirm',
+        'cancel',
+    ],
 
     props: {
         productSorting: {

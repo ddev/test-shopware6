@@ -8,19 +8,21 @@ use Shopware\Core\Content\Newsletter\SalesChannel\AbstractNewsletterConfirmRoute
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Validation\DataBag\QueryDataBag;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Storefront\Framework\Routing\StorefrontRouteScope;
 use Shopware\Storefront\Page\Newsletter\Subscribe\NewsletterSubscribePageLoader;
 use Shopware\Storefront\Pagelet\Newsletter\Account\NewsletterAccountPageletLoader;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put data
  */
-#[Route(defaults: ['_routeScope' => ['storefront']])]
-#[Package('buyers-experience')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
+#[Package('after-sales')]
 class NewsletterController extends StorefrontController
 {
     /**
@@ -36,6 +38,16 @@ class NewsletterController extends StorefrontController
     #[Route(path: '/newsletter-subscribe', name: 'frontend.newsletter.subscribe', methods: ['GET'])]
     public function subscribeMail(SalesChannelContext $context, Request $request, QueryDataBag $queryDataBag): Response
     {
+        /*
+         * Because some email-clients try to fetch previews for links in mails, they send a HEAD-request.
+         * But because Symfony is routing HEAD-requests as GET-requests, a subscriber would be confirmed without
+         * clicking the link, only by the HEAD-request.
+         * Beware: $request->getMethod() or $request->getRealMethod() will both return "GET"
+         */
+        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'HEAD') {
+            return new Response(status: Response::HTTP_NO_CONTENT);
+        }
+
         try {
             $this->newsletterConfirmRoute->confirm($queryDataBag->toRequestDataBag(), $context);
         } catch (NewsletterException) {

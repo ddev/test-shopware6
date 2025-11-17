@@ -14,7 +14,10 @@ use Shopware\Core\Framework\Rule\RuleConfig;
 use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class PromotionValueRule extends FilterRule
 {
     final public const RULE_NAME = 'promotionValue';
@@ -53,7 +56,7 @@ class PromotionValueRule extends FilterRule
             });
         }
 
-        $promotionAmount = $promotions->getPrices()->sum()->getTotalPrice() * -1;
+        $promotionAmount = $promotions->getPrices()->getTotalPriceAmount() * -1;
 
         return RuleComparison::numeric($promotionAmount, $this->amount, $this->operator);
     }

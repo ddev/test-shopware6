@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'scheduled-task:list',
     description: 'List all scheduled tasks',
 )]
-#[Package('core')]
+#[Package('framework')]
 class ListScheduledTaskCommand extends Command
 {
     /**
@@ -29,7 +29,7 @@ class ListScheduledTaskCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $entities = $this->taskRegistry->getAllTasks(Context::createDefaultContext());
+        $entities = $this->taskRegistry->getAllTasks(Context::createCLIContext());
 
         $table = new Table($output);
         $table->setHeaders(['Name', 'Next execution', 'Last execution', 'Run interval', 'Status']);

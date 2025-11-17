@@ -1,10 +1,9 @@
-const { Application } = Shopware;
+const { Application, Store } = Shopware;
 
 /**
- * @package merchant-services
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
+ * @sw-package framework
  */
-// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default function createLicenseViolationsService(storeService) {
     /** {VueInstance|null} applicationRoot  */
     let applicationRoot = null;
@@ -35,7 +34,51 @@ export default function createLicenseViolationsService(storeService) {
     };
 
     function checkForLicenseViolations() {
-        const topLevelDomain = window.location.hostname.split('.').pop();
+        const hostname = window.location.hostname;
+        const emptyViolationsResponse = Promise.resolve({
+            warnings: [],
+            violations: [],
+            other: [],
+        });
+
+        if (hostname === '[::1]' || hostname === '127.0.0.1') {
+            return emptyViolationsResponse;
+        }
+
+        const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+
+        if (ipv4Match) {
+            const octet1 = parseInt(ipv4Match[1], 10);
+            const octet2 = parseInt(ipv4Match[2], 10);
+            const octet3 = parseInt(ipv4Match[3], 10);
+            const octet4 = parseInt(ipv4Match[4], 10);
+
+            // Validate IP address octets
+            if (octet1 <= 255 && octet2 <= 255 && octet3 <= 255 && octet4 <= 255) {
+                // Private IP ranges (RFC 1918)
+                // 10.0.0.0/8
+                if (octet1 === 10) {
+                    return emptyViolationsResponse;
+                }
+
+                // 172.16.0.0/12
+                if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) {
+                    return emptyViolationsResponse;
+                }
+
+                // 192.168.0.0/16
+                if (octet1 === 192 && octet2 === 168) {
+                    return emptyViolationsResponse;
+                }
+
+                // CGNAT IP space (RFC 6598): 100.64.0.0/10
+                if (octet1 === 100 && octet2 >= 64 && octet2 <= 127) {
+                    return emptyViolationsResponse;
+                }
+            }
+        }
+
+        const hostnameParts = hostname.split('.').pop();
         const allowlistDomains = [
             'localhost',
             'test',
@@ -48,12 +91,8 @@ export default function createLicenseViolationsService(storeService) {
         ];
 
         // if the user is on a allowlisted domain
-        if (allowlistDomains.includes(topLevelDomain)) {
-            return Promise.resolve({
-                warnings: [],
-                violations: [],
-                other: [],
-            });
+        if (allowlistDomains.includes(hostnameParts)) {
+            return emptyViolationsResponse;
         }
 
         // if last request is not older than 24 hours
@@ -64,18 +103,17 @@ export default function createLicenseViolationsService(storeService) {
             return handleResponse(cachedViolations);
         }
 
-        return fetchLicenseViolations()
-            .then((response) => {
-                if (!response) {
-                    return Promise.reject();
-                }
+        return fetchLicenseViolations().then((response) => {
+            if (!response) {
+                return Promise.reject();
+            }
 
-                const licenseViolations = response.filter((i) => i.extensions.licenseViolation);
+            const licenseViolations = response.filter((i) => i.extensions.licenseViolation);
 
-                saveViolationsToCache(licenseViolations);
+            saveViolationsToCache(licenseViolations);
 
-                return handleResponse(licenseViolations);
-            });
+            return handleResponse(licenseViolations);
+        });
     }
 
     function handleResponse(response) {
@@ -83,8 +121,10 @@ export default function createLicenseViolationsService(storeService) {
             violations: response.filter((violation) => violation.extensions.licenseViolation.type.level === 'violation'),
             warnings: response.filter((violation) => violation.extensions.licenseViolation.type.level === 'warning'),
             other: response.filter((violation) => {
-                return violation.extensions.licenseViolation.type.level !== 'violation'
-                    && violation.extensions.licenseViolation.type.level !== 'warning';
+                return (
+                    violation.extensions.licenseViolation.type.level !== 'violation' &&
+                    violation.extensions.licenseViolation.type.level !== 'warning'
+                );
             }),
         };
 
@@ -195,7 +235,7 @@ export default function createLicenseViolationsService(storeService) {
             method: () => ignorePlugin(warning.name, getIgnoredPlugins()),
         };
 
-        getApplicationRootReference().$store.dispatch('notification/createGrowlNotification', {
+        Store.get('notification').createGrowlNotification({
             title: plugin.label,
             message: warning.text,
             autoClose: false,

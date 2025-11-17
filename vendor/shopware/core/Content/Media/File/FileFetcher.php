@@ -4,18 +4,18 @@ namespace Shopware\Core\Content\Media\File;
 
 use Shopware\Core\Content\Media\MediaException;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Util\Hasher;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class FileFetcher
 {
-    private const ALLOWED_PROTOCOLS = ['http', 'https', 'ftp', 'sftp'];
-
     /**
      * @internal
      */
     public function __construct(
         private readonly FileUrlValidatorInterface $fileUrlValidator,
+        private readonly FileService $fileService,
         private readonly bool $enableUrlUploadFeature = true,
         private readonly bool $enableUrlValidation = true,
         private readonly int $maxFileSize = 0
@@ -43,26 +43,27 @@ class FileFetcher
 
         return new MediaFile(
             $fileName,
-            (string) mime_content_type($fileName),
+            FileInfoHelper::getMimeType($fileName, $extension),
             $extension,
             $bytesWritten,
-            hash_file('md5', $fileName) ?: null
+            // Change length of db field `media`.`file_hash` if algorithm is changed
+            Hasher::hashFile($fileName, 'md5')
         );
     }
 
-    public function fetchFileFromURL(Request $request, string $fileName): MediaFile
+    public function fetchFromURL(string $url, string $fileName, ?string $fileExtension = null): MediaFile
     {
         if (!$this->enableUrlUploadFeature) {
             throw MediaException::disableUrlUploadFeature();
         }
 
-        $url = $this->getUrlFromRequest($request);
+        if (!$this->fileService->isUrl($url)) {
+            throw MediaException::invalidUrl($url);
+        }
 
         if ($this->enableUrlValidation && !$this->fileUrlValidator->isValid($url)) {
             throw MediaException::illegalUrl($url);
         }
-
-        $extension = $this->getExtensionFromRequest($request);
 
         $inputStream = $this->openSourceFromUrl($url);
         $destStream = $this->openDestinationStream($fileName);
@@ -74,31 +75,49 @@ class FileFetcher
             fclose($destStream);
         }
 
+        $mimeType = FileInfoHelper::getMimeType($fileName, $fileExtension);
+        $fileExtension = $fileExtension ?: FileInfoHelper::getExtension($mimeType);
+
         return new MediaFile(
             $fileName,
-            (string) mime_content_type($fileName),
-            $extension,
+            $mimeType,
+            $fileExtension,
             $writtenBytes,
-            hash_file('md5', $fileName) ?: null
+            // Change length of db field `media`.`file_hash` if algorithm is changed
+            Hasher::hashFile($fileName, 'md5')
         );
+    }
+
+    public function fetchFileFromURL(Request $request, string $fileName): MediaFile
+    {
+        $url = $this->getUrlFromRequest($request);
+
+        return $this->fetchFromURL($url, $fileName, (string) $request->query->get('extension'));
     }
 
     public function fetchBlob(string $blob, string $extension, string $contentType): MediaFile
     {
         $tempFile = (string) tempnam(sys_get_temp_dir(), '');
-        $fh = @fopen($tempFile, 'wb');
+        $fh = @fopen($tempFile, 'w');
         \assert($fh !== false);
 
         $blobSize = (int) @fwrite($fh, $blob);
-        $fileHash = $tempFile ? hash_file('md5', $tempFile) : null;
+        $fileHash = $tempFile ? Hasher::hashFile($tempFile, 'md5') : null;
 
         return new MediaFile(
             $tempFile,
             $contentType,
             $extension,
             $blobSize,
-            $fileHash ?: null
+            $fileHash
         );
+    }
+
+    public function cleanUpTempFile(MediaFile $mediaFile): void
+    {
+        if ($mediaFile->getFileName() !== '') {
+            unlink($mediaFile->getFileName());
+        }
     }
 
     /**
@@ -125,10 +144,6 @@ class FileFetcher
             throw MediaException::missingUrlParameter();
         }
 
-        if (!$this->isUrlValid($url)) {
-            throw MediaException::invalidUrl($url);
-        }
-
         return $url;
     }
 
@@ -143,11 +158,12 @@ class FileFetcher
             'http' => [
                 'follow_location' => 0,
                 'max_redirects' => 0,
+                'user_agent' => 'Shopware Remote File Fetcher',
             ],
         ]);
 
         try {
-            $inputStream = @fopen($url, 'rb', false, $streamContext);
+            $inputStream = @fopen($url, 'r', false, $streamContext);
         } catch (\Throwable) {
             throw MediaException::cannotOpenSourceStreamToRead($url);
         }
@@ -167,7 +183,7 @@ class FileFetcher
     private function openDestinationStream(string $filename)
     {
         try {
-            $inputStream = @fopen($filename, 'wb');
+            $inputStream = @fopen($filename, 'w');
         } catch (\Throwable) {
             throw MediaException::cannotOpenSourceStreamToWrite($filename);
         }
@@ -204,20 +220,5 @@ class FileFetcher
         }
 
         return $writtenBytes;
-    }
-
-    private function isUrlValid(string $url): bool
-    {
-        return (bool) filter_var($url, \FILTER_VALIDATE_URL) && $this->isProtocolAllowed($url);
-    }
-
-    private function isProtocolAllowed(string $url): bool
-    {
-        $fragments = explode(':', $url);
-        if (\count($fragments) > 1) {
-            return \in_array($fragments[0], self::ALLOWED_PROTOCOLS, true);
-        }
-
-        return false;
     }
 }

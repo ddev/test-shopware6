@@ -10,7 +10,7 @@ use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class AccessToken implements AccessTokenEntityInterface
 {
     use AccessTokenTrait;
@@ -20,13 +20,13 @@ class AccessToken implements AccessTokenEntityInterface
     /**
      * @internal
      *
-     * @param string $userIdentifier
      * @param ScopeEntityInterface[] $scopes
+     * @param non-empty-string|null $userIdentifier
      */
     public function __construct(
         private ClientEntityInterface $client,
         private array $scopes,
-        private $userIdentifier = null
+        private ?string $userIdentifier = null
     ) {
     }
 
@@ -35,7 +35,10 @@ class AccessToken implements AccessTokenEntityInterface
         return $this->client;
     }
 
-    public function getUserIdentifier(): string|int|null
+    /**
+     * @return non-empty-string|null
+     */
+    public function getUserIdentifier(): ?string
     {
         return $this->userIdentifier;
     }
@@ -51,9 +54,9 @@ class AccessToken implements AccessTokenEntityInterface
     /**
      * Set the identifier of the user associated with the token.
      *
-     * @param string|int|null $identifier The identifier of the user
+     * @param non-empty-string $identifier The identifier of the user
      */
-    public function setUserIdentifier($identifier): void
+    public function setUserIdentifier(string $identifier): void
     {
         $this->userIdentifier = $identifier;
     }
@@ -72,5 +75,15 @@ class AccessToken implements AccessTokenEntityInterface
     public function addScope(ScopeEntityInterface $scope): void
     {
         $this->scopes[] = $scope;
+    }
+
+    public function initJwtConfiguration(): void
+    {
+        if (!$this->privateKey instanceof FakeCryptKey) {
+            $jwtConfig = JWTConfigurationFactory::createJWTConfiguration();
+            $this->privateKey = new FakeCryptKey($jwtConfig);
+        }
+
+        $this->jwtConfiguration = $this->privateKey->configuration;
     }
 }

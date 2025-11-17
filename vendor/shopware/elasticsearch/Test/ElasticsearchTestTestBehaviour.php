@@ -4,6 +4,8 @@ namespace Shopware\Elasticsearch\Test;
 
 use Doctrine\DBAL\Connection;
 use OpenSearch\Client;
+use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\Before;
 use Shopware\Core\DevOps\Environment\EnvironmentHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityAggregator;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntitySearcher;
@@ -19,12 +21,10 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-#[Package('core')]
+#[Package('framework')]
 trait ElasticsearchTestTestBehaviour
 {
-    /**
-     * @before
-     */
+    #[Before]
     public function enableElasticsearch(): void
     {
         $this->getDiContainer()
@@ -32,9 +32,7 @@ trait ElasticsearchTestTestBehaviour
             ->setEnabled(true);
     }
 
-    /**
-     * @after
-     */
+    #[After]
     public function disableElasticsearch(): void
     {
         $this->getDiContainer()
@@ -57,7 +55,7 @@ trait ElasticsearchTestTestBehaviour
     {
         $this->getDiContainer()->get(Client::class)
             ->indices()
-            ->refresh(['index' => '_all']);
+            ->refresh(['index' => '*']);
     }
 
     protected function createEntityAggregator(): ElasticsearchEntityAggregator
@@ -73,7 +71,9 @@ trait ElasticsearchTestTestBehaviour
             $this->getDiContainer()->get(Client::class),
             $decorated,
             $this->getDiContainer()->get(AbstractElasticsearchAggregationHydrator::class),
-            $this->getDiContainer()->get('event_dispatcher')
+            $this->getDiContainer()->get('event_dispatcher'),
+            '5s',
+            'dfs_query_then_fetch'
         );
     }
 
@@ -91,7 +91,9 @@ trait ElasticsearchTestTestBehaviour
             $this->getDiContainer()->get(ElasticsearchHelper::class),
             $this->getDiContainer()->get(CriteriaParser::class),
             $this->getDiContainer()->get(AbstractElasticsearchSearchHydrator::class),
-            $this->getDiContainer()->get('event_dispatcher')
+            $this->getDiContainer()->get('event_dispatcher'),
+            '5s',
+            'dfs_query_then_fetch'
         );
     }
 
@@ -107,8 +109,8 @@ trait ElasticsearchTestTestBehaviour
 
         $indices = $client->indices()->get(['index' => EnvironmentHelper::getVariable('SHOPWARE_ES_INDEX_PREFIX') . '*']);
 
-        foreach ($indices as $index) {
-            $client->indices()->delete(['index' => $index['settings']['index']['provided_name']]);
+        foreach ($indices as $name => $index) {
+            $client->indices()->delete(['index' => $name]);
         }
 
         $connection = $c->get(Connection::class);

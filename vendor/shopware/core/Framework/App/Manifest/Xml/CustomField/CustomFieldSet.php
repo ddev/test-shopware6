@@ -5,13 +5,15 @@ namespace Shopware\Core\Framework\App\Manifest\Xml\CustomField;
 use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFieldTypes\CustomFieldType;
 use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFieldTypes\CustomFieldTypeFactory;
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Util\XmlReader;
 
 /**
  * @internal only for use by the app-system
+ *
+ * @phpstan-type CustomFieldSetArray array{name: string, global: bool, config: array<string, mixed>, relations: array<array<string, string>>, appId: string, customFields: list<array<string, mixed>>}
  */
-#[Package('core')]
+#[Package('framework')]
 class CustomFieldSet extends XmlElement
 {
     protected const REQUIRED_FIELDS = [
@@ -42,13 +44,34 @@ class CustomFieldSet extends XmlElement
     protected bool $global = false;
 
     /**
-     * @return array{name: string, global: bool, config: array<string, mixed>, relations: array<array<string, string>>, appId: string, customFields: list<array<string, mixed>>}
+     * @param array<string, string> $existingRelations passed by reference, as still configured relations are removed, thus this array consist only obsolete relations after the call
+     * @param array<string, string> $existingFields passed by reference, as still configured fields are removed, thus this array consist only obsolete fields after the call
+     *
+     * @return CustomFieldSetArray
      */
-    public function toEntityArray(string $appId): array
+    public function toEntityArray(string $appId, array &$existingRelations, array &$existingFields): array
     {
-        $relations = array_map(static fn (string $entity) => ['entityName' => $entity], $this->relatedEntities);
+        $relations = array_map(static function (string $entity) use (&$existingRelations): array {
+            $relationData = ['entityName' => $entity];
+            if (\array_key_exists($entity, $existingRelations)) {
+                $relationData['id'] = $existingRelations[$entity];
 
-        $customFields = array_map(static fn (CustomFieldType $field) => $field->toEntityPayload(), $this->fields);
+                unset($existingRelations[$entity]);
+            }
+
+            return $relationData;
+        }, $this->relatedEntities);
+
+        $customFields = array_map(static function (CustomFieldType $field) use (&$existingFields): array {
+            $fieldData = $field->toEntityPayload();
+            if (\array_key_exists($field->getName(), $existingFields)) {
+                $fieldData['id'] = $existingFields[$field->getName()];
+
+                unset($existingFields[$field->getName()]);
+            }
+
+            return $fieldData;
+        }, $this->fields);
 
         return [
             'name' => $this->name,
@@ -99,14 +122,7 @@ class CustomFieldSet extends XmlElement
 
     protected static function parse(\DOMElement $element): array
     {
-        $values = [];
-
-        foreach ($element->attributes as $attribute) {
-            if (!$attribute instanceof \DOMAttr) {
-                continue;
-            }
-            $values[$attribute->name] = XmlReader::phpize($attribute->value);
-        }
+        $values = XmlParserUtils::parseAttributes($element);
 
         foreach ($element->childNodes as $child) {
             if (!$child instanceof \DOMElement) {
@@ -128,11 +144,11 @@ class CustomFieldSet extends XmlElement
     {
         // translated
         if (\in_array($child->tagName, self::TRANSLATABLE_FIELDS, true)) {
-            return self::mapTranslatedTag($child, $values);
+            return XmlParserUtils::mapTranslatedTag($child, $values);
         }
 
         if ($child->tagName === 'fields') {
-            $values[$child->tagName] = self::parseChildNodes(
+            $values[$child->tagName] = XmlParserUtils::parseChildrenAsList(
                 $child,
                 static fn (\DOMElement $element): CustomFieldType => CustomFieldTypeFactory::createFromXml($element)
             );
@@ -141,7 +157,7 @@ class CustomFieldSet extends XmlElement
         }
 
         if ($child->tagName === 'related-entities') {
-            $values[self::kebabCaseToCamelCase($child->tagName)] = self::parseChildNodes(
+            $values[XmlParserUtils::kebabCaseToCamelCase($child->tagName)] = XmlParserUtils::parseChildrenAsList(
                 $child,
                 static fn (\DOMElement $element): string => $element->tagName
             );
@@ -149,7 +165,7 @@ class CustomFieldSet extends XmlElement
             return $values;
         }
 
-        $values[self::kebabCaseToCamelCase($child->tagName)] = $child->nodeValue;
+        $values[XmlParserUtils::kebabCaseToCamelCase($child->tagName)] = $child->nodeValue;
 
         return $values;
     }

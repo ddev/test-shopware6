@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import template from './sw-import-export.html.twig';
 import './sw-import-export.scss';
@@ -10,23 +10,9 @@ import './sw-import-export.scss';
 export default {
     template,
 
-    inject: ['repositoryFactory'],
-
-    data() {
-        return {};
-    },
-
     metaInfo() {
         return {
             title: this.$createTitle(),
         };
-    },
-
-    methods: {
-        onChangeLanguage() {
-            if (this.$refs.tabContent.reloadContent) {
-                this.$refs.tabContent.reloadContent();
-            }
-        },
     },
 };

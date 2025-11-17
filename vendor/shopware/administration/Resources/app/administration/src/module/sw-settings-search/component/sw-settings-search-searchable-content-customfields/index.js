@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package inventory
  */
 import template from './sw-settings-search-searchable-content-customfields.html.twig';
 
@@ -13,6 +13,13 @@ export default {
     inject: [
         'repositoryFactory',
         'acl',
+    ],
+
+    emits: [
+        'config-add',
+        'data-load',
+        'config-save',
+        'config-delete',
     ],
 
     mixins: [
@@ -72,7 +79,7 @@ export default {
                 return criteria;
             }
 
-            this.searchConfigs.forEach(item => {
+            this.searchConfigs.forEach((item) => {
                 if (item?.customFieldId) {
                     this.addedCustomFieldIds.push(item.customFieldId);
                 }
@@ -82,12 +89,11 @@ export default {
                 return criteria;
             }
 
-            criteria.addFilter(Criteria.not(
-                'AND',
-                [
+            criteria.addFilter(
+                Criteria.not('AND', [
                     Criteria.equalsAny('id', this.addedCustomFieldIds),
-                ],
-            ));
+                ]),
+            );
 
             return criteria;
         },
@@ -106,7 +112,7 @@ export default {
 
     watch: {
         searchConfigs(newData) {
-            if (newData[0] && newData[0]._isNew) {
+            if (newData[0] && newData[0]._isNew && this.$refs.customGrid) {
                 this.$refs.customGrid.enableInlineEdit();
                 this.$refs.customGrid.onDbClickCell(this.$refs.customGrid.records[0]);
             }
@@ -119,8 +125,9 @@ export default {
 
     methods: {
         createdComponent() {
-            this.customFieldRepository.search(this.customFieldCriteria)
-                .then(items => {
+            this.customFieldRepository
+                .search(this.customFieldCriteria)
+                .then((items) => {
                     this.customFields = items;
                 })
                 .catch(() => {
@@ -141,10 +148,12 @@ export default {
         },
 
         getMatchingCustomFields(field) {
-            if (!field) { return ''; }
+            if (!field) {
+                return '';
+            }
 
             const fieldName = field.replace('customFields.', '');
-            const fieldItem = this.customFields.find(item => item.name === fieldName);
+            const fieldItem = this.customFields.find((item) => item.name === fieldName);
 
             if (fieldItem) {
                 return this.showCustomFieldWithSet(fieldItem);

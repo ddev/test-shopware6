@@ -146,12 +146,8 @@ General styling for cms elements
             padding: $spacer;
         }
     }
-}
-
-
-.cms-element-product-listing {
-    .cms-listing-col {
-        margin-bottom: $spacer-lg;
+    &__container:hover .js-vimeo-link {
+        display: block;
     }
 }
 

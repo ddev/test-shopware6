@@ -1,10 +1,8 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
-import FilterMultiSelectPlugin from 'src/plugin/listing/filter-multi-select.plugin'
-import Iterator from 'src/helper/iterator.helper';
-import DomAccess from 'src/helper/dom-access.helper';
+import FilterMultiSelectPlugin from 'src/plugin/listing/filter-multi-select.plugin';
 import deepmerge from 'deepmerge';
 
 export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
@@ -16,9 +14,11 @@ export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
             filterRatingActiveLabelEndSingular: 'star',
             filterRatingActiveLabelEnd: 'stars',
             disabledFilterText: 'Filter not active',
+            ariaLabel: '',
+            ariaLabelCount: '',
+            ariaLabelCountSingular: '',
         },
     });
-
 
     /**
      * @return {Object}
@@ -26,9 +26,9 @@ export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
      */
     getValues() {
         const values = {};
-        const activeRadio = DomAccess.querySelector(this.el, `${this.options.checkboxSelector}:checked`, false);
+        const activeRadio = this.el.querySelector(`${this.options.checkboxSelector}:checked`);
 
-        this.currentRating = activeRadio.value;
+        this.currentRating = activeRadio ? activeRadio.value : false;
         this._updateCount();
 
         values[this.options.name] = this.currentRating ? this.currentRating.toString() : '';
@@ -43,9 +43,9 @@ export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
                 this.currentRating = params[key];
                 this._updateCount();
 
-                const radios =  DomAccess.querySelectorAll(this.el, this.options.checkboxSelector, false);
+                const radios =  this.el.querySelectorAll(this.options.checkboxSelector);
                 if (radios) {
-                    Iterator.iterate(radios, (radio) => {
+                    radios.forEach((radio) => {
                         if (radio.value === this.currentRating) {
                             radio.checked = true;
                         }
@@ -64,7 +64,8 @@ export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
      * @public
      */
     getLabels() {
-        const currentRating = DomAccess.querySelector(this.el, this.options.checkboxSelector + ':checked', false).value;
+        const activeRadio = this.el.querySelector(`${this.options.checkboxSelector}:checked`);
+        const currentRating = activeRadio ? activeRadio.value : false;
 
         let labels = [];
 
@@ -107,8 +108,8 @@ export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
      * @private
      */
     _disableInactiveFilterOptions(maxRating) {
-        const radios = DomAccess.querySelectorAll(this.el, this.options.checkboxSelector);
-        Iterator.iterate(radios, (radio) => {
+        const radios = this.el.querySelectorAll(this.options.checkboxSelector);
+        radios.forEach((radio) => {
             if (radio.checked === true) {
                 return;
             }
@@ -132,6 +133,33 @@ export default class FilterRatingSelectPlugin extends FilterMultiSelectPlugin {
      * @private
      */
     _updateCount() {
-        this.counter.innerText = this.currentRating ? `(${this.currentRating}/${this.options.maxPoints})` : '';
+        this.counter.textContent = this.currentRating ? `(${this.currentRating}/${this.options.maxPoints})` : '';
+
+        this._updateAriaLabel();
+    }
+
+    /**
+     * Update the aria-label for the filter toggle button to reflect the number of already selected stars.
+     * @private
+     */
+    _updateAriaLabel() {
+        if (!this.options.snippets.ariaLabel) {
+            return;
+        }
+
+        if (!this.currentRating) {
+            this.mainFilterButton.setAttribute('aria-label', this.options.snippets.ariaLabel);
+            return;
+        }
+
+        if (parseInt(this.currentRating) === 1) {
+            this.mainFilterButton.setAttribute('aria-label', `${this.options.snippets.ariaLabel} (${this.options.snippets.ariaLabelCountSingular})`);
+            return;
+        }
+
+        this.mainFilterButton.setAttribute(
+            'aria-label',
+            `${this.options.snippets.ariaLabel} (${this.options.snippets.ariaLabelCount.replace('%stars%', this.currentRating)})`
+        );
     }
 }

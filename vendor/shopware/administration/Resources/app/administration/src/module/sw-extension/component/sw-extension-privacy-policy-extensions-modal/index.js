@@ -2,11 +2,13 @@ import template from './sw-extension-privacy-policy-extensions-modal.html.twig';
 import './sw-extension-privacy-policy-extensions-modal.scss';
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
     template,
+
+    emits: ['modal-close'],
 
     props: {
         extensionName: {
@@ -24,8 +26,10 @@ export default {
         title() {
             return this.$tc(
                 'sw-extension-store.component.sw-extension-privacy-policy-extensions-modal.title',
+                {
+                    extensionLabel: this.extensionName,
+                },
                 0,
-                { extensionLabel: this.extensionName },
             );
         },
     },

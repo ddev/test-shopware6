@@ -12,14 +12,14 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @psalm-import-type Params from DriverManager
- * @psalm-import-type OverrideParams from DriverManager
+ * @phpstan-import-type Params from DriverManager
+ * @phpstan-import-type OverrideParams from DriverManager
  */
 #[AsCommand(
     name: 'system:dump',
     description: 'Dumps the database to a file',
 )]
-#[Package('core')]
+#[Package('framework')]
 class SystemDumpDatabaseCommand extends Command
 {
     public function __construct(
@@ -33,12 +33,12 @@ class SystemDumpDatabaseCommand extends Command
     {
         system('mkdir -p ' . escapeshellarg($this->defaultDirectory));
 
-        /** @var string $dbName */
+        /** @var non-empty-string $dbName */
         $dbName = $this->connection->getDatabase();
         /** @var Params&OverrideParams $params */
         $params = $this->connection->getParams();
 
-        $path = sprintf('%s/%s_%s.sql', $this->defaultDirectory, $params['host'] ?? '', $dbName);
+        $path = \sprintf('%s/%s_%s.sql', $this->defaultDirectory, $params['host'] ?? '', $dbName);
 
         $portString = '';
         if ($params['password'] ?? '') {
@@ -46,7 +46,7 @@ class SystemDumpDatabaseCommand extends Command
         }
 
         file_put_contents($path, 'SET unique_checks=0;SET foreign_key_checks=0;');
-        $cmd = sprintf(
+        $cmd = \sprintf(
             'mysqldump -u %s %s -h %s --port=%s -q --opt --hex-blob --no-autocommit %s %s >> %s',
             escapeshellarg($params['user'] ?? ''),
             $portString,

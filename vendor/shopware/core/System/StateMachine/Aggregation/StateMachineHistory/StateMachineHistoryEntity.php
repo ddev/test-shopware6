@@ -4,8 +4,8 @@ namespace Shopware\Core\System\StateMachine\Aggregation\StateMachineHistory;
 
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\System\Integration\IntegrationEntity;
 use Shopware\Core\System\StateMachine\Aggregation\StateMachineState\StateMachineStateEntity;
 use Shopware\Core\System\StateMachine\StateMachineEntity;
 use Shopware\Core\System\User\UserEntity;
@@ -15,72 +15,33 @@ class StateMachineHistoryEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $stateMachineId;
+    protected string $stateMachineId;
 
-    /**
-     * @var StateMachineEntity|null
-     */
-    protected $stateMachine;
+    protected ?StateMachineEntity $stateMachine = null;
 
-    /**
-     * @var string
-     */
-    protected $entityName;
+    protected string $entityName;
 
-    /**
-     * @decrecated tag:v6.6.0 - Will be removed. Use the dedicated properties 'referencedId' and 'referencedVersionId'
-     *
-     * @var array{id: string, version_id: string}
-     */
-    protected $entityId;
+    protected string $referencedId;
 
-    /**
-     * @var string
-     */
-    protected $referencedId;
+    protected string $referencedVersionId;
 
-    /**
-     * @var string
-     */
-    protected $referencedVersionId;
+    protected string $fromStateId;
 
-    /**
-     * @var string
-     */
-    protected $fromStateId;
+    protected ?StateMachineStateEntity $fromStateMachineState = null;
 
-    /**
-     * @var StateMachineStateEntity|null
-     */
-    protected $fromStateMachineState;
+    protected string $toStateId;
 
-    /**
-     * @var string
-     */
-    protected $toStateId;
+    protected ?StateMachineStateEntity $toStateMachineState = null;
 
-    /**
-     * @var StateMachineStateEntity|null
-     */
-    protected $toStateMachineState;
+    protected ?string $userId = null;
 
-    /**
-     * @var string
-     */
-    protected $userId;
+    protected ?UserEntity $user = null;
 
-    /**
-     * @var UserEntity|null
-     */
-    protected $user;
+    protected ?string $integrationId = null;
 
-    /**
-     * @var string
-     */
-    protected $transitionActionName;
+    protected ?IntegrationEntity $integration = null;
+
+    protected string $transitionActionName;
 
     public function getTransitionActionName(): string
     {
@@ -120,36 +81,6 @@ class StateMachineHistoryEntity extends Entity
     public function setEntityName(string $entityName): void
     {
         $this->entityName = $entityName;
-    }
-
-    /**
-     * @decrecated tag:v6.6.0 - Will be removed. Use the dedicated properties 'referencedId' and 'referencedVersionId'
-     *
-     * @return array{id: string, version_id: string}
-     */
-    public function getEntityId(): array
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6.6.0.0',
-            'Will be removed. Use the dedicated properties \'referencedId\' and \'referencedVersionId\'',
-        );
-
-        return $this->entityId;
-    }
-
-    /**
-     * @decrecated tag:v6.6.0 - Will be removed. Use the dedicated properties 'referencedId' and 'referencedVersionId'
-     *
-     * @param array{id: string, version_id: string} $entityId
-     */
-    public function setEntityId(array $entityId): void
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6.6.0.0',
-            'Will be removed. Use the dedicated properties \'referencedId\' and \'referencedVersionId\'',
-        );
-
-        $this->entityId = $entityId;
     }
 
     public function getReferencedId(): string
@@ -207,12 +138,12 @@ class StateMachineHistoryEntity extends Entity
         $this->toStateMachineState = $toStateMachineState;
     }
 
-    public function getUserId(): string
+    public function getUserId(): ?string
     {
         return $this->userId;
     }
 
-    public function setUserId(string $userId): void
+    public function setUserId(?string $userId): void
     {
         $this->userId = $userId;
     }
@@ -230,5 +161,25 @@ class StateMachineHistoryEntity extends Entity
     public function setFromStateMachineState(StateMachineStateEntity $fromStateMachineState): void
     {
         $this->fromStateMachineState = $fromStateMachineState;
+    }
+
+    public function getIntegrationId(): ?string
+    {
+        return $this->integrationId;
+    }
+
+    public function setIntegrationId(?string $integrationId): void
+    {
+        $this->integrationId = $integrationId;
+    }
+
+    public function getIntegration(): ?IntegrationEntity
+    {
+        return $this->integration;
+    }
+
+    public function setIntegration(?IntegrationEntity $integration): void
+    {
+        $this->integration = $integration;
     }
 }

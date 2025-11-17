@@ -10,66 +10,36 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('checkout')]
+#[Package('after-sales')]
 class DocumentBaseConfigEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $name;
+    protected string $name;
+
+    protected ?string $filenamePrefix = null;
+
+    protected ?string $filenameSuffix = null;
+
+    protected string $documentNumber;
+
+    protected bool $global = false;
+
+    protected ?string $documentTypeId = null;
+
+    protected ?string $logoId = null;
 
     /**
-     * @var string|null
+     * @var array<string, string|bool|array<int, string>>|null
      */
-    protected $filenamePrefix;
+    protected ?array $config = null;
 
-    /**
-     * @var string|null
-     */
-    protected $filenameSuffix;
+    protected ?DocumentBaseConfigSalesChannelCollection $salesChannels = null;
 
-    /**
-     * @var string
-     */
-    protected $documentNumber;
+    protected ?DocumentTypeEntity $documentType = null;
 
-    /**
-     * @var bool
-     */
-    protected $global = false;
-
-    /**
-     * @var string|null
-     */
-    protected $documentTypeId;
-
-    /**
-     * @var string|null
-     */
-    protected $logoId;
-
-    /**
-     * @var array<string>|null
-     */
-    protected $config;
-
-    /**
-     * @var DocumentBaseConfigSalesChannelCollection
-     */
-    protected $salesChannels;
-
-    /**
-     * @var DocumentTypeEntity|null
-     */
-    protected $documentType;
-
-    /**
-     * @var MediaEntity|null
-     */
-    protected $logo;
+    protected ?MediaEntity $logo = null;
 
     public function getName(): string
     {
@@ -81,7 +51,7 @@ class DocumentBaseConfigEntity extends Entity
         $this->name = $name;
     }
 
-    public function getSalesChannels(): DocumentBaseConfigSalesChannelCollection
+    public function getSalesChannels(): ?DocumentBaseConfigSalesChannelCollection
     {
         return $this->salesChannels;
     }
@@ -152,7 +122,7 @@ class DocumentBaseConfigEntity extends Entity
     }
 
     /**
-     * @return array<string>|null
+     * @return array<string, string|bool|array<int, string>>|null
      */
     public function getConfig(): ?array
     {
@@ -160,7 +130,7 @@ class DocumentBaseConfigEntity extends Entity
     }
 
     /**
-     * @param array<string>|null $config
+     * @param array<string, string|bool|array<int, string>>|null $config
      */
     public function setConfig(?array $config): void
     {

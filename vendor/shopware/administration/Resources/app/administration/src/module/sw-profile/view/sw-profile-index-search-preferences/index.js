@@ -1,16 +1,19 @@
 /**
- * @package system-settings
+ * @sw-package fundamentals@framework
  */
 import template from './sw-profile-index-search-preferences.html.twig';
 import './sw-profile-index-search-preferences.scss';
 
-const { Module, State, Mixin } = Shopware;
+const { Module, Store, Mixin } = Shopware;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['searchPreferencesService'],
+    inject: [
+        'searchPreferencesService',
+        'searchRankingService',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -23,21 +26,30 @@ export default {
     },
 
     computed: {
+        minSearchTermLength: {
+            get() {
+                return Store.get('swProfile').minSearchTermLength;
+            },
+            set(minSearchTermLength) {
+                Store.get('swProfile').setMinSearchTermLength(minSearchTermLength);
+            },
+        },
+
         searchPreferences: {
             get() {
-                return State.get('swProfile').searchPreferences;
+                return Store.get('swProfile').searchPreferences;
             },
             set(searchPreferences) {
-                State.commit('swProfile/setSearchPreferences', searchPreferences);
+                Store.get('swProfile').searchPreferences = searchPreferences;
             },
         },
 
         userSearchPreferences: {
             get() {
-                return State.get('swProfile').userSearchPreferences;
+                return Store.get('swProfile').userSearchPreferences;
             },
             set(userSearchPreferences) {
-                State.commit('swProfile/setUserSearchPreferences', userSearchPreferences);
+                Store.get('swProfile').userSearchPreferences = userSearchPreferences;
             },
         },
 
@@ -48,15 +60,38 @@ export default {
                 return defaultSearchPreferences;
             }
 
-            return defaultSearchPreferences.reduce((accumulator, currentValue) => {
-                const value = this.userSearchPreferences.find((item) => {
-                    return Object.keys(item)[0] === Object.keys(currentValue)[0];
+            const mergedPreferences = [];
+
+            defaultSearchPreferences.forEach((defaultPref) => {
+                const prefKey = Object.keys(defaultPref)[0];
+                const userPref = this.userSearchPreferences.find((item) => Object.keys(item)[0] === prefKey);
+
+                if (!userPref) {
+                    mergedPreferences.push(defaultPref);
+                    return;
+                }
+
+                const userPrefValue = userPref[prefKey];
+                const defaultPrefValue = defaultPref[prefKey];
+
+                // Merge values from default into user preferences
+                Object.keys(defaultPrefValue).forEach((prop) => {
+                    if (!userPrefValue.hasOwnProperty(prop)) {
+                        userPrefValue[prop] = defaultPrefValue[prop];
+                    }
                 });
 
-                accumulator.push(value || currentValue);
+                // Remove values from user preferences that are not in default
+                Object.keys(userPrefValue).forEach((prop) => {
+                    if (!defaultPrefValue.hasOwnProperty(prop)) {
+                        delete userPrefValue[prop];
+                    }
+                });
 
-                return accumulator;
-            }, []);
+                mergedPreferences.push({ [prefKey]: userPrefValue });
+            });
+
+            return mergedPreferences;
         },
 
         adminEsEnable() {
@@ -68,19 +103,36 @@ export default {
         this.createdComponent();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyComponent();
     },
 
     methods: {
         async createdComponent() {
-            await this.getDataSource();
+            await Promise.all([
+                this.getMinSearchTermLength(),
+                this.getDataSource(),
+            ]);
+
             this.updateDataSource();
             this.addEventListeners();
         },
 
         beforeDestroyComponent() {
             this.removeEventListeners();
+        },
+
+        async getMinSearchTermLength() {
+            this.isLoading = true;
+
+            try {
+                const minSearchTermLength = await this.searchRankingService.getMinSearchTermLength();
+                Shopware.Store.get('swProfile').setMinSearchTermLength(minSearchTermLength);
+            } catch (error) {
+                this.createNotificationError({ message: error.message });
+            } finally {
+                this.isLoading = false;
+            }
         },
 
         async getDataSource() {
@@ -101,11 +153,11 @@ export default {
         },
 
         addEventListeners() {
-            this.$root.$on('sw-search-preferences-modal-close', this.getDataSource);
+            Shopware.Utils.EventBus.on('sw-search-preferences-modal-close', this.getDataSource);
         },
 
         removeEventListeners() {
-            this.$root.$off('sw-search-preferences-modal-close', this.getDataSource);
+            Shopware.Utils.EventBus.off('sw-search-preferences-modal-close', this.getDataSource);
         },
 
         updateDataSource() {

@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Content\Flow\Dispatching\Storer;
 
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroup\CustomerGroupCollection;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroup\CustomerGroupDefinition;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroup\CustomerGroupEntity;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
@@ -11,15 +12,16 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Event\CustomerGroupAware;
 use Shopware\Core\Framework\Event\FlowEventAware;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('services-settings')]
+#[Package('after-sales')]
 class CustomerGroupStorer extends FlowStorer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerGroupCollection> $customerGroupRepository
      */
     public function __construct(
         private readonly EntityRepository $customerGroupRepository,
@@ -57,24 +59,6 @@ class CustomerGroupStorer extends FlowStorer
         );
     }
 
-    /**
-     * @param array<int, mixed> $args
-     *
-     * @deprecated tag:v6.6.0 - Will be removed in v6.6.0.0
-     */
-    public function load(array $args): ?CustomerGroupEntity
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6_6_0_0',
-            Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0.0')
-        );
-
-        [$id, $context] = $args;
-        $criteria = new Criteria([$id]);
-
-        return $this->loadCustomerGroup($criteria, $context, $id);
-    }
-
     private function lazyLoad(StorableFlow $storableFlow): ?CustomerGroupEntity
     {
         $id = $storableFlow->getStore(CustomerGroupAware::CUSTOMER_GROUP_ID);
@@ -97,10 +81,9 @@ class CustomerGroupStorer extends FlowStorer
 
         $this->dispatcher->dispatch($event, $event->getName());
 
-        $customerGroup = $this->customerGroupRepository->search($criteria, $context)->get($id);
+        $customerGroup = $this->customerGroupRepository->search($criteria, $context)->getEntities()->get($id);
 
         if ($customerGroup) {
-            /** @var CustomerGroupEntity $customerGroup */
             return $customerGroup;
         }
 

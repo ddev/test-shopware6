@@ -8,13 +8,10 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 abstract class FilterStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $type;
+    protected string $type;
 
     /**
      * @return EqualsFilterStruct|MultiFilterStruct

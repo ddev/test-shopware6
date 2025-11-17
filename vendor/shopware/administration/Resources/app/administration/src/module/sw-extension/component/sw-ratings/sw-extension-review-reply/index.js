@@ -5,6 +5,7 @@ const { date } = Shopware.Utils.format;
 
 /**
  * @private
+ * @sw-package checkout
  */
 export default {
     template,

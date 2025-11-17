@@ -21,7 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'es:status',
     description: 'Show the status of the elasticsearch index',
 )]
-#[Package('core')]
+#[Package('framework')]
 class ElasticsearchStatusCommand extends Command
 {
     use ConsoleProgressTrait;
@@ -90,7 +90,7 @@ class ElasticsearchStatusCommand extends Command
         \assert(\is_string($indexName));
         if (!\in_array($indexName, $usedIndices, true)) {
             $io = new SymfonyStyle($input, $output);
-            $io->warning(sprintf('Alias will swap at the end of the indexing process from %s to %s', $usedIndices[0], $indexName));
+            $io->warning(\sprintf('Alias will swap at the end of the indexing process from %s to %s', $usedIndices[0], $indexName));
         }
 
         return self::SUCCESS;

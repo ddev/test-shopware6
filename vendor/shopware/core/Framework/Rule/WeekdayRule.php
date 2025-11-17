@@ -6,7 +6,10 @@ use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Range;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class WeekdayRule extends Rule
 {
     final public const RULE_NAME = 'dayOfWeek';
@@ -32,7 +35,7 @@ class WeekdayRule extends Rule
     {
         return [
             'operator' => RuleConstraints::stringOperators(false),
-            'dayOfWeek' => [new NotBlank(), new Range(['min' => 1, 'max' => 7])],
+            'dayOfWeek' => [new NotBlank(), new Range(min: 1, max: 7)],
         ];
     }
 

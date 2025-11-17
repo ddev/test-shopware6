@@ -2,10 +2,11 @@
 
 namespace Shopware\Storefront\Theme;
 
+use Shopware\Core\Framework\Adapter\Cache\CacheTagCollector;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-#[Package('storefront')]
+#[Package('framework')]
 class ThemeConfigValueAccessor
 {
     /**
@@ -14,27 +15,12 @@ class ThemeConfigValueAccessor
     private array $themeConfig = [];
 
     /**
-     * @var array<string, bool>
-     */
-    private array $keys = ['all' => true];
-
-    /**
-     * @var array<string, array<string, bool>>
-     */
-    private array $traces = [];
-
-    /**
      * @internal
      */
     public function __construct(
         private readonly AbstractResolvedConfigLoader $themeConfigLoader,
-        private readonly bool $fineGrainedCache
+        private readonly CacheTagCollector $cacheTagCollector,
     ) {
-    }
-
-    public static function buildName(string $key): string
-    {
-        return 'theme.' . $key;
     }
 
     /**
@@ -42,53 +28,9 @@ class ThemeConfigValueAccessor
      */
     public function get(string $key, SalesChannelContext $context, ?string $themeId)
     {
-        if ($this->fineGrainedCache) {
-            foreach (array_keys($this->keys) as $trace) {
-                $this->traces[$trace][self::buildName($key)] = true;
-            }
-        } else {
-            foreach (array_keys($this->keys) as $trace) {
-                $this->traces[$trace]['shopware.theme'] = true;
-            }
-        }
-
         $config = $this->getThemeConfig($context, $themeId);
 
-        if (\array_key_exists($key, $config)) {
-            return $config[$key];
-        }
-
-        return null;
-    }
-
-    /**
-     * @template TReturn of mixed
-     *
-     * @param \Closure(): TReturn $param
-     *
-     * @return TReturn All kind of data could be cached
-     */
-    public function trace(string $key, \Closure $param)
-    {
-        $this->traces[$key] = [];
-        $this->keys[$key] = true;
-
-        $result = $param();
-
-        unset($this->keys[$key]);
-
-        return $result;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    public function getTrace(string $key): array
-    {
-        $trace = isset($this->traces[$key]) ? array_keys($this->traces[$key]) : [];
-        unset($this->traces[$key]);
-
-        return $trace;
+        return $config[$key] ?? null;
     }
 
     /**
@@ -116,6 +58,8 @@ class ThemeConfigValueAccessor
         if (!$themeId) {
             return $this->themeConfig[$key] = $this->flatten($themeConfig, null);
         }
+
+        $this->cacheTagCollector->addTag(ThemeConfigCacheInvalidator::buildCacheTag($themeId));
 
         $themeConfig = array_merge(
             $themeConfig,

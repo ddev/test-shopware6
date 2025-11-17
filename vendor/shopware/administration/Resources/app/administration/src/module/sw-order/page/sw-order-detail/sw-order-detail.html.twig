@@ -1,22 +1,18 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_order_detail %}
 <sw-page
     v-if="orderId"
     class="sw-order-detail"
 >
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_header %}
     <template #smart-bar-header>
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_header_title %}
         <h2 v-if="orderIdentifier">
             {{ $tc('sw-order.detail.textHeadline') }} {{ orderIdentifier }}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_order_detail_header_label_manual_order %}
             <sw-label
-                v-if="createdById"
+                v-if="order.createdById"
                 appearance="pill"
                 size="small"
                 class="sw-order-detail__manual-order-label"
@@ -27,7 +23,6 @@
         </h2>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_header_title_new %}
         <h2 v-else>
             {{ $tc('sw-order.detail.textHeadlineNew') }}
@@ -37,7 +32,6 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_language_switch %}
     <template #language-switch>
         <sw-language-switch
@@ -46,29 +40,28 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_actions %}
     <template #smart-bar-actions>
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_actions_slot_smart_bar_actions %}
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_actions_abort %}
-        <sw-button
+        <mt-button
             v-tooltip="{
                 message: $tc('sw-privileges.tooltip.warning'),
                 disabled: acl.can('order.editor'),
                 showOnDisabledElements: true
             }"
             class="sw-order-detail__smart-bar-cancel-button"
-            :disabled="isLoading || !acl.can('order.editor')"
+            :disabled="loading.order || !acl.can('order.editor')"
+            variant="secondary"
+            size="default"
+            data-analytics-id="sw-order-detail.cancel-editing"
             @click="onCancelEditing"
         >
             {{ $tc('global.default.cancel') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_actions_save %}
         <sw-button-process
             v-tooltip="{
@@ -78,14 +71,11 @@
             }"
             class="sw-order-detail__smart-bar-save-button"
             variant="primary"
-            :disabled="isLoading || !acl.can('order.editor')"
-            :is-loading="isLoading"
+            :disabled="loading.order || loading.recalculation || !acl.can('order.editor')"
+            :is-loading="loading.order"
             :process-success="isSaveSuccessful"
-            {% if VUE3 %}
+            data-analytics-id="sw-order-detail.save-edits"
             @update:process-success="saveEditsFinish"
-            {% else %}
-            @process-finish="saveEditsFinish"
-            {% endif %}
             @click.prevent="onSaveEdits"
         >
             {{ $tc('global.default.save') }}
@@ -96,10 +86,8 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_content %}
     <template #content>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_content_leave_page_modal %}
         <sw-order-leave-page-modal
             v-if="isDisplayingLeavePageWarning"
@@ -107,16 +95,63 @@
             @page-leave-confirm="onLeaveModalConfirm"
         />
         {% endblock %}
+        {% block sw_order_detail_content_save_changes_beforehand_modal %}
+        <sw-order-save-changes-beforehand-modal
+            v-if="askForSaveBeforehand"
+            @cancel="onAskAndSaveEditsCancel"
+            @confirm="onAskAndSaveEditsConfirm"
+        >
+            {{ askForSaveBeforehand.reason }}
+        </sw-order-save-changes-beforehand-modal>
+        {% endblock %}
         <sw-card-view>
 
-            <sw-alert
+            <mt-banner
                 v-if="isOrderEditing"
-                class="sw-order-detail__unsaved-warning"
-                variant="warning"
+                class="sw-order-detail__alert"
+                variant="attention"
             >
                 {{ $tc('sw-order.detail.textUnsavedOrderWarning') }}
-            </sw-alert>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+            </mt-banner>
+
+            <mt-banner
+                v-if="missingProductLineItems.length > 0"
+                class="sw-order-detail__alert"
+                variant="attention"
+            >
+                {{ $tc('sw-order.detailBase.textMissingProductLineItems') }}
+
+                <ul class="sw_order_detail_base__missing_products_alert-list">
+                    <li
+                        v-for="lineItem in missingProductLineItems"
+                        :key="lineItem.id"
+                    >
+                        {{ lineItem.label }}
+                    </li>
+                </ul>
+
+                {{ $tc('sw-order.detailBase.textMissingProductLineItemsDescription') }}
+            </mt-banner>
+
+            <mt-banner
+                v-if="convertedProductLineItems.length > 0"
+                class="sw-order-detail__alert"
+                variant="info"
+            >
+                {{ $tc('sw-order.detailBase.textConvertedProductLineItems') }}
+
+                <ul class="sw_order_detail_base__converted_products_alert-list">
+                    <li
+                        v-for="lineItem in convertedProductLineItems"
+                        :key="lineItem.id"
+                    >
+                        {{ lineItem.label }}
+                    </li>
+                </ul>
+
+                {{ $tc('sw-order.detailBase.textConvertedProductLineItemsDescription') }}
+            </mt-banner>
+
             {% block sw_order_detail_content_tabs %}
             <sw-tabs
                 v-if="showTabs"
@@ -125,7 +160,6 @@
                 position-identifier="sw-order-detail"
             >
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_order_detail_content_tabs_general %}
                 <sw-tabs-item
                     class="sw-order-detail__tabs-tab-general"
@@ -136,7 +170,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_order_detail_content_tabs_details %}
                 <sw-tabs-item
                     class="sw-order-detail__tabs-tab-details"
@@ -147,7 +180,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_order_detail_content_tabs_documents %}
                 <sw-tabs-item
                     class="sw-order-detail__tabs-tab-documents"
@@ -157,7 +189,7 @@
                 >
                     {{ $tc('sw-order.detail.tabDocuments') }}
 
-                    <sw-icon
+                    <mt-icon
                         v-if="isOrderEditing"
                         v-tooltip="{ message: $tc('sw-order.documentTab.tooltipSaveBeforeCreateDocument') }"
                         class="sw-order-detail__tab-warning-badge"
@@ -167,50 +199,39 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_order_detail_content_tabs_extension %}{% endblock %}
             </sw-tabs>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+            <sw-extension-component-section
+                position-identifier="sw-order-detail__before-content"
+            />
+
             {% block sw_order_detail_content_view %}
-            <template v-if="isLoading">
+            <template v-if="loading.order">
                 <sw-skeleton />
                 <sw-skeleton />
             </template>
 
             {# v-show is used here as underlying components influence the loading state and v-if would destroy this behaviour #}
+            {# @deprecated tag:v6.8.0 - remove `is-save-successful`, `is-editing`, `@created-by-id-change`, `@loading-change`, `@editing-change` #}
             <router-view
                 v-if="order"
-                v-show="!isLoading"
+                v-show="!loading.order"
                 ref="baseComponent"
                 :order-id="orderId"
                 :is-editing="isEditing"
-                :is-loading="isLoading"
+                :is-loading="loading.order"
                 :is-save-successful="isSaveSuccessful"
-                {% if VUE3 %}
-                @identifier-change.native="updateIdentifier"
-                @created-by-id-change.native="updateCreatedById"
-                @loading-change.native="onUpdateLoading"
-                @editing-change.native="onUpdateEditing"
-                @save-and-recalculate.native="onSaveAndRecalculate"
-                @recalculate-and-reload.native="onRecalculateAndReload"
-                @reload-entity-data.native="reloadEntityData"
-                @save-and-reload.native="onSaveAndReload"
-                @save-edits.native="onSaveEdits"
-                @error.native="onError"
-                {% else %}
-                @identifier-change="updateIdentifier"
                 @created-by-id-change="updateCreatedById"
                 @loading-change="onUpdateLoading"
                 @editing-change="onUpdateEditing"
                 @save-and-recalculate="onSaveAndRecalculate"
                 @recalculate-and-reload="onRecalculateAndReload"
                 @reload-entity-data="reloadEntityData"
-                @save-and-reload="onSaveAndReload"
+                @save-and-reload="saveAndReload"
                 @save-edits="onSaveEdits"
                 @error="onError"
-                {% endif %}
             />
             {% endblock %}
 

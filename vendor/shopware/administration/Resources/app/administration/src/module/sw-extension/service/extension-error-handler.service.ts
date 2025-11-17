@@ -1,17 +1,21 @@
 type MappedError = {
-    title: string,
-    message: string,
+    title: string;
+    message: string;
+    details: string | null | undefined;
     parameters?: {
-        documentationLink: string,
-    }
-}
+        documentationLink: string;
+    };
+};
 
 class StoreError {
-    // eslint-disable-next-line no-useless-constructor
-    constructor(public readonly title: string, public readonly message: string) {}
+    /* eslint-disable no-useless-constructor, no-empty-function */
+    constructor(
+        public readonly title: string,
+        public readonly message: string,
+    ) {}
 }
 
-const errorCodes: { [key: string]: StoreError} = {
+const errorCodes: { [key: string]: StoreError } = {
     FRAMEWORK__PLUGIN_NO_PLUGIN_FOUND_IN_ZIP: new StoreError(
         'global.default.error',
         'sw-extension.errors.messageUploadFailureNoPluginFoundInZipFile',
@@ -32,10 +36,7 @@ const errorCodes: { [key: string]: StoreError} = {
         'global.default.error',
         'sw-extension.errors.messageStoreLicenseDomainMissing',
     ),
-    FRAMEWORK__STORE_NOT_AVAILABLE: new StoreError(
-        'global.default.error',
-        'sw-extension.errors.messageStoreNotAvailable',
-    ),
+    FRAMEWORK__STORE_NOT_AVAILABLE: new StoreError('global.default.error', 'sw-extension.errors.messageStoreNotAvailable'),
     FRAMEWORK__PLUGIN_BASE_CLASS_NOT_FOUND: new StoreError(
         'global.default.error',
         'sw-extension.errors.messagePluginBaseClassNotFound',
@@ -55,12 +56,14 @@ function getNotification(error: StoreApiException): MappedError {
         return {
             title: errorCodes[error.code].title,
             message: errorCodes[error.code].message,
+            details: error.detail,
         };
     }
 
     return {
         title: 'global.default.error',
         message: 'sw-extension.errors.messageGenericFailure',
+        details: error.detail,
     };
 }
 
@@ -69,6 +72,7 @@ function mapErrorWithDocsLink({ title, detail: message, meta }: StoreApiExceptio
         return {
             title,
             message,
+            details: null,
             parameters: {
                 documentationLink: meta.documentationLink,
             },
@@ -78,6 +82,7 @@ function mapErrorWithDocsLink({ title, detail: message, meta }: StoreApiExceptio
     return {
         title,
         message,
+        details: null,
     };
 }
 
@@ -86,7 +91,7 @@ function mapErrors(errors: StoreApiException[]) {
 }
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
@@ -94,9 +99,7 @@ export default {
 };
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
-export type {
-    MappedError,
-};
+export type { MappedError };

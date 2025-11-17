@@ -6,7 +6,7 @@
     {% set left = block.marginLeft ? block.marginLeft : 0 %}
 
     {% if top or right or bottom or left %}
-        {% set padding = top ~ " " ~ right ~ " " ~ bottom ~ " " ~ left %}
+        {% set padding = top ~ ' ' ~ right ~ ' ' ~ bottom ~ ' ' ~ left %}
     {% endif %}
 
     {% set blockBgColor = block.backgroundColor %}
@@ -49,27 +49,43 @@
         {% set blockClasses = ['hidden-desktop']|merge(blockClasses) %}
     {% endif %}
 
-    <div class="cms-block {{ blockClasses|join(' ') }}"
-         style="{% if blockBgColor %} background-color: {{ blockBgColor }};{% endif %}">
+    <div
+        class="cms-block {{ blockClasses|join(' ') }} position-relative"
+        {% if blockBgColor %}style="background-color: {{ blockBgColor }}"{% endif %}
+    >
         {% block section_content_block_background_image %}
             {% if block.backgroundMedia %}
                 {% sw_thumbnails 'cms-block-background' with {
                     media: block.backgroundMedia,
                     autoColumnSizes: false,
                     attributes: {
-                        class: "cms-block-background media-mode--" ~ block.backgroundMediaMode
+                        class: 'cms-block-background media-mode--' ~ block.backgroundMediaMode
                     }
                 } %}
+            {% elseif (block.type == 'text-on-image') %}
+                {% set defaultMediaUrl = null %}
+
+                {% for slot in block.slots.elements %}
+                    {% if slot.slot == 'content' and slot.config.media and slot.config.media.value %}
+                        {% set defaultMediaUrl = slot.config.media.value %}
+                        {% set backgroundImageUrl = asset(defaultMediaUrl) %}
+                        {% break %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if backgroundImageUrl %}
+                    <img src="{{ backgroundImageUrl }}"
+                         class="cms-block-background media-mode--{{ block.backgroundMediaMode|default('cover') }}">
+                {% endif %}
             {% endif %}
         {% endblock %}
 
         {% block section_content_block_container %}
             <div class="cms-block-container"
                  style="{% if padding %}padding: {{ padding }};{% endif %}">
-
                 {% block section_content_block_row %}
                     <div class="cms-block-container-row row cms-row {{ sidebarClasses }}">
-                        {% sw_include "@Storefront/storefront/block/cms-block-" ~ block.type ~ ".html.twig" ignore missing %}
+                        {% sw_include '@Storefront/storefront/block/cms-block-' ~ block.type ~ '.html.twig' ignore missing %}
                     </div>
                 {% endblock %}
             </div>

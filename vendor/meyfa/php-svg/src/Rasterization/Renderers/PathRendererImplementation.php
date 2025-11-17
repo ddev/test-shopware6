@@ -23,7 +23,7 @@ final class PathRendererImplementation
      * @param string    $fillRule The fill rule ('nonzero' or 'evenodd').
      * @return void
      */
-    public static function fillMultipath($image, array $subpaths, $color, $fillRule = 'nonzero')
+    public static function fillMultipath($image, array $subpaths, int $color, string $fillRule = 'nonzero'): void
     {
         // whether to use the evenodd rule (vs. nonzero winding)
         $evenOdd = $fillRule === 'evenodd';
@@ -59,7 +59,7 @@ final class PathRendererImplementation
         imagesetthickness($image, 1);
 
         // Sort the edges by their maximum y value, descending (i.e., edges that extend further down are sorted first).
-        usort($edges, ['SVG\Rasterization\Renderers\PathRendererEdge', 'compareMaxY']);
+        usort($edges, [PathRendererEdge::class, 'compareMaxY']);
         // Now the maxY of the entire path is just the maxY of the edge sorted first.
         // Since there is no way to know which edge has the minY, we cannot do the same for that and have to compute
         // it during the loop instead.
@@ -74,9 +74,7 @@ final class PathRendererImplementation
         // Loop over the path area from bottom to top, so that we can make good use of the sort order of $edges.
         for ($scanline = $maxY; $scanline >= $minY; --$scanline) {
             // An edge becomes irrelevant when the scanline is higher up than the edge's minY.
-            $activeEdges = array_values(array_filter($activeEdges, function ($edge) use ($scanline) {
-                return $edge->minY < $scanline;
-            }));
+            $activeEdges = array_values(array_filter($activeEdges, fn ($edge) => $edge->minY < $scanline));
 
             // An edge becomes relevant when its y range starts to include $scanline.
             for ($n = count($edges); $lastActiveEdge < $n; ++$lastActiveEdge) {
@@ -92,7 +90,7 @@ final class PathRendererImplementation
 
             if (!empty($activeEdges)) {
                 // Now sort the active edges from rightmost to leftmost (i.e., by x descending).
-                usort($activeEdges, ['SVG\Rasterization\Renderers\PathRendererEdge', 'compareX']);
+                usort($activeEdges, [PathRendererEdge::class, 'compareX']);
 
                 $windingNumber = $evenOdd ? 0 : $activeEdges[0]->direction;
 
@@ -138,7 +136,7 @@ final class PathRendererImplementation
      * @param float    $strokeWidth The stroke width.
      * @return void
      */
-    public static function strokeOpenSubpath($image, array $points, $color, $strokeWidth)
+    public static function strokeOpenSubpath($image, array $points, int $color, float $strokeWidth): void
     {
         // require at least 2 coordinate pairs to stroke a line
         if (count($points) < 4) {
@@ -172,7 +170,7 @@ final class PathRendererImplementation
      * @param float    $strokeWidth The stroke width.
      * @return void
      */
-    public static function strokeClosedSubpath($image, array $points, $color, $strokeWidth)
+    public static function strokeClosedSubpath($image, array $points, int $color, float $strokeWidth): void
     {
         // imagepolygon() requires at least 3 coordinate pairs
         if (count($points) < 6) {

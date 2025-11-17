@@ -1,13 +1,11 @@
 import template from './sw-context-menu-divider.html.twig';
 import './sw-context-menu-divider.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
-Component.register('sw-context-menu-divider', {
+export default {
     template,
-});
+};

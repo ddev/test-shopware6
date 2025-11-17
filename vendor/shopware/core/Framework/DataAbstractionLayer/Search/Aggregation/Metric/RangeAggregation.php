@@ -12,11 +12,11 @@ use Shopware\Core\Framework\Log\Package;
  *    the "from" will be compared with greater than or equal
  *    the "to" will be compared with lower than
  */
-#[Package('core')]
+#[Package('framework')]
 final class RangeAggregation extends Aggregation
 {
     /**
-     * @var array<int, array<string, float|string|null>>
+     * @var list<array<string, float|string|null>>
      */
     protected array $ranges;
 
@@ -39,7 +39,7 @@ final class RangeAggregation extends Aggregation
     }
 
     /**
-     * @return array<int, array<string, float|string|null>>
+     * @return list<array<string, float|string|null>>
      */
     public function getRanges(): array
     {

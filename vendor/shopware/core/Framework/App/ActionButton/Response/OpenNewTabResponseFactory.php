@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class OpenNewTabResponseFactory implements ActionButtonResponseFactoryInterface
 {
     public function __construct(private readonly QuerySigner $signer)
@@ -23,16 +23,13 @@ class OpenNewTabResponseFactory implements ActionButtonResponseFactoryInterface
         return $actionType === OpenNewTabResponse::ACTION_TYPE;
     }
 
-    /**
-     * @param array<mixed> $payload
-     */
     public function create(AppAction $action, array $payload, Context $context): ActionButtonResponse
     {
         $this->validate($payload, $action->getActionId());
 
-        $appSecret = $action->getAppSecret();
+        $appSecret = $action->getApp()->getAppSecret();
         if ($appSecret) {
-            $payload['redirectUrl'] = (string) $this->signer->signUri($payload['redirectUrl'], $appSecret, $context);
+            $payload['redirectUrl'] = (string) $this->signer->signUri($payload['redirectUrl'], $action->getApp(), $context);
         }
 
         $response = new OpenNewTabResponse();
@@ -42,11 +39,11 @@ class OpenNewTabResponseFactory implements ActionButtonResponseFactoryInterface
     }
 
     /**
-     * @param array<mixed> $payload
+     * @param array<string, mixed> $payload
      */
     private function validate(array $payload, string $actionId): void
     {
-        if (!isset($payload['redirectUrl']) || empty($payload['redirectUrl'])) {
+        if (empty($payload['redirectUrl'])) {
             throw AppException::actionButtonProcessException($actionId, 'The app provided an invalid redirectUrl');
         }
     }

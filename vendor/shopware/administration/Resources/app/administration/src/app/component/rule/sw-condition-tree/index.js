@@ -1,38 +1,39 @@
+import { computed } from 'vue';
+
 import template from './sw-condition-tree.html.twig';
 import './sw-condition-tree.scss';
 
-const { Component } = Shopware;
 const { EntityCollection } = Shopware.Data;
 
 /**
  * @private
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  */
-Component.register('sw-condition-tree', {
+export default {
     template,
 
     inject: [
         'feature',
     ],
 
+    provide() {
+        return {
+            availableTypes: computed(() => this.availableTypes),
+            availableGroups: computed(() => this.availableGroups),
+            createCondition: this.createCondition,
+            insertNodeIntoTree: this.insertNodeIntoTree,
+            removeNodeFromTree: this.removeNodeFromTree,
+            childAssociationField: computed(() => this.childAssociationField),
+            conditionDataProviderService: computed(() => this.conditionDataProviderService),
+            conditionScopes: computed(() => this.scopes),
+            restrictedConditions: computed(() => this.restrictedConditions),
+        };
+    },
+
     emits: [
         'conditions-changed',
         'initial-loading-done',
     ],
-
-    provide() {
-        return {
-            availableTypes: this.availableTypes,
-            availableGroups: this.availableGroups,
-            createCondition: this.createCondition,
-            insertNodeIntoTree: this.insertNodeIntoTree,
-            removeNodeFromTree: this.removeNodeFromTree,
-            childAssociationField: this.childAssociationField,
-            conditionDataProviderService: this.conditionDataProviderService,
-            conditionScopes: this.scopes,
-            restrictedConditions: this.restrictedConditions,
-        };
-    },
 
     props: {
         conditionDataProviderService: {
@@ -117,7 +118,7 @@ Component.register('sw-condition-tree', {
                 conditions = this.conditionDataProviderService.getConditions(this.scopes);
             }
 
-            conditions.forEach(condition => {
+            conditions.forEach((condition) => {
                 condition.translatedLabel = this.$tc(condition.label);
             });
 
@@ -151,14 +152,24 @@ Component.register('sw-condition-tree', {
 
             const groups = Object.values(this.conditionDataProviderService.getGroups());
 
-            groups.forEach(group => {
+            groups.forEach((group) => {
                 group.label = this.$tc(group.name);
             });
 
             groups.sort((a, b) => {
-                if (a.id === 'misc') { return 1; }
+                if (a.id === 'general') {
+                    return -1;
+                }
+                if (b.id === 'general') {
+                    return 1;
+                }
 
-                if (b.id === 'misc') { return -1; }
+                if (a.id === 'misc') {
+                    return 1;
+                }
+                if (b.id === 'misc') {
+                    return -1;
+                }
 
                 return a.label.localeCompare(b.label);
             });
@@ -218,17 +229,21 @@ Component.register('sw-condition-tree', {
         },
 
         createTreeRecursive(condition, conditions) {
-            const children = conditions.filter(c => c.parentId === condition.id)
+            const children = conditions
+                .filter((c) => c.parentId === condition.id)
                 .sort((a, b) => a.position - b.position)
-                .map(c => this.createTreeRecursive(c, conditions))
-                .filter(c => !condition[this.childAssociationField].has(c.id));
+                .map((c) => this.createTreeRecursive(c, conditions))
+                .filter((c) => !condition[this.childAssociationField].has(c.id));
 
             condition[this.childAssociationField] = new EntityCollection(
                 condition[this.childAssociationField].source,
                 condition[this.childAssociationField].entity,
                 condition[this.childAssociationField].context,
                 null,
-                [...children, ...condition[this.childAssociationField]],
+                [
+                    ...children,
+                    ...condition[this.childAssociationField],
+                ],
             );
             return condition;
         },
@@ -250,22 +265,20 @@ Component.register('sw-condition-tree', {
                 0,
             );
 
-            rootNodes.forEach(root => { root.parentId = rootContainer.id; });
+            rootNodes.forEach((root) => {
+                root.parentId = rootContainer.id;
+            });
 
             return rootContainer;
         },
 
         createCondition(conditionData, parentId, position) {
             let condition = this.conditionRepository.create(this.initialConditions.context);
-            condition = Object.assign(
-                condition,
-                conditionData,
-                {
-                    parentId,
-                    position,
-                    [this.associationField]: this.associationValue,
-                },
-            );
+            condition = Object.assign(condition, conditionData, {
+                parentId,
+                position,
+                [this.associationField]: this.associationValue,
+            });
             return condition;
         },
 
@@ -323,7 +336,9 @@ Component.register('sw-condition-tree', {
                 return;
             }
 
-            condition[this.childAssociationField].forEach((child) => { this.getDeletedIdsRecursive(child, deletedIs); });
+            condition[this.childAssociationField].forEach((child) => {
+                this.getDeletedIdsRecursive(child, deletedIs);
+            });
         },
 
         emitChange(deletedIds) {
@@ -341,4 +356,4 @@ Component.register('sw-condition-tree', {
             });
         },
     },
-});
+};

@@ -1,7 +1,7 @@
 import template from './sw-customer-address-form-options.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -46,12 +46,19 @@ export default {
         },
 
         onChangeDefaultShippingAddress(active) {
-            this.$emit('default-address-change', { name: 'shipping-address', id: this.address.id, value: active });
+            this.$emit('default-address-change', {
+                name: 'shipping-address',
+                id: this.address.id,
+                value: active,
+            });
         },
 
         onChangeDefaultBillingAddress(active) {
-            this.$emit('default-address-change', { name: 'billing-address', id: this.address.id, value: active });
+            this.$emit('default-address-change', {
+                name: 'billing-address',
+                id: this.address.id,
+                value: active,
+            });
         },
     },
-
 };

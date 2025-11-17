@@ -11,13 +11,13 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @phpstan-import-type MappingArray from Mapping
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class MappingCollection extends Collection
 {
     /**
      * @var array<string, string>
      */
-    protected $reverseIndex = [];
+    protected array $reverseIndex = [];
 
     /**
      * @param Mapping $mapping
@@ -29,7 +29,7 @@ class MappingCollection extends Collection
     }
 
     /**
-     * @param string  $key
+     * @param string $key
      * @param Mapping $mapping
      */
     public function set($key, $mapping): void
@@ -58,7 +58,7 @@ class MappingCollection extends Collection
     }
 
     /**
-     * @param iterable<string|MappingArray|Mapping|MappingCollection> $data
+     * @param iterable<string|MappingArray|Mapping>|MappingCollection $data
      */
     public static function fromIterable(iterable $data): self
     {

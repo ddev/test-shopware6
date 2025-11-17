@@ -1,9 +1,17 @@
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 Shopware.Mixin.register('media-sidebar-modal-mixin', {
+    inject: [
+        'mediaService',
+        'acl',
+    ],
 
-    inject: ['mediaService', 'acl'],
+    emits: [
+        'media-sidebar-items-delete',
+        'media-sidebar-folder-items-dissolve',
+        'media-sidebar-items-move',
+    ],
 
     data() {
         return {

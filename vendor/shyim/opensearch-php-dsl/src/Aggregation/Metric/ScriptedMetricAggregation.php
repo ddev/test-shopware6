@@ -36,7 +36,7 @@ class ScriptedMetricAggregation extends AbstractAggregation
         ?string $initScript = null,
         ?string $mapScript = null,
         ?string $combineScript = null,
-        ?string $reduceScript = null
+        ?string $reduceScript = null,
     ) {
         parent::__construct($name);
 
@@ -94,9 +94,6 @@ class ScriptedMetricAggregation extends AbstractAggregation
         return $this;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getArray(): array
     {
         return array_filter(

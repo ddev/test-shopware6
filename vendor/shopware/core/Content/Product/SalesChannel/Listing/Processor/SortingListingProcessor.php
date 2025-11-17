@@ -14,6 +14,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,8 @@ use Symfony\Component\HttpFoundation\Request;
 class SortingListingProcessor extends AbstractListingProcessor
 {
     /**
+     * @param EntityRepository<ProductSortingCollection> $sortingRepository
+     *
      * @internal
      */
     public function __construct(
@@ -38,18 +41,26 @@ class SortingListingProcessor extends AbstractListingProcessor
     public function prepare(Request $request, Criteria $criteria, SalesChannelContext $context): void
     {
         if (!$request->get('order')) {
-            $request->request->set('order', $this->getSystemDefaultSorting($context));
+            $key = $request->get('search') ? 'core.listing.defaultSearchResultSorting' : 'core.listing.defaultSorting';
+            $request->request->set('order', $this->getDefaultSortingKey($key, $context));
         }
 
         /** @var ProductSortingCollection $sortings */
         $sortings = $criteria->getExtension('sortings') ?? new ProductSortingCollection();
         $sortings->merge($this->getAvailableSortings($request, $context->getContext()));
 
-        $currentSorting = $this->getCurrentSorting($sortings, $request);
+        $currentSorting = $this->getCurrentSorting($sortings, $request, $context->getSalesChannelId());
 
-        $criteria->addSorting(
-            ...$currentSorting->createDalSorting()
-        );
+        if ($currentSorting !== null) {
+            $fallbackSorting = null;
+            if ($this->hasQueriesOrTerm($criteria)) {
+                $fallbackSorting = new FieldSorting('_score', FieldSorting::DESCENDING);
+            }
+
+            $criteria->addSorting(
+                ...$currentSorting->createDalSorting($fallbackSorting)
+            );
+        }
 
         $criteria->addExtension('sortings', $sortings);
     }
@@ -58,14 +69,21 @@ class SortingListingProcessor extends AbstractListingProcessor
     {
         /** @var ProductSortingCollection $sortings */
         $sortings = $result->getCriteria()->getExtension('sortings');
-        $currentSortingKey = $this->getCurrentSorting($sortings, $request)->getKey();
+        $currentSorting = $this->getCurrentSorting($sortings, $request, $context->getSalesChannelId());
 
-        $result->setSorting($currentSortingKey);
+        if ($currentSorting !== null) {
+            $result->setSorting($currentSorting->getKey());
+        }
 
         $result->setAvailableSortings($sortings);
     }
 
-    private function getCurrentSorting(ProductSortingCollection $sortings, Request $request): ProductSortingEntity
+    private function hasQueriesOrTerm(Criteria $criteria): bool
+    {
+        return !empty($criteria->getQueries()) || $criteria->getTerm();
+    }
+
+    private function getCurrentSorting(ProductSortingCollection $sortings, Request $request, string $salesChannelId): ?ProductSortingEntity
     {
         $key = $request->get('order');
 
@@ -78,42 +96,51 @@ class SortingListingProcessor extends AbstractListingProcessor
             return $sorting;
         }
 
-        throw ProductException::sortingNotFoundException($key);
+        return $sortings->get($this->systemConfigService->getString('core.listing.defaultSorting', $salesChannelId));
     }
 
     private function getAvailableSortings(Request $request, Context $context): ProductSortingCollection
     {
         $criteria = new Criteria();
         $criteria->setTitle('product-listing::load-sortings');
+        /** @var string[] $availableSortings */
         $availableSortings = $request->get('availableSortings');
-        $availableSortingsFilter = [];
+        $availableSortingsById = [];
 
         if ($availableSortings) {
             arsort($availableSortings, \SORT_DESC | \SORT_NUMERIC);
             $availableSortingsFilter = array_keys($availableSortings);
 
-            $criteria->addFilter(new EqualsAnyFilter('key', $availableSortingsFilter));
+            $availableSortingsById = array_filter($availableSortingsFilter, fn ($filter) => Uuid::isValid($filter));
+
+            $filter = new EqualsAnyFilter('id', $availableSortingsById);
+
+            $criteria->addFilter($filter);
         }
 
         $criteria
             ->addFilter(new EqualsFilter('active', true))
             ->addSorting(new FieldSorting('priority', 'DESC'));
 
-        /** @var ProductSortingCollection $sortings */
         $sortings = $this->sortingRepository->search($criteria, $context)->getEntities();
 
-        if ($availableSortings) {
-            $sortings->sortByKeyArray($availableSortingsFilter);
+        if ($availableSortingsById) {
+            $sortings->sortByIdArray($availableSortingsById);
         }
 
         return $sortings;
     }
 
-    private function getSystemDefaultSorting(SalesChannelContext $context): string
+    private function getDefaultSortingKey(string $key, SalesChannelContext $context): ?string
     {
-        return $this->systemConfigService->getString(
-            'core.listing.defaultSorting',
-            $context->getSalesChannel()->getId()
-        );
+        $id = $this->systemConfigService->getString($key, $context->getSalesChannelId());
+
+        if (!Uuid::isValid($id)) {
+            return $id;
+        }
+
+        $criteria = new Criteria([$id]);
+
+        return $this->sortingRepository->search($criteria, $context->getContext())->first()?->get('key');
     }
 }

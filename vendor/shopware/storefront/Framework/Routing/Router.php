@@ -14,7 +14,7 @@ use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Contracts\Service\ServiceSubscriberInterface;
 
-#[Package('storefront')]
+#[Package('framework')]
 class Router implements RouterInterface, RequestMatcherInterface, WarmableInterface, ServiceSubscriberInterface
 {
     /**
@@ -24,15 +24,18 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
 
     /**
      * @internal
+     *
+     * @param list<string> $allowedRoutes
      */
     public function __construct(
         private readonly SymfonyRouter $decorated,
-        private readonly RequestStack $requestStack
+        private readonly RequestStack $requestStack,
+        private readonly array $allowedRoutes = [],
     ) {
     }
 
     /**
-     * @return array<string, string>
+     * {@inheritDoc}
      */
     public static function getSubscribedServices(): array
     {
@@ -42,11 +45,14 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
     /**
      * @return array<string>
      */
-    public function warmUp(string $cacheDir): array
+    public function warmUp(string $cacheDir, ?string $buildDir = null): array
     {
-        return $this->decorated->warmUp($cacheDir);
+        return $this->decorated->warmUp($cacheDir, $buildDir);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function matchRequest(Request $request): array
     {
         if (!$request->attributes->has(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_ID)) {
@@ -78,6 +84,9 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
         return $this->decorated->getRouteCollection();
     }
 
+    /**
+     * @param array<string, mixed> $parameters
+     */
     public function generate(string $name, array $parameters = [], int $referenceType = self::ABSOLUTE_PATH): string
     {
         $basePath = $this->getBasePath();
@@ -93,14 +102,14 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
 
         $salesChannelBaseUrl = $this->getSalesChannelBaseUrl();
 
+        $schema = '';
         // we need to insert the sales channel base url between the baseUrl and the infoPath
         switch ($referenceType) {
-            case self::NETWORK_PATH:
             case self::ABSOLUTE_URL:
-                $schema = '';
-                if ($referenceType === self::ABSOLUTE_URL) {
-                    $schema = $this->getContext()->getScheme() . ':';
-                }
+                $schema = $this->getContext()->getScheme() . ':';
+                // intentional no break
+                // no break
+            case self::NETWORK_PATH:
                 $schemaAuthority = $schema . '//' . $this->getContext()->getHost();
 
                 if ($this->getContext()->getHttpPort() !== 80) {
@@ -143,6 +152,9 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
         return $rewrite;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function match(string $pathinfo): array
     {
         return $this->decorated->match($pathinfo);
@@ -150,7 +162,7 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
 
     private function removePrefix(string $subject, string $prefix): string
     {
-        if (!$prefix || mb_strpos($subject, $prefix) !== 0) {
+        if (!$prefix || !str_starts_with($subject, $prefix)) {
             return $subject;
         }
 
@@ -159,7 +171,7 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
 
     private function getSalesChannelBaseUrl(): string
     {
-        $request = $this->requestStack->getMainRequest();
+        $request = $this->requestStack->getCurrentRequest();
         if (!$request) {
             return '';
         }
@@ -175,7 +187,7 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
 
     private function getBasePath(): string
     {
-        $request = $this->requestStack->getMainRequest();
+        $request = $this->requestStack->getCurrentRequest();
         if (!$request) {
             return '';
         }
@@ -185,6 +197,10 @@ class Router implements RouterInterface, RequestMatcherInterface, WarmableInterf
 
     private function isStorefrontRoute(string $name): bool
     {
+        if (\in_array($name, $this->allowedRoutes, true)) {
+            return true;
+        }
+
         return str_starts_with($name, 'frontend.')
             || str_starts_with($name, 'widgets.')
             || str_starts_with($name, 'payment.');

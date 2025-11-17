@@ -4,11 +4,11 @@ namespace Shopware\Storefront\Page\Cms;
 
 use Shopware\Core\Content\Media\Cms\AbstractDefaultMediaResolver;
 use Shopware\Core\Content\Media\MediaEntity;
-use Shopware\Core\Framework\Adapter\Translation\Translator;
+use Shopware\Core\Framework\Adapter\Translation\AbstractTranslator;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\Asset\Packages;
 
-#[Package('content')]
+#[Package('discovery')]
 class DefaultMediaResolver extends AbstractDefaultMediaResolver
 {
     private const CMS_SNIPPET_DEFAULT_MEDIA_NAME = 'component.cms.defaultMedia';
@@ -18,7 +18,7 @@ class DefaultMediaResolver extends AbstractDefaultMediaResolver
      */
     public function __construct(
         private readonly AbstractDefaultMediaResolver $decorated,
-        private readonly Translator $translator,
+        private readonly AbstractTranslator $translator,
         private readonly Packages $packages
     ) {
     }
@@ -46,7 +46,7 @@ class DefaultMediaResolver extends AbstractDefaultMediaResolver
         ]);
 
         // add the asset url
-        $media->setUrl($package->getUrl('/bundles/' . $mediaAssetFilePath));
+        $media->setUrl($package->getUrl($mediaAssetFilePath));
 
         return $media;
     }

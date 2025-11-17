@@ -10,11 +10,12 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Migration\Traits\ImportTranslationsTrait;
 use Shopware\Core\Migration\Traits\Translations;
+use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('after-sales')]
 class Migration1672931011ReviewFormMailTemplate extends MigrationStep
 {
     use ImportTranslationsTrait;
@@ -91,16 +92,14 @@ class Migration1672931011ReviewFormMailTemplate extends MigrationStep
         $this->importTranslation('mail_template_translation', $translations, $connection);
     }
 
-    public function updateDestructive(Connection $connection): void
-    {
-    }
-
     private function getMailTemplateContent(string $locale, bool $html): string
     {
-        $enHtml = \file_get_contents(__DIR__ . '/../Fixtures/mails/review_form/en-html.html.twig');
-        $enPlain = \file_get_contents(__DIR__ . '/../Fixtures/mails/review_form/en-plain.html.twig');
-        $deHtml = \file_get_contents(__DIR__ . '/../Fixtures/mails/review_form/de-html.html.twig');
-        $dePlain = \file_get_contents(__DIR__ . '/../Fixtures/mails/review_form/de-plain.html.twig');
+        $filesystem = new Filesystem();
+
+        $enHtml = $filesystem->readFile(__DIR__ . '/../Fixtures/mails/review_form/en-html.html.twig');
+        $enPlain = $filesystem->readFile(__DIR__ . '/../Fixtures/mails/review_form/en-plain.html.twig');
+        $deHtml = $filesystem->readFile(__DIR__ . '/../Fixtures/mails/review_form/de-html.html.twig');
+        $dePlain = $filesystem->readFile(__DIR__ . '/../Fixtures/mails/review_form/de-plain.html.twig');
 
         $templateContentMapping = [
             self::LOCALE_EN_GB => [
@@ -112,10 +111,6 @@ class Migration1672931011ReviewFormMailTemplate extends MigrationStep
                 'plain' => $dePlain,
             ],
         ];
-
-        if (!\is_string($templateContentMapping[$locale][$html ? 'html' : 'plain'])) {
-            throw new \RuntimeException(\sprintf('Could not MailTemplate data with locale %s', $locale));
-        }
 
         return $templateContentMapping[$locale][$html ? 'html' : 'plain'];
     }

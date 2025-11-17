@@ -4,7 +4,7 @@ const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     mixins: [
@@ -25,6 +25,7 @@ export default {
                 this.element.config.content.source = 'mapped';
                 this.element.config.content.value = 'product.name';
             }
+            this.updateDemoValue();
         },
 
         updateDemoValue() {

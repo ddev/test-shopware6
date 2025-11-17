@@ -17,7 +17,7 @@ use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\DebitPayment;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\InvoicePayment;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\PrePayment;
 use Shopware\Core\Content\Category\CategoryDefinition;
-use Shopware\Core\Content\MailTemplate\MailTemplateActions;
+use Shopware\Core\Content\Flow\Dispatching\Action\SendMailAction;
 use Shopware\Core\Content\MailTemplate\MailTemplateTypes;
 use Shopware\Core\Content\Newsletter\Event\NewsletterConfirmEvent;
 use Shopware\Core\Content\Newsletter\Event\NewsletterRegisterEvent;
@@ -34,7 +34,7 @@ use Shopware\Core\System\DeliveryTime\DeliveryTimeEntity;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1536233560BasicData extends MigrationStep
 {
     /**
@@ -73,7 +73,6 @@ class Migration1536233560BasicData extends MigrationStep
         $this->createProductManufacturer($connection);
         $this->createDefaultSnippetSets($connection);
         $this->createDefaultMediaFolders($connection);
-        $this->createRules($connection);
         $this->createMailTemplateTypes($connection);
         $this->createNewsletterMailTemplate($connection);
         $this->createDocumentConfiguration($connection);
@@ -781,10 +780,6 @@ class Migration1536233560BasicData extends MigrationStep
         $languageEN = Uuid::fromHexToBytes(Defaults::LANGUAGE_SYSTEM);
         $languageDE = Uuid::fromHexToBytes($this->getDeDeLanguageId());
 
-        $ruleId = Uuid::randomBytes();
-        $connection->insert('rule', ['id' => $ruleId, 'name' => 'Cart >= 0 (Payment)', 'priority' => 100, 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-        $connection->insert('rule_condition', ['id' => Uuid::randomBytes(), 'rule_id' => $ruleId, 'type' => 'cartCartAmount', 'value' => json_encode(['operator' => '>=', 'amount' => 0]), 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-
         $debit = Uuid::randomBytes();
         $connection->insert('payment_method', ['id' => $debit, 'handler_identifier' => DebitPayment::class, 'position' => 4, 'active' => 0, 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
         $connection->insert('payment_method_translation', ['payment_method_id' => $debit, 'language_id' => $languageEN, 'name' => 'Direct Debit', 'description' => 'Additional text', 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
@@ -1015,7 +1010,7 @@ class Migration1536233560BasicData extends MigrationStep
     private function getMediaFolderName(string $entity): string
     {
         $capitalizedEntityParts = array_map(
-            static fn ($part) => ucfirst((string) $part),
+            static fn ($part) => ucfirst($part),
             explode('_', $entity)
         );
 
@@ -1270,22 +1265,6 @@ class Migration1536233560BasicData extends MigrationStep
 
         // set initial state
         $connection->update('state_machine', ['initial_state_id' => $openId], ['id' => $stateMachineId]);
-    }
-
-    private function createRules(Connection $connection): void
-    {
-        $sundaySaleRuleId = Uuid::randomBytes();
-        $connection->insert('rule', ['id' => $sundaySaleRuleId, 'name' => 'Sunday sales', 'priority' => 2, 'invalid' => 0, 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-        $connection->insert('rule_condition', ['id' => Uuid::randomBytes(), 'rule_id' => $sundaySaleRuleId, 'type' => 'dayOfWeek', 'value' => json_encode(['operator' => '=', 'dayOfWeek' => 7]), 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-
-        $allCustomersRuleId = Uuid::randomBytes();
-        $connection->insert('rule', ['id' => $allCustomersRuleId, 'name' => 'All customers', 'priority' => 1, 'invalid' => 0, 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-        $connection->insert('rule_condition', ['id' => Uuid::randomBytes(), 'rule_id' => $allCustomersRuleId, 'type' => 'customerCustomerGroup', 'value' => json_encode(['operator' => '=', 'customerGroupIds' => ['cfbd5018d38d41d8adca10d94fc8bdd6']]), 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-
-        $usaCountryId = $connection->executeQuery('SELECT LOWER(hex(id)) FROM country WHERE `iso3` = "USA"')->fetchOne();
-        $usaRuleId = Uuid::randomBytes();
-        $connection->insert('rule', ['id' => $usaRuleId, 'name' => 'Customers from USA', 'priority' => 100, 'invalid' => 0, 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
-        $connection->insert('rule_condition', ['id' => Uuid::randomBytes(), 'rule_id' => $usaRuleId, 'type' => 'customerBillingCountry', 'value' => json_encode(['operator' => '=', 'countryIds' => [$usaCountryId]]), 'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)]);
     }
 
     private function createSalutation(Connection $connection): void
@@ -2134,7 +2113,7 @@ class Migration1536233560BasicData extends MigrationStep
             [
                 'id' => Uuid::randomBytes(),
                 'event_name' => CheckoutOrderPlacedEvent::EVENT_NAME,
-                'action_name' => MailTemplateActions::MAIL_TEMPLATE_MAIL_SEND_ACTION,
+                'action_name' => SendMailAction::ACTION_NAME,
                 'config' => json_encode([
                     'mail_template_type_id' => $this->getMailTypeMapping()[MailTemplateTypes::MAILTYPE_ORDER_CONFIRM]['id'],
                 ], \JSON_THROW_ON_ERROR),
@@ -2307,7 +2286,7 @@ class Migration1536233560BasicData extends MigrationStep
             [
                 'id' => Uuid::randomBytes(),
                 'event_name' => CustomerRegisterEvent::EVENT_NAME,
-                'action_name' => MailTemplateActions::MAIL_TEMPLATE_MAIL_SEND_ACTION,
+                'action_name' => SendMailAction::ACTION_NAME,
                 'config' => json_encode([
                     'mail_template_type_id' => $this->getMailTypeMapping()[MailTemplateTypes::MAILTYPE_CUSTOMER_REGISTER]['id'],
                 ], \JSON_THROW_ON_ERROR),
@@ -2320,7 +2299,7 @@ class Migration1536233560BasicData extends MigrationStep
             [
                 'id' => Uuid::randomBytes(),
                 'event_name' => NewsletterRegisterEvent::EVENT_NAME,
-                'action_name' => MailTemplateActions::MAIL_TEMPLATE_MAIL_SEND_ACTION,
+                'action_name' => SendMailAction::ACTION_NAME,
                 'config' => json_encode([
                     'mail_template_type_id' => $this->getMailTypeMapping()['newsletterDoubleOptIn']['id'],
                 ], \JSON_THROW_ON_ERROR),
@@ -2333,7 +2312,7 @@ class Migration1536233560BasicData extends MigrationStep
             [
                 'id' => Uuid::randomBytes(),
                 'event_name' => NewsletterConfirmEvent::EVENT_NAME,
-                'action_name' => MailTemplateActions::MAIL_TEMPLATE_MAIL_SEND_ACTION,
+                'action_name' => SendMailAction::ACTION_NAME,
                 'config' => json_encode([
                     'mail_template_type_id' => $this->getMailTypeMapping()['newsletterRegister']['id'],
                 ], \JSON_THROW_ON_ERROR),

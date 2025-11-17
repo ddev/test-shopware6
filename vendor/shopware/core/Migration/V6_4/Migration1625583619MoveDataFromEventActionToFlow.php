@@ -21,7 +21,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @phpstan-import-type SequenceData from Migration1648803451FixInvalidMigrationOfBusinessEventToFlow
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1625583619MoveDataFromEventActionToFlow extends MigrationStep
 {
     private const RECIPIENT_TYPE_DEFAULT = 'default';
@@ -478,6 +478,6 @@ class Migration1625583619MoveDataFromEventActionToFlow extends MigrationStep
             'type' => $type,
         ];
 
-        return (string) json_encode($result, \JSON_THROW_ON_ERROR);
+        return json_encode($result, \JSON_THROW_ON_ERROR);
     }
 }

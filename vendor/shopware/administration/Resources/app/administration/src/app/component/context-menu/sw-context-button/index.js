@@ -1,13 +1,10 @@
 import template from './sw-context-button.html.twig';
 import './sw-context-button.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type dynamic
  * @component-example
@@ -17,10 +14,12 @@ const { Component } = Shopware;
  *     </sw-context-menu-item>
  * </sw-context-button>
  */
-Component.register('sw-context-button', {
+export default {
     template,
 
     inject: ['feature'],
+
+    emits: ['on-open-change'],
 
     props: {
         showMenuOnStartup: {
@@ -43,7 +42,10 @@ Component.register('sw-context-button', {
                 if (!value.length) {
                     return true;
                 }
-                return ['right', 'left'].includes(value);
+                return [
+                    'right',
+                    'left',
+                ].includes(value);
             },
         },
 
@@ -55,7 +57,10 @@ Component.register('sw-context-button', {
                 if (!value.length) {
                     return true;
                 }
-                return ['bottom', 'top'].includes(value);
+                return [
+                    'bottom',
+                    'top',
+                ].includes(value);
             },
         },
 
@@ -63,6 +68,12 @@ Component.register('sw-context-button', {
             type: String,
             required: false,
             default: 'solid-ellipsis-h-s',
+        },
+
+        iconSize: {
+            type: String,
+            required: false,
+            default: '16px',
         },
 
         disabled: {
@@ -74,7 +85,6 @@ Component.register('sw-context-button', {
         autoClose: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -97,6 +107,12 @@ Component.register('sw-context-button', {
             type: Number,
             required: false,
             default: 1100,
+        },
+
+        ariaLabel: {
+            type: String,
+            required: false,
+            default: 'sw-context-button.ariaLabel',
         },
     },
 
@@ -179,10 +195,10 @@ Component.register('sw-context-button', {
             }
 
             // only close the menu on inside clicks if autoclose is active
-            const shouldCloseOnInsideClick = (this.autoClose && !clickedInside);
+            const shouldCloseOnInsideClick = this.autoClose && !clickedInside;
 
             // close menu when there is no native event (when vue event is triggered) or user clicked outside
-            if ((!event || !event.target) || shouldCloseOnInsideClick) {
+            if (!event || !event.target || shouldCloseOnInsideClick) {
                 return this.closeMenu();
             }
 
@@ -195,4 +211,4 @@ Component.register('sw-context-button', {
             document.removeEventListener('click', this.handleClickEvent);
         },
     },
-});
+};

@@ -3,6 +3,7 @@
 namespace Shopware\Core\Framework\DataAbstractionLayer\EntityProtection;
 
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntitySearchedEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\AssociationField;
@@ -16,9 +17,13 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class EntityProtectionValidator implements EventSubscriberInterface
 {
+    public function __construct(private readonly DefinitionInstanceRegistry $definitionRegistry)
+    {
+    }
+
     /**
      * @return array<string, string|array{0: string, 1: int}|list<array{0: string, 1?: int}>>
      */
@@ -47,7 +52,7 @@ class EntityProtectionValidator implements EventSubscriberInterface
                 }
 
                 throw new AccessDeniedHttpException(
-                    sprintf('API access for entity "%s" not allowed.', $pathSegment['entity'])
+                    \sprintf('API access for entity "%s" not allowed.', $pathSegment['entity'])
                 );
             }
         }
@@ -61,7 +66,7 @@ class EntityProtectionValidator implements EventSubscriberInterface
 
         if ($readProtection && !$readProtection->isAllowed($context->getScope())) {
             throw new AccessDeniedHttpException(
-                sprintf(
+                \sprintf(
                     'Read access to entity "%s" not allowed for scope "%s".',
                     $definition->getEntityName(),
                     $context->getScope()
@@ -84,12 +89,14 @@ class EntityProtectionValidator implements EventSubscriberInterface
                 continue;
             }
 
-            $writeProtection = $command->getDefinition()->getProtections()->get(WriteProtection::class);
+            $definition = $this->definitionRegistry->getByEntityName($command->getEntityName());
+
+            $writeProtection = $definition->getProtections()->get(WriteProtection::class);
             if ($writeProtection && !$writeProtection->isAllowed($event->getContext()->getScope())) {
                 throw new AccessDeniedHttpException(
-                    sprintf(
+                    \sprintf(
                         'Write access to entity "%s" are not allowed in scope "%s".',
-                        $command->getDefinition()->getEntityName(),
+                        $command->getEntityName(),
                         $event->getContext()->getScope()
                     )
                 );
@@ -113,7 +120,7 @@ class EntityProtectionValidator implements EventSubscriberInterface
             $readProtection = $associationDefinition->getProtections()->get(ReadProtection::class);
             if ($readProtection && !$readProtection->isAllowed($context->getScope())) {
                 throw new AccessDeniedHttpException(
-                    sprintf(
+                    \sprintf(
                         'Read access to nested association "%s" on entity "%s" not allowed for scope "%s".',
                         $associationName,
                         $definition->getEntityName(),

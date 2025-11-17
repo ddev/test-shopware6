@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class WriteException extends ShopwareHttpException
 {
     private const MESSAGE = "There are {{ errorCount }} error(s) while writing data.\n\n{{ messagesString }}";
@@ -77,7 +77,7 @@ class WriteException extends ShopwareHttpException
             $pointer = $error['source']['pointer'] ?? '/';
             \assert(\is_string($pointer));
             \assert(\is_string($error['detail']));
-            $messages[] = sprintf('%d. [%s] %s', $index + 1, $pointer, $error['detail']);
+            $messages[] = \sprintf('%d. [%s] %s', $index + 1, $pointer, $error['detail']);
         }
 
         $messagesString = implode(\PHP_EOL, $messages);

@@ -3,6 +3,8 @@
 namespace Shopware\Core\Framework\Test\TestCaseBase;
 
 use League\Flysystem\Filesystem;
+use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\Before;
 use Shopware\Core\Framework\Test\Filesystem\Adapter\MemoryAdapterFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -14,7 +16,7 @@ trait FilesystemBehaviour
     public function getFilesystem(string $serviceId): Filesystem
     {
         /** @var Filesystem $filesystem */
-        $filesystem = $this->getContainer()->get($serviceId);
+        $filesystem = static::getContainer()->get($serviceId);
 
         return $filesystem;
     }
@@ -29,11 +31,8 @@ trait FilesystemBehaviour
         return $this->getFilesystem('shopware.filesystem.private');
     }
 
-    /**
-     * @after
-     *
-     * @before
-     */
+    #[After]
+    #[Before]
     public function removeWrittenFilesAfterFilesystemTests(): void
     {
         MemoryAdapterFactory::clearInstancesMemory();

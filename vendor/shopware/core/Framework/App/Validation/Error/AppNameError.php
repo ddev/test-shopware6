@@ -7,14 +7,14 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class AppNameError extends Error
 {
     private const KEY = 'invalid-app-name';
 
     public function __construct(string $appName)
     {
-        $this->message = sprintf(
+        $this->message = \sprintf(
             'The technical app name "%s" in the "manifest.xml" and the folder name must be equal.',
             $appName
         );

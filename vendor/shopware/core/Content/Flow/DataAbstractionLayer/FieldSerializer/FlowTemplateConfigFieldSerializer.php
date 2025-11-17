@@ -2,9 +2,9 @@
 
 namespace Shopware\Core\Content\Flow\DataAbstractionLayer\FieldSerializer;
 
-use Shopware\Core\Content\Flow\DataAbstractionLayer\Field\FlowTemplateConfigField;
-use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
+use Shopware\Core\Content\Flow\FlowException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer\JsonFieldSerializer;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
@@ -12,6 +12,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Json;
 use Shopware\Core\Framework\Validation\Constraint\Uuid;
+use Symfony\Component\Validator\Constraints\All;
 use Symfony\Component\Validator\Constraints\Collection;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Optional;
@@ -20,7 +21,7 @@ use Symfony\Component\Validator\Constraints\Type;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('after-sales')]
 class FlowTemplateConfigFieldSerializer extends JsonFieldSerializer
 {
     public function encode(
@@ -29,8 +30,8 @@ class FlowTemplateConfigFieldSerializer extends JsonFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        if (!$field instanceof FlowTemplateConfigField) {
-            throw DataAbstractionLayerException::invalidSerializerField(FlowTemplateConfigField::class, $field);
+        if (!$field instanceof StorageAware) {
+            throw FlowException::invalidSerializerField(self::class, $field::class);
         }
 
         $this->validateIfNeeded($field, $existence, $data, $parameters);
@@ -64,19 +65,15 @@ class FlowTemplateConfigFieldSerializer extends JsonFieldSerializer
     protected function getConstraints(Field $field): array
     {
         return [
-            new Collection([
-                'allowExtraFields' => true,
-                'allowMissingFields' => false,
-                'fields' => [
+            new Collection(
+                fields: [
                     'eventName' => [new NotBlank(), new Type('string')],
                     'description' => [new Type('string')],
                     'sequences' => [
-                        [
+                        new All(constraints: [
                             new Optional(
-                                new Collection([
-                                    'allowExtraFields' => true,
-                                    'allowMissingFields' => false,
-                                    'fields' => [
+                                new Collection(
+                                    fields: [
                                         'id' => [new NotBlank(), new Uuid()],
                                         'actionName' => [new NotBlank(), new Type('string')],
                                         'parentId' => [new Uuid()],
@@ -86,12 +83,16 @@ class FlowTemplateConfigFieldSerializer extends JsonFieldSerializer
                                         'displayGroup' => [new Type('numeric')],
                                         'config' => [new Type('array')],
                                     ],
-                                ])
+                                    allowExtraFields: true,
+                                    allowMissingFields: false
+                                )
                             ),
-                        ],
+                        ]),
                     ],
                 ],
-            ]),
+                allowExtraFields: true,
+                allowMissingFields: false
+            ),
         ];
     }
 }

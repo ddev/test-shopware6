@@ -1,22 +1,18 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_condition_base_field_condition %}
 <sw-condition-type-select
     :condition="condition"
-    :disabled="disabled"
+    :disabled="disabled || undefined"
     :available-types="extendedTypes"
 />
 {% endblock %}
 
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_condition_value_content %}
 <div class="sw-condition-not-found">
-    <sw-textarea-field
-        {% if VUE3 %}
-        v-model:value="value"
-        {% else %}
+    <mt-text-field
         v-model="value"
-        {% endif %}
-        size="medium"
+        name="sw-field--value"
+        size="default"
+        :copyable="true"
         :disabled="true"
     />
 </div>

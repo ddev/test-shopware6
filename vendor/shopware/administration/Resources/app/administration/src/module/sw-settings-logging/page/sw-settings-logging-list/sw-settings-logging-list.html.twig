@@ -1,8 +1,6 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_settings_list %}
 <sw-page class="sw-settings-logging-list">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_logging_list_search_bar %}
     <template #search-bar>
         <sw-search-bar
@@ -14,18 +12,15 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_logging_list_smart_bar_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_logging_list_smart_bar_header_title %}
         <h2>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_logging_list_smart_bar_header_title_text %}
             {{ $tc('sw-settings.index.title') }}
-            <sw-icon
+            <mt-icon
                 name="regular-chevron-right-xs"
-                small
+                size="12px"
             />
             {{ $tc('sw-settings-logging.list.title') }}
             {% endblock %}
@@ -34,22 +29,19 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_logging_list_smart_bar_actions %}
     <template #smart-bar-actions></template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_logging_list_content %}
     <template #content>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_logging_list_content_listing %}
         <sw-entity-listing
-            :data-source="logs"
+            :items="logs"
             :columns="logColumns"
             :full-page="true"
             :show-settings="true"
-            :show-selection="false"
+            :show-selection="undefined"
             :show-actions="true"
             :sort-by="sortBy"
             :sort-direction="sortDirection"
@@ -62,16 +54,14 @@
             <template
                 #column-createdAt="{ item }"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_logging_list_column_created_at %}
-                {{ dateFilter(item.createdAt, { hour: '2-digit', minute: '2-digit' }) }}
+                <sw-time-ago :date="item.createdAt" />
                 {% endblock %}
             </template>
 
             <template
                 #column-level="{ item }"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_logging_list_column_level %}
                 {{ logLevelToString(item.level) }} ({{ item.level }})
                 {% endblock %}
@@ -80,20 +70,19 @@
             <template
                 #column-context="{ item }"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_logging_list_column_context %}
                 <a
                     role="button"
                     tabindex="0"
                     @click="showInfoModal(item)"
-                    @keydown.enter="showInfoModal(item)">
+                    @keydown.enter="showInfoModal(item)"
+                >
                     {{ item.context }}
                 </a>
                 {% endblock %}
             </template>
 
             <template #pagination>
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_logging_list_content_listing_pagination %}
                 <sw-pagination
                     :page="page"
@@ -108,10 +97,8 @@
             <template
                 #actions="{ item }"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_logging_list_content_listing_actions %}
                 <sw-context-menu-item @click="showInfoModal(item)">
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_settings_logging_list_content_listing_action_show_label %}
                     {{ $tc('sw-settings-logging.list.actionShowInfo') }}
                     {% endblock %}
@@ -122,11 +109,11 @@
         </sw-entity-listing>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_logging_list_content_info_modal %}
         <component
             :is="modalNameFromLogEntry"
             v-if="displayedLog !== null"
+            class="sw-settings-logging-list__custom-content"
             :log-entry="displayedLog"
             @close="closeInfoModal"
         />
@@ -134,11 +121,9 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_logging_list_sidebar %}
     <template #sidebar>
         <sw-sidebar class="sw-settings-logging-list__sidebar">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_settings_logging_list_sidebar_refresh %}
             <sw-sidebar-item
                 icon="regular-undo"

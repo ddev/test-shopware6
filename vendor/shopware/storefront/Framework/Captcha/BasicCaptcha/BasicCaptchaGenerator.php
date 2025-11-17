@@ -6,7 +6,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Random;
 use Symfony\Component\Filesystem\Filesystem;
 
-#[Package('storefront')]
+#[Package('framework')]
 class BasicCaptchaGenerator extends AbstractBasicCaptchaGenerator
 {
     private const FALLBACK_WIDTH_IMAGE = 390;
@@ -41,7 +41,6 @@ class BasicCaptchaGenerator extends AbstractBasicCaptchaGenerator
         ob_start();
         imagepng($img, null, 9);
         $image = (string) ob_get_clean();
-        imagedestroy($img);
         $image = base64_encode($image);
 
         return new BasicCaptchaImage($code, $image);

@@ -8,36 +8,21 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Snippet\Aggregate\SnippetSet\SnippetSetEntity;
 
-#[Package('system-settings')]
+#[Package('discovery')]
 class SnippetEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $setId;
+    protected string $setId;
 
-    /**
-     * @var string
-     */
-    protected $translationKey;
+    protected string $translationKey;
 
-    /**
-     * @var string
-     */
-    protected $value;
+    protected string $value;
 
-    /**
-     * @var string
-     */
-    protected $author;
+    protected string $author;
 
-    /**
-     * @var SnippetSetEntity|null
-     */
-    protected $set;
+    protected ?SnippetSetEntity $set = null;
 
     public function getSetId(): string
     {
@@ -64,7 +49,7 @@ class SnippetEntity extends Entity
         return $this->value;
     }
 
-    public function setValue(?string $value): void
+    public function setValue(string $value): void
     {
         $this->value = $value;
     }

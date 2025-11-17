@@ -2,10 +2,10 @@ import template from './sw-first-run-wizard-modal.html.twig';
 import './sw-first-run-wizard-modal.scss';
 
 /**
- * @package services-settings
- * @deprecated tag:v6.6.0 - Will be private
+ * @sw-package fundamentals@after-sales
+ *
+ * @private
  */
-// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
@@ -23,68 +23,6 @@ export default {
                 variant: 'large',
                 navigationIndex: 0,
             },
-            stepper: {
-                welcome: {
-                    name: 'sw.first.run.wizard.index.welcome',
-                    variant: 'large',
-                    navigationIndex: 0,
-                },
-                'data-import': {
-                    name: 'sw.first.run.wizard.index.data-import',
-                    variant: 'large',
-                    navigationIndex: 1,
-                },
-                defaults: {
-                    name: 'sw.first.run.wizard.index.defaults',
-                    variant: 'large',
-                    navigationIndex: 2,
-                },
-                'mailer.selection': {
-                    name: 'sw.first.run.wizard.index.mailer.selection',
-                    variant: 'large',
-                    navigationIndex: 3,
-                },
-                'mailer.smtp': {
-                    name: 'sw.first.run.wizard.index.mailer.setup',
-                    variant: 'large',
-                    navigationIndex: 3,
-                },
-                'paypal.info': {
-                    name: 'sw.first.run.wizard.index.paypal.info',
-                    variant: 'large',
-                    navigationIndex: 4,
-                },
-                'paypal.credentials': {
-                    name: 'sw.first.run.wizard.index.paypal.credentials',
-                    variant: 'large',
-                    navigationIndex: 4,
-                },
-                plugins: {
-                    name: 'sw.first.run.wizard.index.plugins',
-                    variant: 'large',
-                    navigationIndex: 5,
-                },
-                'shopware.account': {
-                    name: 'sw.first.run.wizard.index.shopware.account',
-                    variant: 'large',
-                    navigationIndex: 6,
-                },
-                'shopware.domain': {
-                    name: 'sw.first.run.wizard.index.shopware.domain',
-                    variant: 'large',
-                    navigationIndex: 6,
-                },
-                store: {
-                    name: 'sw.first.run.wizard.index.store',
-                    variant: 'large',
-                    navigationIndex: 7,
-                },
-                finish: {
-                    name: 'sw.first.run.wizard.index.finish',
-                    variant: 'large',
-                    navigationIndex: 8,
-                },
-            },
         };
     },
 
@@ -96,11 +34,7 @@ export default {
 
     computed: {
         columns() {
-            const res = this.showSteps
-                ? '1fr 4fr'
-                : '1fr';
-
-            return res;
+            return this.showSteps ? '1fr 4fr' : '1fr';
         },
 
         variant() {
@@ -158,16 +92,133 @@ export default {
             return currentSteps;
         },
 
+        extensionManagementDisabled() {
+            return Shopware.Store.get('context').app.config.settings?.disableExtensionManagement;
+        },
+
         isClosable() {
             return !Shopware.Context.app.firstRunWizard;
+        },
+
+        stepper() {
+            if (Shopware.Store.get('context').app.config.settings?.disableExtensionManagement) {
+                return {
+                    welcome: {
+                        name: 'sw.first.run.wizard.index.welcome',
+                        variant: 'large',
+                        navigationIndex: 0,
+                    },
+                    defaults: {
+                        name: 'sw.first.run.wizard.index.defaults',
+                        variant: 'large',
+                        navigationIndex: 1,
+                    },
+                    'mailer.selection': {
+                        name: 'sw.first.run.wizard.index.mailer.selection',
+                        variant: 'large',
+                        navigationIndex: 2,
+                    },
+                    'mailer.smtp': {
+                        name: 'sw.first.run.wizard.index.mailer.smtp',
+                        variant: 'large',
+                        navigationIndex: 2,
+                    },
+                    'mailer.local': {
+                        name: 'sw.first.run.wizard.index.mailer.local',
+                        variant: 'large',
+                        navigationIndex: 2,
+                    },
+                    'shopware.account': {
+                        name: 'sw.first.run.wizard.index.shopware.account',
+                        variant: 'large',
+                        navigationIndex: 3,
+                    },
+                    'shopware.domain': {
+                        name: 'sw.first.run.wizard.index.shopware.domain',
+                        variant: 'large',
+                        navigationIndex: 3,
+                    },
+                    finish: {
+                        name: 'sw.first.run.wizard.index.finish',
+                        variant: 'large',
+                        navigationIndex: 4,
+                    },
+                };
+            }
+
+            return {
+                welcome: {
+                    name: 'sw.first.run.wizard.index.welcome',
+                    variant: 'large',
+                    navigationIndex: 0,
+                },
+                'data-import': {
+                    name: 'sw.first.run.wizard.index.data-import',
+                    variant: 'large',
+                    navigationIndex: 1,
+                },
+                defaults: {
+                    name: 'sw.first.run.wizard.index.defaults',
+                    variant: 'large',
+                    navigationIndex: 2,
+                },
+                'mailer.selection': {
+                    name: 'sw.first.run.wizard.index.mailer.selection',
+                    variant: 'large',
+                    navigationIndex: 3,
+                },
+                'mailer.smtp': {
+                    name: 'sw.first.run.wizard.index.mailer.smtp',
+                    variant: 'large',
+                    navigationIndex: 3,
+                },
+                'mailer.local': {
+                    name: 'sw.first.run.wizard.index.mailer.local',
+                    variant: 'large',
+                    navigationIndex: 3,
+                },
+                'paypal.info': {
+                    name: 'sw.first.run.wizard.index.paypal.info',
+                    variant: 'large',
+                    navigationIndex: 4,
+                },
+                'paypal.credentials': {
+                    name: 'sw.first.run.wizard.index.paypal.credentials',
+                    variant: 'large',
+                    navigationIndex: 4,
+                },
+                plugins: {
+                    name: 'sw.first.run.wizard.index.plugins',
+                    variant: 'large',
+                    navigationIndex: 5,
+                },
+                'shopware.account': {
+                    name: 'sw.first.run.wizard.index.shopware.account',
+                    variant: 'large',
+                    navigationIndex: 6,
+                },
+                'shopware.domain': {
+                    name: 'sw.first.run.wizard.index.shopware.domain',
+                    variant: 'large',
+                    navigationIndex: 6,
+                },
+                store: {
+                    name: 'sw.first.run.wizard.index.store',
+                    variant: 'large',
+                    navigationIndex: 7,
+                },
+                finish: {
+                    name: 'sw.first.run.wizard.index.finish',
+                    variant: 'large',
+                    navigationIndex: 8,
+                },
+            };
         },
     },
 
     watch: {
-        '$route'(to) {
-            const toName = to.name.replace('sw.first.run.wizard.index.', '');
-
-            this.currentStep = this.stepper[toName];
+        $route(to) {
+            this.handleRouteUpdate(to);
         },
     },
 
@@ -182,6 +233,12 @@ export default {
     },
 
     methods: {
+        handleRouteUpdate(to) {
+            const toName = to.name.replace('sw.first.run.wizard.index.', '');
+
+            this.currentStep = this.stepper[toName];
+        },
+
         createdComponent() {
             this.firstRunWizardService.setFRWStart();
         },
@@ -212,10 +269,9 @@ export default {
         },
 
         finishFRW() {
-            this.firstRunWizardService.setFRWFinish()
-                .then(() => {
-                    document.location.href = document.location.origin + document.location.pathname;
-                });
+            this.firstRunWizardService.setFRWFinish().then(() => {
+                document.location.href = document.location.origin + document.location.pathname;
+            });
         },
 
         onExtensionActivated() {

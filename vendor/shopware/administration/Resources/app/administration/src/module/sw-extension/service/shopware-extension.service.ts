@@ -1,4 +1,4 @@
-import type { RawLocation, Location } from 'vue-router';
+import type { RouteLocationNamedRaw, RouteLocation } from 'vue-router';
 import type { AppModulesService, AppModuleDefinition } from 'src/core/service/api/app-modules.service';
 import type StoreApiService from 'src/core/service/api/store.api.service';
 import type { ShopwareDiscountCampaignService } from 'src/app/service/discount-campaign.service';
@@ -11,19 +11,19 @@ import type {
 } from './extension-store-action.service';
 
 type EXTENSION_VARIANT_TYPES = {
-    [Property in Uppercase<ExtensionVariantType>]: Lowercase<Property>
-}
+    [Property in Uppercase<ExtensionVariantType>]: Lowercase<Property>;
+};
 
 type EXTENSION_TYPES = {
-    [Property in Uppercase<ExtensionType>]: Lowercase<Property>
-}
+    [Property in Uppercase<ExtensionType>]: Lowercase<Property>;
+};
 
-interface LabeledLocation extends Location {
-    label: string|null
+interface LabeledLocation extends RouteLocation {
+    label: string | null;
 }
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default class ShopwareExtensionService {
@@ -49,6 +49,12 @@ export default class ShopwareExtensionService {
         });
     }
 
+    public async installAndActivateExtension(extensionName: string, type: ExtensionType): Promise<void> {
+        await this.extensionStoreActionService.installExtension(extensionName, type);
+        await this.extensionStoreActionService.activateExtension(extensionName, type);
+        await this.updateExtensionData();
+    }
+
     public async installExtension(extensionName: string, type: ExtensionType): Promise<void> {
         await this.extensionStoreActionService.installExtension(extensionName, type);
 
@@ -67,8 +73,8 @@ export default class ShopwareExtensionService {
         await this.updateExtensionData();
     }
 
-    public async removeExtension(extensionName: string, type: ExtensionType): Promise<void> {
-        await this.extensionStoreActionService.removeExtension(extensionName, type);
+    public async removeExtension(extensionName: string, type: ExtensionType, removeData: boolean): Promise<void> {
+        await this.extensionStoreActionService.removeExtension(extensionName, type, removeData);
 
         await this.updateExtensionData();
     }
@@ -89,29 +95,31 @@ export default class ShopwareExtensionService {
         await this.updateModules();
     }
 
-    public async updateExtensionData(): Promise<void> {
-        Shopware.State.commit('shopwareExtensions/loadMyExtensions');
+    public async updateExtensionData(refreshExtensions: boolean = true): Promise<void> {
+        Shopware.Store.get('shopwareExtensions').loadMyExtensions();
 
         try {
-            await this.extensionStoreActionService.refresh();
+            if (!Shopware.Store.get('context').app.config?.settings?.disableExtensionManagement && refreshExtensions) {
+                await this.extensionStoreActionService.refresh();
+            }
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const myExtensions = await this.extensionStoreActionService.getMyExtensions();
 
-            Shopware.State.commit('shopwareExtensions/myExtensions', myExtensions);
+            Shopware.Store.get('shopwareExtensions').setMyExtensions(myExtensions);
 
             await this.updateModules();
         } finally {
-            Shopware.State.commit('shopwareExtensions/setLoading', false);
+            Shopware.Store.get('shopwareExtensions').setLoading(false);
         }
     }
 
     public async checkLogin(): Promise<void> {
         try {
             const { userInfo } = await this.storeApiService.checkLogin();
-            Shopware.State.commit('shopwareExtensions/setUserInfo', userInfo);
+            Shopware.Store.get('shopwareExtensions').userInfo = userInfo;
         } catch {
-            Shopware.State.commit('shopwareExtensions/setUserInfo', null);
+            Shopware.Store.get('shopwareExtensions').userInfo = null;
         }
     }
 
@@ -126,9 +134,11 @@ export default class ShopwareExtensionService {
     }
 
     public isVariantDiscounted(variant: ExtensionVariant): boolean {
-        if (!variant || !variant.discountCampaign
-            || typeof variant.discountCampaign.discountedPrice !== 'number'
-            || variant.discountCampaign.discountedPrice === variant.netPrice
+        if (
+            !variant ||
+            !variant.discountCampaign ||
+            typeof variant.discountCampaign.discountedPrice !== 'number' ||
+            variant.discountCampaign.discountedPrice === variant.netPrice
         ) {
             return false;
         }
@@ -159,7 +169,7 @@ export default class ShopwareExtensionService {
         }
     }
 
-    public async getOpenLink(extension: Extension): Promise<null|RawLocation> {
+    public async getOpenLink(extension: Extension): Promise<null | LabeledLocation | RouteLocationNamedRaw> {
         if (extension.isTheme) {
             return this.getLinkToTheme(extension);
         }
@@ -174,7 +184,7 @@ export default class ShopwareExtensionService {
         }
 
         /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment */
-        const entryRoutes = Shopware.State.get('extensionEntryRoutes').routes;
+        const entryRoutes = Shopware.Store.get('extensionEntryRoutes').routes;
 
         if (entryRoutes[extension.name] !== undefined) {
             return {
@@ -190,7 +200,7 @@ export default class ShopwareExtensionService {
     private async updateModules() {
         const modules = await this.appModulesService.fetchAppModules();
 
-        Shopware.State.commit('shopwareApps/setApps', modules);
+        Shopware.Store.get('shopwareApps').apps = modules;
     }
 
     private async getLinkToTheme(extension: Extension) {
@@ -229,7 +239,7 @@ export default class ShopwareExtensionService {
     }
 
     private getAppFromStore(extensionName: string) {
-        return Shopware.State.get('shopwareApps').apps.find((innerApp) => {
+        return Shopware.Store.get('shopwareApps').apps.find((innerApp) => {
             return innerApp.name === extensionName;
         });
     }

@@ -1,11 +1,11 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import template from './sw-import-export-activity.html.twig';
 import './sw-import-export-activity.scss';
 
 const { Mixin } = Shopware;
-const { Criteria } = Shopware.Data;
+const { Criteria, EntityCollection } = Shopware.Data;
 const { format } = Shopware.Utils;
 
 /**
@@ -14,7 +14,11 @@ const { format } = Shopware.Utils;
 export default {
     template,
 
-    inject: ['repositoryFactory', 'importExport', 'feature'],
+    inject: [
+        'repositoryFactory',
+        'importExport',
+        'feature',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -40,7 +44,7 @@ export default {
 
     data() {
         return {
-            logs: null,
+            logs: new EntityCollection('/import-export-log', 'import_export_log', null),
             isLoading: false,
             selectedProfile: null,
             selectedLog: null,
@@ -60,6 +64,7 @@ export default {
                 },
                 export: {
                     succeeded: 'sw-import-export.exporter.messageExportSuccess',
+                    failed: 'sw-import-export.exporter.messageExportError',
                 },
             },
         };
@@ -78,15 +83,12 @@ export default {
             const criteria = new Shopware.Data.Criteria();
 
             if (this.type === 'import') {
-                criteria.addFilter(Criteria.multi(
-                    'OR',
-                    [
+                criteria.addFilter(
+                    Criteria.multi('OR', [
                         Criteria.equals('activity', 'import'),
                         Criteria.equals('activity', 'dryrun'),
-                    ],
-                ));
-                criteria.getAssociation('invalidRecordsLog')
-                    .addAssociation('file');
+                    ]),
+                );
             } else if (this.type === 'export') {
                 criteria.addFilter(Criteria.equals('activity', 'export'));
             }
@@ -97,6 +99,7 @@ export default {
             criteria.addAssociation('user');
             criteria.addAssociation('file');
             criteria.addAssociation('profile');
+            criteria.getAssociation('invalidRecordsLog').addAssociation('file');
 
             return criteria;
         },
@@ -112,7 +115,7 @@ export default {
                 },
                 {
                     property: 'profileName',
-                    dataIndex: 'profile.label',
+                    dataIndex: 'profile.technicalName',
                     label: 'sw-import-export.activity.columns.profile',
                     allowResize: true,
                     primary: false,
@@ -131,13 +134,17 @@ export default {
                     allowResize: true,
                     primary: false,
                 },
-                ...(this.type === 'import' ? [{
-                    property: 'invalidRecords',
-                    dataIndex: 'records',
-                    label: 'sw-import-export.activity.columns.invalidRecords',
-                    allowResize: true,
-                    primary: false,
-                }] : []),
+                ...(this.type === 'import'
+                    ? [
+                          {
+                              property: 'invalidRecords',
+                              dataIndex: 'records',
+                              label: 'sw-import-export.activity.columns.invalidRecords',
+                              allowResize: true,
+                              primary: false,
+                          },
+                      ]
+                    : []),
                 {
                     property: 'file.size',
                     dataIndex: 'file.size',
@@ -151,31 +158,28 @@ export default {
                     label: 'sw-import-export.activity.columns.user',
                     allowResize: true,
                     primary: false,
-                }];
+                },
+            ];
         },
 
         hasActivitiesInProgress() {
-            if (!this.logs) {
-                return false;
-            }
-
-            return this.logs.filter(log => log.state === 'progress').length > 0;
+            return this.logs.filter((log) => log.state === 'progress').length > 0;
         },
 
         downloadFileText() {
-            return this.type === 'export' ?
-                this.$tc('sw-import-export.activity.contextMenu.downloadExportFile') :
-                this.$tc('sw-import-export.activity.contextMenu.downloadImportFile');
+            return this.type === 'export'
+                ? this.$t('sw-import-export.activity.contextMenu.downloadExportFile')
+                : this.$t('sw-import-export.activity.contextMenu.downloadImportFile');
         },
 
         // show when not loading and logs are there
         showGrid() {
-            return !this.isLoading && !!this.logs?.length > 0;
+            return !this.isLoading && !!this.logs.length > 0;
         },
 
         // show when not loading and logs aren't there
         showEmptyState() {
-            return !this.isLoading && !!this.logs?.length <= 0;
+            return !this.isLoading && !!this.logs.length <= 0;
         },
 
         // show when loading
@@ -184,17 +188,20 @@ export default {
         },
 
         emptyStateSubLine() {
-            return this.type === 'export' ?
-                this.$tc('sw-import-export.activity.emptyState.subLineExport') :
-                this.$tc('sw-import-export.activity.emptyState.subLineImport');
+            return this.type === 'export'
+                ? this.$t('sw-import-export.activity.emptyState.subLineExport')
+                : this.$t('sw-import-export.activity.emptyState.subLineImport');
         },
 
         emptyStateTitle() {
-            return this.type === 'export' ?
-                this.$tc('sw-import-export.activity.emptyState.titleExport') :
-                this.$tc('sw-import-export.activity.emptyState.titleImport');
+            return this.type === 'export'
+                ? this.$t('sw-import-export.activity.emptyState.titleExport')
+                : this.$t('sw-import-export.activity.emptyState.titleImport');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -218,7 +225,7 @@ export default {
         this.createdComponent();
     },
 
-    destroyed() {
+    unmounted() {
         if (this.activitiesReloadTimer) {
             window.clearInterval(this.activitiesReloadTimer);
         }
@@ -236,28 +243,54 @@ export default {
         async fetchActivities() {
             this.isLoading = true;
 
-            const logs = await this.logRepository.search(this.activityCriteria);
+            this.logRepository
+                .search(this.activityCriteria)
+                .then((result) => {
+                    if (!(result instanceof EntityCollection)) {
+                        return Promise.reject(new Error(this.$t('global.notification.notificationLoadingDataErrorMessage')));
+                    }
 
-            if (this.logs) {
-                this.updateActivitiesFromLogs(logs);
-            }
+                    this.updateActivitiesFromLogs(result);
 
-            this.logs = logs;
+                    this.logs = result;
 
-            this.isLoading = false;
+                    return Promise.resolve();
+                })
+                .catch((error) => {
+                    this.createNotificationError({
+                        message: error?.message ?? this.$t('global.notification.notificationLoadingDataErrorMessage'),
+                    });
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
         },
 
         async updateActivitiesInProgress() {
             const criteria = Criteria.fromCriteria(this.activityCriteria);
-            criteria.setIds(this.logs.filter(log => log.state === 'progress').getIds());
+            criteria.setIds(this.logs.filter((log) => log.state === 'progress').getIds());
             criteria.addAssociation('file');
-            const currentInProgress = await this.logRepository.search(criteria);
 
-            this.updateActivitiesFromLogs(currentInProgress);
+            this.logRepository
+                .search(criteria)
+                .then((result) => {
+                    if (!(result instanceof EntityCollection)) {
+                        return Promise.reject(new Error(this.$t('global.notification.notificationLoadingDataErrorMessage')));
+                    }
+
+                    this.updateActivitiesFromLogs(result);
+
+                    return Promise.resolve();
+                })
+                .catch((error) => {
+                    this.createNotificationError({
+                        message: error?.message ?? this.$t('global.notification.notificationLoadingDataErrorMessage'),
+                    });
+                });
         },
 
         updateActivitiesFromLogs(logs) {
-            Object.values(logs).forEach((log) => {
+            logs.forEach((log) => {
                 const activity = this.logs.get(log.id);
 
                 if (!activity) {
@@ -265,7 +298,7 @@ export default {
                 }
 
                 const originalState = activity.state;
-                Object.keys(log).forEach(key => {
+                Object.keys(log).forEach((key) => {
                     activity[key] = log[key];
                 });
 
@@ -274,10 +307,13 @@ export default {
                 }
 
                 const config = {
-                    message: this.$t((this.stateText?.[log.activity]?.[log.state] ?? ''), {
-                        profile: log.profileName,
-                    }),
-                    autoClose: false,
+                    message: this.$tc(
+                        this.stateText?.[log.activity]?.[log.state] ?? '',
+                        {
+                            profile: log.profileName,
+                        },
+                        log.state === 'failed' && log.invalidRecordsLog ? 2 : 1,
+                    ),
                 };
 
                 if (log.state === 'succeeded') {
@@ -285,8 +321,7 @@ export default {
 
                     if (log.activity === 'import' && log.records === 0) {
                         this.createNotificationWarning({
-                            message: this.$tc('sw-import-export.importer.messageImportWarning', 0),
-                            autoClose: false,
+                            message: this.$t('sw-import-export.importer.messageImportWarning'),
                         });
                     }
 
@@ -298,7 +333,16 @@ export default {
         },
 
         async onOpenProfile(id) {
-            this.selectedProfile = await this.profileRepository.get(id);
+            this.profileRepository
+                .get(id)
+                .then((result) => {
+                    this.selectedProfile = result;
+                })
+                .catch((error) => {
+                    this.createNotificationError({
+                        message: error?.message ?? this.$t('global.notification.notificationLoadingDataErrorMessage'),
+                    });
+                });
         },
 
         onAbortProcess(item) {
@@ -341,18 +385,22 @@ export default {
 
         saveSelectedProfile() {
             this.isLoading = true;
-            this.profileRepository.save(this.selectedProfile).then(() => {
-                this.selectedProfile = null;
-                this.createNotificationSuccess({
-                    message: this.$tc('sw-import-export.profile.messageSaveSuccess', 0),
+            this.profileRepository
+                .save(this.selectedProfile)
+                .then(() => {
+                    this.selectedProfile = null;
+                    this.createNotificationSuccess({
+                        message: this.$t('sw-import-export.profile.messageSaveSuccess'),
+                    });
+                })
+                .catch(() => {
+                    this.createNotificationError({
+                        message: this.$t('sw-import-export.profile.messageSaveError'),
+                    });
+                })
+                .finally(() => {
+                    this.isLoading = false;
                 });
-            }).catch(() => {
-                this.createNotificationError({
-                    message: this.$tc('sw-import-export.profile.messageSaveError', 0),
-                });
-            }).finally(() => {
-                this.isLoading = false;
-            });
         },
 
         calculateFileSize(size) {
@@ -362,7 +410,7 @@ export default {
         getStateLabel(state) {
             const translationKey = `sw-import-export.activity.status.${state}`;
 
-            return this.$te(translationKey) ? this.$tc(translationKey) : state;
+            return this.$te(translationKey) ? this.$t(translationKey) : state;
         },
 
         getStateClass(state) {

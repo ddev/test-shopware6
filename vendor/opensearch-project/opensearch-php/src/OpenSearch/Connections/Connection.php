@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  *
- * Elasticsearch PHP client
+ * OpenSearch PHP client
  *
- * @link      https://github.com/elastic/elasticsearch-php/
+ * @link      https://github.com/opensearch-project/opensearch-php/
  * @copyright Copyright (c) Elasticsearch B.V (https://www.elastic.co)
  * @license   http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license   https://www.gnu.org/licenses/lgpl-2.1.html GNU Lesser General Public License, Version 2.1
@@ -95,7 +95,7 @@ class Connection implements ConnectionInterface
     protected $connectionParams;
 
     /**
-     * @var array
+     * @var array<string, list<string>>
      */
     protected $headers = [];
 
@@ -129,6 +129,10 @@ class Connection implements ConnectionInterface
      */
     private $OSVersion = null;
 
+    /**
+     * @param array{host: string, port?: int, scheme?: string, user?: string, pass?: string, path?: string} $hostDetails
+     * @param array{client?: array{headers?: array<string, list<string>>, curl?: array<int, mixed>}} $connectionParams
+     */
     public function __construct(
         callable $handler,
         array $hostDetails,
@@ -192,13 +196,13 @@ class Connection implements ConnectionInterface
     /**
      * @param  string    $method
      * @param  string    $uri
-     * @param  null|array   $params
-     * @param  null|mixed   $body
+     * @param  null|array<string, mixed> $params
+     * @param  mixed     $body
      * @param  array     $options
-     * @param  Transport $transport
+     * @param  Transport|null $transport
      * @return mixed
      */
-    public function performRequest(string $method, string $uri, ?array $params = [], $body = null, array $options = [], Transport $transport = null)
+    public function performRequest(string $method, string $uri, ?array $params = [], $body = null, array $options = [], ?Transport $transport = null)
     {
         if ($body !== null) {
             $body = $this->serializer->serialize($body);
@@ -252,7 +256,7 @@ class Connection implements ConnectionInterface
 
     private function wrapHandler(callable $handler): callable
     {
-        return function (array $request, Connection $connection, Transport $transport = null, $options) use ($handler) {
+        return function (array $request, Connection $connection, ?Transport $transport, $options) use ($handler) {
             $this->lastRequest = [];
             $this->lastRequest['request'] = $request;
 
@@ -344,6 +348,9 @@ class Connection implements ConnectionInterface
         };
     }
 
+    /**
+     * @param array<string, string|int|bool>|null $params
+     */
     private function getURI(string $uri, ?array $params): string
     {
         if (isset($params) === true && !empty($params)) {
@@ -370,6 +377,9 @@ class Connection implements ConnectionInterface
         return $uri;
     }
 
+    /**
+     * @return array<string, list<string>>
+     */
     public function getHeaders(): array
     {
         return $this->headers;
@@ -748,14 +758,9 @@ class Connection implements ConnectionInterface
             // 2.0 structured exceptions
             if (is_array($error['error']) && array_key_exists('reason', $error['error']) === true) {
                 // Try to use root cause first (only grabs the first root cause)
-                $root = $error['error']['root_cause'];
-                if (isset($root) && isset($root[0])) {
-                    $cause = $root[0]['reason'];
-                    $type = $root[0]['type'];
-                } else {
-                    $cause = $error['error']['reason'];
-                    $type = $error['error']['type'];
-                }
+                $info = $error['error']['root_cause'][0] ?? $error['error'];
+                $cause = $info['reason'];
+                $type = $info['type'];
                 // added json_encode to convert into a string
                 $original = new $errorClass(json_encode($response['body']), $response['status']);
 

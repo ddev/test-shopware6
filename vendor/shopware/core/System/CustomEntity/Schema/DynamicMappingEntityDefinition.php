@@ -15,12 +15,10 @@ use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter
 /**
  * @internal Used for custom entities
  */
-#[Package('core')]
+#[Package('framework')]
 class DynamicMappingEntityDefinition extends MappingEntityDefinition
 {
     protected string $name;
-
-    protected array $fieldDefinitions;
 
     protected string $source;
 

@@ -1,13 +1,10 @@
 import template from './sw-external-link.html.twig';
 import './sw-external-link.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Link to another website outside the admin, that opens in a new browser tab
  * @status ready
  * @example-type dynamic
@@ -18,10 +15,12 @@ const { Component } = Shopware;
  * </sw-external-link>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-external-link', {
+export default {
     template,
 
     inheritAttrs: false,
+
+    emits: ['click'],
 
     props: {
         small: {
@@ -64,4 +63,4 @@ Component.register('sw-external-link', {
             this.$emit('click', event);
         },
     },
-});
+};

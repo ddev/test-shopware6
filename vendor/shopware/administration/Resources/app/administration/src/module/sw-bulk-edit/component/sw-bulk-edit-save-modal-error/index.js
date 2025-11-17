@@ -1,11 +1,16 @@
 /**
- * @package system-settings
+ * @sw-package framework
  */
 import template from './sw-bulk-edit-save-modal-error.html.twig';
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'title-set',
+        'buttons-update',
+    ],
 
     created() {
         this.createdComponent();

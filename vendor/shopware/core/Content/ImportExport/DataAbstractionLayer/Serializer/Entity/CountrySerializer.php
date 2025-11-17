@@ -9,30 +9,27 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\System\Country\CountryCollection;
 use Shopware\Core\System\Country\CountryDefinition;
-use Shopware\Core\System\Country\CountryEntity;
 use Symfony\Contracts\Service\ResetInterface;
 
-#[Package('core')]
+#[Package('fundamentals@after-sales')]
 class CountrySerializer extends EntitySerializer implements ResetInterface
 {
     /**
-     * @var array<string>|null[]
+     * @var array<string, string|null>
      */
     private array $cacheCountries = [];
 
     /**
      * @internal
+     *
+     * @param EntityRepository<CountryCollection> $countryRepository
      */
     public function __construct(private readonly EntityRepository $countryRepository)
     {
     }
 
-    /**
-     * @param array|\Traversable $entity
-     *
-     * @return array|\Traversable
-     */
     public function deserialize(Config $config, EntityDefinition $definition, $entity)
     {
         $deserialized = parent::deserialize($config, $definition, $entity);
@@ -68,12 +65,11 @@ class CountrySerializer extends EntitySerializer implements ResetInterface
 
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('iso', $iso));
-        $country = $this->countryRepository->search($criteria, Context::createDefaultContext())->first();
 
-        $this->cacheCountries[$iso] = null;
-        if ($country instanceof CountryEntity) {
-            $this->cacheCountries[$iso] = $country->getId();
-        }
+        $this->cacheCountries[$iso] = $this->countryRepository->searchIds(
+            $criteria,
+            Context::createDefaultContext()
+        )->firstId();
 
         return $this->cacheCountries[$iso];
     }

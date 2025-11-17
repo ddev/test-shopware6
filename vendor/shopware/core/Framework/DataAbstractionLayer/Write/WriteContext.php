@@ -14,7 +14,7 @@ use Shopware\Core\System\Language\LanguageLoaderInterface;
  *
  * @phpstan-import-type LanguageData from LanguageLoaderInterface
  */
-#[Package('core')]
+#[Package('framework')]
 class WriteContext
 {
     use StateAwareTrait;
@@ -34,7 +34,7 @@ class WriteContext
     /**
      * @var array<string, string>|null
      */
-    private ?array $languageCodeIdMapping;
+    private ?array $languageCodeIdMapping = null;
 
     private WriteException $exceptions;
 
@@ -92,7 +92,7 @@ class WriteContext
         $path = $this->buildPathName($entity, $propertyName);
 
         if (!$this->has($entity, $propertyName)) {
-            throw new \InvalidArgumentException(sprintf('Unable to load %s: %s', $path, print_r($this->paths, true)));
+            throw new \InvalidArgumentException(\sprintf('Unable to load %s: %s', $path, print_r($this->paths, true)));
         }
 
         return $this->paths[$path];

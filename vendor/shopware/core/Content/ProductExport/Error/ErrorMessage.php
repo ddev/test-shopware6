@@ -8,20 +8,11 @@ use Shopware\Core\Framework\Struct\Struct;
 #[Package('inventory')]
 class ErrorMessage extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $message;
+    protected string $message;
 
-    /**
-     * @var int|null
-     */
-    protected $line;
+    protected ?int $line = null;
 
-    /**
-     * @var int|null
-     */
-    protected $column;
+    protected ?int $column = null;
 
     public function getMessage(): string
     {

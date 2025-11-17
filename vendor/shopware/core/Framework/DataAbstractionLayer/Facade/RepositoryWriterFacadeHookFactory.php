@@ -5,6 +5,7 @@ namespace Shopware\Core\Framework\DataAbstractionLayer\Facade;
 use Shopware\Core\Framework\Api\Sync\SyncService;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Script\AppContextCreator;
 use Shopware\Core\Framework\Script\Execution\Awareness\HookServiceFactory;
 use Shopware\Core\Framework\Script\Execution\Hook;
 use Shopware\Core\Framework\Script\Execution\Script;
@@ -12,7 +13,7 @@ use Shopware\Core\Framework\Script\Execution\Script;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class RepositoryWriterFacadeHookFactory extends HookServiceFactory
 {
     public function __construct(

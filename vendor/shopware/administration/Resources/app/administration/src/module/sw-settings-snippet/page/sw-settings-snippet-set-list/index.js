@@ -1,10 +1,13 @@
 /**
- * @package services-settings
+ * @sw-package discovery
  */
 import template from './sw-settings-snippet-set-list.html.twig';
 import './sw-settings-snippet-set-list.scss';
 
-const { Mixin, Data: { Criteria } } = Shopware;
+const {
+    Mixin,
+    Data: { Criteria },
+} = Shopware;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -51,9 +54,7 @@ export default {
         snippetSetCriteria() {
             const criteria = new Criteria(this.page, this.limit);
 
-            criteria.addSorting(
-                Criteria.sort('name', 'ASC'),
-            );
+            criteria.addSorting(Criteria.sort('name', 'ASC'));
 
             if (this.term) {
                 criteria.setTerm(this.term);
@@ -63,13 +64,48 @@ export default {
         },
 
         contextMenuEditSnippet() {
-            return this.acl.can('snippet.editor') ?
-                this.$tc('global.default.edit') :
-                this.$tc('global.default.view');
+            return this.acl.can('snippet.editor') ? this.$t('global.default.edit') : this.$t('global.default.view');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
+        },
+
+        baseFileOptions() {
+            return this.baseFiles.map((file, index) => {
+                return {
+                    id: index,
+                    value: file.name,
+                    label: file.name,
+                };
+            });
+        },
+
+        snippetSetColumns() {
+            return [
+                {
+                    property: 'name',
+                    label: this.$t('sw-settings-snippet.setList.columnName'),
+                    inlineEdit: 'string',
+                },
+                {
+                    property: 'iso',
+                    label: this.$t('sw-settings-snippet.setList.columnIso'),
+                    inlineEdit: 'string',
+                },
+                {
+                    property: 'baseFile',
+                    label: this.$t('sw-settings-snippet.setList.columnBaseFile'),
+                    inlineEdit: 'string',
+                },
+                {
+                    property: 'updatedAt',
+                    label: this.$t('sw-settings-snippet.setList.columnChangedAt'),
+                },
+            ];
         },
     },
 
@@ -88,58 +124,43 @@ export default {
 
         loadBaseFiles() {
             return this.snippetSetService.getBaseFiles().then((response) => {
-                this.baseFiles = response.items;
+                this.baseFiles = Object.values(response.items ?? {})
+                    .filter((file, index, self) => index === self.findIndex((other) => other.name === file.name))
+                    .sort((a, b) => a.name.localeCompare(b.name));
             });
         },
 
-        onAddSnippetSet() {
+        async onAddSnippetSet() {
             const newSnippetSet = this.snippetSetRepository.create();
-            newSnippetSet.baseFile = Object.values(this.baseFiles)[0].name;
+            newSnippetSet.iso = this.baseFiles[0].iso;
+            newSnippetSet.baseFile = this.baseFiles[0].name;
 
-            const result = this.snippetSets.splice(0, 0, newSnippetSet);
+            newSnippetSet.name = this.$t('sw-settings-snippet.setList.newSnippetName');
 
-            if (result.length !== 0) {
-                return;
+            const baseName = newSnippetSet.name;
+            let copyCounter = 1;
+
+            while (this.snippetSets.some((item) => item.name === newSnippetSet.name)) {
+                copyCounter += 1;
+                newSnippetSet.name = `${baseName} (${copyCounter})`;
             }
 
-            this.$nextTick(() => {
-                let foundRow = this.$refs.snippetSetList.$children.find((vueComponent) => {
-                    if (this.feature.isActive('VUE3')) {
-                        if (vueComponent.$options.name === 'AsyncComponentWrapper') {
-                            vueComponent = vueComponent.$children[0];
-                        }
-                    }
-
-                    return vueComponent.item !== undefined && vueComponent.item.id === newSnippetSet.id;
-                });
-
-                if (!foundRow) {
-                    return false;
-                }
-
-                if (this.feature.isActive('VUE3')) {
-                    if (foundRow.$options.name === 'AsyncComponentWrapper') {
-                        foundRow = foundRow.$children[0];
-                    }
-                }
-
-                foundRow.isEditingActive = true;
-
-                return true;
-            });
+            await this.snippetSetRepository.save(newSnippetSet);
+            await this.getList();
         },
 
         onInlineEditSave(item) {
             this.isLoading = true;
 
-            const match = Object.values(this.baseFiles).find((element) => {
+            const match = this.baseFiles.find((element) => {
                 return element.name === item.baseFile;
             });
 
             if (match && match.iso !== null) {
                 item.iso = match.iso;
 
-                this.snippetSetRepository.save(item)
+                this.snippetSetRepository
+                    .save(item)
                     .then(() => {
                         this.createInlineSuccessNote(item.name);
                     })
@@ -185,23 +206,28 @@ export default {
             this.showDeleteModal = id;
         },
 
-        onConfirmDelete(id) {
-            this.showDeleteModal = false;
+        async onConfirmDelete() {
+            try {
+                await this.snippetSetRepository.delete(this.showDeleteModal);
+                await this.getList();
+                this.createDeleteSuccessNote();
+            } catch (e) {
+                this.createDeleteErrorNote();
+            }
 
-            return this.snippetSetRepository.delete(id)
-                .then(() => {
-                    this.getList();
-                    this.createDeleteSuccessNote();
-                }).catch(() => {
-                    this.onCloseDeleteModal();
-                    this.createDeleteErrorNote();
-                });
+            this.closeDeleteModal();
         },
 
+        closeDeleteModal() {
+            this.showDeleteModal = false;
+        },
+
+        /** @deprecated tag:v6.8.0 - Will be removed without replacement */
         onClone(id) {
             this.showCloneModal = id;
         },
 
+        /** @deprecated tag:v6.8.0 - Will be removed without replacement */
         closeCloneModal() {
             this.showCloneModal = false;
         },
@@ -217,13 +243,12 @@ export default {
                     return;
                 }
 
-                set.name = `${set.name} ${this.$tc('sw-settings-snippet.general.copyName')}`;
+                set.name = `${set.name} ${this.$t('sw-settings-snippet.general.copyName')}`;
 
                 const baseName = set.name;
-                const checkUsedNames = item => item.name === set.name;
                 let copyCounter = 1;
 
-                while (this.snippetSets.some(checkUsedNames)) {
+                while (this.snippetSets.some((item) => item.name === set.name)) {
                     copyCounter += 1;
                     set.name = `${baseName} (${copyCounter})`;
                 }
@@ -243,59 +268,59 @@ export default {
                 this.createCloneErrorNote();
             } finally {
                 this.isLoading = false;
-                this.closeCloneModal();
             }
         },
 
         createDeleteSuccessNote() {
             this.createNotificationSuccess({
-                message: this.$tc('sw-settings-snippet.setList.deleteNoteSuccessMessage'),
+                message: this.$t('sw-settings-snippet.setList.deleteNoteSuccessMessage'),
             });
         },
 
         createDeleteErrorNote() {
             this.createNotificationError({
-                message: this.$tc('sw-settings-snippet.setList.deleteNoteErrorMessage'),
+                message: this.$t('sw-settings-snippet.setList.deleteNoteErrorMessage'),
             });
         },
 
         createInlineSuccessNote(name) {
             this.createNotificationSuccess({
-                message: this.$tc('sw-settings-snippet.setList.inlineEditSuccessMessage', 0, { name }),
+                message: this.$t('sw-settings-snippet.setList.inlineEditSuccessMessage', { name }, 0),
             });
         },
 
         createInlineErrorNote(name) {
             this.createNotificationError({
-                message: this.$tc('sw-settings-snippet.setList.inlineEditErrorMessage', name !== null, { name }),
+                message: this.$t('sw-settings-snippet.setList.inlineEditErrorMessage', { name }, name !== null),
             });
         },
 
         createCloneSuccessNote() {
             this.createNotificationSuccess({
-                message: this.$tc('sw-settings-snippet.setList.cloneSuccessMessage'),
+                message: this.$t('sw-settings-snippet.setList.cloneSuccessMessage'),
             });
         },
 
         createCloneErrorNote() {
             this.createNotificationError({
-                message: this.$tc('sw-settings-snippet.setList.cloneErrorMessage'),
+                message: this.$t('sw-settings-snippet.setList.cloneErrorMessage'),
             });
         },
 
         createNotEditableErrorNote() {
             this.createNotificationError({
-                message: this.$tc('sw-settings-snippet.setList.notEditableNoteErrorMessage'),
+                message: this.$t('sw-settings-snippet.setList.notEditableNoteErrorMessage'),
             });
         },
 
+        /** @deprecated tag:v6.8.0 - Will be removed without replacement */
         getNoPermissionsTooltip(role, showOnDisabledElements = true) {
             return {
                 showDelay: 300,
                 appearance: 'dark',
                 showOnDisabledElements,
                 disabled: this.acl.can(role),
-                message: this.$tc('sw-privileges.tooltip.warning'),
+                message: this.$t('sw-privileges.tooltip.warning'),
             };
         },
     },

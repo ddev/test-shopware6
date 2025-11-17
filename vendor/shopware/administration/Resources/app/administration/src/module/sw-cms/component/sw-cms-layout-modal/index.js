@@ -6,7 +6,7 @@ const { Criteria } = Shopware.Data;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -16,6 +16,11 @@ export default {
         'systemConfigApiService',
         'acl',
         'cmsPageTypeService',
+    ],
+
+    emits: [
+        'modal-layout-select',
+        'modal-close',
     ],
 
     mixins: [
@@ -69,37 +74,38 @@ export default {
         cmsPageCriteria() {
             const criteria = new Criteria(this.page, this.limit);
 
-            criteria
-                .addAssociation('previewMedia')
-                .addSorting(Criteria.sort(this.sortBy, this.sortDirection));
+            criteria.addAssociation('previewMedia').addSorting(Criteria.sort(this.sortBy, this.sortDirection));
 
             if (this.cmsPageTypes.length) {
                 criteria.addFilter(Criteria.equalsAny('type', this.cmsPageTypes));
             }
 
-            if (this.term !== null) {
-                criteria.setTerm(this.term);
-            }
+            criteria.setTerm(this.term);
 
             return criteria;
         },
 
         columnConfig() {
-            return [{
-                property: 'name',
-                label: this.$tc('sw-cms.list.gridHeaderName'),
-                inlineEdit: 'string',
-                primary: true,
-            }, {
-                property: 'type',
-                label: this.$tc('sw-cms.list.gridHeaderType'),
-            }, {
-                property: 'createdAt',
-                label: this.$tc('sw-cms.list.gridHeaderCreated'),
-            }, {
-                property: 'updatedAt',
-                label: this.$tc('sw-cms.list.gridHeaderUpdated'),
-            }];
+            return [
+                {
+                    property: 'name',
+                    label: this.$tc('sw-cms.list.gridHeaderName'),
+                    inlineEdit: 'string',
+                    primary: true,
+                },
+                {
+                    property: 'type',
+                    label: this.$tc('sw-cms.list.gridHeaderType'),
+                },
+                {
+                    property: 'createdAt',
+                    label: this.$tc('sw-cms.list.gridHeaderCreated'),
+                },
+                {
+                    property: 'updatedAt',
+                    label: this.$tc('sw-cms.list.gridHeaderUpdated'),
+                },
+            ];
         },
 
         gridPreSelection() {
@@ -110,6 +116,9 @@ export default {
             return { [this.selectedPageObject.id]: this.selectedPageObject };
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -130,7 +139,7 @@ export default {
 
     methods: {
         createdComponent() {
-            if (this.acl.can('system_config.read')) {
+            if (this.acl.can('system_config:read')) {
                 this.getDefaultLayouts();
             }
         },
@@ -138,13 +147,15 @@ export default {
         getList() {
             this.isLoading = true;
 
-            return this.pageRepository.search(this.cmsPageCriteria).then((searchResult) => {
-                this.total = searchResult.total;
-                this.pages = searchResult;
-                this.isLoading = false;
-            }).catch(() => {
-                this.isLoading = false;
-            });
+            return this.pageRepository
+                .search(this.cmsPageCriteria)
+                .then((searchResult) => {
+                    this.total = searchResult.total;
+                    this.pages = searchResult;
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
         },
 
         selectLayout() {
@@ -196,7 +207,10 @@ export default {
         },
 
         getPageType(page) {
-            const isDefault = [this.defaultProductId, this.defaultCategoryId].includes(page.id);
+            const isDefault = [
+                this.defaultProductId,
+                this.defaultCategoryId,
+            ].includes(page.id);
             const defaultText = this.$tc('sw-cms.components.cmsListItem.defaultLayout');
             const typeLabel = this.$tc(this.cmsPageTypeService.getType(page.type)?.title);
             return isDefault ? `${defaultText} - ${typeLabel}` : typeLabel;

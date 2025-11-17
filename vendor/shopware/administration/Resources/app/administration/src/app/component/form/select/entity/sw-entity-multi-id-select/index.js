@@ -1,28 +1,30 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-entity-multi-id-select.html.twig';
 
-const { Component, Context, Mixin } = Shopware;
+const { Context, Mixin } = Shopware;
 const { EntityCollection, Criteria } = Shopware.Data;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-entity-multi-id-select', {
+export default {
     template,
+
     inheritAttrs: false,
 
     inject: ['feature'],
+
+    emits: ['update:value'],
 
     mixins: [
         Mixin.getByName('remove-api-error'),
     ],
 
-    model: {
-        prop: 'ids',
-        event: 'change',
-    },
-
     props: {
-        ids: {
+        value: {
             type: Array,
             required: false,
             default() {
@@ -64,28 +66,14 @@ Component.register('sw-entity-multi-id-select', {
         };
     },
 
-    computed: {
-        getListeners() {
-            const listeners = {};
-
-            Object.keys(this.$listeners).forEach(listener => {
-                if (listener !== 'change') {
-                    listeners[listener] = this.$listeners[listener];
-                }
-            });
-
-            return listeners;
-        },
-    },
-
     watch: {
-        ids() {
+        value() {
             if (this.collection === null) {
                 this.createdComponent();
                 return;
             }
 
-            if (this.collection.getIds() === this.ids) {
+            if (this.collection.getIds() === this.value) {
                 return;
             }
 
@@ -99,30 +87,26 @@ Component.register('sw-entity-multi-id-select', {
 
     methods: {
         createdComponent() {
-            const collection = new EntityCollection(
-                this.repository.route,
-                this.repository.entityName,
-                this.context,
-            );
+            const collection = new EntityCollection(this.repository.route, this.repository.entityName, this.context);
 
             if (this.collection === null) {
                 this.collection = collection;
             }
 
-            if (this.ids.length <= 0) {
+            if (this.value.length <= 0) {
                 this.collection = collection;
                 return Promise.resolve(this.collection);
             }
 
             const criteria = Criteria.fromCriteria(this.criteria);
-            criteria.setIds(this.ids);
+            criteria.setIds(this.value);
             criteria.setTerm('');
             criteria.queries = [];
 
             return this.repository.search(criteria, { ...this.context, inheritance: true }).then((entities) => {
                 this.collection = entities;
 
-                if (!this.collection.length && this.ids.length) {
+                if (!this.collection.length && this.value.length) {
                     this.updateIds(this.collection);
                 }
 
@@ -133,13 +117,7 @@ Component.register('sw-entity-multi-id-select', {
         updateIds(collection) {
             this.collection = collection;
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:ids', collection.getIds());
-
-                return;
-            }
-
-            this.$emit('change', collection.getIds());
+            this.$emit('update:value', collection.getIds());
         },
     },
-});
+};

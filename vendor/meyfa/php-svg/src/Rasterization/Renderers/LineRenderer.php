@@ -2,6 +2,7 @@
 
 namespace SVG\Rasterization\Renderers;
 
+use SVG\Fonts\FontRegistry;
 use SVG\Rasterization\Transform\Transform;
 
 /**
@@ -18,7 +19,7 @@ class LineRenderer extends MultiPassRenderer
     /**
      * @inheritdoc
      */
-    protected function prepareRenderParams(array $options, Transform $transform)
+    protected function prepareRenderParams(array $options, Transform $transform, ?FontRegistry $fontRegistry): ?array
     {
         $x1 = $options['x1'];
         $y1 = $options['y1'];
@@ -39,7 +40,7 @@ class LineRenderer extends MultiPassRenderer
     /**
      * @inheritdoc
      */
-    protected function renderFill($image, array $params, $color)
+    protected function renderFill($image, $params, int $color): void
     {
         // can't fill
     }
@@ -47,9 +48,9 @@ class LineRenderer extends MultiPassRenderer
     /**
      * @inheritdoc
      */
-    protected function renderStroke($image, array $params, $color, $strokeWidth)
+    protected function renderStroke($image, $params, int $color, float $strokeWidth): void
     {
         imagesetthickness($image, round($strokeWidth));
-        imageline($image, $params['x1'], $params['y1'], $params['x2'], $params['y2'], $color);
+        imageline($image, (int)round($params['x1']), (int)round($params['y1']), (int)round($params['x2']), (int)round($params['y2']), $color);
     }
 }

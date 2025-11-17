@@ -3,9 +3,11 @@
 namespace Shopware\Core\Content\Product\Cleanup;
 
 use Doctrine\DBAL\Connection;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskHandler;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -18,12 +20,15 @@ final class CleanupProductKeywordDictionaryTaskHandler extends ScheduledTaskHand
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ScheduledTaskCollection> $repository
      */
     public function __construct(
         EntityRepository $repository,
+        LoggerInterface $logger,
         private readonly Connection $connection
     ) {
-        parent::__construct($repository);
+        parent::__construct($repository, $logger);
     }
 
     public function run(): void

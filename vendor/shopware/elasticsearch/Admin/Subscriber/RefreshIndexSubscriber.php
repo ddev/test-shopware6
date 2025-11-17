@@ -11,10 +11,10 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('system-settings')]
-final class RefreshIndexSubscriber implements EventSubscriberInterface
+#[Package('inventory')]
+final readonly class RefreshIndexSubscriber implements EventSubscriberInterface
 {
-    public function __construct(private readonly AdminSearchRegistry $registry)
+    public function __construct(private AdminSearchRegistry $registry)
     {
     }
 

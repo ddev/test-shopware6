@@ -3,26 +3,27 @@
 namespace Shopware\Core\Content\Flow\Dispatching\Action;
 
 use Doctrine\DBAL\Connection;
-use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Order\SalesChannel\OrderService;
 use Shopware\Core\Content\Flow\Dispatching\DelayableAction;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
+use Shopware\Core\Content\Flow\Dispatching\TransactionalAction;
+use Shopware\Core\Content\Flow\Dispatching\TransactionFailedException;
+use Shopware\Core\Content\Flow\FlowException;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityDefinitionQueryHelper;
 use Shopware\Core\Framework\Event\OrderAware;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\ShopwareHttpException;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\StateMachine\Exception\IllegalTransitionException;
-use Shopware\Core\System\StateMachine\StateMachineException;
 use Symfony\Component\HttpFoundation\ParameterBag;
 
 /**
  * @internal
  */
-#[Package('services-settings')]
-class SetOrderStateAction extends FlowAction implements DelayableAction
+#[Package('after-sales')]
+class SetOrderStateAction extends FlowAction implements DelayableAction, TransactionalAction
 {
     final public const FORCE_TRANSITION = 'force_transition';
 
@@ -37,7 +38,6 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
      */
     public function __construct(
         private readonly Connection $connection,
-        private readonly LoggerInterface $logger,
         private readonly OrderService $orderService
     ) {
     }
@@ -48,7 +48,7 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
     }
 
     /**
-     * @return array<int, string>
+     * @return list<string>
      */
     public function requirements(): array
     {
@@ -77,29 +77,18 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
             $context->addState(self::FORCE_TRANSITION);
         }
 
-        $this->connection->beginTransaction();
+        $transitions = array_filter([
+            self::ORDER => $config[self::ORDER] ?? null,
+            self::ORDER_DELIVERY => $config[self::ORDER_DELIVERY] ?? null,
+            self::ORDER_TRANSACTION => $config[self::ORDER_TRANSACTION] ?? null,
+        ]);
 
         try {
-            $transitions = array_filter([
-                self::ORDER => $config[self::ORDER] ?? null,
-                self::ORDER_DELIVERY => $config[self::ORDER_DELIVERY] ?? null,
-                self::ORDER_TRANSACTION => $config[self::ORDER_TRANSACTION] ?? null,
-            ]);
-
             foreach ($transitions as $machine => $toPlace) {
                 $this->transitState((string) $machine, $orderId, (string) $toPlace, $context);
             }
-
-            $this->connection->commit();
-        } catch (ShopwareHttpException $e) {
-            $this->logger->error($e->getMessage());
-            $this->connection->rollBack();
-            // Silently rolling back a transaction is only safe when it is the top level transaction or transactions are
-            // nested with save points instead of emulating nested transactions. In case a transaction is not the top
-            // level transaction, we need to rethrow the error such that the outer transactions can be rolled back.
-            if ($this->connection->getTransactionNestingLevel() !== 1 && !$this->connection->getNestTransactionsWithSavepoints()) {
-                throw $e;
-            }
+        } catch (FlowException $e) {
+            throw TransactionFailedException::because($e);
         } finally {
             $context->removeState(self::FORCE_TRANSITION);
         }
@@ -107,7 +96,7 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
 
     /**
      * @throws IllegalTransitionException
-     * @throws StateMachineException
+     * @throws FlowException
      */
     private function transitState(string $machine, string $orderId, string $toPlace, Context $context): void
     {
@@ -116,9 +105,26 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
         }
 
         $data = new ParameterBag();
-        $machineId = $machine === self::ORDER ? $orderId : $this->getMachineId($machine, $orderId);
+
+        if (!Feature::isActive('v6.8.0.0')) {
+            if ($machine === self::ORDER) {
+                $machineId = $orderId;
+            } elseif ($machine === self::ORDER_DELIVERY) {
+                $machineId = $this->getMachineIdFromOrderDelivery($orderId, $context);
+            } else {
+                $machineId = $this->getMachineId($machine, $orderId);
+            }
+        } else {
+            $machineId = match ($machine) {
+                self::ORDER => $orderId,
+                self::ORDER_DELIVERY => $this->getMachineIdFromOrderDelivery($orderId, $context),
+                self::ORDER_TRANSACTION => $this->getMachineIdFromOrderTransaction($orderId, $context),
+                default => $this->getMachineId($machine, $orderId),
+            };
+        }
+
         if (!$machineId) {
-            throw StateMachineException::stateMachineNotFound($machine);
+            throw FlowException::stateMachineNotFound($machine);
         }
 
         $actionName = $this->getAvailableActionName($machine, $machineId, $toPlace);
@@ -140,7 +146,7 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
 
                 return;
             default:
-                throw StateMachineException::stateMachineNotFound($machine);
+                throw FlowException::stateMachineNotFound($machine);
         }
     }
 
@@ -152,6 +158,17 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
                 'id' => Uuid::fromHexToBytes($orderId),
                 'version' => Uuid::fromHexToBytes(Defaults::LIVE_VERSION),
             ]
+        ) ?: null;
+    }
+
+    private function getMachineIdFromOrderDelivery(string $orderId, Context $context): ?string
+    {
+        return $this->connection->fetchOne(
+            'SELECT LOWER(HEX(id)) FROM ' . self::ORDER_DELIVERY . ' WHERE order_id = :id AND version_id = :version ORDER BY JSON_EXTRACT(shipping_costs, \'$.totalPrice\') DESC',
+            [
+                'id' => Uuid::fromHexToBytes($orderId),
+                'version' => Uuid::fromHexToBytes($context->getVersionId()),
+            ],
         ) ?: null;
     }
 
@@ -185,9 +202,10 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
     {
         $escaped = EntityDefinitionQueryHelper::escape($machine);
         $id = $this->connection->fetchOne(
-            'SELECT state_id FROM ' . $escaped . 'WHERE id = :id',
+            'SELECT state_id FROM ' . $escaped . 'WHERE id = :id AND version_id = :version',
             [
                 'id' => Uuid::fromHexToBytes($machineId),
+                'version' => Uuid::fromHexToBytes(Defaults::LIVE_VERSION),
             ]
         );
 
@@ -204,5 +222,16 @@ class SetOrderStateAction extends FlowAction implements DelayableAction
         );
 
         return $id ?: null;
+    }
+
+    private function getMachineIdFromOrderTransaction(string $orderId, Context $context): ?string
+    {
+        return $this->connection->fetchOne(
+            'SELECT LOWER(HEX(id)) FROM ' . self::ORDER_TRANSACTION . ' WHERE order_id = :id AND version_id = :version ORDER BY created_at DESC',
+            [
+                'id' => Uuid::fromHexToBytes($orderId),
+                'version' => Uuid::fromHexToBytes($context->getVersionId()),
+            ]
+        ) ?: null;
     }
 }

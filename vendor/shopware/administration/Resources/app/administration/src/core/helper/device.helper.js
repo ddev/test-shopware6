@@ -1,9 +1,10 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module core/helper/device
  */
 import utils from 'src/core/service/util.service';
+import { onBeforeUnmount } from 'vue';
 
 /**
  * The DeviceHelper provides methods to get device and browser information like the current viewport size.
@@ -41,7 +42,14 @@ DeviceHelper.prototype = Object.assign(DeviceHelper.prototype, {
         if (!scope) {
             scope = window;
         }
+
         this.listeners.push({ listener, scope, component });
+
+        // Automatic remove listener when component is unmounted
+        onBeforeUnmount(() => {
+            this.removeResizeListener(component);
+        });
+
         return this.listeners.length - 1;
     },
 
@@ -49,6 +57,8 @@ DeviceHelper.prototype = Object.assign(DeviceHelper.prototype, {
         this.listeners = this.listeners.filter((listenerObject) => {
             return component !== listenerObject.component;
         });
+
+        window.removeEventListener('resize', this.resize.bind(this));
 
         return true;
     },
@@ -139,9 +149,7 @@ DeviceHelper.prototype = Object.assign(DeviceHelper.prototype, {
      * @returns {string}
      */
     getSystemKey() {
-        return this.getPlatform().indexOf('Mac') > -1
-            ? 'CTRL'
-            : 'ALT';
+        return this.getPlatform().indexOf('Mac') > -1 ? 'CTRL' : 'ALT';
     },
 });
 

@@ -5,6 +5,8 @@ namespace Shopware\Core\Content\Flow\Dispatching\Action;
 use Shopware\Core\Content\Flow\Dispatching\DelayableAction;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\Entity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Event\OrderAware;
 use Shopware\Core\Framework\Log\Package;
@@ -12,11 +14,13 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('after-sales')]
 class RemoveOrderTagAction extends FlowAction implements DelayableAction
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<EntityCollection<Entity>> $orderTagRepository
      */
     public function __construct(private readonly EntityRepository $orderTagRepository)
     {
@@ -28,7 +32,7 @@ class RemoveOrderTagAction extends FlowAction implements DelayableAction
     }
 
     /**
-     * @return array<int, string>
+     * @return list<string>
      */
     public function requirements(): array
     {

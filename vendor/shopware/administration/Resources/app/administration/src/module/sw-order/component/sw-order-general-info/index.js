@@ -2,25 +2,49 @@ import './sw-order-general-info.scss';
 import template from './sw-order-general-info.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
-const { Mixin } = Shopware;
+const { Mixin, Store } = Shopware;
 const { Criteria, EntityCollection } = Shopware.Data;
-const { mapGetters, mapState } = Shopware.Component.getComponentHelper();
 const { cloneDeep } = Shopware.Utils.object;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: [
-        'acl',
-        'repositoryFactory',
-        'stateMachineService',
-        'orderStateMachineService',
-        'stateStyleDataProviderService',
-    ],
+    inject: {
+        swOrderDetailOnSaveEdits: {
+            from: 'swOrderDetailOnSaveEdits',
+            default: null,
+        },
+        swOrderDetailAskAndSaveEdits: {
+            from: 'swOrderDetailAskAndSaveEdits',
+            default: () => true,
+        },
+        acl: {
+            from: 'acl',
+            default: null,
+        },
+        repositoryFactory: {
+            from: 'repositoryFactory',
+            default: null,
+        },
+        stateMachineService: {
+            from: 'stateMachineService',
+            default: null,
+        },
+        orderStateMachineService: {
+            from: 'orderStateMachineService',
+            default: null,
+        },
+        stateStyleDataProviderService: {
+            from: 'stateStyleDataProviderService',
+            default: null,
+        },
+    },
+
+    emits: ['save-edits'],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -48,13 +72,9 @@ export default {
     },
 
     computed: {
-        ...mapGetters('swOrderDetail', [
-            'isLoading',
-        ]),
+        isLoading: () => Store.get('swOrderDetail').isLoading,
 
-        ...mapState('swOrderDetail', [
-            'savedSuccessful',
-        ]),
+        savedSuccessful: () => Store.get('swOrderDetail').savedSuccessful,
 
         lastChangedUser() {
             if (this.liveOrder) {
@@ -62,7 +82,7 @@ export default {
                     return this.liveOrder.updatedBy;
                 }
 
-                if (this.liveOrder.createdBy) {
+                if (this.liveOrder.createdBy && !this.liveOrder.updatedAt) {
                     return this.liveOrder.createdBy;
                 }
             }
@@ -88,16 +108,9 @@ export default {
             const criteria = new Criteria(1, 25);
             criteria.setIds([this.order.id]);
 
-            criteria
-                .addAssociation('createdBy')
-                .addAssociation('updatedBy');
+            criteria.addAssociation('createdBy').addAssociation('updatedBy');
 
             return criteria;
-        },
-
-        summaryMainHeader() {
-            // eslint-disable-next-line max-len
-            return `${this.order.orderNumber} - ${this.order.orderCustomer.firstName} ${this.order.orderCustomer.lastName} (${this.order.orderCustomer.email})`;
         },
 
         orderRepository() {
@@ -105,10 +118,7 @@ export default {
         },
 
         orderTagRepository() {
-            return this.repositoryFactory.create(
-                this.order.tags.entity,
-                this.order.tags.source,
-            );
+            return this.repositoryFactory.create(this.order.tags.entity, this.order.tags.source);
         },
 
         stateMachineStateRepository() {
@@ -120,10 +130,11 @@ export default {
             criteria.addSorting({ field: 'name', order: 'ASC' });
             criteria.addAssociation('stateMachine');
             criteria.addFilter(
-                Criteria.equalsAny(
-                    'state_machine_state.stateMachine.technicalName',
-                    ['order.state', 'order_transaction.state', 'order_delivery.state'],
-                ),
+                Criteria.equalsAny('state_machine_state.stateMachine.technicalName', [
+                    'order.state',
+                    'order_transaction.state',
+                    'order_delivery.state',
+                ]),
             );
 
             return criteria;
@@ -131,23 +142,44 @@ export default {
 
         transaction() {
             for (let i = 0; i < this.order.transactions.length; i += 1) {
-                if (!['cancelled', 'failed'].includes(this.order.transactions[i].stateMachineState.technicalName)) {
+                if (
+                    ![
+                        'cancelled',
+                        'failed',
+                    ].includes(this.order.transactions[i].stateMachineState.technicalName)
+                ) {
                     return this.order.transactions[i];
                 }
             }
-            return this.order.transactions.last();
+
+            if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                return this.order.transactions.last();
+            }
+
+            return this.order.primaryOrderTransaction;
         },
 
         delivery() {
-            return this.order.deliveries[0];
+            if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                return this.order.deliveries[0];
+            }
+
+            return this.order.primaryOrderDelivery;
         },
 
         currencyFilter() {
             return Shopware.Filter.getByName('currency');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
+        },
+
+        emailIdnFilter() {
+            return Shopware.Filter.getByName('decode-idn-email');
         },
     },
 
@@ -155,7 +187,15 @@ export default {
         savedSuccessful() {
             if (this.savedSuccessful) {
                 this.getLiveOrder();
+                Store.get('swOrderDetail').setLoading([
+                    'states',
+                    false,
+                ]);
             }
+        },
+
+        'order.id'() {
+            this.createdComponent();
         },
     },
 
@@ -181,26 +221,23 @@ export default {
         },
 
         getLiveOrder() {
-            this.orderRepository.search(this.lastChangedByCriteria, Shopware.Context.api)
-                .then(response => {
-                    if (response && response.first()) {
-                        this.liveOrder = response.first();
-                    }
-                });
+            this.orderRepository.search(this.lastChangedByCriteria, Shopware.Context.api).then((response) => {
+                if (response && response.first()) {
+                    this.liveOrder = response.first();
+                }
+            });
         },
 
         onTagAdd(item) {
-            this.orderTagRepository.assign(item.id)
-                .then(() => {
-                    this.tagCollection.add(item);
-                });
+            this.orderTagRepository.assign(item.id).then(() => {
+                this.tagCollection.add(item);
+            });
         },
 
         onTagRemove(item) {
-            this.orderTagRepository.delete(item.id)
-                .then(() => {
-                    this.tagCollection.remove(item.id);
-                });
+            this.orderTagRepository.delete(item.id).then(() => {
+                this.tagCollection.remove(item.id);
+            });
         },
 
         getAllStates() {
@@ -252,16 +289,18 @@ export default {
                     return null;
             }
 
-            return this.stateStyleDataProviderService.getStyle(
-                `${stateType}.state`,
-                technicalName,
-            ).selectBackgroundStyle;
+            return this.stateStyleDataProviderService.getStyle(`${stateType}.state`, technicalName).selectBackgroundStyle;
         },
 
         getTransitionOptions() {
-            Shopware.State.commit('swOrderDetail/setLoading', ['states', true]);
+            Store.get('swOrderDetail').setLoading([
+                'states',
+                true,
+            ]);
 
-            const statePromises = [this.stateMachineService.getState('order', this.order.id)];
+            const statePromises = [
+                this.stateMachineService.getState('order', this.order.id),
+            ];
 
             if (this.transaction) {
                 statePromises.push(this.stateMachineService.getState('order_transaction', this.transaction.id));
@@ -271,48 +310,56 @@ export default {
                 statePromises.push(this.stateMachineService.getState('order_delivery', this.delivery.id));
             }
 
-            return Promise.all(
-                [
-                    this.getAllStates(),
-                    ...statePromises,
-                ],
-            ).then((data) => {
-                const allStates = data[0];
-                const orderState = data[1];
+            return Promise.all([
+                this.getAllStates(),
+                ...statePromises,
+            ])
+                .then((data) => {
+                    const allStates = data[0];
+                    const orderState = data[1];
 
-                this.orderStateOptions = this.buildTransitionOptions(
-                    'order.state',
-                    allStates,
-                    orderState.data.transitions,
-                );
-
-                if (this.transaction) {
-                    const orderTransactionState = data[2];
-                    this.paymentStateOptions = this.buildTransitionOptions(
-                        'order_transaction.state',
+                    this.orderStateOptions = this.buildTransitionOptions(
+                        'order.state',
                         allStates,
-                        orderTransactionState.data.transitions,
+                        orderState.data.transitions,
                     );
-                }
 
-                if (this.delivery) {
-                    const orderDeliveryState = data[3];
-                    this.deliveryStateOptions = this.buildTransitionOptions(
-                        'order_delivery.state',
-                        allStates,
-                        orderDeliveryState.data.transitions,
-                    );
-                }
+                    if (this.transaction) {
+                        const orderTransactionState = data[2];
+                        this.paymentStateOptions = this.buildTransitionOptions(
+                            'order_transaction.state',
+                            allStates,
+                            orderTransactionState.data.transitions,
+                        );
+                    }
 
-                return Promise.resolve();
-            }).finally(() => {
-                Shopware.State.commit('swOrderDetail/setLoading', ['states', false]);
-            });
+                    if (this.delivery) {
+                        const orderDeliveryState = data[3];
+                        this.deliveryStateOptions = this.buildTransitionOptions(
+                            'order_delivery.state',
+                            allStates,
+                            orderDeliveryState.data.transitions,
+                        );
+                    }
+
+                    return Promise.resolve();
+                })
+                .finally(() => {
+                    Store.get('swOrderDetail').setLoading([
+                        'states',
+                        false,
+                    ]);
+                });
         },
 
-        onStateSelected(stateType, actionName) {
+        async onStateSelected(stateType, actionName) {
             if (!stateType || !actionName) {
                 this.createStateChangeErrorNotification(this.$tc('sw-order.stateCard.labelErrorNoAction'));
+                return;
+            }
+
+            const proceed = await this.swOrderDetailAskAndSaveEdits();
+            if (!proceed) {
                 return;
             }
 
@@ -333,10 +380,19 @@ export default {
             this.currentActionName = null;
             this.currentStateType = null;
             this.showModal = false;
+
+            Store.get('swOrderDetail').setLoading([
+                'states',
+                false,
+            ]);
         },
 
         onLeaveModalConfirm(docIds, sendMail = true) {
             this.showModal = false;
+            Store.get('swOrderDetail').setLoading([
+                'states',
+                true,
+            ]);
 
             let transition = null;
 
@@ -356,11 +412,10 @@ export default {
                     );
                     break;
                 case 'order':
-                    transition = this.orderStateMachineService.transitionOrderState(
-                        this.order.id,
-                        this.currentActionName,
-                        { documentIds: docIds, sendMail },
-                    );
+                    transition = this.orderStateMachineService.transitionOrderState(this.order.id, this.currentActionName, {
+                        documentIds: docIds,
+                        sendMail,
+                    });
                     break;
                 default:
                     this.createNotificationError({
@@ -370,11 +425,19 @@ export default {
             }
 
             if (transition) {
-                transition.then(() => {
-                    this.loadHistory();
-                }).catch((error) => {
-                    this.createStateChangeErrorNotification(error);
-                });
+                transition
+                    .then(() => {
+                        this.loadHistory();
+                    })
+                    .catch((error) => {
+                        this.createStateChangeErrorNotification(error);
+                    })
+                    .finally(() => {
+                        Store.get('swOrderDetail').setLoading([
+                            'states',
+                            false,
+                        ]);
+                    });
             }
 
             this.currentActionName = null;
@@ -387,7 +450,11 @@ export default {
 
             this.getTransitionOptions()
                 .then(() => {
-                    this.$emit('save-edits');
+                    if (this.swOrderDetailOnSaveEdits) {
+                        this.swOrderDetailOnSaveEdits();
+                    } else {
+                        this.$emit('save-edits');
+                    }
                 })
                 .catch((error) => {
                     this.createNotificationError(error);

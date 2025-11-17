@@ -10,23 +10,26 @@ use Shopware\Core\Framework\DataAbstractionLayer\Exception\InconsistentCriteriaI
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Storefront\Theme\Exception\ThemeAssignmentException;
+use Shopware\Storefront\Theme\Exception\ThemeException;
 use Shopware\Storefront\Theme\StorefrontPluginConfiguration\StorefrontPluginConfiguration;
 use Shopware\Storefront\Theme\StorefrontPluginConfiguration\StorefrontPluginConfigurationCollection;
 use Shopware\Storefront\Theme\Struct\ThemeDependencies;
 
-#[Package('storefront')]
+#[Package('framework')]
 class ThemeLifecycleHandler
 {
     public const STATE_SKIP_THEME_COMPILATION = 'skip-theme-compilation';
 
     /**
      * @internal
+     *
+     * @param EntityRepository<ThemeCollection> $themeRepository
      */
     public function __construct(
         private readonly ThemeLifecycleService $themeLifecycleService,
         private readonly ThemeService $themeService,
         private readonly EntityRepository $themeRepository,
-        private readonly StorefrontPluginRegistryInterface $storefrontPluginRegistry,
+        private readonly StorefrontPluginRegistry $storefrontPluginRegistry,
         private readonly Connection $connection
     ) {
     }
@@ -38,7 +41,7 @@ class ThemeLifecycleHandler
     ): void {
         $themeId = null;
         if ($config->getIsTheme()) {
-            $this->themeLifecycleService->refreshTheme($config, $context);
+            $this->themeLifecycleService->refreshTheme($config, $context, $configurationCollection);
             $themeData = $this->getThemeDataByTechnicalName($config->getTechnicalName());
             $themeId = $themeData->getId();
             $this->changeThemeActive($themeData, true, $context);
@@ -48,6 +51,35 @@ class ThemeLifecycleHandler
     }
 
     public function handleThemeUninstall(StorefrontPluginConfiguration $config, Context $context): void
+    {
+        $themeId = $this->deactivateTheme($config, $context);
+
+        $configs = $this->storefrontPluginRegistry->getConfigurations();
+
+        $configs = $configs->filter(fn (StorefrontPluginConfiguration $registeredConfig): bool => $registeredConfig->getTechnicalName() !== $config->getTechnicalName());
+
+        $this->recompileThemesIfNecessary($config, $context, $configs, $themeId);
+    }
+
+    public function recompileAllActiveThemes(Context $context, ?StorefrontPluginConfigurationCollection $configurationCollection = null): void
+    {
+        // Recompile all themes as the extension generally extends the storefront
+        $mappings = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(sales_channel_id)) as sales_channel_id, LOWER(HEX(theme_id)) as theme_id
+             FROM theme_sales_channel'
+        );
+
+        foreach ($mappings as $mapping) {
+            $this->themeService->compileTheme(
+                $mapping['sales_channel_id'],
+                $mapping['theme_id'],
+                $context,
+                $configurationCollection
+            );
+        }
+    }
+
+    public function deactivateTheme(StorefrontPluginConfiguration $config, Context $context): ?string
     {
         $themeId = null;
         if ($config->getIsTheme()) {
@@ -61,15 +93,12 @@ class ThemeLifecycleHandler
             $this->changeThemeActive($themeData, false, $context);
         }
 
-        $configs = $this->storefrontPluginRegistry->getConfigurations();
-
-        $configs = $configs->filter(fn (StorefrontPluginConfiguration $registeredConfig): bool => $registeredConfig->getTechnicalName() !== $config->getTechnicalName());
-
-        $this->recompileThemesIfNecessary($config, $context, $configs, $themeId);
+        return $themeId;
     }
 
     /**
      * @throws ThemeAssignmentException
+     * @throws ThemeException
      * @throws InconsistentCriteriaIdsException
      */
     private function validateThemeAssignment(?string $themeId): void
@@ -111,7 +140,7 @@ class ThemeLifecycleHandler
             return;
         }
 
-        if (!$config->hasFilesToCompile()) {
+        if (!$config->hasFilesToCompile() && !$config->hasAdditionalBundles()) {
             return;
         }
 
@@ -125,20 +154,7 @@ class ThemeLifecycleHandler
             return;
         }
 
-        // Recompile all themes as the extension generally extends the storefront
-        $mappings = $this->connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(sales_channel_id)) as sales_channel_id, LOWER(HEX(theme_id)) as theme_id
-             FROM theme_sales_channel'
-        );
-
-        foreach ($mappings as $mapping) {
-            $this->themeService->compileTheme(
-                $mapping['sales_channel_id'],
-                $mapping['theme_id'],
-                $context,
-                $configurationCollection
-            );
-        }
+        $this->recompileAllActiveThemes($context, $configurationCollection);
     }
 
     private function getThemeDataByTechnicalName(string $technicalName): ThemeDependencies
@@ -200,7 +216,7 @@ class ThemeLifecycleHandler
             }
         } catch (\Throwable $e) {
             // on case an error occurs while fetching data for the exception we still want to have the correct exception
-            throw new ThemeAssignmentException(
+            throw ThemeException::themeAssignmentException(
                 $themeId,
                 [],
                 [],
@@ -209,7 +225,7 @@ class ThemeLifecycleHandler
             );
         }
 
-        throw new ThemeAssignmentException(
+        throw ThemeException::themeAssignmentException(
             $themeName,
             $themeSalesChannel,
             $childThemeSalesChannel,

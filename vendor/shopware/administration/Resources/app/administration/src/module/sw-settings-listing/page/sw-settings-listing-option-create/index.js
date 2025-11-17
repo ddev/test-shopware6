@@ -1,7 +1,6 @@
 /**
- * @package inventory
+ * @sw-package inventory
  */
-import { kebabCase } from 'lodash';
 import '../sw-settings-listing-option-base';
 import template from './sw-settings-listing-option-create.html.twig';
 
@@ -12,9 +11,9 @@ export default {
 
     computed: {
         smartBarHeading() {
-            return this.productSortingEntity && this.productSortingEntity.label ?
-                this.productSortingEntity.label :
-                this.$tc('sw-settings-listing.create.smartBarTitle');
+            return this.productSortingEntity && this.productSortingEntity.label
+                ? this.productSortingEntity.label
+                : this.$tc('sw-settings-listing.create.smartBarTitle');
         },
 
         isNewProductSorting() {
@@ -36,7 +35,7 @@ export default {
         createdComponent() {
             this.fetchCustomFields().then(() => {
                 this.productSortingEntity = this.createProductSortingEntity();
-                Shopware.State.commit('context/resetLanguageToDefault');
+                Shopware.Store.get('context').resetLanguageToDefault();
             });
         },
 
@@ -50,28 +49,29 @@ export default {
         },
 
         async onSave() {
+            this.sortingOptionTechnicalNameError = null;
+            this.sortingOptionLabelError = null;
+
             this.transformCustomFieldCriterias();
 
-            this.productSortingEntity.fields = this.productSortingEntity.fields.filter(field => {
+            this.productSortingEntity.fields = this.productSortingEntity.fields.filter((field) => {
                 return field.field !== 'customField';
             });
 
-            this.productSortingEntity.key = kebabCase(this.productSortingEntity.label);
-
-            const resolvedValue = await this.productSortingRepository.search(this.urlKeyCriteria);
-            if (resolvedValue?.length) {
-                const sortingOptionName = this.productSortingEntity.label;
-                this.createNotificationError({
-                    message: this.$t('sw-settings-listing.base.notification.saveErrorAlreadyExists', { sortingOptionName }),
-                });
-                return Promise.resolve();
-            }
-
-            return this.productSortingRepository.save(this.productSortingEntity)
-                .then(response => {
+            return this.saveProductSorting()
+                .then((response) => {
                     const encodedResponse = JSON.parse(response.config.data);
 
-                    this.$router.push({ name: 'sw.settings.listing.edit', params: { id: encodedResponse.id } });
+                    this.$router.push({
+                        name: 'sw.settings.listing.edit',
+                        params: { id: encodedResponse.id },
+                    });
+
+                    const sortingOptionName = this.productSortingEntity.label;
+
+                    this.createNotificationSuccess({
+                        message: this.$t('sw-settings-listing.base.notification.saveSuccess', { sortingOptionName }),
+                    });
                 })
                 .catch(() => {
                     const sortingOptionName = this.productSortingEntity.label;
@@ -98,7 +98,7 @@ export default {
 
         onConfirmDeleteCriteria() {
             // filter out criteria
-            this.productSortingEntity.fields = this.productSortingEntity.fields.filter(currentCriteria => {
+            this.productSortingEntity.fields = this.productSortingEntity.fields.filter((currentCriteria) => {
                 return currentCriteria.field !== this.toBeDeletedCriteria.field;
             });
 

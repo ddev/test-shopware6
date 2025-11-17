@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Rule\RuleScope;
 /**
  * AndRule returns true, if all child-rules are true
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class AndRule extends Container
 {
     final public const RULE_NAME = 'andContainer';
@@ -16,9 +16,7 @@ class AndRule extends Container
     public function match(RuleScope $scope): bool
     {
         foreach ($this->rules as $rule) {
-            $match = $rule->match($scope);
-
-            if (!$match) {
+            if (!$rule->match($scope)) {
                 return false;
             }
         }

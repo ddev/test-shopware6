@@ -1,34 +1,26 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_property_option_detail %}
 <sw-modal
-    :title="currentOption.name ? currentOption.name : $tc('sw-property.detail.textOptionHeadline')"
+    :title="modalTitle"
     @modal-close="onCancel"
 >
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_property_option_detail_name %}
-    <sw-text-field
-        {% if VUE3 %}
-        v-model:value="currentOption.name"
-        {% else %}
+
+    <mt-text-field
         v-model="currentOption.name"
-        {% endif %}
+        name="sw-field--currentOption-name"
         validation="required"
         :label="$tc('sw-property.detail.labelOptionName')"
         :disabled="!allowEdit"
-        :placeholder="$tc('sw-property.detail.placeholderOptionName')"
+        :placeholder="placeholder(currentOption, 'name', $tc('sw-property.detail.placeholderOptionName'))"
         :error="currentOptionNameError"
         required
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_property_option_detail_position %}
-    <sw-number-field
-        {% if VUE3 %}
-        v-model:value="currentOption.position"
-        {% else %}
+    <mt-number-field
         v-model="currentOption.position"
-        {% endif %}
+        name="sw-field--currentOption-position"
         pattern="[0-9]"
         :step="1"
         :disabled="!allowEdit"
@@ -37,22 +29,16 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_property_option_detail_color %}
-    <sw-colorpicker
-        {% if VUE3 %}
-        v-model:value="currentOption.colorHexCode"
-        {% else %}
-        v-model="currentOption.colorHexCode"
-        {% endif %}
-        color-output="hex"
+    <mt-colorpicker
+        v-model="colorHexCode"
+        name="sw-field--currentOption-colorHexCode"
         :disabled="!allowEdit"
         :label="$tc('sw-property.detail.labelOptionColor')"
         :z-index="1000"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_property_option_detail_media %}
     <sw-upload-listener
         :upload-tag="currentOption.id"
@@ -70,22 +56,27 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+    <sw-custom-field-set-renderer
+        v-if="showCustomFields"
+        :entity="currentOption"
+        :sets="customFieldSets"
+        :disabled="!allowEdit"
+    />
+
     {% block sw_property_option_detail_footer %}
     <template #modal-footer>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_property_option_detail_footer_cancel %}
-        <sw-button
+        <mt-button
             size="small"
+            variant="secondary"
             @click="onCancel"
         >
-            {{ $tc('sw-property.detail.buttonCancel') }}
-        </sw-button>
+            {{ $tc('global.default.cancel') }}
+        </mt-button>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_property_option_detail_footer_save %}
-        <sw-button
+        <mt-button
             v-tooltip.bottom="{
                 message: $tc('sw-privileges.tooltip.warning'),
                 disabled: acl.can('property.editor'),
@@ -96,8 +87,8 @@
             :disabled="!allowEdit"
             @click="onSave"
         >
-            {{ $tc('sw-property.detail.buttonApply') }}
-        </sw-button>
+            {{ $tc('global.default.apply') }}
+        </mt-button>
         {% endblock %}
     </template>
     {% endblock %}

@@ -1,3 +1,6 @@
+/**
+ * @sw-package checkout
+ */
 const { merge, cloneDeep } = Shopware.Utils.object;
 const { Criteria } = Shopware.Data;
 const { Service, Module } = Shopware;
@@ -40,8 +43,11 @@ export default function createSearchRankingService() {
     const cacheModules = {};
     let cacheUserSearchConfiguration;
     let cacheDefaultUserSearchPreference;
+    let minSearchTermLength = 2;
 
     loginService.addOnLoginListener(clearCacheUserSearchConfiguration);
+
+    getMinSearchTermLength();
 
     return {
         getSearchFieldsByEntity,
@@ -49,6 +55,10 @@ export default function createSearchRankingService() {
         getUserSearchPreference,
         buildGlobalSearchQueries,
         clearCacheUserSearchConfiguration,
+        searchRankingPoint,
+        getMinSearchTermLength,
+        saveMinSearchTermLength,
+        isValidTerm,
     };
 
     /**
@@ -73,7 +83,7 @@ export default function createSearchRankingService() {
 
         const query = {};
 
-        Object.keys(userSearchPreference).forEach(entity => {
+        Object.keys(userSearchPreference).forEach((entity) => {
             const fields = userSearchPreference[entity];
             if (_isEmptyObject(fields)) {
                 return;
@@ -144,19 +154,45 @@ export default function createSearchRankingService() {
             return _getDefaultSearchFieldsByEntity(currentModule, searchTypeConstants.MODULE);
         }
 
-        if (_isEmptyObject(currentModule.defaultSearchConfiguration) ||
-            !_isEntitySearchable(userConfigSearchFieldsByEntity, searchTypeConstants.MODULE)) {
+        if (
+            _isEmptyObject(currentModule.defaultSearchConfiguration) ||
+            !_isEntitySearchable(userConfigSearchFieldsByEntity, searchTypeConstants.MODULE)
+        ) {
             return {};
         }
 
-        return _scoring(
-            userConfigSearchFieldsByEntity,
-            entityName,
-        );
+        return _scoring(userConfigSearchFieldsByEntity, entityName);
     }
 
     function clearCacheUserSearchConfiguration() {
         cacheUserSearchConfiguration = undefined;
+    }
+
+    async function getMinSearchTermLength() {
+        try {
+            const response = await _getMinSearchTermLength();
+            minSearchTermLength = response;
+            return response;
+        } catch (error) {
+            minSearchTermLength = 2;
+            return error;
+        }
+    }
+
+    async function saveMinSearchTermLength(newMinSearchTermLength) {
+        const systemConfigApiService = Service('systemConfigApiService');
+
+        try {
+            await systemConfigApiService.saveValues({ 'core.search.minSearchTermLength': newMinSearchTermLength });
+            minSearchTermLength = newMinSearchTermLength;
+            return newMinSearchTermLength;
+        } catch (error) {
+            return error;
+        }
+    }
+
+    function isValidTerm(searchTerm) {
+        return _isValidTerm(searchTerm);
     }
 
     /**
@@ -174,10 +210,7 @@ export default function createSearchRankingService() {
             return cacheDefaultSearchScore[entity];
         }
 
-        cacheDefaultSearchScore[entity] = _scoring(
-            defaultSearchConfiguration,
-            entity,
-        );
+        cacheDefaultSearchScore[entity] = _scoring(defaultSearchConfiguration, entity);
 
         return cacheDefaultSearchScore[entity];
     }
@@ -204,7 +237,11 @@ export default function createSearchRankingService() {
      * @returns {Boolean}
      */
     function _isValidTerm(searchTerm) {
-        return searchTerm && searchTerm.trim().length > 1;
+        if (!searchTerm) {
+            return false;
+        }
+
+        return searchTerm && searchTerm.trim().length >= minSearchTermLength;
     }
 
     /**
@@ -242,7 +279,7 @@ export default function createSearchRankingService() {
         }
         const cloneCriteria = cloneDeep(oldCriteria);
 
-        queryScores.forEach(queryScore => {
+        queryScores.forEach((queryScore) => {
             cloneCriteria.addQuery(...queryScore);
         });
 
@@ -256,29 +293,19 @@ export default function createSearchRankingService() {
      * @returns {Array}
      */
     function _buildQueryScores(fieldScores, searchTerm) {
-        let terms = searchTerm.split(' ').filter(term => {
-            return term.length > 1;
+        let terms = searchTerm.split(' ').filter((term) => {
+            return term.length >= minSearchTermLength;
         });
         terms = [...new Set(terms)];
 
         const queryScores = [];
-        const originalTerm = searchTerm.trim();
 
-        Object.keys(fieldScores).forEach(field => {
-            queryScores.push(
-                [Criteria.equals(field, originalTerm), fieldScores[field]],
-                [Criteria.contains(field, originalTerm), fieldScores[field] * 0.75],
-            );
-
-            if (terms.length === 0 || (terms.length === 1 && terms[0] === originalTerm)) {
-                return;
-            }
-
+        Object.keys(fieldScores).forEach((field) => {
             terms.forEach((term) => {
-                queryScores.push(
-                    [Criteria.equals(field, term), fieldScores[field] * 0.5],
-                    [Criteria.contains(field, term), fieldScores[field] * 0.5 * 0.75],
-                );
+                queryScores.push([
+                    Criteria.contains(field, term),
+                    fieldScores[field],
+                ]);
             });
         });
 
@@ -298,7 +325,7 @@ export default function createSearchRankingService() {
 
         let scores = {};
 
-        Object.keys(searchRankingFields).forEach(field => {
+        Object.keys(searchRankingFields).forEach((field) => {
             const nested = searchRankingFields[field];
             const select = root ? `${root}.${field}` : field;
 
@@ -343,7 +370,6 @@ export default function createSearchRankingService() {
         });
     }
 
-
     /**
      * @param {String} entityName
      * @returns {Object}
@@ -361,5 +387,20 @@ export default function createSearchRankingService() {
         cacheModules[entityName] = module.manifest;
 
         return cacheModules[entityName];
+    }
+
+    /**
+     * @private
+     * @returns {Promise<number>}
+     */
+    async function _getMinSearchTermLength() {
+        const systemConfigApiService = Service('systemConfigApiService');
+
+        try {
+            const response = await systemConfigApiService.getValues('core.search');
+            return response['core.search.minSearchTermLength'] ?? 2;
+        } catch (error) {
+            return error;
+        }
     }
 }

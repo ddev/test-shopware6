@@ -6,6 +6,7 @@ use Shopware\Core\DevOps\Docs\ArrayWriter;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Event\BusinessEventCollector;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Webhook\Hookable;
 use Shopware\Core\Framework\Webhook\Hookable\HookableEventCollector;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -13,19 +14,13 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Twig\Environment;
-use Twig\Error\LoaderError;
-use Twig\Error\RuntimeError;
-use Twig\Error\SyntaxError;
 use Twig\Loader\ArrayLoader;
 
 #[AsCommand(
     name: 'docs:app-system-events',
     description: 'Dump the app events',
 )]
-#[Package('core')]
-/**
- * @package core
- */
+#[Package('framework')]
 class DocsAppEventCommand extends Command
 {
     private const EVENT_DOCUMENT_PATH = __DIR__ . '/../../Resources/generated/webhook-events-reference.md';
@@ -53,6 +48,8 @@ class DocsAppEventCommand extends Command
 
         $this->collectEntityWrittenEvent($eventsDoc);
 
+        $this->collectHookables($eventsDoc);
+
         $originalLoader = $this->twig->getLoader();
         $this->twig->setLoader(new ArrayLoader([
             'hookable-events-list.md.twig' => file_get_contents(self::EVENTS_TEMPLATE),
@@ -63,8 +60,6 @@ class DocsAppEventCommand extends Command
                 'hookable-events-list.md.twig',
                 ['eventDocs' => $eventsDoc]
             );
-        } catch (LoaderError|RuntimeError|SyntaxError $e) {
-            throw new \RuntimeException('Can not render Webhook Events', $e->getCode(), $e);
         } finally {
             $this->twig->setLoader($originalLoader);
         }
@@ -102,7 +97,7 @@ class DocsAppEventCommand extends Command
      */
     private function collectBusinessEvent(array &$eventsDoc): void
     {
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
         $businessEvents = $this->businessEventCollector->collect($context);
         $eventDoc = new ArrayWriter(self::EVENT_DESCRIPTIONS);
 
@@ -127,6 +122,21 @@ class DocsAppEventCommand extends Command
         foreach ($entityWrittenEvents as $event => $permission) {
             $eventsDoc[]
                 = HookableEventDoc::fromEntityWrittenEvent($event, $permission['privileges']);
+        }
+    }
+
+    /**
+     * @param list<HookableEventDoc> $eventsDoc
+     */
+    private function collectHookables(array &$eventsDoc): void
+    {
+        foreach (Hookable::HOOKABLE_EVENTS as $class => $eventName) {
+            $eventsDoc[] = new HookableEventDoc(
+                $eventName,
+                Hookable::HOOKABLE_EVENTS_DESCRIPTION[$class],
+                Hookable::HOOKABLE_EVENTS_PRIVILEGES[$class] ? '`' . implode('` `', Hookable::HOOKABLE_EVENTS_PRIVILEGES[$class]) . '`' : '-',
+                null,
+            );
         }
     }
 }

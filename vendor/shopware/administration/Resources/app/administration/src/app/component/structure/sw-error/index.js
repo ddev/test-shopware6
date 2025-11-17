@@ -1,13 +1,10 @@
 import './sw-error.scss';
 import template from './sw-error.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Renders a error page.
  * @status ready
@@ -17,7 +14,7 @@ const { Component } = Shopware;
  * </sw-error>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-error', {
+export default {
     template,
 
     props: {
@@ -90,4 +87,4 @@ Component.register('sw-error', {
             }
         },
     },
-});
+};

@@ -1,13 +1,10 @@
 import './sw-wizard.scss';
 import template from './sw-wizard.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Provides a wrapper to create a wizard modal. The wizard pages are placed in the default slot of the
  * component. Dot navigation as well as the navigation buttons are dynamically within the wizard itself.
  * Please use `sw-wizard-page` for the different wizard pages. When a more sophisticated wizard page is necessary,
@@ -28,16 +25,29 @@ const { Component } = Shopware;
  * </sw-wizard>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-wizard', {
+export default {
     template,
 
     inject: ['feature'],
+
+    provide() {
+        return {
+            swWizardPageAdd: this.addPage,
+            swWizardPageRemove: this.removePage,
+        };
+    },
+
+    emits: [
+        'finish',
+        'pages-updated',
+        'current-page-change',
+        'close',
+    ],
 
     props: {
         showNavigationDots: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return false;
@@ -55,7 +65,6 @@ Component.register('sw-wizard', {
         leftButtonDisabled: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return false;
@@ -65,7 +74,6 @@ Component.register('sw-wizard', {
         rightButtonDisabled: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return false;
@@ -83,8 +91,7 @@ Component.register('sw-wizard', {
 
     computed: {
         hasFooterSlot() {
-            return !!this.$slots['footer-left-button']
-                || !!this.$slots['footer-right-button'];
+            return !!this.$slots['footer-left-button'] || !!this.$slots['footer-right-button'];
         },
 
         pagesCount() {
@@ -105,12 +112,7 @@ Component.register('sw-wizard', {
             this.pages.push(component);
             this.$emit('pages-updated', this.pages, component, 'add');
 
-            if (this.feature.isActive('VUE3')) {
-                // The timing in Vue3 is different. So mounted happens now before
-                // the child components are mounted. So we need to change
-                // the page after each new page addition
-                this.changePage(this.currentlyActivePage);
-            }
+            this.changePage(this.currentlyActivePage);
         },
 
         removePage(component) {
@@ -169,4 +171,4 @@ Component.register('sw-wizard', {
             this.$emit('close');
         },
     },
-});
+};

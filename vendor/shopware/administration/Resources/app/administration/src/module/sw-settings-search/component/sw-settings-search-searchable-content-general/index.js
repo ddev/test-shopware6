@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package inventory
  */
 import template from './sw-settings-search-searchable-content-general.html.twig';
 
@@ -11,6 +11,11 @@ export default {
 
     inject: [
         'acl',
+    ],
+
+    emits: [
+        'data-load',
+        'config-save',
     ],
 
     mixins: [
@@ -61,20 +66,23 @@ export default {
     },
 
     methods: {
+        getList() {
+            // Empty method needed to avoid warning from listing mixin
+        },
 
         getMatchingFields(fieldName) {
             if (!fieldName) {
                 return '';
             }
 
-            const fieldItem = this.fieldConfigs.find(fieldConfig => fieldConfig.value === fieldName);
+            const fieldItem = this.fieldConfigs.find((fieldConfig) => fieldConfig.value === fieldName);
 
             return fieldItem ? fieldItem.label : '';
         },
 
         onSelectField(currentField) {
             const { defaultConfigs } = this.fieldConfigs.find((option) => option.value === currentField.field);
-            this.searchConfigs.forEach(configItem => {
+            this.searchConfigs.forEach((configItem) => {
                 if (configItem._isNew) {
                     configItem.ranking = defaultConfigs.ranking;
                     configItem.searchable = defaultConfigs.searchable;
@@ -138,7 +146,7 @@ export default {
                 return 0;
             }
 
-            const fieldConfigDefault = this.fieldConfigs.find(fieldConfig => fieldConfig.value === fieldName);
+            const fieldConfigDefault = this.fieldConfigs.find((fieldConfig) => fieldConfig.value === fieldName);
 
             return fieldConfigDefault ? fieldConfigDefault.defaultConfigs.ranking : 0;
         },

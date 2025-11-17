@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1661505878ChangeDefaultValueOfShippingMethodActiveField extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -22,10 +22,5 @@ class Migration1661505878ChangeDefaultValueOfShippingMethodActiveField extends M
         $sql = 'ALTER TABLE shipping_method ALTER `active` SET DEFAULT 0;';
 
         $connection->executeStatement($sql);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

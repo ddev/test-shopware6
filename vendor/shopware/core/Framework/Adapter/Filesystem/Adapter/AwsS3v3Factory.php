@@ -2,31 +2,44 @@
 
 namespace Shopware\Core\Framework\Adapter\Filesystem\Adapter;
 
-use AsyncAws\SimpleS3\SimpleS3Client;
+use AsyncAws\S3\S3Client;
 use League\Flysystem\AsyncAwsS3\AsyncAwsS3Adapter;
 use League\Flysystem\AsyncAwsS3\PortableVisibilityConverter;
 use League\Flysystem\FilesystemAdapter;
+use Shopware\Core\Framework\Adapter\AdapterException;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * @phpstan-type S3Config = array{bucket: string, region: string, root: string, credentials?: array{key: string, secret: string}, endpoint?: string, options: array<mixed>, use_path_style_endpoint?: bool, visibility?: string, url?: string}
  */
-#[Package('core')]
+#[Package('framework')]
 class AwsS3v3Factory implements AdapterFactoryInterface
 {
+    /**
+     * @internal
+     *
+     * @param int<1, max> $batchWriteSize
+     */
+    public function __construct(
+        private readonly int $batchWriteSize = 250
+    ) {
+    }
+
     /**
      * @param array<string, mixed> $config
      */
     public function create(array $config): FilesystemAdapter
     {
+        $this->validateDependencies();
+
         $options = $this->resolveS3Options($config);
 
         $s3Opts = [
             'region' => $options['region'],
         ];
 
-        if (\array_key_exists('endpoint', $options)) {
+        if (\array_key_exists('endpoint', $options) && $options['endpoint']) {
             $s3Opts['endpoint'] = $options['endpoint'];
         }
 
@@ -39,14 +52,12 @@ class AwsS3v3Factory implements AdapterFactoryInterface
             $s3Opts['accessKeySecret'] = $options['credentials']['secret'];
         }
 
-        $client = new SimpleS3Client($s3Opts);
+        $client = new S3Client($s3Opts);
 
-        return new DecoratedAsyncS3Adapter(
-            new AsyncAwsS3Adapter($client, $options['bucket'], $options['root'], new PortableVisibilityConverter()),
-            $options['bucket'],
-            $client,
-            $options['root']
-        );
+        $adapter = new AsyncAwsS3WriteBatchAdapter($client, $options['bucket'], $options['root'], new PortableVisibilityConverter());
+        $adapter->batchSize = $this->batchWriteSize;
+
+        return $adapter;
     }
 
     public function getType(): string
@@ -55,7 +66,7 @@ class AwsS3v3Factory implements AdapterFactoryInterface
     }
 
     /**
-     * @param  array<string, mixed> $definition
+     * @param array<string, mixed> $definition
      *
      * @return S3Config
      */
@@ -104,5 +115,12 @@ class AwsS3v3Factory implements AdapterFactoryInterface
         $resolved = $options->resolve($credentials);
 
         return $resolved;
+    }
+
+    private function validateDependencies(): void
+    {
+        if (!class_exists(AsyncAwsS3Adapter::class)) {
+            throw AdapterException::missingDependency('league/flysystem-async-aws-s3');
+        }
     }
 }

@@ -1,15 +1,25 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-extension-sdk-module.html.twig';
+import './sw-extension-sdk-module.scss';
 
 /**
  * @private Only to be used by the Admin extension API
  */
-Shopware.Component.register('sw-extension-sdk-module', {
+export default Shopware.Component.wrapComponentConfig({
     template,
 
     props: {
         id: {
             type: String,
             required: true,
+        },
+        back: {
+            type: String,
+            required: false,
+            default: null,
         },
     },
 
@@ -22,7 +32,7 @@ Shopware.Component.register('sw-extension-sdk-module', {
 
     computed: {
         module() {
-            return Shopware.State.get('extensionSdkModules').modules.find(module => module.id === this.id);
+            return Shopware.Store.get('extensionSdkModules').modules.find((module) => module.id === this.id);
         },
 
         isLoading() {
@@ -33,13 +43,18 @@ Shopware.Component.register('sw-extension-sdk-module', {
             return this.module?.displaySearchBar ?? true;
         },
 
+        showSmartBar() {
+            return this.module?.displaySmartBar ?? true;
+        },
+
         showLanguageSwitch() {
             return !!this.module?.displayLanguageSwitch;
         },
 
         smartBarButtons() {
-            return Shopware.State.get('extensionSdkModules').smartBarButtons
-                .filter(button => button.locationId === this.module?.locationId);
+            return Shopware.Store.get('extensionSdkModules').smartBarButtons.filter(
+                (button) => button.locationId === this.module?.locationId,
+            );
         },
     },
 
@@ -72,7 +87,7 @@ Shopware.Component.register('sw-extension-sdk-module', {
         }, 7000);
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         if (this.loadingTimeOut) {
             window.clearTimeout(this.loadingTimeOut);
         }
@@ -80,7 +95,7 @@ Shopware.Component.register('sw-extension-sdk-module', {
 
     methods: {
         onChangeLanguage(languageId) {
-            Shopware.State.commit('context/setApiLanguageId', languageId);
+            Shopware.Store.get('context').setApiLanguageId(languageId);
         },
     },
 });

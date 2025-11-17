@@ -1,17 +1,17 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-card-filter.html.twig';
 import './sw-card-filter.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-card-filter', {
+export default {
     template,
+
+    emits: ['sw-card-filter-term-change'],
 
     props: {
         placeholder: {
@@ -67,4 +67,4 @@ Component.register('sw-card-filter', {
             this.$emit('sw-card-filter-term-change', this.term);
         },
     },
-});
+};

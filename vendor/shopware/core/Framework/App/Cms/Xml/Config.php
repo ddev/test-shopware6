@@ -3,6 +3,7 @@
 namespace Shopware\Core\Framework\App\Cms\Xml;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
 
 /**
@@ -10,7 +11,7 @@ use Shopware\Core\Framework\Log\Package;
  *
  * @phpstan-type ConfigArray array<string, array{source: string, value: string}>
  */
-#[Package('content')]
+#[Package('discovery')]
 class Config extends XmlElement
 {
     /**
@@ -31,7 +32,7 @@ class Config extends XmlElement
         $config = [];
 
         foreach ($element->getElementsByTagName('config-value') as $configValue) {
-            $config[self::kebabCaseToCamelCase($configValue->getAttribute('name'))] = [
+            $config[XmlParserUtils::kebabCaseToCamelCase($configValue->getAttribute('name'))] = [
                 'source' => $configValue->getAttribute('source'),
                 'value' => $configValue->getAttribute('value'),
             ];

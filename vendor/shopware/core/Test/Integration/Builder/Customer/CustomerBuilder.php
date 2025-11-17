@@ -4,9 +4,9 @@ namespace Shopware\Core\Test\Integration\Builder\Customer;
 
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Test\IdsCollection;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Test\Stub\Framework\IdsCollection;
 use Shopware\Core\Test\TestBuilderTrait;
 use Shopware\Core\Test\TestDefaults;
 
@@ -27,11 +27,11 @@ class CustomerBuilder
 
     public string $id;
 
-    protected string $firstName;
+    protected string $firstName = 'Max';
 
-    protected string $lastName;
+    protected string $lastName = 'Mustermann';
 
-    protected string $email;
+    protected string $email = 'max@mustermann.com';
 
     protected string $customerGroupId;
 
@@ -44,8 +44,6 @@ class CustomerBuilder
 
     protected string $defaultShippingAddressId;
 
-    protected string $defaultPaymentMethodId;
-
     /**
      * @var array<string, mixed>
      */
@@ -55,11 +53,6 @@ class CustomerBuilder
      * @var array<string, mixed>
      */
     protected array $group = [];
-
-    /**
-     * @var array<string, mixed>
-     */
-    protected array $defaultPaymentMethod = [];
 
     /**
      * @var array<string, mixed>
@@ -76,22 +69,11 @@ class CustomerBuilder
     ) {
         $this->ids = $ids;
         $this->id = $ids->create($customerNumber);
-        $this->firstName = 'Max';
-        $this->lastName = 'Mustermann';
-        $this->email = 'max@mustermann.com';
         $this->salutation = self::salutation($ids);
 
         $this->customerGroup($customerGroup);
         $this->defaultBillingAddress($billingAddress);
         $this->defaultShippingAddress($shippingAddress);
-
-        $this->defaultPaymentMethodId = self::connection()->fetchOne(
-            'SELECT LOWER(HEX(payment_method_id))
-                   FROM sales_channel_payment_method
-                   JOIN payment_method ON sales_channel_payment_method.payment_method_id = payment_method.id
-                   WHERE sales_channel_id = :id AND payment_method.active = true LIMIT 1',
-            ['id' => Uuid::fromHexToBytes($salesChannelId)]
-        );
     }
 
     public function customerNumber(string $customerNumber): self
@@ -148,16 +130,6 @@ class CustomerBuilder
     {
         $this->addAddress($key, $customParams);
         $this->defaultShippingAddressId = $this->ids->get($key);
-
-        return $this;
-    }
-
-    public function defaultPaymentMethod(string $key): self
-    {
-        $this->defaultPaymentMethod = [
-            'id' => $this->ids->get($key),
-            'name' => $key,
-        ];
 
         return $this;
     }

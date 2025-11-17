@@ -2,11 +2,13 @@ import Debouncer from 'src/helper/debouncer.helper';
 
 /**
  * Viewport Detection
+ *
+ * @sw-package framework
  */
 const RESIZE_DEBOUNCE_TIME = 200;
 
 /**
- * @package storefront
+ * @sw-package framework
  */
 export default class ViewportDetection {
 
@@ -166,7 +168,7 @@ export default class ViewportDetection {
      * @returns {string}
      */
     static getCurrentViewport() {
-        const viewport = window.getComputedStyle(document.documentElement, ':before').content;
+        const viewport = window.getComputedStyle(document.documentElement).getPropertyValue('--sw-current-breakpoint');
         return viewport.replace(/['"]+/g, '').toUpperCase();
     }
 }

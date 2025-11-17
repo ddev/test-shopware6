@@ -1,17 +1,25 @@
 import template from './sw-admin-menu-item.html.twig';
 
-const { Component } = Shopware;
 const { createId, types } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
-Component.register('sw-admin-menu-item', {
+export default {
     template,
 
-    inject: ['acl', 'feature'],
+    inject: [
+        'acl',
+        'feature',
+    ],
+
+    emits: [
+        'menu-item-click',
+        'menu-item-enter',
+        'sub-menu-item-enter',
+    ],
 
     props: {
         entry: {
@@ -23,9 +31,9 @@ Component.register('sw-admin-menu-item', {
             required: false,
             default: () => [],
         },
+
         displayIcon: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -37,14 +45,12 @@ Component.register('sw-admin-menu-item', {
         },
         collapsibleText: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
         },
         sidebarExpanded: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -67,7 +73,7 @@ Component.register('sw-admin-menu-item', {
 
         getEntryLabel() {
             if (this.entry.label instanceof Object) {
-                return (this.entry.label.translated) ? this.entry.label.label : this.$tc(this.entry.label.label);
+                return this.entry.label.translated ? this.entry.label.label : this.$tc(this.entry.label.label);
             }
             return this.$tc(this.entry.label);
         },
@@ -100,7 +106,7 @@ Component.register('sw-admin-menu-item', {
         },
 
         children() {
-            return this.entry.children.filter(child => {
+            return this.entry.children.filter((child) => {
                 if (!child.privilege) {
                     return true;
                 }
@@ -115,15 +121,10 @@ Component.register('sw-admin-menu-item', {
             let route = '';
             let match = false;
 
-            if (Shopware.Service('feature').isActive('VUE3')) {
-                route = `/${path.replace(/\./g, '/')}`;
-                match = this.$router.resolve({
-                    path: route,
-                });
-            } else {
-                route = path.replace(/\./g, '/');
-                match = this.$router.match(route);
-            }
+            route = `/${path.replace(/[\.\-]/g, '/')}`;
+            match = this.$router.resolve({
+                path: route,
+            });
 
             if (!match.meta) {
                 return true;
@@ -148,7 +149,7 @@ Component.register('sw-admin-menu-item', {
             }
 
             const meta = this.$route.meta;
-            const adminMenuEntries = Shopware.State.get('adminMenu').adminModuleNavigation;
+            const adminMenuEntries = Shopware.Store.get('adminMenu').adminModuleNavigation;
             let compareTo;
 
             function findRootEntry(currentPath, foundPaths = []) {
@@ -224,4 +225,4 @@ Component.register('sw-admin-menu-item', {
             return `${path}-${createId()}`;
         },
     },
-});
+};

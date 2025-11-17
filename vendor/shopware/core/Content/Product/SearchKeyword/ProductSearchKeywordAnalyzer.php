@@ -6,6 +6,8 @@ use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\Exception\PropertyNotFoundException;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\Filter\AbstractTokenFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\TokenizerInterface;
 use Shopware\Core\Framework\Log\Package;
@@ -20,7 +22,8 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
      */
     public function __construct(
         private readonly TokenizerInterface $tokenizer,
-        private readonly AbstractTokenFilter $tokenFilter
+        private readonly AbstractTokenFilter $tokenFilter,
+        private readonly SearchConfigLoader $configLoader,
     ) {
     }
 
@@ -34,24 +37,25 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
             $ranking = (int) $configField['ranking'];
 
             $values = array_filter($this->resolveEntityValue($product, $path));
+            ksort($values);
 
             if ($isTokenize) {
-                $nonScalarValues = array_filter($values, fn ($value) => !\is_scalar($value));
+                $nonScalarValues = array_filter($values, static fn ($value) => !\is_scalar($value));
 
                 if ($nonScalarValues !== []) {
                     continue;
                 }
 
-                /** @var array<int, string> $onlyScalarValues */
+                /** @var array<int, non-falsy-string> $onlyScalarValues */
                 $onlyScalarValues = $values;
                 $values = $this->tokenize($onlyScalarValues, $context);
+                $values[] = implode(' ', $values);
             }
 
-            foreach ($values as $value) {
-                if (!\is_scalar($value)) {
-                    continue;
-                }
+            $values = array_filter($values, static fn ($value) => \is_scalar($value)); // Keep only scalar values
+            $values = array_unique($values);
 
+            foreach ($values as $value) {
                 // even the field is non tokenize, if it reached 500 chars, we should break it anyway
                 $parts = array_filter(mb_str_split((string) $value, self::MAXIMUM_KEYWORD_LENGTH));
 
@@ -71,8 +75,12 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
      */
     private function tokenize(array $values, Context $context): array
     {
+        $config = $this->configLoader->load($context);
+
+        /** @phpstan-ignore arguments.count (This ignore should be removed when the deprecated method signature is updated) */
         $values = $this->tokenizer->tokenize(
-            implode(' ', $values)
+            implode(' ', $values),
+            $config[0]['min_search_length'] ?? null
         );
 
         return $this->tokenFilter->filter($values, $context);
@@ -86,7 +94,7 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
         $value = $entity;
         $parts = explode('.', $path);
 
-        // if property does not exist, try to omit the first key as it may contains the entity name.
+        // if property does not exist, try to omit the first key as it may contain the entity name.
         // E.g. `product.description` does not exist, but will be found if the first part is omitted.
         $smartDetect = true;
 
@@ -101,7 +109,7 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
                 if ($value instanceof EntityCollection) {
                     $values = [];
                     if (!empty($parts)) {
-                        $part .= sprintf('.%s', implode('.', $parts));
+                        $part .= \sprintf('.%s', implode('.', $parts));
                     }
                     foreach ($value as $item) {
                         $values = [...$values, ...$this->resolveEntityValue($item, $part)];
@@ -111,13 +119,9 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
                 }
 
                 if ($value instanceof Entity) {
-                    if ($value->get($part) === null) {
-                        // if we are at the destination entity and it does not have a value for the field
-                        // on it's on, then try to get the translation fallback
-                        $value = $value->getTranslation($part);
-                    } else {
-                        $value = $value->get($part);
-                    }
+                    // if we are at the destination entity, and it does not have a value for the field
+                    // on it's on, then try to get the translation fallback
+                    $value = $value->get($part) ?? $value->getTranslation($part);
                 } elseif (\is_array($value)) {
                     $value = $value[$part] ?? null;
                 }
@@ -129,7 +133,7 @@ class ProductSearchKeywordAnalyzer implements ProductSearchKeywordAnalyzerInterf
                 if (\is_array($value)) {
                     return $value;
                 }
-            } catch (\InvalidArgumentException $ex) {
+            } catch (PropertyNotFoundException|\InvalidArgumentException $ex) {
                 if (!$smartDetect) {
                     throw $ex;
                 }

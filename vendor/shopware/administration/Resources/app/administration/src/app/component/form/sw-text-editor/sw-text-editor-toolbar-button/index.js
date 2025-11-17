@@ -1,15 +1,19 @@
 import template from './sw-text-editor-toolbar-button.html.twig';
 import './sw-text-editor-toolbar-button.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
+ * @deprecated tag:v6.8.0 - Will be removed, use mt-text-editor instead.
  *
  * @private
  */
-Component.register('sw-text-editor-toolbar-button', {
+export default {
     template,
+
+    emits: [
+        'button-click',
+        'menu-toggle',
+    ],
 
     props: {
         buttonConfig: {
@@ -64,9 +68,9 @@ Component.register('sw-text-editor-toolbar-button', {
                 return null;
             }
 
-            return button.children || button.type === 'link' || button.type === 'table' || button.type === 'foreColor' ?
-                this.onToggleMenu(event, button) :
-                this.handleButtonClick(button);
+            return button.children || button.type === 'link' || button.type === 'table' || button.type === 'foreColor'
+                ? this.onToggleMenu(event, button)
+                : this.handleButtonClick(button);
         },
 
         childActive(child) {
@@ -85,11 +89,18 @@ Component.register('sw-text-editor-toolbar-button', {
         },
 
         onToggleMenu(event, button) {
-            if (!['link', 'table', 'foreColor'].includes(button.type) && !button.children) {
+            if (
+                ![
+                    'link',
+                    'table',
+                    'foreColor',
+                ].includes(button.type) &&
+                !button.children
+            ) {
                 return;
             }
 
-            if (button.type === 'foreColor' && event.target.closest('.sw-colorpicker__colorpicker')) {
+            if (button.type === 'foreColor' && event.target.closest('.mt-colorpicker__colorpicker')) {
                 return;
             }
 
@@ -123,7 +134,7 @@ Component.register('sw-text-editor-toolbar-button', {
             }
 
             const flyoutMenuRightBound = flyoutMenu.getBoundingClientRect().right;
-            const windowRightBound = this.$root.$el.getBoundingClientRect().right;
+            const windowRightBound = this.$root.$el.parentElement.getBoundingClientRect().right;
 
             const isOutOfRightBound = flyoutMenuRightBound - windowRightBound > 0;
             this.flyoutClasses = isOutOfRightBound ? ['is--left'] : ['is--right'];
@@ -157,18 +168,26 @@ Component.register('sw-text-editor-toolbar-button', {
             const linkFlyoutMenuRightBound = linkIconRightBound - linkIconWidth + flyoutLinkMenuWidth;
             const windowRightBound = this.$device.getViewportWidth();
 
-            const isOutOfRightBound = windowRightBound - linkFlyoutMenuRightBound;
+            const modalContainer = this.$el.closest('.mt-modal');
+            const containerRightBound = modalContainer ? modalContainer.getBoundingClientRect().right : windowRightBound;
+
+            const isOutOfRightBound = containerRightBound - linkFlyoutMenuRightBound;
 
             let flyoutLinkLeftOffset = 0;
             let arrowPosition = 10;
 
             if (isOutOfRightBound < 0) {
-                flyoutLinkLeftOffset = isOutOfRightBound - 50;
-                arrowPosition = Math.abs(flyoutLinkLeftOffset) + 10;
+                if (modalContainer) {
+                    flyoutLinkLeftOffset = -(flyoutLinkMenuWidth / 2) + linkIconWidth / 2;
+                    arrowPosition = flyoutLinkMenuWidth / 2;
+                } else {
+                    flyoutLinkLeftOffset = isOutOfRightBound - 50;
+                    arrowPosition = Math.abs(flyoutLinkLeftOffset) + 10;
+                }
             }
 
             flyoutLinkMenu.style.setProperty('--flyoutLinkLeftOffset', `${flyoutLinkLeftOffset}px`);
             flyoutLinkMenu.style.setProperty('--arrow-position', `${arrowPosition}px`);
         },
     },
-});
+};

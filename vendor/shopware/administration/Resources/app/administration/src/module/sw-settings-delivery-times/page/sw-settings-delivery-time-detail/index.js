@@ -1,7 +1,7 @@
 import template from './sw-settings-delivery-time-detail.html.twig';
 
 /**
- * @package checkout
+ * @sw-package discovery
  */
 
 const { Component, Mixin } = Shopware;
@@ -12,7 +12,11 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl', 'customFieldDataProviderService'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+        'customFieldDataProviderService',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -57,22 +61,28 @@ export default {
         },
 
         deliveryTimeUnits() {
-            return [{
-                value: 'hour',
-                label: this.$tc('sw-settings-delivery-time.detail.selectionUnitHour'),
-            }, {
-                value: 'day',
-                label: this.$tc('sw-settings-delivery-time.detail.selectionUnitDay'),
-            }, {
-                value: 'week',
-                label: this.$tc('sw-settings-delivery-time.detail.selectionUnitWeek'),
-            }, {
-                value: 'month',
-                label: this.$tc('sw-settings-delivery-time.detail.selectionUnitMonth'),
-            }, {
-                value: 'year',
-                label: this.$tc('sw-settings-delivery-time.detail.selectionUnitYear'),
-            }];
+            return [
+                {
+                    value: 'hour',
+                    label: this.$tc('sw-settings-delivery-time.detail.selectionUnitHour'),
+                },
+                {
+                    value: 'day',
+                    label: this.$tc('sw-settings-delivery-time.detail.selectionUnitDay'),
+                },
+                {
+                    value: 'week',
+                    label: this.$tc('sw-settings-delivery-time.detail.selectionUnitWeek'),
+                },
+                {
+                    value: 'month',
+                    label: this.$tc('sw-settings-delivery-time.detail.selectionUnitMonth'),
+                },
+                {
+                    value: 'year',
+                    label: this.$tc('sw-settings-delivery-time.detail.selectionUnitYear'),
+                },
+            ];
         },
 
         displayName() {
@@ -144,7 +154,7 @@ export default {
             this.loadCustomFieldSets();
 
             this.deliveryTimeRepository
-                .get(this.$route.params.id)
+                .get(this.$route.params.id.toLowerCase())
                 .then((deliveryTime) => {
                     this.deliveryTime = deliveryTime;
                     this.isLoading = false;

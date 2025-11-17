@@ -1,9 +1,7 @@
+/** @deprecated tag:v6.8.0 - HttpClient is deprecated. Use native fetch API instead. */
 import HttpClient from 'src/service/http-client.service';
 import Plugin from 'src/plugin-system/plugin.class';
-import PluginManager from 'src/plugin-system/plugin.manager';
 import LoadingIndicatorUtil from 'src/utility/loading-indicator/loading-indicator.util';
-import DeviceDetection from 'src/helper/device-detection.helper';
-import DomAccess from 'src/helper/dom-access.helper';
 import PseudoModalUtil from 'src/utility/modal-extension/pseudo-modal.util';
 
 const PSEUDO_MODAL_TEMPLATE_CONTENT_CLASS = 'js-pseudo-modal-template-content-element';
@@ -17,7 +15,7 @@ const PSEUDO_MODAL_TEMPLATE_CONTENT_CLASS = 'js-pseudo-modal-template-content-el
  * Notice: The response template needs to have the markup as defined in the Bootstrap docs
  * https://getbootstrap.com/docs/5.2/components/modal/#live-demo
  *
- * @package storefront
+ * @sw-package framework
  */
 export default class AjaxModalPlugin extends Plugin {
 
@@ -26,6 +24,8 @@ export default class AjaxModalPlugin extends Plugin {
 
         urlAttribute: 'data-url',
 
+        prevUrlAttribute: 'data-prev-url',
+
         modalClassAttribute: 'data-modal-class',
 
         modalClass: null,
@@ -33,6 +33,7 @@ export default class AjaxModalPlugin extends Plugin {
         centerLoadingIndicatorClass: 'text-center',
     };
 
+    /** @deprecated tag:v6.8.0 - HttpClient is deprecated. Use native fetch API instead. */
     httpClient = new HttpClient();
 
     init() {
@@ -44,11 +45,8 @@ export default class AjaxModalPlugin extends Plugin {
      * @private
      */
     _registerEvents() {
-        const eventType = (DeviceDetection.isTouchDevice()) ? 'touchend' : 'click';
-
         this.el.removeEventListener('click', this._onClickHandleAjaxModal.bind(this));
-        this.el.removeEventListener('touchend', this._onClickHandleAjaxModal.bind(this));
-        this.el.addEventListener(eventType, this._onClickHandleAjaxModal.bind(this));
+        this.el.addEventListener('click', this._onClickHandleAjaxModal.bind(this));
     }
 
     /**
@@ -59,14 +57,22 @@ export default class AjaxModalPlugin extends Plugin {
      * @private
      */
     _onClickHandleAjaxModal(event) {
-        event.preventDefault();
-        event.stopPropagation();
+        if (event.cancelable) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
 
         const pseudoModal = new PseudoModalUtil('', this.options.modalBackdrop);
 
+        window.focusHandler.saveFocusState('ajax-modal');
+
         this._openModal(pseudoModal);
 
-        const modalBodyEl = DomAccess.querySelector(pseudoModal._modal, `.${PSEUDO_MODAL_TEMPLATE_CONTENT_CLASS}`);
+        pseudoModal.getModal().addEventListener('hidden.bs.modal', () => {
+            window.focusHandler.resumeFocusState('ajax-modal');
+        });
+
+        const modalBodyEl = pseudoModal._modal.querySelector(`.${PSEUDO_MODAL_TEMPLATE_CONTENT_CLASS}`);
         modalBodyEl.classList.add(this.options.centerLoadingIndicatorClass);
 
         this._loadModalContent(pseudoModal, modalBodyEl);
@@ -80,8 +86,8 @@ export default class AjaxModalPlugin extends Plugin {
      * @private
      */
     _openModal(pseudoModalUtil) {
-        const modalClasses = [DomAccess.getAttribute(this.el, this.options.modalClassAttribute, false), this.options.modalClass];
-        pseudoModalUtil.open(this._onModalOpen.bind(this, pseudoModalUtil, modalClasses));
+        const modalClasses = [this.el.getAttribute(this.options.modalClassAttribute), this.options.modalClass];
+        pseudoModalUtil.open(this._onModalOpen.bind(this, pseudoModalUtil, modalClasses), 0);
     }
 
     /**
@@ -96,20 +102,22 @@ export default class AjaxModalPlugin extends Plugin {
         const loadingIndicatorUtil = new LoadingIndicatorUtil(modalBodyEl);
         loadingIndicatorUtil.create();
 
-        const url = DomAccess.getAttribute(this.el, this.options.urlAttribute);
+        const url = this.el.getAttribute(this.options.urlAttribute);
 
         modalBodyEl.classList.add(this.options.centerLoadingIndicatorClass);
 
-        this.httpClient.get(url, (response) => {
-            this._processResponse(response, loadingIndicatorUtil, pseudoModalUtil, modalBodyEl);
-        });
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(response => response.text())
+            .then(response => this._processResponse(response, loadingIndicatorUtil, pseudoModalUtil, modalBodyEl));
     }
 
     /**
      * Processes the response by removing the loading indicator, updating the modal content and removing the "loading"
      * class, which centers the loading indicator.
      *
-     * @param {XMLHttpRequest} response
+     * @param {string} response
      * @param {LoadingIndicatorUtil} loadingIndicatorUtil
      * @param {PseudoModalUtil} pseudoModalUtil
      * @param {HTMLElement} modalBodyEl
@@ -117,9 +125,43 @@ export default class AjaxModalPlugin extends Plugin {
      */
     _processResponse(response, loadingIndicatorUtil, pseudoModalUtil, modalBodyEl) {
         loadingIndicatorUtil.remove();
-        pseudoModalUtil.updateContent(response);
-        PluginManager.initializePlugins();
+        pseudoModalUtil.updateContent(response, this._renderBackButton.bind(this, pseudoModalUtil));
+        window.PluginManager.initializePlugins();
         modalBodyEl.classList.remove(this.options.centerLoadingIndicatorClass);
+    }
+
+    /**
+     * Renders a back button into the modal if the `data-prev-url` attribute is set.
+     * The `data-prev-url` attribute can be set if an AJAX modal link (`data-ajax-modal="true"`) is inside an already opened AJAX modal.
+     * When the new AJAX modal is opened, the back button will then re-open the previous modal.
+     *
+     * @see https://getbootstrap.com/docs/5.3/components/modal/#toggle-between-modals
+     * @param pseudoModalUtil
+     * @private
+     */
+    _renderBackButton(pseudoModalUtil) {
+        const prevUrl = this.el.getAttribute(this.options.prevUrlAttribute);
+
+        if (!prevUrl) {
+            return;
+        }
+
+        const buttonTemplate = document.querySelector('.js-pseudo-modal-back-btn-template');
+        if (!buttonTemplate) {
+            return;
+        }
+
+        const backButton = buttonTemplate.content.cloneNode(true);
+        if (!backButton.children.length) {
+            return;
+        }
+
+        backButton.children[0].setAttribute('href', prevUrl);
+        backButton.children[0].setAttribute('data-url', prevUrl);
+        backButton.children[0].style.marginLeft = '20px';
+
+        const modalBodyEl = pseudoModalUtil._modal.querySelector(`.${PSEUDO_MODAL_TEMPLATE_CONTENT_CLASS}`);
+        modalBodyEl.prepend(backButton);
     }
 
     /**
@@ -132,7 +174,7 @@ export default class AjaxModalPlugin extends Plugin {
     _onModalOpen(pseudoModalUtil, classes) {
         const modal = pseudoModalUtil.getModal();
         modal.classList.add(...classes);
-        PluginManager.initializePlugins();
+        window.PluginManager.initializePlugins();
         this.$emitter.publish('ajaxModalOpen', { modal });
     }
 }

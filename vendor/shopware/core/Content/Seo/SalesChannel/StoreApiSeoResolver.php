@@ -2,10 +2,7 @@
 
 namespace Shopware\Core\Content\Seo\SalesChannel;
 
-use Shopware\Core\Content\Category\CategoryEntity;
-use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Content\Seo\SeoUrl\SeoUrlCollection;
-use Shopware\Core\Content\Seo\SeoUrl\SeoUrlEntity;
 use Shopware\Core\Content\Seo\SeoUrlRoute\SeoUrlRouteInterface as SeoUrlRouteConfigRoute;
 use Shopware\Core\Content\Seo\SeoUrlRoute\SeoUrlRouteRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
@@ -31,10 +28,12 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * @internal
  */
-#[Package('buyers-experience')]
+#[Package('inventory')]
 class StoreApiSeoResolver implements EventSubscriberInterface
 {
     /**
+     * @param SalesChannelRepository<SeoUrlCollection> $salesChannelRepository
+     *
      * @internal
      */
     public function __construct(
@@ -45,10 +44,14 @@ class StoreApiSeoResolver implements EventSubscriberInterface
     ) {
     }
 
+    /**
+     * This subscriber has to trigger before the {@see \Shopware\Core\System\SalesChannel\Api\StoreApiResponseListener},
+     * because it requires access to the `StoreApiResponse`'s struct object, which is not available after encoding it.
+     */
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::RESPONSE => ['addSeoInformation', 10000],
+            KernelEvents::RESPONSE => ['addSeoInformation', 11000],
         ];
     }
 
@@ -60,14 +63,24 @@ class StoreApiSeoResolver implements EventSubscriberInterface
             return;
         }
 
-        if (!$event->getRequest()->headers->has(PlatformRequest::HEADER_INCLUDE_SEO_URLS)) {
+        $request = $event->getRequest();
+
+        if (!$request->headers->has(PlatformRequest::HEADER_INCLUDE_SEO_URLS)) {
+            return;
+        }
+
+        $context = $request->attributes->get(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_CONTEXT_OBJECT);
+
+        if (!$context instanceof SalesChannelContext) {
+            // This is likely the case for routes with the `auth_required` option set to `false`,
+            // where the sales-channel-id and context is not resolved by access-token by the other listeners.
             return;
         }
 
         $dataBag = new SeoResolverData();
 
         $this->find($dataBag, $response->getObject());
-        $this->enrich($dataBag, $event->getRequest()->attributes->get(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_CONTEXT_OBJECT));
+        $this->enrich($dataBag, $context);
     }
 
     private function find(SeoResolverData $data, Struct $struct): void
@@ -81,6 +94,10 @@ class StoreApiSeoResolver implements EventSubscriberInterface
         if ($struct instanceof EntitySearchResult) {
             foreach ($struct->getEntities() as $entity) {
                 $this->findStruct($data, $entity);
+            }
+
+            foreach ($struct->getExtensions() as $extension) {
+                $this->findStruct($data, $extension);
             }
         }
 
@@ -97,13 +114,14 @@ class StoreApiSeoResolver implements EventSubscriberInterface
     {
         if ($struct instanceof Entity) {
             $definition = $this->definitionInstanceRegistry->getByEntityClass($struct) ?? $this->salesChannelDefinitionInstanceRegistry->getByEntityClass($struct);
+
             if ($definition && $definition->isSeoAware()) {
                 $data->add($definition->getEntityName(), $struct);
             }
         }
 
         foreach ($struct->getVars() as $item) {
-            if ($item instanceof Collection) {
+            if ($item instanceof Collection || \is_array($item)) {
                 foreach ($item as $collectionItem) {
                     if ($collectionItem instanceof Struct) {
                         $this->findStruct($data, $collectionItem);
@@ -132,20 +150,28 @@ class StoreApiSeoResolver implements EventSubscriberInterface
             $criteria->addFilter(new EqualsFilter('isCanonical', true));
             $criteria->addFilter(new EqualsAnyFilter('routeName', $routes));
             $criteria->addFilter(new EqualsAnyFilter('foreignKey', $ids));
-            $criteria->addFilter(new EqualsFilter('languageId', $context->getContext()->getLanguageId()));
+            $criteria->addFilter(new EqualsFilter('languageId', $context->getLanguageId()));
             $criteria->addSorting(new FieldSorting('salesChannelId'));
 
-            /** @var SeoUrlEntity $url */
             foreach ($this->salesChannelRepository->search($criteria, $context) as $url) {
-                /** @var SalesChannelProductEntity|CategoryEntity $entity */
-                $entity = $data->get($definition, $url->getForeignKey());
+                $entities = $data->getAll($definition, $url->getForeignKey());
 
-                if ($entity->getSeoUrls() === null) {
-                    $entity->setSeoUrls(new SeoUrlCollection());
+                foreach ($entities as $entity) {
+                    if (!\method_exists($entity, 'getSeoUrls') || !\method_exists($entity, 'setSeoUrls')) {
+                        break;
+                    }
+
+                    if ($entity->getSeoUrls() === null) {
+                        $entity->setSeoUrls(new SeoUrlCollection());
+                    }
+
+                    if (!$entity->getSeoUrls() instanceof SeoUrlCollection) {
+                        break;
+                    }
+
+                    $seoUrlCollection = $entity->getSeoUrls();
+                    $seoUrlCollection->add($url);
                 }
-
-                /** @phpstan-ignore-next-line - will complain that 'getSeoUrls' might be null, but we will set it if it is null */
-                $entity->getSeoUrls()->add($url);
             }
         }
     }

@@ -1,10 +1,11 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-step-display.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description This step display component need flow-items inside it's slot to work.
  * To control the current position use the `itemIndex` property (zero-based index).
  * To change the variant of the current position you can use the `itemVariant` property.
@@ -28,8 +29,14 @@ const { Component } = Shopware;
  * </sw-step-display>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-step-display', {
+export default {
     template,
+
+    provide() {
+        return {
+            addStep: this.addStep,
+        };
+    },
 
     props: {
         itemIndex: {
@@ -72,25 +79,25 @@ Component.register('sw-step-display', {
         },
     },
 
-    mounted() {
-        // read child step items
-        this.$children.forEach((child) => {
-            if (child.$options._componentTag === 'sw-step-item') {
-                this.items.push(child);
-            }
-        });
-
-        this.setItemVariants(this.initialItemVariants);
-        this.setItemActive(this.itemIndex, true);
-        this.setVariantForCurrentItem(this.itemVariant);
-    },
-
     methods: {
+        addStep(item) {
+            this.items.push(item);
+
+            this.setItemVariant(item, this.initialItemVariants[this.items.length - 1]);
+            this.setItemActive(this.itemIndex, true);
+            this.setVariantForCurrentItem(this.itemVariant);
+        },
+
         setItemVariants(itemVariants) {
             const max = Math.min(this.items.length, itemVariants.length);
+
             for (let i = 0; i < max; i += 1) {
-                this.items[i].setVariant(itemVariants[i]);
+                this.setItemVariant(this.items[i], itemVariants[i]);
             }
+        },
+
+        setItemVariant(item, variant) {
+            item.setVariant(variant);
         },
 
         setVariantForCurrentItem(variant) {
@@ -109,4 +116,4 @@ Component.register('sw-step-display', {
             this.items[index].setActive(active);
         },
     },
-});
+};

@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1669291632MigrateLineItemsInCartRule extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -36,10 +36,5 @@ class Migration1669291632MigrateLineItemsInCartRule extends MigrationStep
 
         // rebuild payload on rule (because it contains the conditions serialized)
         $this->registerIndexer($connection, 'rule.indexer');
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

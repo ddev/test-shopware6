@@ -19,11 +19,14 @@ use Shopware\Core\Framework\Script\Execution\ScriptExecutor;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
- * @internal only for use by the app-system, will be considered internal from v6.4.0 onward
+ * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class AppStateService
 {
+    /**
+     * @param EntityRepository<AppCollection> $appRepo
+     */
     public function __construct(
         private readonly EntityRepository $appRepo,
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -39,10 +42,9 @@ class AppStateService
 
     public function activateApp(string $appId, Context $context): void
     {
-        /** @var AppEntity|null $app */
-        $app = $this->appRepo->search(new Criteria([$appId]), $context)->first();
+        $app = $this->appRepo->search(new Criteria([$appId]), $context)->getEntities()->first();
 
-        if (!$app) {
+        if ($app === null) {
             throw AppException::notFound($appId);
         }
         if ($app->isActive()) {
@@ -63,22 +65,20 @@ class AppStateService
         $this->scriptExecutor->execute(new AppActivatedHook($event));
     }
 
-    public function deactivateApp(string $appId, Context $context): void
+    public function deactivateApp(string $appId, Context $context, bool $deactivateForDeletion = false): void
     {
-        /** @var AppEntity|null $app */
-        $app = $this->appRepo->search(new Criteria([$appId]), $context)->first();
+        $app = $this->appRepo->search(new Criteria([$appId]), $context)->getEntities()->first();
 
-        if (!$app) {
+        if ($app === null) {
             throw AppException::notFound($appId);
         }
         if (!$app->isActive()) {
             return;
         }
-        if (!$app->getAllowDisable()) {
-            throw new \RuntimeException(\sprintf('App %s can not be deactivated. You have to uninstall the app.', $app->getName()));
+        if (!$deactivateForDeletion && !$app->getAllowDisable()) {
+            throw AppException::restrictDeletePreventsDeactivation($app->getName());
         }
 
-        $this->activeAppsLoader->reset();
         // throw event before deactivating app in db as theme configs from the app need to be removed beforehand
         $event = new AppDeactivatedEvent($app, $context);
         $this->eventDispatcher->dispatch($event);
@@ -90,5 +90,7 @@ class AppStateService
         $this->paymentMethodStateService->deactivatePaymentMethods($appId, $context);
         $this->ruleConditionPersister->deactivateConditionScripts($appId, $context);
         $this->flowEventPersister->deactivateFlow($appId);
+        // reset only after new state is in the DB
+        $this->activeAppsLoader->reset();
     }
 }

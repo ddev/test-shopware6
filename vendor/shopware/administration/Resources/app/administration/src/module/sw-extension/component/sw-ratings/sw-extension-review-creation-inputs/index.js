@@ -2,11 +2,13 @@ import template from './sw-extension-review-creation-inputs.html.twig';
 import './sw-extension-review-creation-inputs.scss';
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
     template,
+
+    emits: ['changed'],
 
     props: {
         errors: {

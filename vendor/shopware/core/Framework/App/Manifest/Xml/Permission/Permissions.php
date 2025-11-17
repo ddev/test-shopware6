@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class Permissions extends XmlElement
 {
     /**
@@ -65,13 +65,16 @@ class Permissions extends XmlElement
      *     'category:read',
      * ]
      *
-     * @return array<string>
+     * @return list<string>
      */
     public function asParsedPrivileges(): array
     {
         return $this->generatePrivileges();
     }
 
+    /**
+     * @return array{permissions: array<string, list<string>>, additionalPrivileges: list<string>}
+     */
     protected static function parse(\DOMElement $element): array
     {
         $permissions = [];
@@ -92,6 +95,15 @@ class Permissions extends XmlElement
                 continue;
             }
 
+            if ($child->tagName === 'crud') {
+                $permissions[$child->nodeValue][] = AclRoleDefinition::PRIVILEGE_READ;
+                $permissions[$child->nodeValue][] = AclRoleDefinition::PRIVILEGE_CREATE;
+                $permissions[$child->nodeValue][] = AclRoleDefinition::PRIVILEGE_UPDATE;
+                $permissions[$child->nodeValue][] = AclRoleDefinition::PRIVILEGE_DELETE;
+
+                continue;
+            }
+
             $permissions[$child->nodeValue][] = $child->tagName;
         }
 
@@ -102,7 +114,7 @@ class Permissions extends XmlElement
     }
 
     /**
-     * @return array<string>
+     * @return list<string>
      */
     private function generatePrivileges(): array
     {

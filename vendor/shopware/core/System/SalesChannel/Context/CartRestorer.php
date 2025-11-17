@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\System\SalesChannel\Context;
 
+use Shopware\Core\Checkout\Cart\AbstractCartPersister;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartRuleLoader;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
@@ -10,11 +11,13 @@ use Shopware\Core\Checkout\Cart\Event\CartMergedEvent;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Event\SalesChannelContextRestoredEvent;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('core')]
+#[Package('framework')]
 class CartRestorer
 {
     /**
@@ -25,7 +28,9 @@ class CartRestorer
         private readonly SalesChannelContextPersister $contextPersister,
         private readonly CartService $cartService,
         private readonly CartRuleLoader $cartRuleLoader,
-        private readonly EventDispatcherInterface $eventDispatcher
+        private readonly AbstractCartPersister $cartPersister,
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly RequestStack $requestStack,
     ) {
     }
 
@@ -40,19 +45,19 @@ class CartRestorer
     {
         $customerPayload = $this->contextPersister->load(
             $token,
-            $currentContext->getSalesChannel()->getId(),
+            $currentContext->getSalesChannelId(),
         );
 
         if (empty($customerPayload) || !empty($customerPayload['permissions'])) {
             return $this->replaceContextToken($customerId, $currentContext, $token);
         }
 
-        $customerContext = $this->factory->create($customerPayload['token'], $currentContext->getSalesChannel()->getId(), $customerPayload);
+        $customerContext = $this->factory->create($customerPayload['token'], $currentContext->getSalesChannelId(), $customerPayload);
         if ($customerPayload['expired'] ?? false) {
             $customerContext = $this->replaceContextToken($customerId, $customerContext, $token);
         }
 
-        return $this->enrichCustomerContext($customerContext, $currentContext, $token, $customerId);
+        return $this->enrichCustomerContext($customerContext, $currentContext, $currentContext->getToken(), $customerId);
     }
 
     /**
@@ -64,7 +69,7 @@ class CartRestorer
     {
         $customerPayload = $this->contextPersister->load(
             $currentContext->getToken(),
-            $currentContext->getSalesChannel()->getId(),
+            $currentContext->getSalesChannelId(),
             $customerId
         );
 
@@ -72,7 +77,7 @@ class CartRestorer
             return $this->replaceContextToken($customerId, $currentContext);
         }
 
-        $customerContext = $this->factory->create($customerPayload['token'], $currentContext->getSalesChannel()->getId(), $customerPayload);
+        $customerContext = $this->factory->create($customerPayload['token'], $currentContext->getSalesChannelId(), $customerPayload);
         if ($customerPayload['expired'] ?? false) {
             $customerContext = $this->replaceContextToken($customerId, $customerContext);
         }
@@ -114,6 +119,10 @@ class CartRestorer
         $originalToken = $newToken;
         if ($newToken === null) {
             $newToken = $this->contextPersister->replace($currentContext->getToken(), $currentContext);
+        } else {
+            // Prevent duplicate key RDBMS errors in case the new token exists and has permissions attached.
+            $this->cartPersister->delete($newToken, $currentContext);
+            $this->cartPersister->replace($currentContext->getToken(), $newToken, $currentContext);
         }
 
         $currentContext->assign([
@@ -128,9 +137,11 @@ class CartRestorer
                 'shippingAddressId' => null,
                 'permissions' => [],
             ],
-            $currentContext->getSalesChannel()->getId(),
+            $currentContext->getSalesChannelId(),
             ($originalToken === null) ? $customerId : null,
         );
+
+        $this->updateImpersonation($currentContext);
 
         return $currentContext;
     }
@@ -139,6 +150,23 @@ class CartRestorer
     {
         $this->cartService->deleteCart($guestContext);
         $this->contextPersister->delete($guestContext->getToken(), $guestContext->getSalesChannelId(), $customerId);
+    }
+
+    private function updateImpersonation(SalesChannelContext $context): void
+    {
+        $request = $this->requestStack->getMainRequest();
+
+        if (!$request?->hasSession()) {
+            return;
+        }
+
+        $session = $request->getSession();
+
+        if (!$context->getImitatingUserId()) {
+            $session->remove(PlatformRequest::ATTRIBUTE_IMITATING_USER_ID);
+        } else {
+            $session->set(PlatformRequest::ATTRIBUTE_IMITATING_USER_ID, $context->getImitatingUserId());
+        }
     }
 
     private function enrichCustomerContext(
@@ -153,8 +181,9 @@ class CartRestorer
 
         $guestCart = $this->cartService->getCart($token, $currentContext);
         $customerCart = $this->cartService->getCart($customerContext->getToken(), $customerContext);
+        $cartsAreIdentical = $token === $customerContext->getToken();
 
-        if ($guestCart->getLineItems()->count() > 0) {
+        if ($guestCart->getLineItems()->count() > 0 && !$cartsAreIdentical) {
             $restoredCart = $this->mergeCart($customerCart, $guestCart, $customerContext);
         } else {
             $restoredCart = $this->cartService->recalculate($customerCart, $customerContext);
@@ -163,6 +192,11 @@ class CartRestorer
         $restoredCart->addErrors(...array_values($guestCart->getErrors()->getPersistent()->getElements()));
 
         $this->deleteGuestContext($currentContext, $customerId);
+
+        if ($currentContext->getImitatingUserId() !== $customerContext->getImitatingUserId()) {
+            $customerContext->setImitatingUserId($currentContext->getImitatingUserId());
+            $this->updateImpersonation($customerContext);
+        }
 
         $errors = $restoredCart->getErrors();
         $result = $this->cartRuleLoader->loadByToken($customerContext, $restoredCart->getToken());

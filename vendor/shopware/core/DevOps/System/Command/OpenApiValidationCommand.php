@@ -17,7 +17,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 #[AsCommand(
     name: 'open-api:validate',
     description: 'Validates the OpenAPI schema',
@@ -25,8 +25,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class OpenApiValidationCommand extends Command
 {
     public function __construct(
-        private HttpClientInterface $client,
-        private DefinitionService $definitionService
+        private readonly HttpClientInterface $client,
+        private readonly DefinitionService $definitionService,
     ) {
         parent::__construct();
     }

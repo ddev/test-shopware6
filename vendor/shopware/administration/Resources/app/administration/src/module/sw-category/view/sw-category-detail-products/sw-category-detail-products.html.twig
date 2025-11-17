@@ -1,11 +1,10 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_category_detail_products %}
 <div class="sw-category-detail-products">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_product_assignment %}
     <sw-many-to-many-assignment-card
         v-if="category.type !== 'folder'"
+        display-variants
         :title="$tc('sw-category.base.products.productAssignmentHeadline')"
         :entity-collection="category.products"
         :columns="productColumns"
@@ -18,18 +17,12 @@
         @paginate="onPaginateManualProductAssignment"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_detail_product_assignment_type_select %}
         <template #prepend-select>
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_category_detail_product_assignment_type_select_field %}
             <sw-single-select
-                {% if VUE3 %}
                 v-model:value="category.productAssignmentType"
-                {% else %}
-                v-model="category.productAssignmentType"
-                {% endif %}
                 class="sw-category-detail-products__product-assignment-type-select"
                 :label="$tc('sw-category.base.products.productAssignmentTypeLabel')"
                 :error="categoryProductAssignmentTypeError"
@@ -40,33 +33,26 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_category_detail_product_assignment_manual_alert %}
-            <sw-alert
+            <mt-banner
                 v-if="category.productAssignmentType === 'product_stream' && manualAssignedProductsCount > 0"
                 variant="info"
             >
                 {{ $tc('sw-category.base.products.alertManualAssignedProductsOnAssignmentTypeStream') }}
-            </sw-alert>
+            </mt-banner>
             {% endblock %}
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_detail_product_assignment_stream_select %}
         <template
             v-if="category.productAssignmentType === 'product_stream'"
             #select
         >
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_category_detail_product_assignment_stream_select_field %}
             <sw-entity-single-select
-                {% if VUE3 %}
                 v-model:value="category.productStreamId"
-                {% else %}
-                v-model="category.productStreamId"
-                {% endif %}
                 class="sw-category-detail-products__product-stream-select"
                 entity="product_stream"
                 show-clearable-button
@@ -78,7 +64,6 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_category_detail_product_assignment_stream_preview_link %}
             <div class="sw-category-detail-products__product-stream-preview-link">
                 <router-link
@@ -86,9 +71,9 @@
                     :to="{ name: 'sw.product.stream.detail', params: { id: category.productStreamId } }"
                 >
                     {{ $tc('sw-category.base.products.dynamicProductGroupDetailLinkText') }}
-                    <sw-icon
+                    <mt-icon
                         name="regular-long-arrow-right"
-                        small
+                        size="16px"
                     />
                 </router-link>
             </div>
@@ -96,7 +81,6 @@
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_detail_product_assignment_stream_preview_grid %}
         <template
             v-if="category.productAssignmentType === 'product_stream'"
@@ -109,47 +93,36 @@
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_detail_product_assignment_column_name %}
         <template #[nameColumn]="{ item, column }">
             <router-link
                 :to="{ name: column.routerLink, params: { id: item.id } }"
             >
-                <sw-product-variant-info :variations="item.options">
-                    {{ item.name || item.translated.name }}
+                <sw-product-variant-info :variations="item.variation">
+                    {{ getItemName(item) }}
                 </sw-product-variant-info>
             </router-link>
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_detail_product_assignment_column_manufacturer %}
         <template #[manufacturerColumn]="{ item, column }">
             <router-link
-                v-if="item.manufacturerId"
+                v-if="getManufacturer(item)"
                 :to="{ name: column.routerLink, params: { id: item.manufacturerId } }"
             >
-                {{ item.manufacturer.name || item.manufacturer.translated.name }}
+                {{ getManufacturer(item).name || getManufacturer(item).translated.name }}
             </router-link>
             <span v-else></span>
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_category_detail_product_assignment_empty_state %}
         <template #empty-state>
-            <sw-empty-state
-                :title="$tc('sw-category.base.products.productAssignmentEmptyStateDescription')"
-                :subline="''"
-                auto-height
-            >
-                <template #icon>
-                    <img
-                        :src="assetFilter('/administration/static/img/empty-states/products-empty-state.svg')"
-                        :alt="$tc('sw-category.base.products.productAssignmentEmptyStateDescription')"
-                    >
-                </template>
-            </sw-empty-state>
+            <mt-empty-state
+                :icon="$route.meta.$module.icon"
+                :headline="$tc('sw-category.base.products.productAssignmentEmptyStateDescription')"
+            />
         </template>
         {% endblock %}
 

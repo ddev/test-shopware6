@@ -4,6 +4,7 @@ namespace Shopware\Core\Migration\V6_4;
 
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Content\Flow\Aggregate\FlowTemplate\FlowTemplateDefinition;
+use Shopware\Core\Content\Flow\Dispatching\Action\SendMailAction;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\MultiInsertQueryQueue;
 use Shopware\Core\Framework\Log\Package;
@@ -15,7 +16,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('business-ops')]
+#[Package('after-sales')]
 class Migration1659257296GenerateFlowTemplateDataFromEventAction extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -56,7 +57,7 @@ class Migration1659257296GenerateFlowTemplateDataFromEventAction extends Migrati
                 'sequences' => [
                     [
                         'id' => Uuid::randomHex(),
-                        'actionName' => 'action.mail.send',
+                        'actionName' => SendMailAction::ACTION_NAME,
                         'config' => $config,
                         'parentId' => null,
                         'ruleId' => null,
@@ -318,11 +319,11 @@ class Migration1659257296GenerateFlowTemplateDataFromEventAction extends Migrati
     }
 
     /**
-     * @return string[]
+     * @return array<int, non-falsy-string>
      */
     private function getExistingFlowTemplates(Connection $connection): array
     {
-        /** @var string[] $flowTemplates */
+        /** @var list<string> $flowTemplates */
         $flowTemplates = $connection->fetchFirstColumn('SELECT DISTINCT name FROM flow_template');
 
         return array_unique(array_filter($flowTemplates));

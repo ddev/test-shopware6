@@ -4,42 +4,33 @@ namespace Shopware\Core\Framework\Api\Serializer;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class JsonApiEncodingResult implements \JsonSerializable
 {
     /**
      * @var Record[]
      */
-    protected $data = [];
+    protected array $data = [];
 
     /**
      * @var Record[]
      */
-    protected $included = [];
+    protected array $included = [];
 
     /**
      * @var array<string, int>
      */
-    protected $keyCollection = [];
+    protected array $keyCollection = [];
 
-    /**
-     * @var bool
-     */
-    protected $single = false;
+    protected bool $single = false;
 
     /**
      * @var array<string, mixed>
      */
-    protected $metaData = [];
+    protected array $metaData = [];
 
-    /**
-     * @var string
-     */
-    protected $baseUrl;
-
-    public function __construct(string $baseUrl)
+    public function __construct(protected string $baseUrl)
     {
-        $this->baseUrl = $baseUrl;
     }
 
     public function getBaseUrl(): string
@@ -171,12 +162,12 @@ class JsonApiEncodingResult implements \JsonSerializable
             if ($value['data'] === null) {
                 continue;
             }
-            $recordA->addExtension($key, $value);
+            $recordA->addExtension((string) $key, $value);
         }
 
         foreach ($recordB->getLinks() as $key => $value) {
             if (!empty($value)) {
-                $recordA->addLink($key, $value);
+                $recordA->addLink((string) $key, $value);
             }
         }
     }

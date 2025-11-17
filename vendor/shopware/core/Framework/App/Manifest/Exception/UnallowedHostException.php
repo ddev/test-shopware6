@@ -8,9 +8,12 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class UnallowedHostException extends \RuntimeException
 {
+    /**
+     * @param list<string> $allowedHosts
+     */
     public function __construct(
         string $host,
         private readonly array $allowedHosts,
@@ -18,7 +21,7 @@ class UnallowedHostException extends \RuntimeException
         ?\Throwable $previous = null
     ) {
         parent::__construct(
-            sprintf(
+            \sprintf(
                 'The host "%s" you tried to call is not listed in the allowed hosts in the manifest file for app "%s".',
                 $host,
                 $appName
@@ -28,6 +31,9 @@ class UnallowedHostException extends \RuntimeException
         );
     }
 
+    /**
+     * @return list<string>
+     */
     public function getAllowedHosts(): array
     {
         return $this->allowedHosts;

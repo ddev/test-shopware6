@@ -5,7 +5,7 @@ namespace Shopware\Core\Framework\Rule;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 final class RuleConfig extends Struct
 {
     public const OPERATOR_SET_DEFAULT = [Rule::OPERATOR_EQ, Rule::OPERATOR_NEQ, Rule::OPERATOR_GTE, Rule::OPERATOR_LTE];
@@ -20,6 +20,8 @@ final class RuleConfig extends Struct
         Rule::OPERATOR_LTE,
         Rule::OPERATOR_NEQ,
     ];
+
+    public const DEFAULT_DIGITS = 10;
 
     public const UNIT_DIMENSION = 'dimension';
 
@@ -41,7 +43,7 @@ final class RuleConfig extends Struct
     protected bool $isMatchAny = false;
 
     /**
-     * @var array<array<array<string>|string>|string>
+     * @var array<string, array{name: string, type: string, config: array<string, mixed>}>
      */
     protected array $fields = [];
 
@@ -98,6 +100,8 @@ final class RuleConfig extends Struct
      */
     public function numberField(string $name, array $config = []): self
     {
+        $config['digits'] ??= self::DEFAULT_DIGITS;
+
         return $this->field($name, 'float', $config);
     }
 
@@ -107,6 +111,14 @@ final class RuleConfig extends Struct
     public function intField(string $name, array $config = []): self
     {
         return $this->field($name, 'int', $config);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function dateField(string $name, array $config = []): self
+    {
+        return $this->field($name, 'date', $config);
     }
 
     /**
@@ -138,9 +150,17 @@ final class RuleConfig extends Struct
      */
     public function field(string $name, string $type, array $config = []): self
     {
-        $this->fields[] = $this->getFieldTemplate($name, $type, $config);
+        $this->fields[$name] = $this->getFieldTemplate($name, $type, $config);
 
         return $this;
+    }
+
+    /**
+     * @return ?array{name: string, type: string, config: array<string, mixed>}
+     */
+    public function getField(string $name): ?array
+    {
+        return $this->fields[$name] ?? null;
     }
 
     /**
@@ -160,7 +180,7 @@ final class RuleConfig extends Struct
     /**
      * @param array<string, mixed> $config
      *
-     * @return array<string, mixed>
+     * @return array{name: string, type: string, config: array<string, mixed>}
      */
     private function getFieldTemplate(string $name, string $type, array $config): array
     {

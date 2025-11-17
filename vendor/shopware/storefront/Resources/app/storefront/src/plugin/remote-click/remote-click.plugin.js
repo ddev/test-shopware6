@@ -1,10 +1,10 @@
 import Plugin from 'src/plugin-system/plugin.class';
-import DomAccess from 'src/helper/dom-access.helper';
+import ViewportDetection from 'src/helper/viewport-detection.helper';
 
 /**
  * this plugin is used to remotely click on another element
  *
- * @package storefront
+ * @sw-package framework
  */
 export default class RemoteClickPlugin extends Plugin {
 
@@ -29,6 +29,12 @@ export default class RemoteClickPlugin extends Plugin {
          * selector for the fixed header element
          */
         fixedHeaderSelector: 'header.fixed-top',
+
+        /**
+         * disable on these viewports
+         * @type {Array<('XS'|'SM'|'MD'|'LG'|'XL'|'XXL')>}
+         */
+        excludedViewports: [],
     };
 
     init() {
@@ -53,9 +59,13 @@ export default class RemoteClickPlugin extends Plugin {
      * @private
      */
     _onClick() {
+        if (!this._isInAllowedViewports()) {
+            return;
+        }
+
         let target = this.options.selector;
-        if (!DomAccess.isNode(this.options.selector)) {
-            target = DomAccess.querySelector(document, this.options.selector);
+        if (!(this.options.selector instanceof HTMLElement)) {
+            target = document.querySelector(this.options.selector);
         }
 
         if (this.options.scrollToElement) {
@@ -101,13 +111,22 @@ export default class RemoteClickPlugin extends Plugin {
         const elementScrollOffset = rect.top + window.scrollY;
         let offset = elementScrollOffset - this.options.scrollOffset;
 
-        const fixedHeader = DomAccess.querySelector(document, this.options.fixedHeaderSelector, false);
+        const fixedHeader = document.querySelector(this.options.fixedHeaderSelector);
         if (fixedHeader) {
             const headerRect = fixedHeader.getBoundingClientRect();
             offset -= headerRect.height;
         }
 
         return offset;
+    }
+
+    /**
+     * Returns if the browser is in the allowed viewports
+     * @returns {boolean}
+     * @private
+     */
+    _isInAllowedViewports() {
+        return !(this.options.excludedViewports.includes(ViewportDetection.getCurrentViewport()));
     }
 
 }

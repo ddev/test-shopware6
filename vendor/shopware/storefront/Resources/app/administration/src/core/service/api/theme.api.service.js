@@ -2,6 +2,9 @@ const ApiService = Shopware.Classes.ApiService;
 
 /**
  * Gateway for the API end point "theme"
+ *
+ * @package discovery
+ *
  * @class
  * @extends ApiService
  */
@@ -60,7 +63,7 @@ class ThemeApiService extends ApiService {
         const apiRoute = `/_action/${this.getApiBasePath()}/${themeId}/configuration`;
 
         const additionalHeaders = {
-            'sw-language-id': Shopware.State.get('session').languageId
+            'sw-language-id': Shopware.Store.get('session').languageId
         };
 
         return this.httpClient.get(
@@ -77,11 +80,29 @@ class ThemeApiService extends ApiService {
         const apiRoute = `/_action/${this.getApiBasePath()}/${themeId}/structured-fields`;
 
         const additionalHeaders = {
-            'sw-language-id': Shopware.State.get('session').languageId
+            'sw-language-id': Shopware.Store.get('session').languageId
         };
 
         return this.httpClient.get(
             apiRoute,
+            {
+                headers: this.getBasicHeaders(additionalHeaders)
+            }
+        ).then((response) => {
+            return ApiService.handleResponse(response);
+        });
+    }
+
+    validateFields(fields) {
+        const apiRoute = `/_action/${this.getApiBasePath()}/validate-fields`;
+
+        const additionalHeaders = {
+            'sw-language-id': Shopware.Store.get('session').languageId
+        };
+
+        return this.httpClient.post(
+            apiRoute,
+            {fields: fields},
             {
                 headers: this.getBasicHeaders(additionalHeaders)
             }

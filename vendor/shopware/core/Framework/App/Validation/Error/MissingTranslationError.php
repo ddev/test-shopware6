@@ -7,11 +7,14 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class MissingTranslationError extends Error
 {
     private const KEY = 'manifest-missing-translation';
 
+    /**
+     * @param array<string, array<string>> $missingTranslations
+     */
     public function __construct(
         string $xmlElementClass,
         array $missingTranslations
@@ -24,7 +27,7 @@ class MissingTranslationError extends Error
             $validations[] = $field . ': ' . implode(', ', $missingTranslation);
         }
 
-        $message = sprintf(
+        $message = \sprintf(
             "Missing translations for \"%s\":\n- %s",
             $xmlClassName,
             implode("\n- ", $validations)

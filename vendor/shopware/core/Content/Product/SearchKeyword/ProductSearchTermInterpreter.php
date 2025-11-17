@@ -7,7 +7,7 @@ use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\Dbal\QueryBuilder;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\Filter\AbstractTokenFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\SearchPattern;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Term\SearchTerm;
@@ -28,36 +28,36 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
         private readonly Connection $connection,
         private readonly TokenizerInterface $tokenizer,
         private readonly LoggerInterface $logger,
-        private readonly AbstractTokenFilter $tokenFilter
+        private readonly AbstractTokenFilter $tokenFilter,
+        private readonly KeywordLoader $keywordLoader,
+        private readonly SearchConfigLoader $configLoader,
     ) {
     }
 
     public function interpret(string $word, Context $context): SearchPattern
     {
-        $tokens = $this->tokenizer->tokenize($word);
+        $config = $this->configLoader->load($context);
+        $minSearchLength = $config[0]['min_search_length'] ?? null;
 
+        /** @phpstan-ignore arguments.count (This ignore should be removed when the deprecated method signature is updated) */
+        $tokens = $this->tokenizer->tokenize($word, $minSearchLength);
         $tokens = $this->tokenFilter->filter($tokens, $context);
+        $originalTokens = $tokens;
 
         if (empty($tokens)) {
             return new SearchPattern(new SearchTerm(''));
         }
 
         $tokenSlops = $this->slop($tokens);
-        if (!$this->checkSlops(array_values($tokenSlops))) {
-            return new SearchPattern(new SearchTerm($word));
-        }
 
-        $tokenKeywords = $this->fetchKeywords($context, $tokenSlops);
+        $tokenKeywords = $this->keywordLoader->fetch($tokenSlops, $context);
         $matches = array_fill(0, \count($tokens), []);
         $matches = $this->groupTokenKeywords($matches, $tokenKeywords);
 
-        $combines = $this->permute($tokens);
-
-        foreach ($combines as $token) {
+        foreach ($this->permute($tokens) as $token) {
             $tokens[] = $token;
         }
 
-        /** @var list<string> $tokens */
         $tokens = array_keys(array_flip($tokens));
 
         $pattern = new SearchPattern(new SearchTerm($word));
@@ -65,15 +65,12 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
         $pattern->setBooleanClause($this->getConfigBooleanClause($context));
         $pattern->setTokenTerms($matches);
 
-        $scoring = $this->score($tokens, ArrayNormalizer::flatten($matches));
+        $scoring = $this->score($tokens, $originalTokens, ArrayNormalizer::flatten($matches), $minSearchLength);
         // only use the 8 best matches, otherwise the query might explode
         $scoring = \array_slice($scoring, 0, self::RELEVANT_KEYWORD_COUNT, true);
 
         foreach ($scoring as $keyword => $score) {
             $this->logger->info('Search match: ' . $keyword . ' with score ' . (float) $score);
-        }
-
-        foreach ($scoring as $keyword => $score) {
             $pattern->addTerm(new SearchTerm((string) $keyword, $score));
         }
 
@@ -81,7 +78,7 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
     }
 
     /**
-     * @param list<string> $tokens
+     * @param array<string> $tokens
      *
      * @return list<string>
      */
@@ -101,7 +98,7 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
     }
 
     /**
-     * @param list<string> $tokens
+     * @param array<string> $tokens
      *
      * @return array<string, array{normal: list<string>, reversed: list<string>}>
      */
@@ -114,12 +111,11 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
                 'normal' => [],
                 'reversed' => [],
             ];
-            $token = (string) $token;
             $slopSize = mb_strlen($token) > 4 ? 2 : 1;
             $length = mb_strlen($token);
 
             // is too short
-            if (mb_strlen($token) <= 2) {
+            if ($length <= 2) {
                 $slops['normal'][] = $token . '%';
                 $slops['reversed'][] = $token . '%';
                 $tokenSlops[$token] = $slops;
@@ -129,32 +125,28 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
 
             // looks like a number
             if (\preg_match('/\d/', $token) === 1) {
-                $slops['normal'][] = $token . '%';
+                $slops['normal'][] = '%' . $token . '%';
                 $tokenSlops[$token] = $slops;
 
                 continue;
             }
 
+            $tokenRev = $this->reverseToken($token);
+
             $steps = 2;
             for ($i = 1; $i <= $length - 2; $i += $steps) {
                 for ($i2 = 1; $i2 <= $slopSize; ++$i2) {
                     $placeholder = '';
+
                     for ($i3 = 1; $i3 <= $slopSize + 1; ++$i3) {
                         $slops['normal'][] = mb_substr($token, 0, $i) . $placeholder . mb_substr($token, $i + $i2) . '%';
-                        $placeholder .= '_';
-                    }
-                }
-            }
-            $tokenRev = strrev($token);
-            for ($i = 1; $i <= $length - 2; $i += $steps) {
-                for ($i2 = 1; $i2 <= $slopSize; ++$i2) {
-                    $placeholder = '';
-                    for ($i3 = 1; $i3 <= $slopSize + 1; ++$i3) {
                         $slops['reversed'][] = mb_substr($tokenRev, 0, $i) . $placeholder . mb_substr($tokenRev, $i + $i2) . '%';
+
                         $placeholder .= '_';
                     }
                 }
             }
+
             $tokenSlops[$token] = $slops;
         }
 
@@ -170,8 +162,10 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
     private function groupTokenKeywords(array $matches, array $keywordRows): array
     {
         foreach ($keywordRows as $keywordRow) {
-            /** @var string $keyword */
             $keyword = array_shift($keywordRow);
+            if (!$keyword) {
+                continue;
+            }
             foreach ($keywordRow as $indexColumn => $value) {
                 if ((bool) $value) {
                     $matches[$indexColumn][] = $keyword;
@@ -183,64 +177,24 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
     }
 
     /**
-     * @param array<string, array{normal: list<string>, reversed: list<string>}> $tokenSlops
-     *
-     * @return list<list<string>>
-     */
-    private function fetchKeywords(Context $context, array $tokenSlops): array
-    {
-        $query = new QueryBuilder($this->connection);
-        $query->select('keyword');
-        $query->from('product_keyword_dictionary');
-
-        $query->setTitle('search::detect-keywords');
-
-        $counter = 0;
-        $wheres = [];
-        $index = 0;
-
-        foreach ($tokenSlops as $slops) {
-            $slopsWheres = [];
-            foreach ($slops['normal'] as $slop) {
-                ++$counter;
-                $slopsWheres[] = 'keyword LIKE :reg' . $counter;
-                $query->setParameter('reg' . $counter, $slop);
-            }
-            foreach ($slops['reversed'] as $slop) {
-                ++$counter;
-                $slopsWheres[] = 'reversed LIKE :reg' . $counter;
-                $query->setParameter('reg' . $counter, $slop);
-            }
-            $query->addSelect('IF (' . implode(' OR ', $slopsWheres) . ', 1, 0) as \'' . $index++ . '\'');
-            $wheres = array_merge($wheres, $slopsWheres);
-        }
-
-        $query->andWhere('language_id = :language');
-        $query->andWhere('(' . implode(' OR ', $wheres) . ')');
-        $query->addOrderBy('keyword', 'ASC');
-
-        $query->setParameter('language', Uuid::fromHexToBytes($context->getLanguageId()));
-
-        return $query->executeQuery()->fetchAllNumeric();
-    }
-
-    /**
-     * @param list<string> $tokens
-     * @param list<string> $matches
+     * @param array<string> $tokens
+     * @param array<string> $originalTokens
+     * @param array<string> $matches
      *
      * @return array<string, float>
      */
-    private function score(array $tokens, array $matches): array
+    private function score(array $tokens, array $originalTokens, array $matches, ?int $minSearchLength = null): array
     {
         $scoring = [];
+
         foreach ($matches as $match) {
-            $score = 1;
+            /** @phpstan-ignore arguments.count (This ignore should be removed when the deprecated method signature is updated) */
+            $matchSegments = $this->tokenizer->tokenize($match, $minSearchLength);
+            $exactMatch = \count($originalTokens) === \count($matchSegments)
+                && \count(array_diff($originalTokens, $matchSegments)) === 0;
+            $exactTokenMatches = array_intersect($originalTokens, $matchSegments);
 
-            $matchSegments = $this->tokenizer->tokenize($match);
-
-            if (\count($matchSegments) > 1) {
-                $score += \count($matchSegments) * 4;
-            }
+            $score = ($exactMatch ? 2 : 1) + \count($exactTokenMatches) * 4;
 
             foreach ($tokens as $token) {
                 $levenshtein = levenshtein($match, (string) $token);
@@ -270,20 +224,6 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
         return $scoring;
     }
 
-    /**
-     * @param list<array{normal: list<string>, reversed: list<string>}> $tokenSlops
-     */
-    private function checkSlops(array $tokenSlops): bool
-    {
-        foreach ($tokenSlops as $slops) {
-            if ($slops['normal']) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function getConfigBooleanClause(Context $context): bool
     {
         $andLogic = false;
@@ -302,5 +242,12 @@ class ProductSearchTermInterpreter implements ProductSearchTermInterpreterInterf
         }
 
         return $andLogic;
+    }
+
+    private function reverseToken(string $token): string
+    {
+        $chars = mb_str_split($token, 1);
+
+        return implode('', array_reverse($chars));
     }
 }

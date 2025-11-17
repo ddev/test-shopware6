@@ -3,12 +3,13 @@
 namespace Shopware\Core\Framework\App\Cms\Xml;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
 
 /**
  * @internal
  */
-#[Package('content')]
+#[Package('discovery')]
 class DefaultConfig extends XmlElement
 {
     protected ?string $marginTop = null;
@@ -62,7 +63,7 @@ class DefaultConfig extends XmlElement
                 continue;
             }
 
-            $defaultConfig[self::kebabCaseToCamelCase($config->nodeName)] = $config->nodeValue;
+            $defaultConfig[XmlParserUtils::kebabCaseToCamelCase($config->nodeName)] = $config->nodeValue;
         }
 
         return $defaultConfig;

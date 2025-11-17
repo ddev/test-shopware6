@@ -7,6 +7,7 @@ use Shopware\Core\Framework\Adapter\Filesystem\PrefixFilesystem;
 use Shopware\Core\Framework\DependencyInjection\CompilerPass\BusinessEventRegisterCompilerPass;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Migration\MigrationSource;
+use Shopware\Core\Framework\Parameter\AdditionalBundleParameters;
 use Shopware\Core\Kernel;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\Config\Loader\DelegatingLoader;
@@ -14,6 +15,10 @@ use Symfony\Component\Config\Loader\LoaderResolver;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Loader\ClosureLoader;
+use Symfony\Component\DependencyInjection\Loader\DirectoryLoader;
+use Symfony\Component\DependencyInjection\Loader\GlobFileLoader;
+use Symfony\Component\DependencyInjection\Loader\IniFileLoader;
 use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
@@ -23,7 +28,7 @@ use Symfony\Component\HttpKernel\Bundle\Bundle as SymfonyBundle;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter;
 
-#[Package('core')]
+#[Package('framework')]
 abstract class Bundle extends SymfonyBundle
 {
     public function build(ContainerBuilder $container): void
@@ -62,12 +67,20 @@ abstract class Bundle extends SymfonyBundle
     {
         $confDir = $this->getPath() . '/Resources/config';
 
-        if (file_exists($confDir)) {
+        if (\is_dir($confDir)) {
             $routes->import($confDir . '/{routes}/*' . Kernel::CONFIG_EXTS, 'glob');
             $routes->import($confDir . '/{routes}/' . $environment . '/**/*' . Kernel::CONFIG_EXTS, 'glob');
             $routes->import($confDir . '/{routes}' . Kernel::CONFIG_EXTS, 'glob');
             $routes->import($confDir . '/{routes}_' . $environment . Kernel::CONFIG_EXTS, 'glob');
         }
+    }
+
+    /**
+     * @return SymfonyBundle[]
+     */
+    public function getAdditionalBundles(AdditionalBundleParameters $parameters): array
+    {
+        return [];
     }
 
     public function configureRouteOverwrites(RoutingConfigurator $routes, string $environment): void
@@ -83,6 +96,14 @@ abstract class Bundle extends SymfonyBundle
     public function getTemplatePriority(): int
     {
         return 0;
+    }
+
+    /**
+     * Used to configure the BaseUrl for the Admin Extension API
+     */
+    public function getAdminBaseUrl(): ?string
+    {
+        return null;
     }
 
     /**
@@ -109,11 +130,41 @@ abstract class Bundle extends SymfonyBundle
             ->addTag('shopware.migration_source');
     }
 
+    protected function buildDefaultConfig(ContainerBuilder $container): void
+    {
+        $locator = new FileLocator('Resources/config');
+
+        $resolver = new LoaderResolver([
+            new XmlFileLoader($container, $locator),
+            new YamlFileLoader($container, $locator),
+            new IniFileLoader($container, $locator),
+            new PhpFileLoader($container, $locator),
+            new GlobFileLoader($container, $locator),
+            new DirectoryLoader($container, $locator),
+            new ClosureLoader($container),
+        ]);
+
+        $configLoader = new DelegatingLoader($resolver);
+
+        $confDir = $this->getPath() . '/Resources/config';
+
+        $configLoader->load($confDir . '/{packages}/*' . Kernel::CONFIG_EXTS, 'glob');
+
+        $env = $container->getParameter('kernel.environment');
+        \assert(\is_string($env));
+
+        $configLoader->load($confDir . '/{packages}/' . $env . '/*' . Kernel::CONFIG_EXTS, 'glob');
+
+        if ($env === 'e2e') {
+            $configLoader->load($confDir . '/{packages}/prod/*' . Kernel::CONFIG_EXTS, 'glob');
+        }
+    }
+
     private function registerFilesystem(ContainerBuilder $container, string $key): void
     {
         $containerPrefix = $this->getContainerPrefix();
-        $parameterKey = sprintf('shopware.filesystem.%s', $key);
-        $serviceId = sprintf('%s.filesystem.%s', $containerPrefix, $key);
+        $parameterKey = \sprintf('shopware.filesystem.%s', $key);
+        $serviceId = \sprintf('%s.filesystem.%s', $containerPrefix, $key);
 
         $filesystem = new Definition(
             PrefixFilesystem::class,

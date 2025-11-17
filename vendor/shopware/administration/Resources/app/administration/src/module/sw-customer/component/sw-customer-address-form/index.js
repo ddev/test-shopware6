@@ -1,9 +1,8 @@
 import template from './sw-customer-address-form.html.twig';
 import './sw-customer-address-form.scss';
-import CUSTOMER from '../../constant/sw-customer.constant';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Defaults, EntityDefinition } = Shopware;
@@ -46,10 +45,7 @@ export default {
 
     computed: {
         addressRepository() {
-            return this.repositoryFactory.create(
-                this.customer.addresses.entity,
-                this.customer.addresses.source,
-            );
+            return this.repositoryFactory.create(this.customer.addresses.entity, this.customer.addresses.source);
         },
 
         countryRepository() {
@@ -96,8 +92,7 @@ export default {
 
         countryCriteria() {
             const criteria = new Criteria(1, 25);
-            criteria.addSorting(Criteria.sort('position', 'ASC', true))
-                .addSorting(Criteria.sort('name', 'ASC'));
+            criteria.addSorting(Criteria.sort('position', 'ASC', true)).addSorting(Criteria.sort('name', 'ASC'));
             return criteria;
         },
 
@@ -107,7 +102,8 @@ export default {
             }
 
             const criteria = new Criteria(1, 25);
-            criteria.addFilter(Criteria.equals('countryId', this.countryId))
+            criteria
+                .addFilter(Criteria.equals('countryId', this.countryId))
                 .addSorting(Criteria.sort('position', 'ASC', true))
                 .addSorting(Criteria.sort('name', 'ASC'));
             return criteria;
@@ -116,9 +112,11 @@ export default {
         salutationCriteria() {
             const criteria = new Criteria(1, 25);
 
-            criteria.addFilter(Criteria.not('or', [
-                Criteria.equals('id', Defaults.defaultSalutationId),
-            ]));
+            criteria.addFilter(
+                Criteria.not('or', [
+                    Criteria.equals('id', Defaults.defaultSalutationId),
+                ]),
+            );
 
             return criteria;
         },
@@ -128,7 +126,7 @@ export default {
         },
 
         isBusinessAccountType() {
-            return this.customer?.accountType === CUSTOMER.ACCOUNT_TYPE_BUSINESS;
+            return this.customer?.accountType === Shopware.Constants.CUSTOMER.ACCOUNT_TYPE_BUSINESS;
         },
     },
 
@@ -147,13 +145,15 @@ export default {
 
                 return this.countryRepository.get(this.countryId).then((country) => {
                     this.country = country;
+
+                    this.address.country = this.country;
                     this.getCountryStates();
                 });
             },
         },
 
         'address.company'(newVal) {
-            if (!newVal) {
+            if (!newVal || !this.customer.isNew()) {
                 return;
             }
 
@@ -162,11 +162,8 @@ export default {
 
         'country.forceStateInRegistration'(newVal) {
             if (!newVal) {
-                Shopware.State.dispatch(
-                    'error/removeApiError',
-                    {
-                        expression: `${this.address.getEntityName()}.${this.address.id}.countryStateId`,
-                    },
+                Shopware.Store.get('error').removeApiError(
+                    `${this.address.getEntityName()}.${this.address.id}.countryStateId`,
                 );
             }
 
@@ -177,12 +174,7 @@ export default {
 
         'country.postalCodeRequired'(newVal) {
             if (!newVal) {
-                Shopware.State.dispatch(
-                    'error/removeApiError',
-                    {
-                        expression: `${this.address.getEntityName()}.${this.address.id}.zipcode`,
-                    },
-                );
+                Shopware.Store.get('error').removeApiError(`${this.address.getEntityName()}.${this.address.id}.zipcode`);
             }
 
             const definition = EntityDefinition.get(this.address.getEntityName());

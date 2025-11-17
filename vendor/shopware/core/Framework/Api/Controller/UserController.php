@@ -3,41 +3,51 @@
 namespace Shopware\Core\Framework\Api\Controller;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
+use Shopware\Core\Framework\Api\Acl\Role\AclRoleCollection;
 use Shopware\Core\Framework\Api\Acl\Role\AclRoleDefinition;
 use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
-use Shopware\Core\Framework\Api\Context\Exception\InvalidContextSourceException;
-use Shopware\Core\Framework\Api\Controller\Exception\ExpectedUserHttpException;
 use Shopware\Core\Framework\Api\Controller\Exception\PermissionDeniedException;
 use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
 use Shopware\Core\Framework\Api\Response\ResponseFactoryInterface;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\Entity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
+use Shopware\Core\Framework\Sso\SsoService;
 use Shopware\Core\PlatformRequest;
+use Shopware\Core\System\User\Aggregate\UserAccessKey\UserAccessKeyCollection;
+use Shopware\Core\System\User\UserCollection;
 use Shopware\Core\System\User\UserDefinition;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('system-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('fundamentals@framework')]
 class UserController extends AbstractController
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<UserCollection> $userRepository
+     * @param EntityRepository<EntityCollection<Entity>> $userRoleRepository
+     * @param EntityRepository<AclRoleCollection> $roleRepository
+     * @param EntityRepository<UserAccessKeyCollection> $keyRepository
      */
     public function __construct(
         private readonly EntityRepository $userRepository,
         private readonly EntityRepository $userRoleRepository,
         private readonly EntityRepository $roleRepository,
         private readonly EntityRepository $keyRepository,
-        private readonly UserDefinition $userDefinition
+        private readonly UserDefinition $userDefinition,
+        private readonly SsoService $ssoService,
     ) {
     }
 
@@ -45,17 +55,17 @@ class UserController extends AbstractController
     public function me(Context $context, Request $request, ResponseFactoryInterface $responseFactory): Response
     {
         if (!$context->getSource() instanceof AdminApiSource) {
-            throw new InvalidContextSourceException(AdminApiSource::class, $context->getSource()::class);
+            throw ApiException::invalidAdminSource($context->getSource()::class);
         }
 
         $userId = $context->getSource()->getUserId();
         if (!$userId) {
-            throw new ExpectedUserHttpException();
+            throw ApiException::userNotLoggedIn();
         }
         $criteria = new Criteria([$userId]);
-        $criteria->addAssociation('aclRoles');
+        $criteria->addAssociations(['aclRoles', 'avatarMedia']);
 
-        $user = $this->userRepository->search($criteria, $context)->first();
+        $user = $this->userRepository->search($criteria, $context)->getEntities()->first();
         if (!$user) {
             throw OAuthServerException::invalidCredentials();
         }
@@ -67,12 +77,12 @@ class UserController extends AbstractController
     public function updateMe(Context $context, Request $request, ResponseFactoryInterface $responseFactory): Response
     {
         if (!$context->getSource() instanceof AdminApiSource) {
-            throw new InvalidContextSourceException(AdminApiSource::class, $context->getSource()::class);
+            throw ApiException::invalidAdminSource($context->getSource()::class);
         }
 
         $userId = $context->getSource()->getUserId();
         if (!$userId) {
-            throw new ExpectedUserHttpException();
+            throw ApiException::userNotLoggedIn();
         }
 
         $allowedChanges = ['firstName', 'lastName', 'username', 'localeId', 'email', 'avatarMedia', 'avatarId', 'password'];
@@ -88,12 +98,12 @@ class UserController extends AbstractController
     public function status(Context $context): Response
     {
         if (!$context->getSource() instanceof AdminApiSource) {
-            throw new InvalidContextSourceException(AdminApiSource::class, $context->getSource()::class);
+            throw ApiException::invalidAdminSource($context->getSource()::class);
         }
 
         $userId = $context->getSource()->getUserId();
         if (!$userId) {
-            throw new ExpectedUserHttpException();
+            throw ApiException::userNotLoggedIn();
         }
         $result = $this->userRepository->searchIds(new Criteria([$userId]), $context);
 
@@ -107,9 +117,7 @@ class UserController extends AbstractController
     #[Route(path: '/api/user/{userId}', name: 'api.user.delete', defaults: ['auth_required' => true, '_acl' => ['user:delete']], methods: ['DELETE'])]
     public function deleteUser(string $userId, Request $request, Context $context, ResponseFactoryInterface $factory): Response
     {
-        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
-            throw new AccessDeniedHttpException(sprintf('This access token does not have the scope "%s" to process this Request', UserVerifiedScope::IDENTIFIER));
-        }
+        $this->validateScope($request);
 
         /** @var AdminApiSource $source */
         $source = $context->getSource();
@@ -131,9 +139,7 @@ class UserController extends AbstractController
     #[Route(path: '/api/user/{userId}/access-keys/{id}', name: 'api.user_access_keys.delete', defaults: ['auth_required' => true, '_acl' => ['user_access_key:delete']], methods: ['DELETE'])]
     public function deleteUserAccessKey(string $id, Request $request, Context $context, ResponseFactoryInterface $factory): Response
     {
-        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
-            throw new AccessDeniedHttpException(sprintf('This access token does not have the scope "%s" to process this Request', UserVerifiedScope::IDENTIFIER));
-        }
+        $this->validateScope($request);
 
         $context->scope(Context::SYSTEM_SCOPE, function (Context $context) use ($id): void {
             $this->keyRepository->delete([['id' => $id]], $context);
@@ -145,9 +151,7 @@ class UserController extends AbstractController
     #[Route(path: '/api/user', name: 'api.user.create', defaults: ['auth_required' => true, '_acl' => ['user:create']], methods: ['POST'])]
     public function upsertUser(?string $userId, Request $request, Context $context, ResponseFactoryInterface $factory): Response
     {
-        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
-            throw new AccessDeniedHttpException(sprintf('This access token does not have the scope "%s" to process this Request', UserVerifiedScope::IDENTIFIER));
-        }
+        $this->validateScope($request);
 
         $data = $request->request->all();
 
@@ -187,9 +191,7 @@ class UserController extends AbstractController
     #[Route(path: '/api/acl-role', name: 'api.acl_role.create', defaults: ['auth_required' => true, '_acl' => ['acl_role:create']], methods: ['POST'])]
     public function upsertRole(?string $roleId, Request $request, Context $context, ResponseFactoryInterface $factory): Response
     {
-        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
-            throw new AccessDeniedHttpException(sprintf('This access token does not have the scope "%s" to process this Request', UserVerifiedScope::IDENTIFIER));
-        }
+        $this->validateScope($request);
 
         $data = $request->request->all();
 
@@ -218,9 +220,7 @@ class UserController extends AbstractController
     #[Route(path: '/api/user/{userId}/acl-roles/{roleId}', name: 'api.user_role.delete', defaults: ['auth_required' => true, '_acl' => ['acl_user_role:delete']], methods: ['DELETE'])]
     public function deleteUserRole(string $userId, string $roleId, Request $request, Context $context, ResponseFactoryInterface $factory): Response
     {
-        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
-            throw new AccessDeniedHttpException(sprintf('This access token does not have the scope "%s" to process this Request', UserVerifiedScope::IDENTIFIER));
-        }
+        $this->validateScope($request);
 
         $context->scope(Context::SYSTEM_SCOPE, function (Context $context) use ($roleId, $userId): void {
             $this->userRoleRepository->delete([['userId' => $userId, 'aclRoleId' => $roleId]], $context);
@@ -232,15 +232,29 @@ class UserController extends AbstractController
     #[Route(path: '/api/acl-role/{roleId}', name: 'api.acl_role.delete', defaults: ['auth_required' => true, '_acl' => ['acl_role:delete']], methods: ['DELETE'])]
     public function deleteRole(string $roleId, Request $request, Context $context, ResponseFactoryInterface $factory): Response
     {
-        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
-            throw new AccessDeniedHttpException(sprintf('This access token does not have the scope "%s" to process this Request', UserVerifiedScope::IDENTIFIER));
-        }
+        $this->validateScope($request);
 
         $context->scope(Context::SYSTEM_SCOPE, function (Context $context) use ($roleId): void {
             $this->roleRepository->delete([['id' => $roleId]], $context);
         });
 
         return $factory->createRedirectResponse($this->roleRepository->getDefinition(), $roleId, $request, $context);
+    }
+
+    private function validateScope(Request $request): void
+    {
+        // only validate scope for administration clients
+        if ($request->attributes->get(PlatformRequest::ATTRIBUTE_OAUTH_CLIENT_ID) !== 'administration') {
+            return;
+        }
+
+        if ($this->ssoService->isSso()) {
+            return;
+        }
+
+        if (!$this->hasScope($request, UserVerifiedScope::IDENTIFIER)) {
+            throw ApiException::invalidScopeAccessToken(UserVerifiedScope::IDENTIFIER);
+        }
     }
 
     private function hasScope(Request $request, string $scopeIdentifier): bool

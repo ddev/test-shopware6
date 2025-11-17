@@ -3,11 +3,11 @@
 namespace Shopware\Core\Framework\Adapter\Cache;
 
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\DeduplicatableMessageInterface;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[Package('core')]
-class InvalidateCacheTask extends ScheduledTask
+#[Package('framework')]
+class InvalidateCacheTask extends ScheduledTask implements DeduplicatableMessageInterface
 {
     public static function getTaskName(): string
     {
@@ -16,11 +16,20 @@ class InvalidateCacheTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 20;
+        // Run every five minutes
+        return self::MINUTELY * 5;
     }
 
-    public static function shouldRun(ParameterBagInterface $bag): bool
+    public static function shouldRescheduleOnFailure(): bool
     {
-        return $bag->get('shopware.cache.invalidation.delay') > 0;
+        return true;
+    }
+
+    /**
+     * @experimental stableVersion:v6.8.0 feature:DEDUPLICATABLE_MESSAGES
+     */
+    public function deduplicationId(): ?string
+    {
+        return 'invalidate-cache-task';
     }
 }

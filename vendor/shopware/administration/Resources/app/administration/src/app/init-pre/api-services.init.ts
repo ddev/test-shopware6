@@ -1,13 +1,19 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
-const apiServices = Shopware._private.ApiServices();
-
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-export default function initializeApiServices() {
+export default async function initializeApiServices() {
     // Add custom api service providers
-    apiServices.forEach((ApiService) => {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const ApiServicePromise of Shopware._private.ApiServices()) {
+        // eslint-disable-next-line no-await-in-loop,@typescript-eslint/no-unsafe-assignment
+        const ApiServiceRaw = await ApiServicePromise();
+
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const ApiService = ApiServiceRaw.default;
+
         const factoryContainer = Shopware.Application.getContainer('factory');
         const initContainer = Shopware.Application.getContainer('init');
 
@@ -23,5 +29,5 @@ export default function initializeApiServices() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             return service;
         });
-    });
+    }
 }

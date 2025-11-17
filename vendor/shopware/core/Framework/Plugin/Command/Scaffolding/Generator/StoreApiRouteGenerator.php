@@ -12,7 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class StoreApiRouteGenerator implements ScaffoldingGenerator
 {
     use AddScaffoldConfigDefaultBehaviour;
@@ -32,7 +32,7 @@ class StoreApiRouteGenerator implements ScaffoldingGenerator
 
     private string $routesXmlEntry = <<<'EOL'
 
-        <import resource="../../Core/**/*Route.php" type="annotation" />
+        <import resource="../../Core/**/*Route.php" type="attribute" />
 
     EOL;
 

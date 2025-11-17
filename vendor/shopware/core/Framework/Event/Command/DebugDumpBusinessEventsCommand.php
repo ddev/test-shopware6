@@ -15,26 +15,20 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'debug:business-events',
     description: 'Dumps all business events',
 )]
-#[Package('business-ops')]
+#[Package('fundamentals@after-sales')]
 class DebugDumpBusinessEventsCommand extends Command
 {
     /**
-     * @var BusinessEventCollector
-     */
-    protected $collector;
-
-    /**
      * @internal
      */
-    public function __construct(BusinessEventCollector $collector)
+    public function __construct(protected BusinessEventCollector $collector)
     {
         parent::__construct();
-        $this->collector = $collector;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $result = $this->collector->collect(Context::createDefaultContext());
+        $result = $this->collector->collect(Context::createCLIContext());
 
         $table = new Table($output);
         $table->setHeaders(['name', 'mail-aware', 'log-aware', 'class']);

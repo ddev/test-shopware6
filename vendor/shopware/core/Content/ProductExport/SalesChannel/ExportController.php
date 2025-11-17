@@ -8,7 +8,9 @@ use Shopware\Core\Content\ProductExport\Event\ProductExportContentTypeEvent;
 use Shopware\Core\Content\ProductExport\Event\ProductExportLoggingEvent;
 use Shopware\Core\Content\ProductExport\Exception\ExportNotFoundException;
 use Shopware\Core\Content\ProductExport\Exception\ExportNotGeneratedException;
+use Shopware\Core\Content\ProductExport\ProductExportCollection;
 use Shopware\Core\Content\ProductExport\ProductExportEntity;
+use Shopware\Core\Content\ProductExport\ProductExportException;
 use Shopware\Core\Content\ProductExport\Service\ProductExporterInterface;
 use Shopware\Core\Content\ProductExport\Service\ProductExportFileHandlerInterface;
 use Shopware\Core\Content\ProductExport\Struct\ExportBehavior;
@@ -17,18 +19,22 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\StoreApiRouteScope;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(defaults: ['_routeScope' => ['store-api']])]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StoreApiRouteScope::ID]])]
 #[Package('inventory')]
 class ExportController
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ProductExportCollection> $productExportRepository
      */
     public function __construct(
         private readonly ProductExporterInterface $productExportService,
@@ -43,6 +49,8 @@ class ExportController
     #[Route(path: '/store-api/product-export/{accessKey}/{fileName}', name: 'store-api.product.export', methods: ['GET'], defaults: ['auth_required' => false])]
     public function index(Request $request): Response
     {
+        $context = Context::createDefaultContext();
+
         $criteria = new Criteria();
         $criteria
             ->addFilter(new EqualsFilter('fileName', $request->get('fileName')))
@@ -50,17 +58,22 @@ class ExportController
             ->addFilter(new EqualsFilter('salesChannel.active', true))
             ->addAssociation('salesChannelDomain');
 
-        /** @var ProductExportEntity|null $productExport */
-        $productExport = $this->productExportRepository->search($criteria, Context::createDefaultContext())->first();
+        $productExport = $this->productExportRepository->search($criteria, $context)->getEntities()->first();
 
         if ($productExport === null) {
             $exportNotFoundException = new ExportNotFoundException(null, $request->get('fileName'));
-            $this->logException(Context::createDefaultContext(), $exportNotFoundException, Level::Warning);
+            $this->logException($context, $exportNotFoundException, Level::Warning);
 
             throw $exportNotFoundException;
         }
 
-        $context = $this->contextFactory->create('', $productExport->getSalesChannelDomain()->getSalesChannelId());
+        $domain = $productExport->getSalesChannelDomain();
+
+        if ($domain === null) {
+            throw ProductExportException::salesChannelDomainNotFound($productExport->getId());
+        }
+
+        $context = $this->contextFactory->create('', $domain->getSalesChannelId());
 
         $filePath = $this->productExportFileHandler->getFilePath($productExport);
 
@@ -80,8 +93,11 @@ class ExportController
         $contentType = $this->getContentType($productExport->getFileFormat());
         $encoding = $productExport->getEncoding();
 
-        return (new Response($content ?: null, 200, ['Content-Type' => $contentType . ';charset=' . $encoding]))
-            ->setCharset($encoding);
+        $response = new Response($content ?: null, Response::HTTP_OK, ['Content-Type' => $contentType . ';charset=' . $encoding]);
+        $response->setLastModified((new \DateTimeImmutable())->setTimestamp($this->fileSystem->lastModified($filePath)));
+        $response->setCharset($encoding);
+
+        return $response;
     }
 
     private function getContentType(string $fileFormat): string

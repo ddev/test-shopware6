@@ -6,8 +6,8 @@ use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CustomFields;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\JsonField;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\JsonUpdateCommand;
+use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\WriteCommandQueue;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
@@ -19,7 +19,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CustomFieldsSerializer extends JsonFieldSerializer
 {
     public function __construct(
@@ -98,8 +98,7 @@ class CustomFieldsSerializer extends JsonFieldSerializer
     {
         $fields = [];
         foreach ($attributeNames as $attributeName) {
-            $fields[] = $this->attributeService->getCustomField($attributeName)
-                ?? new JsonField($attributeName, $attributeName);
+            $fields[] = $this->attributeService->getCustomField($attributeName);
         }
 
         return $fields;
@@ -149,7 +148,16 @@ class CustomFieldsSerializer extends JsonFieldSerializer
                 $parameters->getPath()
             );
 
-            $parameters->getCommandQueue()->add($jsonUpdateCommand->getDefinition(), $jsonUpdateCommand);
+            $identifier = WriteCommandQueue::hashedPrimary(
+                $this->definitionRegistry,
+                $jsonUpdateCommand,
+            );
+
+            $parameters->getCommandQueue()->add(
+                $jsonUpdateCommand->getEntityName(),
+                $identifier,
+                $jsonUpdateCommand
+            );
         }
     }
 }

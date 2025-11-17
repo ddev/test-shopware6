@@ -3,11 +3,13 @@
 namespace Shopware\Core\Content\ImportExport;
 
 use Shopware\Core\Content\ImportExport\Aggregate\ImportExportLog\ImportExportLogCollection;
+use Shopware\Core\Content\ImportExport\Processing\Mapping\Mapping;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class ImportExportProfileEntity extends Entity
 {
     use EntityIdTrait;
@@ -16,88 +18,77 @@ class ImportExportProfileEntity extends Entity
     final public const TYPE_EXPORT = 'export';
     final public const TYPE_IMPORT_EXPORT = 'import-export';
 
-    /**
-     * @var string|null
-     */
-    protected $name;
+    protected string $technicalName;
 
     /**
-     * @var string
+     * @deprecated tag:v6.8.0 - Will be removed
      */
-    protected $label;
+    protected string $label;
+
+    protected bool $systemDefault;
+
+    protected string $sourceEntity;
+
+    protected string $fileType;
+
+    protected ?string $delimiter = null;
+
+    protected ?string $enclosure = null;
+
+    protected string $type;
 
     /**
-     * @var bool
+     * @var list<array{key: string, mappedKey: string}>|array<Mapping>|null
      */
-    protected $systemDefault;
+    protected ?array $mapping = null;
 
     /**
-     * @var string
+     * @var array<string, mixed>|null
      */
-    protected $sourceEntity;
+    protected ?array $updateBy = [];
+
+    protected ?ImportExportLogCollection $importExportLogs = null;
 
     /**
-     * @var string
+     * @var array<string, mixed>
      */
-    protected $fileType;
+    protected array $config;
 
-    /**
-     * @var string|null
-     */
-    protected $delimiter;
+    protected ?ImportExportProfileTranslationCollection $translations = null;
 
-    /**
-     * @var string|null
-     */
-    protected $enclosure;
-
-    /**
-     * @var string
-     */
-    protected $type;
-
-    /**
-     * @var array|null
-     */
-    protected $mapping;
-
-    /**
-     * @var array|null
-     */
-    protected $updateBy;
-
-    /**
-     * @var ImportExportLogCollection|null
-     */
-    protected $importExportLogs;
-
-    /**
-     * @var array
-     */
-    protected $config;
-
-    /**
-     * @var ImportExportProfileTranslationCollection|null
-     */
-    protected $translations;
-
-    public function getName(): ?string
+    public function getTechnicalName(): string
     {
-        return $this->name;
+        return $this->technicalName;
     }
 
-    public function setName(string $name): void
+    public function setTechnicalName(string $technicalName): void
     {
-        $this->name = $name;
+        $this->technicalName = $technicalName;
     }
 
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed
+     */
     public function getLabel(): string
     {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
         return $this->label;
     }
 
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed
+     */
     public function setLabel(string $label): void
     {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
         $this->label = $label;
     }
 
@@ -151,21 +142,33 @@ class ImportExportProfileEntity extends Entity
         $this->enclosure = $enclosure;
     }
 
+    /**
+     * @return list<array{key: string, mappedKey: string}>|array<Mapping>|null
+     */
     public function getMapping(): ?array
     {
         return $this->mapping;
     }
 
+    /**
+     * @param list<array{key: string, mappedKey: string}>|array<Mapping> $mapping
+     */
     public function setMapping(array $mapping): void
     {
         $this->mapping = $mapping;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getUpdateBy(): ?array
     {
         return $this->updateBy;
     }
 
+    /**
+     * @param array<string, mixed>|null $updateBy
+     */
     public function setUpdateBy(?array $updateBy): void
     {
         $this->updateBy = $updateBy;
@@ -181,23 +184,45 @@ class ImportExportProfileEntity extends Entity
         $this->importExportLogs = $importExportLogs;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getConfig(): array
     {
         return $this->config;
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function setConfig(array $config): void
     {
         $this->config = $config;
     }
 
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed
+     */
     public function getTranslations(): ?ImportExportProfileTranslationCollection
     {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
         return $this->translations;
     }
 
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed
+     */
     public function setTranslations(ImportExportProfileTranslationCollection $translations): void
     {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0')
+        );
+
         $this->translations = $translations;
     }
 

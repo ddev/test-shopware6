@@ -1,43 +1,30 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_settings_product_feature_set_detail %}
 <sw-page class="sw-settings-product-feature-sets-detail">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_product_feature_set_detail_header %}
     <template #smart-bar-header>
         <h2>{{ placeholder(productFeatureSet, 'name', $tc('sw-settings-product-feature-sets.detail.textHeadline')) }}</h2>
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_product_feature_set_detail_language_switch %}
     <template #language-switch>
         <sw-language-switch @on-change="onChangeLanguage" />
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_product_feature_set_detail_actions %}
     <template #smart-bar-actions>
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_settings_product_feature_set_detail_actions_save %}
         <sw-button-process
-            {% if VUE3 %}
-            v-model:processSuccess="isSaveSuccessful"
-            {% else %}
-            v-model="isSaveSuccessful"
-            {% endif %}
+            v-model:process-success="isSaveSuccessful"
             v-tooltip.bottom="tooltipSave"
             class="sw-settings-currency-detail__save-action"
             :is-loading="isLoading"
-            :disabled="isLoading || !acl.can('product_feature_sets.editor')"
+            :disabled="isLoading || !acl.can('product_feature_sets.editor') || undefined"
             variant="primary"
-            {% if VUE3 %}
             @update:process-success="saveFinish"
-            {% else %}
-            @process-finish="saveFinish"
-            {% endif %}
             @click.prevent="onSave"
         >
             {{ $tc('sw-settings-product-feature-sets.detail.buttonSave') }}
@@ -47,7 +34,6 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_product_feature_set_detail_content %}
     <template #content>
         <sw-card-view>
@@ -57,28 +43,22 @@
             </template>
 
             <template v-else>
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_product_feature_set_detail_content_language_info %}
                 <sw-language-info
                     :entity-description="placeholder(productFeatureSet, 'name', $tc('sw-settings-product-feature-sets.detail.textHeadline'))"
                 />
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_product_feature_set_detail_content_card %}
-                <sw-card
+                <mt-card
                     :title="$tc('sw-settings-product-feature-sets.detail.titleCard')"
                     position-identifier="sw-settings-product-feature-sets-detail"
                 >
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_settings_product_feature_set_detail_content_field_name %}
-                    <sw-text-field
-                        {% if VUE3 %}
-                        v-model:value="productFeatureSet.name"
-                        {% else %}
+
+                    <mt-text-field
                         v-model="productFeatureSet.name"
-                        {% endif %}
                         class="sw-settings-product-feature-sets-detail__name"
                         validation="required"
                         required
@@ -89,14 +69,9 @@
                     />
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_settings_product_feature_set_detail_content_field_description %}
-                    <sw-textarea-field
-                        {% if VUE3 %}
-                        v-model:value="productFeatureSet.description"
-                        {% else %}
+                    <mt-textarea
                         v-model="productFeatureSet.description"
-                        {% endif %}
                         :label="$tc('sw-settings-product-feature-sets.detail.labelDescription')"
                         class="sw-settings-product-feature-sets-detail__description"
                         :error="productFeatureSetDescriptionError"
@@ -105,15 +80,14 @@
                     />
                     {% endblock %}
 
-                </sw-card>
+                </mt-card>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_settings_product_feature_set_detail_content_values_card %}
                 <sw-settings-product-feature-sets-values-card
                     v-if="productFeatureSet.id"
-                    :disabled="!productFeatureSetId"
-                    :allow-edit="acl.can('product_feature_sets.editor')"
+                    :disabled="!productFeatureSetId || undefined"
+                    :allow-edit="acl.can('product_feature_sets.editor') || undefined"
                     class="sw-settings-product-feature-sets-detail__tax-rule-grid"
                     :product-feature-set="productFeatureSet"
                     :is-loading="isLoading"

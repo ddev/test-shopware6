@@ -8,18 +8,25 @@ use Shopware\Core\Framework\Rule\Exception\UnsupportedOperatorException;
 use Shopware\Core\Framework\Rule\FlowRule;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class OrderCustomFieldRule extends FlowRule
 {
     final public const RULE_NAME = 'orderCustomField';
 
     /**
-     * @var array<string>|string|int|bool|float|null
+     * @var array<string|int|bool|float>|string|int|bool|float|null
      */
-    protected array|string|int|bool|null|float $renderedFieldValue = null;
+    protected array|string|int|bool|float|null $renderedFieldValue = null;
+
+    protected ?string $selectedField = null;
+
+    protected ?string $selectedFieldSet = null;
 
     /**
-     * @param array<string, string> $renderedField
+     * @param array<string, string|array<string, string>> $renderedField
      *
      * @internal
      */

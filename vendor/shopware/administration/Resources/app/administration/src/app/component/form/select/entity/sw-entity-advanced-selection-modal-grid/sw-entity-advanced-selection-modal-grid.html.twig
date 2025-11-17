@@ -1,13 +1,8 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_data_grid_select_item_checkbox %}
-<sw-checkbox-field
+<mt-checkbox
     v-tooltip="getSelectableTooltip(item)"
     :disabled="!isRecordSelectable(item)"
-    :value="isSelected(item[itemIdentifierProperty])"
-    {% if VUE3 %}
-    @update:value="selectItem($event, item)"
-    {% else %}
-    @change="selectItem($event, item)"
-    {% endif %}
+    :checked="isSelected(item[itemIdentifierProperty])"
+    @update:checked="selectItem($event, item)"
 />
 {% endblock %}

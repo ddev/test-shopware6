@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module app/service/shortcut
  */
@@ -7,7 +7,7 @@
 const { Application } = Shopware;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * @memberOf module:core/service/shortcut
  * @constructor
  * @method createShortcutService
@@ -42,14 +42,17 @@ export default function createShortcutService(shortcutFactory, keystrokeDelay = 
 
         const key = event.key.toUpperCase();
         const currentTime = Date.now();
-        const router = Application.getApplicationRoot().$router;
+        const router = Application.view.router;
 
         let buffer = [];
 
         if (currentTime - state.lastKeyTime > keystrokeDelay) {
             buffer = [key];
         } else {
-            buffer = [...state.buffer, key];
+            buffer = [
+                ...state.buffer,
+                key,
+            ];
         }
 
         state = {
@@ -84,4 +87,3 @@ export default function createShortcutService(shortcutFactory, keystrokeDelay = 
         return restrictedTags.test(tagName);
     }
 }
-

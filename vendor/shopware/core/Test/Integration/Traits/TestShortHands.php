@@ -14,7 +14,6 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\AndFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\Test\IdsCollection;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
@@ -23,9 +22,12 @@ use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\Test\Integration\Builder\Customer\CustomerBuilder;
 use Shopware\Core\Test\Integration\Helper\MailEventListener;
+use Shopware\Core\Test\Stub\Framework\IdsCollection;
 use Shopware\Core\Test\TestDefaults;
 
 /**
+ * @codeCoverageIgnore
+ *
  * @internal
  */
 trait TestShortHands
@@ -35,29 +37,29 @@ trait TestShortHands
     /**
      * @param array<string, mixed> $options
      */
-    protected function getContext(?string $token = null, array $options = []): SalesChannelContext
+    protected function getContext(?string $token = null, array $options = [], string $salesChannelId = TestDefaults::SALES_CHANNEL): SalesChannelContext
     {
         $token ??= Uuid::randomHex();
 
-        return $this->getContainer()->get(SalesChannelContextFactory::class)
-            ->create($token, TestDefaults::SALES_CHANNEL, $options);
+        return static::getContainer()->get(SalesChannelContextFactory::class)
+            ->create($token, $salesChannelId, $options);
     }
 
     protected function addProductToCart(string $id, SalesChannelContext $context): Cart
     {
-        $product = $this->getContainer()->get(ProductLineItemFactory::class)
+        $product = static::getContainer()->get(ProductLineItemFactory::class)
             ->create(['id' => $id, 'referencedId' => $id], $context);
 
-        $cart = $this->getContainer()->get(CartService::class)
+        $cart = static::getContainer()->get(CartService::class)
             ->getCart($context->getToken(), $context);
 
-        return $this->getContainer()->get(CartService::class)
+        return static::getContainer()->get(CartService::class)
             ->add($cart, $product, $context);
     }
 
     protected function order(Cart $cart, SalesChannelContext $context, ?RequestDataBag $data = null): string
     {
-        return $this->getContainer()->get(CartService::class)
+        return static::getContainer()->get(CartService::class)
             ->order($cart, $context, $data ?? new RequestDataBag());
     }
 
@@ -72,7 +74,7 @@ trait TestShortHands
             new EqualsFilter('orderId', $orderId),
         ]));
 
-        $exists = $this->getContainer()->get('order_line_item.repository')
+        $exists = static::getContainer()->get('order_line_item.repository')
             ->search($criteria, Context::createDefaultContext());
 
         static::assertCount(1, $exists);
@@ -92,7 +94,7 @@ trait TestShortHands
 
         static::assertInstanceOf(CalculatedPrice::class, $item->getPrice(), \sprintf('Line item with id %s has no price', $id));
 
-        static::assertEquals($price, $item->getPrice()->getTotalPrice(), \sprintf('Line item with id %s has wrong total price', $id));
+        static::assertSame($price, $item->getPrice()->getTotalPrice(), \sprintf('Line item with id %s has wrong total price', $id));
     }
 
     protected function assertLineItemUnitPrice(Cart $cart, string $id, float $price): void
@@ -103,7 +105,7 @@ trait TestShortHands
 
         static::assertInstanceOf(CalculatedPrice::class, $item->getPrice(), \sprintf('Line item with id %s has no price', $id));
 
-        static::assertEquals($price, $item->getPrice()->getUnitPrice(), \sprintf('Line item with id %s has wrong unit price', $id));
+        static::assertSame($price, $item->getPrice()->getUnitPrice(), \sprintf('Line item with id %s has wrong unit price', $id));
     }
 
     protected function assertLineItemInCart(Cart $cart, string $id): void
@@ -122,7 +124,7 @@ trait TestShortHands
                 $context->getSalesChannelId()
             );
 
-            $this->getContainer()->get('customer.repository')->create(
+            static::getContainer()->get('customer.repository')->create(
                 [$customer->build()],
                 Context::createDefaultContext()
             );
@@ -132,7 +134,7 @@ trait TestShortHands
 
         return $this->getContext($context->getToken(), [
             SalesChannelContextService::CUSTOMER_ID => $customerId,
-        ]);
+        ], $context->getSalesChannelId());
     }
 
     protected function assertMailSent(MailEventListener $listener, string $type): void
@@ -145,12 +147,12 @@ trait TestShortHands
      */
     protected function mailListener(\Closure $closure)
     {
-        $mapping = $this->getContainer()->get(Connection::class)
+        $mapping = static::getContainer()->get(Connection::class)
             ->fetchAllKeyValue('SELECT LOWER(HEX(id)), technical_name FROM mail_template_type');
 
         $listener = new MailEventListener($mapping);
 
-        $dispatcher = $this->getContainer()->get('event_dispatcher');
+        $dispatcher = static::getContainer()->get('event_dispatcher');
 
         $dispatcher->addListener(FlowSendMailActionEvent::class, $listener);
 
@@ -163,16 +165,16 @@ trait TestShortHands
 
     private function assertStock(string $productId, int $stock, int $available): void
     {
-        /** @var array{stock: int, available_stock:int} $stocks */
-        $stocks = $this->getContainer()->get(Connection::class)->fetchAssociative(
+        /** @var array{stock: string, available_stock: string} $stocks */
+        $stocks = static::getContainer()->get(Connection::class)->fetchAssociative(
             'SELECT stock, available_stock FROM product WHERE id = :id',
             ['id' => Uuid::fromHexToBytes($productId)]
         );
 
-        static::assertNotEmpty($stocks, sprintf('Product with id %s not found', $productId));
+        static::assertNotEmpty($stocks, \sprintf('Product with id %s not found', $productId));
 
-        static::assertEquals($stock, (int) $stocks['stock'], sprintf('Product with id %s has wrong stock', $productId));
+        static::assertSame($stock, (int) $stocks['stock'], \sprintf('Product with id %s has wrong stock', $productId));
 
-        static::assertEquals($available, $stocks['available_stock'], sprintf('Product with id %s has wrong available stock', $productId));
+        static::assertSame($available, (int) $stocks['available_stock'], \sprintf('Product with id %s has wrong available stock', $productId));
     }
 }

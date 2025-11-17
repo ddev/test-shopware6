@@ -2,6 +2,8 @@
 
 namespace Shopware\Core\Content\ImportExport\DataAbstractionLayer\Serializer\Field;
 
+use Shopware\Core\Checkout\Order\Aggregate\OrderDelivery\OrderDeliveryDefinition;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionDefinition;
 use Shopware\Core\Content\ImportExport\ImportExportException;
 use Shopware\Core\Content\ImportExport\Struct\Config;
 use Shopware\Core\Defaults;
@@ -14,6 +16,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\DateTimeField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\FkField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Computed;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Inherited;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Runtime;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\WriteProtected;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IdField;
@@ -23,9 +26,11 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\ManyToManyAssociationFiel
 use Shopware\Core\Framework\DataAbstractionLayer\Field\OneToManyAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\TranslatedField;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
+use Shopware\Core\Framework\Struct\Collection;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('core')]
+#[Package('fundamentals@after-sales')]
 class FieldSerializer extends AbstractFieldSerializer
 {
     /**
@@ -54,6 +59,22 @@ class FieldSerializer extends AbstractFieldSerializer
         }
 
         if ($field instanceof AssociationField) {
+            if ($value === null || !\in_array($field->getReferenceClass(), [OrderDeliveryDefinition::class, OrderTransactionDefinition::class], true)) {
+                return;
+            }
+
+            if ($field instanceof OneToManyAssociationField) {
+                if ($value instanceof Collection) {
+                    $value = $value->first();
+                }
+
+                $definition = $field->getReferenceDefinition();
+                $entitySerializer = $this->serializerRegistry->getEntity($definition->getEntityName());
+
+                $result = $entitySerializer->serialize($config, $definition, $value);
+                yield $field->getPropertyName() => iterator_to_array($result);
+            }
+
             return;
         }
 
@@ -62,6 +83,12 @@ class FieldSerializer extends AbstractFieldSerializer
         }
 
         if ($field->getFlag(Computed::class)) {
+            return;
+        }
+
+        if ($field->getFlag(Inherited::class) && $value === null) {
+            yield $key => null;
+
             return;
         }
 
@@ -100,7 +127,7 @@ class FieldSerializer extends AbstractFieldSerializer
     /**
      * {@inheritDoc}
      */
-    public function deserialize(Config $config, Field $field, $value)
+    public function deserialize(Config $config, Field $field, $value): mixed
     {
         if ($value === null) {
             return null;
@@ -160,30 +187,40 @@ class FieldSerializer extends AbstractFieldSerializer
             return null;
         }
 
-        if (\is_string($value) && $value === '') {
+        if (\is_string($value) && trim($value) === '') {
             return null;
         }
 
         if ($field instanceof DateField || $field instanceof DateTimeField) {
-            return new \DateTimeImmutable((string) $value);
+            try {
+                return new \DateTimeImmutable((string) $value);
+            } catch (\Throwable) {
+                throw ImportExportException::deserializationFailed($field->getPropertyName(), $value, 'date');
+            }
         }
 
         if ($field instanceof BoolField) {
-            $value = mb_strtolower((string) $value);
-
-            return !($value === '0' || $value === 'false' || $value === 'n' || $value === 'no');
+            return ScalarTypeSerializer::deserializeBool($config, $field, (string) $value);
         }
 
         if ($field instanceof JsonField) {
-            return json_decode((string) $value, true, 512, \JSON_THROW_ON_ERROR);
+            try {
+                return json_decode((string) $value, true, 512, \JSON_THROW_ON_ERROR);
+            } catch (\Throwable) {
+                throw ImportExportException::deserializationFailed($field->getPropertyName(), $value, 'json');
+            }
         }
 
         if ($field instanceof IntField) {
-            return (int) $value;
+            return ScalarTypeSerializer::deserializeInt($config, $field, $value);
         }
 
         if ($field instanceof IdField || $field instanceof FkField) {
-            return $this->normalizeId((string) $value);
+            try {
+                return $this->normalizeId((string) $value);
+            } catch (\Throwable) {
+                throw ImportExportException::deserializationFailed($field->getPropertyName(), $value, 'uuid');
+            }
         }
 
         return $value;
@@ -192,6 +229,11 @@ class FieldSerializer extends AbstractFieldSerializer
     public function supports(Field $field): bool
     {
         return true;
+    }
+
+    public function getDecorated(): AbstractFieldSerializer
+    {
+        throw new DecorationPatternException(self::class);
     }
 
     private function normalizeId(?string $id): string

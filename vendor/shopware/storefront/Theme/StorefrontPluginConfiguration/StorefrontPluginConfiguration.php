@@ -4,8 +4,9 @@ namespace Shopware\Storefront\Theme\StorefrontPluginConfiguration;
 
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
+use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter;
 
-#[Package('storefront')]
+#[Package('framework')]
 class StorefrontPluginConfiguration extends Struct
 {
     /**
@@ -33,11 +34,6 @@ class StorefrontPluginConfiguration extends Struct
     protected ?string $storefrontEntryFilepath = null;
 
     /**
-     * @decrecated tag:v6.0.0 will no longer be nullable
-     */
-    protected ?string $basePath = null;
-
-    /**
      * @var array<int, string>
      */
     protected array $assetPaths = [];
@@ -56,6 +52,8 @@ class StorefrontPluginConfiguration extends Struct
      * @var array<string>
      */
     private array $configInheritance = [];
+
+    private bool $additionalBundles = false;
 
     /**
      * @internal
@@ -129,16 +127,6 @@ class StorefrontPluginConfiguration extends Struct
     public function setStorefrontEntryFilepath(?string $storefrontEntryFilepath): void
     {
         $this->storefrontEntryFilepath = $storefrontEntryFilepath;
-    }
-
-    public function getBasePath(): string
-    {
-        return $this->basePath ?? '';
-    }
-
-    public function setBasePath(string $basePath): void
-    {
-        $this->basePath = $basePath;
     }
 
     /**
@@ -250,5 +238,22 @@ class StorefrontPluginConfiguration extends Struct
     public function setThemeJson(?array $themeJson): void
     {
         $this->themeJson = $themeJson;
+    }
+
+    public function getAssetName(): string
+    {
+        $normalizer = new CamelCaseToSnakeCaseNameConverter();
+
+        return \str_replace('_', '-', $normalizer->normalize($this->technicalName));
+    }
+
+    public function setAdditionalBundles(bool $hasAdditionalBundles): void
+    {
+        $this->additionalBundles = $hasAdditionalBundles;
+    }
+
+    public function hasAdditionalBundles(): bool
+    {
+        return $this->additionalBundles;
     }
 }

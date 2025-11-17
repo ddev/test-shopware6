@@ -1,5 +1,5 @@
 /*
- * @package business-ops
+ * @sw-package inventory
  */
 
 import template from './sw-product-stream-list.html.twig';
@@ -46,6 +46,9 @@ export default {
             return this.repositoryFactory.create('product_stream');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -53,16 +56,18 @@ export default {
 
     methods: {
         onInlineEditSave(promise, productStream) {
-            return promise.then(() => {
-                this.createNotificationSuccess({
-                    message: this.$tc('sw-product-stream.detail.messageSaveSuccess', 0, { name: productStream.name }),
+            return promise
+                .then(() => {
+                    this.createNotificationSuccess({
+                        message: this.$tc('sw-product-stream.detail.messageSaveSuccess', { name: productStream.name }, 0),
+                    });
+                })
+                .catch(() => {
+                    this.getList();
+                    this.createNotificationError({
+                        message: this.$tc('sw-product-stream.detail.messageSaveError'),
+                    });
                 });
-            }).catch(() => {
-                this.getList();
-                this.createNotificationError({
-                    message: this.$tc('sw-product-stream.detail.messageSaveError'),
-                });
-            });
         },
 
         onChangeLanguage() {
@@ -101,42 +106,50 @@ export default {
                 criteria.resetSorting();
             }
 
-            return this.productStreamRepository.search(criteria).then((items) => {
-                this.total = items.total;
-                this.productStreams = items;
-                this.isLoading = false;
+            return this.productStreamRepository
+                .search(criteria)
+                .then((items) => {
+                    this.total = items.total;
+                    this.productStreams = items;
+                    this.isLoading = false;
 
-                return items;
-            }).catch(() => {
-                this.isLoading = false;
-            });
+                    return items;
+                })
+                .catch(() => {
+                    this.isLoading = false;
+                });
         },
 
         getProductStreamColumns() {
-            return [{
-                property: 'name',
-                dataIndex: 'name',
-                inlineEdit: 'string',
-                label: 'sw-product-stream.list.columnName',
-                routerLink: 'sw.product.stream.detail',
-                width: '250px',
-                allowResize: true,
-                primary: true,
-            }, {
-                property: 'description',
-                label: 'sw-product-stream.list.columnDescription',
-                width: '250px',
-                allowResize: true,
-            }, {
-                property: 'updatedAt',
-                label: 'sw-product-stream.list.columnDateUpdated',
-                align: 'right',
-                allowResize: true,
-            }, {
-                property: 'invalid',
-                label: 'sw-product-stream.list.columnStatus',
-                allowResize: true,
-            }];
+            return [
+                {
+                    property: 'name',
+                    dataIndex: 'name',
+                    inlineEdit: 'string',
+                    label: 'sw-product-stream.list.columnName',
+                    routerLink: 'sw.product.stream.detail',
+                    width: '250px',
+                    allowResize: true,
+                    primary: true,
+                },
+                {
+                    property: 'description',
+                    label: 'sw-product-stream.list.columnDescription',
+                    width: '250px',
+                    allowResize: true,
+                },
+                {
+                    property: 'updatedAt',
+                    label: 'sw-product-stream.list.columnDateUpdated',
+                    align: 'right',
+                    allowResize: true,
+                },
+                {
+                    property: 'invalid',
+                    label: 'sw-product-stream.list.columnStatus',
+                    allowResize: true,
+                },
+            ];
         },
 
         getNoPermissionsTooltip(role, showOnDisabledElements = true) {
@@ -162,9 +175,11 @@ export default {
                 return;
             }
 
-            const aggregation = this.productStreams.aggregations.product_stream.buckets.filter((bucket) => {
-                return bucket.key === id;
-            }).at(0);
+            const aggregation = this.productStreams.aggregations.product_stream.buckets
+                .filter((bucket) => {
+                    return bucket.key === id;
+                })
+                .at(0);
 
             const count = aggregation.categories.count;
             const name = stream.name;
@@ -175,7 +190,7 @@ export default {
             }
 
             this.createNotificationError({
-                message: this.$tc('sw-product-stream.general.errorCategory', count, { name, count }),
+                message: this.$tc('sw-product-stream.general.errorCategory', { name, count }, count),
             });
         },
 
@@ -195,17 +210,23 @@ export default {
 
             this.isLoading = true;
 
-            this.productStreamRepository.clone(item.id, Shopware.Context.api, behavior).then((clone) => {
-                const route = { name: 'sw.product.stream.detail', params: { id: clone.id } };
+            this.productStreamRepository
+                .clone(item.id, behavior, Shopware.Context.api)
+                .then((clone) => {
+                    const route = {
+                        name: 'sw.product.stream.detail',
+                        params: { id: clone.id },
+                    };
 
-                this.$router.push(route);
-            }).catch(() => {
-                this.isLoading = false;
+                    this.$router.push(route);
+                })
+                .catch(() => {
+                    this.isLoading = false;
 
-                this.createNotificationError({
-                    message: this.$tc('global.notification.unspecifiedSaveErrorMessage'),
+                    this.createNotificationError({
+                        message: this.$tc('global.notification.unspecifiedSaveErrorMessage'),
+                    });
                 });
-            });
         },
     },
 };

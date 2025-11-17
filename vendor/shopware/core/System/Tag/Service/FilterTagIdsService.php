@@ -5,6 +5,7 @@ namespace Shopware\Core\System\Tag\Service;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\Expression\CompositeExpression;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\CompiledFieldCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\CriteriaQueryBuilder;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityDefinitionQueryHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\QueryBuilder;
@@ -19,7 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * @internal
  */
-#[Package('inventory')]
+#[Package('fundamentals@framework')]
 class FilterTagIdsService
 {
     public function __construct(
@@ -59,9 +60,8 @@ class FilterTagIdsService
 
         $query = $this->criteriaQueryBuilder->build($query, $this->tagDefinition, $criteria, $context);
 
-        /** @var array<string> $select */
-        $select = array_merge(['LOWER(HEX(`tag`.`id`))'], $query->getQueryPart('select'));
-        $query->select($select);
+        $select = array_merge(['LOWER(HEX(`tag`.`id`))'], $query->getSelectParts());
+        $query->select(...$select);
         $query->addGroupBy('`tag`.`id`');
         $query->setMaxResults($criteria->getLimit());
         $query->setFirstResult($criteria->getOffset() ?? 0);
@@ -75,8 +75,8 @@ class FilterTagIdsService
         $query->setFirstResult(0);
 
         $total = (new QueryBuilder($this->connection))
-            ->select(['COUNT(*)'])
-            ->from(sprintf('(%s) total', $query->getSQL()))
+            ->select('COUNT(*)')
+            ->from(\sprintf('(%s) total', $query->getSQL()))
             ->setParameters($query->getParameters(), $query->getParameterTypes());
 
         return (int) $total->executeQuery()->fetchOne();
@@ -84,7 +84,7 @@ class FilterTagIdsService
 
     private function addEmptyFilter(QueryBuilder $query): void
     {
-        /** @var ManyToManyAssociationField[] $manyToManyFields */
+        /** @var CompiledFieldCollection<ManyToManyAssociationField> $manyToManyFields */
         $manyToManyFields = $this->tagDefinition->getFields()->filter(fn (Field $field) => $field instanceof ManyToManyAssociationField);
 
         foreach ($manyToManyFields as $manyToManyField) {
@@ -92,24 +92,24 @@ class FilterTagIdsService
             $mappingLocalColumn = EntityDefinitionQueryHelper::escape($manyToManyField->getMappingLocalColumn());
 
             $subQuery = (new QueryBuilder($this->connection))
-                ->select([$mappingLocalColumn])
+                ->select($mappingLocalColumn)
                 ->from($mappingTable);
 
-            $query->andWhere($query->expr()->notIn('`tag`.`id`', sprintf('(%s)', $subQuery->getSQL())));
+            $query->andWhere($query->expr()->notIn('`tag`.`id`', \sprintf('(%s)', $subQuery->getSQL())));
         }
     }
 
     private function addDuplicateFilter(QueryBuilder $query): void
     {
         $subQuery = (new QueryBuilder($this->connection))
-            ->select(['name'])
+            ->select('name')
             ->from('tag')
             ->groupBy('name')
             ->having('COUNT(`name`) > 1');
 
         $query->innerJoin(
             '`tag`',
-            sprintf('(%s)', $subQuery->getSQL()),
+            \sprintf('(%s)', $subQuery->getSQL()),
             'duplicate',
             'duplicate.`name` = `tag`.`name`'
         );
@@ -120,26 +120,25 @@ class FilterTagIdsService
      */
     private function addAssignmentFilter(QueryBuilder $query, array $assignments): void
     {
-        /** @var ManyToManyAssociationField[] $manyToManyFields */
+        /** @var CompiledFieldCollection<ManyToManyAssociationField> $manyToManyFields */
         $manyToManyFields = $this->tagDefinition->getFields()->filter(fn (Field $field) => $field instanceof ManyToManyAssociationField && \in_array($field->getPropertyName(), $assignments, true));
 
         if (\count($manyToManyFields) === 0) {
             return;
         }
 
-        $expressions = new CompositeExpression(CompositeExpression::TYPE_OR);
-
+        $parts = [];
         foreach ($manyToManyFields as $manyToManyField) {
             $mappingTable = EntityDefinitionQueryHelper::escape($manyToManyField->getMappingDefinition()->getEntityName());
             $mappingLocalColumn = EntityDefinitionQueryHelper::escape($manyToManyField->getMappingLocalColumn());
 
             $subQuery = (new QueryBuilder($this->connection))
-                ->select([$mappingLocalColumn])
+                ->select($mappingLocalColumn)
                 ->from($mappingTable);
 
-            $expressions = $expressions->with($query->expr()->in('`tag`.`id`', sprintf('(%s)', $subQuery->getSQL())));
+            $parts[] = $query->expr()->in('`tag`.`id`', \sprintf('(%s)', $subQuery->getSQL()));
         }
 
-        $query->andWhere($expressions);
+        $query->andWhere(CompositeExpression::or(...$parts));
     }
 }

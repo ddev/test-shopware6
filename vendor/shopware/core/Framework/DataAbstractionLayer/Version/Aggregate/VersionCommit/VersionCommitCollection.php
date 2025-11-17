@@ -8,11 +8,11 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @extends EntityCollection<VersionCommitEntity>
  */
-#[Package('core')]
+#[Package('framework')]
 class VersionCommitCollection extends EntityCollection
 {
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getUserIds(): array
     {

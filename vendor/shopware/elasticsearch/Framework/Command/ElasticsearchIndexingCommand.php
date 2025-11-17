@@ -7,11 +7,13 @@ use Shopware\Core\Framework\DataAbstractionLayer\Command\ConsoleProgressTrait;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Elasticsearch\Framework\Indexing\CreateAliasTaskHandler;
 use Shopware\Elasticsearch\Framework\Indexing\ElasticsearchIndexer;
+use Shopware\Elasticsearch\Framework\Indexing\ElasticsearchIndexingMessage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -20,7 +22,7 @@ use Symfony\Component\Stopwatch\Stopwatch;
     name: 'es:index',
     description: 'Index all entities into elasticsearch',
 )]
-#[Package('core')]
+#[Package('framework')]
 class ElasticsearchIndexingCommand extends Command
 {
     use ConsoleProgressTrait;
@@ -42,6 +44,7 @@ class ElasticsearchIndexingCommand extends Command
      */
     protected function configure(): void
     {
+        $this->addOption('no-progress', null, null, 'Do not output progress bar');
         $this->addOption('no-queue', null, null, 'Do not use the queue for indexing');
         $this->addOption('only', null, InputOption::VALUE_REQUIRED, 'Add entities separated by comma to indexing');
     }
@@ -58,14 +61,30 @@ class ElasticsearchIndexingCommand extends Command
             return self::FAILURE;
         }
 
-        $progressBar = new ProgressBar($output);
+        $progressBar = new ProgressBar($input->getOption('no-progress') ? new NullOutput() : $output);
         $progressBar->start();
 
         $entities = $input->getOption('only') ? explode(',', $input->getOption('only')) : [];
         $offset = null;
+        $messagesToDispatch = [];
+
         while ($message = $this->indexer->iterate($offset, $entities)) {
             $offset = $message->getOffset();
 
+            $messagesToDispatch[] = $message;
+        }
+
+        $lastMessage = end($messagesToDispatch);
+
+        if (!$lastMessage instanceof ElasticsearchIndexingMessage) {
+            $this->io->error('No messages found for indexing.');
+
+            return self::SUCCESS;
+        }
+
+        $lastMessage->markAsLastMessage();
+
+        foreach ($messagesToDispatch as $message) {
             $step = \count($message->getData()->getIds());
 
             if ($input->getOption('no-queue')) {

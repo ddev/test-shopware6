@@ -1,32 +1,24 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_condition_value_content %}
 <div class="sw-condition-line-item-in-category sw-condition__condition-value">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_condition_line_item_in_category_field_operator %}
     <sw-condition-operator-select
         v-bind="{ operators, condition }"
         :plural="matchesAll"
-        :disabled="disabled"
+        :disabled="disabled || undefined"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_condition_line_item_in_category_field_identifiers %}
     <sw-entity-multi-select
         v-if="!isEmpty"
         size="medium"
-        :disabled="disabled"
+        :disabled="disabled || undefined"
         entity="category"
         :entity-collection="categories"
         description-position="bottom"
-        {% if VUE3 %}
         @update:entity-collection="setCategoryIds"
-        {% else %}
-        @change="setCategoryIds"
-        {% endif %}
     >
         <template #result-item="{ item, index, isSelected, addItem, displayLabelProperty, isSelectionDisabled, descriptionPosition, highlightSearchTerm, searchTerm }">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_condition_line_item_in_category_field_result_item %}
             <sw-select-result
                 :selected="isSelected(item)"
@@ -35,7 +27,6 @@
                 :description-position="descriptionPosition"
                 @item-select="addItem"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_condition_line_item_in_category_field_result_item_content %}
                 <span class="sw-condition-line-item-in-category__result-item">
                     <sw-highlight-text
@@ -56,13 +47,11 @@
                 {% endblock %}
 
                 <template #description>
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_condition_line_item_in_category_field_description %}
                     <slot
                         name="result-description-property"
                         v-bind="{ item }"
                     >
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_condition_line_item_in_category_field_description_default %}
                         {{ getCategoryBreadcrumb(item) }}
                         {% endblock %}

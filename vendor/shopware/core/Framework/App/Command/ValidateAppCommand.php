@@ -4,12 +4,12 @@ namespace Shopware\Core\Framework\App\Command;
 
 use Shopware\Core\Framework\Adapter\Console\ShopwareStyle;
 use Shopware\Core\Framework\App\Exception\AppValidationException;
+use Shopware\Core\Framework\App\Exception\AppXmlParsingException;
 use Shopware\Core\Framework\App\Manifest\Exception\ManifestNotFoundException;
 use Shopware\Core\Framework\App\Manifest\Manifest;
 use Shopware\Core\Framework\App\Validation\ManifestValidator;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SystemConfig\Exception\XmlParsingException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -24,7 +24,7 @@ use Symfony\Component\Finder\Finder;
     name: 'app:validate',
     description: 'Validates an app',
 )]
-#[Package('core')]
+#[Package('framework')]
 class ValidateAppCommand extends Command
 {
     public function __construct(
@@ -32,28 +32,6 @@ class ValidateAppCommand extends Command
         private readonly ManifestValidator $manifestValidator
     ) {
         parent::__construct();
-    }
-
-    public function validate(string $appDir): array
-    {
-        $context = Context::createDefaultContext();
-        $invalids = [];
-
-        try {
-            $manifests = $this->getManifestsFromDir($appDir);
-
-            foreach ($manifests as $manifest) {
-                try {
-                    $this->manifestValidator->validate($manifest, $context);
-                } catch (AppValidationException $e) {
-                    $invalids[] = $e->getMessage();
-                }
-            }
-        } catch (XmlParsingException $e) {
-            $invalids[] = $e->getMessage();
-        }
-
-        return $invalids;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -94,11 +72,34 @@ class ValidateAppCommand extends Command
     }
 
     /**
+     * @return list<string>
+     */
+    private function validate(string $appDir): array
+    {
+        $context = Context::createCLIContext();
+        $invalids = [];
+
+        try {
+            foreach ($this->getManifestsFromDir($appDir) as $manifest) {
+                try {
+                    $this->manifestValidator->validate($manifest, $context);
+                } catch (AppValidationException $e) {
+                    $invalids[] = $e->getMessage();
+                }
+            }
+        } catch (AppXmlParsingException $e) {
+            $invalids[] = $e->getMessage();
+        }
+
+        return $invalids;
+    }
+
+    /**
      * @return Manifest[]
      */
     private function getManifestsFromDir(string $dir): array
     {
-        if (!file_exists($dir)) {
+        if (!\is_dir($dir)) {
             throw new ManifestNotFoundException($dir);
         }
 
@@ -133,7 +134,7 @@ class ValidateAppCommand extends Command
 
         if ($folders === []) {
             $io->error(
-                sprintf(
+                \sprintf(
                     'No app with name "%s" found. Please make sure that a folder with that exact name exist in the custom/apps folder.',
                     $name
                 )

@@ -1,37 +1,39 @@
 import template from './sw-price-field.html.twig';
 import './sw-price-field.scss';
 
-const { Component, Application } = Shopware;
+const { Application } = Shopware;
 const { debounce } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type static
  * @component-example
  * <sw-price-field :taxRate="{ taxRate: 19 }"
- *                 :price="[{ net: 10, gross: 11.90, currencyId: '...' }, ...]"
+ *                 :value="[{ net: 10, gross: 11.90, currencyId: '...' }, ...]"
  *                 :defaultPrice="{...}"
  *                 :currency="{...}">
  * </sw-price-field>
  */
-Component.register('sw-price-field', {
+export default {
     template,
-
     inheritAttrs: false,
 
     inject: ['feature'],
 
-    model: {
-        prop: 'price',
-        event: 'priceChange',
-    },
+    emits: [
+        'change',
+        'price-lock-change',
+        'price-calculate',
+        'price-gross-change',
+        'price-net-change',
+        'calculating',
+    ],
 
     props: {
-        price: {
+        value: {
             type: Array,
             required: true,
         },
@@ -70,21 +72,18 @@ Component.register('sw-price-field', {
             },
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         validation: {
             required: false,
             default: null,
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         label: {
             required: false,
             default: true,
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         compact: {
             required: false,
@@ -97,7 +96,6 @@ Component.register('sw-price-field', {
             default: null,
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         disabled: {
             required: false,
@@ -137,7 +135,6 @@ Component.register('sw-price-field', {
         inherited: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: undefined,
         },
@@ -168,7 +165,7 @@ Component.register('sw-price-field', {
 
         priceForCurrency: {
             get() {
-                const priceForCurrency = Object.values(this.price).find((price) => {
+                const priceForCurrency = Object.values(this.value).find((price) => {
                     return price.currencyId === this.currency?.id;
                 });
 
@@ -201,12 +198,25 @@ Component.register('sw-price-field', {
             },
         },
 
+        attributesWithoutListeners() {
+            const attributes = {};
+
+            // Filter all listeners from the $attrs object
+            Object.keys(this.$attrs).forEach((key) => {
+                if (!key.startsWith('on')) {
+                    attributes[key] = this.$attrs[key];
+                }
+            });
+
+            return attributes;
+        },
+
         isInherited() {
             if (this.inherited !== undefined) {
                 return this.inherited;
             }
 
-            const priceForCurrency = Object.values(this.price).find((price) => {
+            const priceForCurrency = Object.values(this.value).find((price) => {
                 return price.currencyId === this.currency.id;
             });
 
@@ -266,86 +276,70 @@ Component.register('sw-price-field', {
             this.priceForCurrency.linked = !this.priceForCurrency.linked;
             this.$emit('price-lock-change', this.priceForCurrency.linked);
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:price', this.priceForCurrency);
-
-                return;
-            }
-
             this.$emit('change', this.priceForCurrency);
         },
 
-        onPriceGrossInputChange(value) {
-            if (this.priceForCurrency.linked) {
-                this.priceForCurrency.gross = value;
+        onEndsWithDecimalSeparator(value) {
+            if (value) {
+                // cancel might not be a function if debounce is not active
+                if (this.onPriceGrossChangeDebounce.cancel) {
+                    this.onPriceGrossChangeDebounce.cancel();
+                }
+                if (this.onPriceNetChangeDebounce.cancel) {
+                    this.onPriceNetChangeDebounce.cancel();
+                }
+            }
+        },
 
-                this.onPriceGrossChangeDebounce(value);
+        onPriceGrossInputChange(value) {
+            this.priceForCurrency.gross = value;
+
+            this.$emit('price-gross-change', value);
+            this.$emit('change', this.priceForCurrency);
+
+            if (this.priceForCurrency.linked && value && !value.toString().endsWith('.')) {
+                this.onPriceGrossChangeDebounce();
             }
         },
 
         onPriceNetInputChange(value) {
-            if (this.priceForCurrency.linked) {
-                this.priceForCurrency.net = value;
+            this.priceForCurrency.net = value;
 
-                this.onPriceNetChangeDebounce(value);
+            this.$emit('price-net-change', value);
+            this.$emit('change', this.priceForCurrency);
+
+            if (this.priceForCurrency.linked && value && !value.toString().endsWith('.')) {
+                this.onPriceNetChangeDebounce();
             }
         },
 
-        onPriceGrossChangeDebounce: debounce(function onPriceGrossChangeDebounce() {
-            this.onPriceGrossChange(this.priceForCurrency.gross);
-        }, 300),
-
-        onPriceNetChangeDebounce: debounce(function onPriceNetChangeDebounce() {
-            this.onPriceNetChange(this.priceForCurrency.net);
-        }, 300),
-
         onPriceGrossChange(value) {
-            if (this.priceForCurrency.linked) {
-                this.$emit('price-calculate', true);
-                this.$emit('price-gross-change', value);
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:price', this.priceForCurrency);
-                    this.convertGrossToNet(value);
-
-                    return;
-                }
-
-                this.$emit('change', this.priceForCurrency);
-
+            if (this.priceForCurrency.linked && value && !value.toString().endsWith('.')) {
                 this.convertGrossToNet(value);
             }
         },
 
         onPriceNetChange(value) {
-            if (this.priceForCurrency.linked) {
-                this.$emit('price-calculate', true);
-                this.$emit('price-net-change', value);
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:price', this.priceForCurrency);
-                    this.convertGrossToNet(value);
-
-                    return;
-                }
-
-                this.$emit('change', this.priceForCurrency);
-
+            if (this.priceForCurrency.linked && value && !value.toString().endsWith('.')) {
                 this.convertNetToGross(value);
             }
         },
 
         convertNetToGross(value) {
-            if (Number.isNaN(value) || value === null) {
+            const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+
+            if (Number.isNaN(numericValue) || numericValue === null) {
                 this.priceForCurrency.gross = this.allowEmpty ? null : 0;
                 return false;
             }
 
-            if (!value) {
+            if (!numericValue) {
                 this.priceForCurrency.gross = 0;
                 return false;
             }
             this.$emit('price-calculate', true);
 
-            this.requestTaxValue(value, 'net').then((res) => {
+            this.requestTaxValue(numericValue, 'net').then((res) => {
                 const newValue = this.priceForCurrency.net + res;
                 this.priceForCurrency.gross = parseFloat(newValue.toPrecision(14));
             });
@@ -353,20 +347,22 @@ Component.register('sw-price-field', {
         },
 
         convertGrossToNet(value) {
-            if (Number.isNaN(value) || value === null) {
+            const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+
+            if (Number.isNaN(numericValue) || numericValue === null) {
                 this.priceForCurrency.net = this.allowEmpty ? null : 0;
                 this.$emit('calculating', false);
                 return false;
             }
 
-            if (!value) {
+            if (!numericValue) {
                 this.priceForCurrency.net = 0;
                 this.$emit('calculating', false);
                 return false;
             }
             this.$emit('price-calculate', true);
 
-            this.requestTaxValue(value, 'gross').then((res) => {
+            this.requestTaxValue(numericValue, 'gross').then((res) => {
                 const newValue = this.priceForCurrency.gross - res;
                 this.priceForCurrency.net = parseFloat(newValue.toPrecision(14));
             });
@@ -376,12 +372,7 @@ Component.register('sw-price-field', {
         requestTaxValue(value, outputType) {
             this.$emit('price-calculate', true);
             return new Promise((resolve) => {
-                if (
-                    !value ||
-                    typeof value !== 'number' ||
-                    !this.priceForCurrency[outputType] ||
-                    !outputType
-                ) {
+                if (!value || typeof value !== 'number' || !this.priceForCurrency[outputType] || !outputType) {
                     return;
                 }
 
@@ -391,21 +382,23 @@ Component.register('sw-price-field', {
                     return;
                 }
 
-                this.calculatePriceApiService.calculatePrice({
-                    taxId: this.taxRate.id,
-                    currencyId: this.currency.id,
-                    price: this.priceForCurrency[outputType],
-                    output: outputType,
-                }).then(({ data }) => {
-                    let tax = 0;
+                this.calculatePriceApiService
+                    .calculatePrice({
+                        taxId: this.taxRate.id,
+                        currencyId: this.currency.id,
+                        price: this.priceForCurrency[outputType],
+                        output: outputType,
+                    })
+                    .then(({ data }) => {
+                        let tax = 0;
 
-                    data.calculatedTaxes.forEach((item) => {
-                        tax += item.tax;
+                        data.calculatedTaxes.forEach((item) => {
+                            tax += item.tax;
+                        });
+
+                        resolve(tax);
+                        this.$emit('price-calculate', false);
                     });
-
-                    resolve(tax);
-                    this.$emit('price-calculate', false);
-                });
             });
         },
 
@@ -423,5 +416,13 @@ Component.register('sw-price-field', {
         onCloseModal() {
             this.showModal = false;
         },
+
+        onPriceGrossChangeDebounce: debounce(function onPriceGrossChange() {
+            this.onPriceGrossChange(this.priceForCurrency.gross);
+        }, 300),
+
+        onPriceNetChangeDebounce: debounce(function onPriceNetChange() {
+            this.onPriceNetChange(this.priceForCurrency.net);
+        }, 300),
     },
-});
+};

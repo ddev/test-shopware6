@@ -1,12 +1,10 @@
 import './sw-button-group.scss';
 import template from './sw-button-group.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * @status ready
  * @description The <u>sw-button-group</u> is a container element for sw-button and sw-context-button elements.
  * @example-type static
@@ -17,7 +15,7 @@ const { Component } = Shopware;
  *     <sw-button>Button 3</sw-button>
  * </sw-button-group>
  */
-Component.register('sw-button-group', {
+export default {
     template,
 
     props: {
@@ -42,4 +40,4 @@ Component.register('sw-button-group', {
             };
         },
     },
-});
+};

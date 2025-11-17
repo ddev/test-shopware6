@@ -13,7 +13,7 @@ class OrderTransactionCollection extends EntityCollection
 {
     public function filterByState(string $state): self
     {
-        return $this->filter(fn (OrderTransactionEntity $transaction) => $transaction->getStateMachineState()->getTechnicalName() === $state);
+        return $this->filter(fn (OrderTransactionEntity $transaction) => $transaction->getStateMachineState()?->getTechnicalName() === $state);
     }
 
     public function filterByStateId(string $stateId): self
@@ -22,7 +22,7 @@ class OrderTransactionCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getOrderIds(): array
     {
@@ -35,7 +35,7 @@ class OrderTransactionCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getPaymentMethodIds(): array
     {

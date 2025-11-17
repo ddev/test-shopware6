@@ -1,22 +1,64 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@framework
  */
 import './acl';
 
 /* eslint-disable max-len, sw-deprecation-rules/private-feature-declarations */
 Shopware.Component.register('sw-users-permissions', () => import('./page/sw-users-permissions'));
-Shopware.Component.register('sw-users-permissions-user-listing', () => import('./components/sw-users-permissions-user-listing'));
-Shopware.Component.register('sw-users-permissions-role-listing', () => import('./components/sw-users-permissions-role-listing'));
-Shopware.Component.register('sw-users-permissions-configuration', () => import('./components/sw-users-permissions-configuration'));
-Shopware.Component.register('sw-users-permissions-additional-permissions', () => import('./components/sw-users-permissions-additional-permissions'));
-Shopware.Component.register('sw-users-permissions-permissions-grid', () => import('./components/sw-users-permissions-permissions-grid'));
-Shopware.Component.register('sw-users-permissions-detailed-permissions-grid', () => import('./components/sw-users-permissions-detailed-permissions-grid'));
-Shopware.Component.register('sw-users-permissions-detailed-additional-permissions', () => import('./components/sw-users-permissions-detailed-additional-permissions'));
+Shopware.Component.register(
+    'sw-users-permissions-user-listing',
+    () => import('./components/sw-users-permissions-user-listing'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-role-listing',
+    () => import('./components/sw-users-permissions-role-listing'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-configuration',
+    () => import('./components/sw-users-permissions-configuration'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-additional-permissions',
+    () => import('./components/sw-users-permissions-additional-permissions'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-permissions-grid',
+    () => import('./components/sw-users-permissions-permissions-grid'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-detailed-permissions-grid',
+    () => import('./components/sw-users-permissions-detailed-permissions-grid'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-detailed-additional-permissions',
+    () => import('./components/sw-users-permissions-detailed-additional-permissions'),
+);
 Shopware.Component.register('sw-users-permissions-user-detail', () => import('./page/sw-users-permissions-user-detail'));
-Shopware.Component.extend('sw-users-permissions-user-create', 'sw-users-permissions-user-detail', () => import('./page/sw-users-permissions-user-create'));
+Shopware.Component.extend(
+    'sw-users-permissions-user-create',
+    'sw-users-permissions-user-detail',
+    () => import('./page/sw-users-permissions-user-create'),
+);
 Shopware.Component.register('sw-users-permissions-role-detail', () => import('./page/sw-users-permissions-role-detail'));
-Shopware.Component.register('sw-users-permissions-role-view-general', () => import('./view/sw-users-permissions-role-view-general'));
-Shopware.Component.register('sw-users-permissions-role-view-detailed', () => import('./view/sw-users-permissions-role-view-detailed'));
+Shopware.Component.register(
+    'sw-users-permissions-role-view-general',
+    () => import('./view/sw-users-permissions-role-view-general'),
+);
+Shopware.Component.register(
+    'sw-users-permissions-role-view-detailed',
+    () => import('./view/sw-users-permissions-role-view-detailed'),
+);
+Shopware.Component.register(
+    'sw-sso-users-permission-user-detail',
+    () => import('./page/sw-sso-users-permission-user-detail'),
+);
+Shopware.Component.register('sw-user-sso-invitation-modal', () => import('./components/sw-user-sso-invitation-modal'));
+Shopware.Component.register('sw-user-sso-status-label', () => import('./components/sw-user-sso-status-label'));
+Shopware.Component.register(
+    'sw-user-sso-access-key-create-modal',
+    () => import('./components/sw-user-sso-access-key-create-modal'),
+);
+
 /* eslint-enable max-len, sw-deprecation-rules/private-feature-declarations */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -28,7 +70,7 @@ Shopware.Module.register('sw-users-permissions', {
     version: '1.0.0',
     targetVersion: '1.0.0',
     color: '#9AA8B5',
-    icon: 'regular-cog',
+    icon: 'solid-cog',
     favicon: 'icon-module-settings.png',
     entity: 'user',
 
@@ -44,6 +86,14 @@ Shopware.Module.register('sw-users-permissions', {
         'user.detail': {
             component: 'sw-users-permissions-user-detail',
             path: 'user.detail/:id?',
+            meta: {
+                parentPath: 'sw.users.permissions.index',
+                privilege: 'users_and_permissions.viewer',
+            },
+        },
+        'user.sso.detail': {
+            component: 'sw-sso-users-permission-user-detail',
+            path: 'user.sso.detail/:id?',
             meta: {
                 parentPath: 'sw.users.permissions.index',
                 privilege: 'users_and_permissions.viewer',

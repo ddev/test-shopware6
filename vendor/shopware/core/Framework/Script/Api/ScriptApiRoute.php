@@ -6,20 +6,22 @@ use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Api\Controller\Exception\PermissionDeniedException;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Script\Execution\Script;
 use Shopware\Core\Framework\Script\Execution\ScriptAppInformation;
 use Shopware\Core\Framework\Script\Execution\ScriptExecutor;
 use Shopware\Core\Framework\Script\Execution\ScriptLoader;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Api\ResponseFields;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('core')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('framework')]
 class ScriptApiRoute
 {
     public function __construct(
@@ -29,7 +31,7 @@ class ScriptApiRoute
     ) {
     }
 
-    #[Route(path: '/api/script/{hook}', name: 'api.script_endpoint', methods: ['POST'], requirements: ['hook' => '.+'])]
+    #[Route(path: '/api/script/{hook}', name: 'api.script_endpoint', methods: ['POST', 'GET'], requirements: ['hook' => '.+'])]
     public function execute(string $hook, Request $request, Context $context): Response
     {
         //  blog/update =>  blog-update
@@ -43,7 +45,8 @@ class ScriptApiRoute
         $this->executor->execute($instance);
 
         $fields = new ResponseFields(
-            $request->get('includes', [])
+            $request->get('includes', []),
+            $request->get('excludes', []),
         );
 
         return $this->scriptResponseEncoder->encodeToSymfonyResponse(

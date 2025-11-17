@@ -2,7 +2,9 @@
 
 namespace Shopware\Administration\Controller;
 
+use Shopware\Administration\Framework\Routing\AdministrationRouteScope;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityDefinition;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\SalesChannel\ProductAvailableFilter;
 use Shopware\Core\Framework\Context;
@@ -17,13 +19,16 @@ use Shopware\Core\System\SalesChannel\Entity\SalesChannelRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Package('administration')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [AdministrationRouteScope::ID]])]
+#[Package('framework')]
 class AdminProductStreamController extends AbstractController
 {
     /**
      * @internal
+     *
+     * @param SalesChannelRepository<ProductCollection> $salesChannelProductRepository
      */
     public function __construct(
         private readonly ProductDefinition $productDefinition,
@@ -33,7 +38,7 @@ class AdminProductStreamController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/api/_admin/product-stream-preview/{salesChannelId}', name: 'api.admin.product-stream-preview', defaults: ['_routeScope' => ['administration']], methods: ['POST'])]
+    #[Route(path: '/api/_admin/product-stream-preview/{salesChannelId}', name: 'api.admin.product-stream-preview', methods: ['POST'])]
     public function productStreamPreview(string $salesChannelId, Request $request, Context $context): JsonResponse
     {
         $salesChannelContext = $this->salesChannelContextService->get(
@@ -56,7 +61,7 @@ class AdminProductStreamController extends AbstractController
             $context
         );
 
-        $criteria->setTotalCountMode(1);
+        $criteria->setTotalCountMode(Criteria::TOTAL_COUNT_MODE_EXACT);
         $criteria->addAssociation('manufacturer');
         $criteria->addAssociation('options.group');
 
@@ -66,6 +71,8 @@ class AdminProductStreamController extends AbstractController
         array_pop($queries);
         $availableFilter->assign(['queries' => $queries]);
         $criteria->addFilter($availableFilter);
+
+        $criteria->addState(Criteria::STATE_ELASTICSEARCH_AWARE);
 
         $previewResult = $this->salesChannelProductRepository->search($criteria, $salesChannelContext);
 

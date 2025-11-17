@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 
 import template from './sw-sales-channel-modal-grid.html.twig';
@@ -14,11 +14,15 @@ export default {
 
     inject: ['repositoryFactory'],
 
+    emits: [
+        'grid-channel-add',
+        'grid-detail-open',
+    ],
+
     props: {
         productStreamsExist: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -56,7 +60,10 @@ export default {
     methods: {
         createdComponent() {
             this.isLoading = true;
-            const context = { ...Shopware.Context.api, languageId: Shopware.State.get('session').languageId };
+            const context = {
+                ...Shopware.Context.api,
+                languageId: Shopware.Store.get('session').languageId,
+            };
             this.salesChannelTypeRepository.search(new Criteria(1, 500), context).then((response) => {
                 this.total = response.total;
                 this.salesChannelTypes = response;
@@ -69,7 +76,7 @@ export default {
         },
 
         onOpenDetail(id) {
-            const detailType = this.salesChannelTypes.find(salesChannelType => salesChannelType.id === id);
+            const detailType = this.salesChannelTypes.find((salesChannelType) => salesChannelType.id === id);
             this.$emit('grid-detail-open', detailType);
         },
 

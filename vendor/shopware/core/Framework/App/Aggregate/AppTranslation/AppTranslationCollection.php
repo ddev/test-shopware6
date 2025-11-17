@@ -6,11 +6,11 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\Log\Package;
 
 /**
- * @internal only for use by the app-system, will be considered internal from v6.4.0 onward
+ * @internal only for use by the app-system
  *
  * @extends EntityCollection<AppTranslationEntity>
  */
-#[Package('core')]
+#[Package('framework')]
 class AppTranslationCollection extends EntityCollection
 {
     protected function getExpectedClass(): string

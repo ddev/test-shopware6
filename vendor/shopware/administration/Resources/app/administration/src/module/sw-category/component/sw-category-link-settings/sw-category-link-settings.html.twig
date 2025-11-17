@@ -1,59 +1,46 @@
 {%  block sw_category_link_settings %}
-<sw-card
+<mt-card
     class="sw-category-link-settings"
     position-identifier="sw-category-link-settings"
-    :title="$tc('sw-category.base.link.title')"
+    :title="$t('sw-category.base.link.title')"
     :is-loading="isLoading"
 >
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_link_type_select_main %}
     <sw-single-select
-        {% if VUE3 %}
         v-model:value="mainType"
-        {% else %}
-        v-model="mainType"
-        {% endif %}
         class="sw-category-link-settings__type"
-        :disabled="!acl.can('category.editor')"
-        :label="$tc('sw-category.base.link.mainTypeLabel')"
-        :placeholder="$tc('sw-category.base.link.mainTypePlaceholder')"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('sw-category.base.link.mainTypeLabel')"
+        :placeholder="$t('sw-category.base.link.mainTypePlaceholder')"
         :options="linkTypeValues"
         show-clearable-button
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_link_type_select_entity %}
     <sw-single-select
         v-if="isInternal"
-        {% if VUE3 %}
         v-model:value="category.linkType"
-        {% else %}
-        v-model="category.linkType"
-        {% endif %}
         class="sw-category-link-settings__entity"
-        :disabled="!acl.can('category.editor')"
-        :label="$tc('sw-category.base.link.internalTypeLabel')"
-        :placeholder="$tc('sw-category.base.link.internalTypePlaceholder')"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('sw-category.base.link.internalTypeLabel')"
+        :placeholder="$t('sw-category.base.link.internalTypePlaceholder')"
         :options="entityValues"
         show-clearable-button
-        {% if VUE3 %}
         @update:value="changeEntity"
-        {% else %}
-        @change="changeEntity"
-        {% endif %}
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_link_type_select_entity_category %}
     <template v-if="category.linkType === 'category'">
         <sw-category-tree-field
+            :allowed-types="allowedCategoryTypes"
             :categories-collection="categoriesCollection"
             :placeholder="categoryLinkPlaceholder"
             :category-criteria="categoryCriteria"
             :single-select="true"
-            :label="$tc('global.entities.category')"
+            :label="$t('global.entities.category')"
+            :help-text="categoryLinkHelpText"
             class="sw-category-link-settings__selection-category"
             @selection-add="onSelectionAdd"
             @selection-remove="onSelectionRemove"
@@ -61,19 +48,14 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_link_type_select_entity_product %}
     <sw-entity-single-select
         v-if="category.linkType === 'product'"
-        {% if VUE3 %}
         v-model:value="category.internalLink"
-        {% else %}
-        v-model="category.internalLink"
-        {% endif %}
         class="sw-category-link-settings__selection-product"
-        :disabled="!acl.can('category.editor')"
-        :label="$tc('global.entities.product')"
-        :placeholder="$tc('sw-category.base.link.productPlaceholder')"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('global.entities.product')"
+        :placeholder="$t('sw-category.base.link.productPlaceholder')"
         :criteria="productCriteria"
         :display-variants="true"
         entity="product"
@@ -81,52 +63,46 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_link_type_select_entity_landing_page %}
     <sw-entity-single-select
         v-if="category.linkType === 'landing_page'"
-        {% if VUE3 %}
         v-model:value="category.internalLink"
-        {% else %}
-        v-model="category.internalLink"
-        {% endif %}
         class="sw-category-link-settings__selection-landing-page"
-        :disabled="!acl.can('category.editor')"
-        :label="$tc('global.entities.landing_page')"
-        :placeholder="$tc('sw-category.base.link.landingPagePlaceholder')"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('global.entities.landing_page')"
+        :placeholder="$t('sw-category.base.link.landingPagePlaceholder')"
         entity="landing_page"
         show-clearable-button
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_category_detail_link_field %}
-    <sw-text-field
+    <component
+        :is="linkHasProtocol ? 'mt-url-field' : 'mt-text-field'"
         v-if="isExternal"
-        {% if VUE3 %}
-        v-model:value="category.externalLink"
-        {% else %}
         v-model="category.externalLink"
-        {% endif %}
         class="sw-category-link-settings__external-link"
-        :disabled="!acl.can('category.editor')"
-        :label="$tc('sw-category.base.link.linkLabel')"
-        :placeholder="$tc('sw-category.base.link.linkLabel')"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('sw-category.base.link.linkLabel')"
+        :placeholder="$t('sw-category.base.link.linkLabel')"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+    <mt-switch
+        v-if="isExternal"
+        v-model="linkHasProtocol"
+        class="sw-category-link-settings__link-has-protocol"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('sw-category.base.link.linkHasProtocol')"
+    />
+
     {% block sw_category_detail_link_new_tab %}
-    <sw-switch-field
-        {% if VUE3 %}
-        v-model:value="category.linkNewTab"
-        {% else %}
+    <mt-switch
         v-model="category.linkNewTab"
-        {% endif %}
         class="sw-category-link-settings__link-new-tab"
-        :disabled="!acl.can('category.editor')"
-        :label="$tc('sw-category.base.link.linkNewTabLabel')"
+        :disabled="!acl.can('category.editor') || undefined"
+        :label="$t('sw-category.base.link.linkNewTabLabel')"
     />
     {% endblock %}
-</sw-card>
+</mt-card>
 {%  endblock %}

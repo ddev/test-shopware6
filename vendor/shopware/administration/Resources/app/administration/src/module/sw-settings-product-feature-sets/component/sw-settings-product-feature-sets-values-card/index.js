@@ -1,5 +1,5 @@
 /**
- * @package inventory
+ * @sw-package inventory
  */
 // eslint-disable-next-line max-len
 import FeatureGridTranslationService from 'src/module/sw-settings-product-feature-sets/service/feature-grid-translation.service';
@@ -31,7 +31,6 @@ export default {
         allowEdit: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -178,7 +177,7 @@ export default {
         },
 
         onPositionChange(features) {
-            this.$set(this.productFeatureSet, 'features', features);
+            this.productFeatureSet.features = features;
         },
 
         resetPositions() {
@@ -188,17 +187,21 @@ export default {
         },
 
         getColumns() {
-            return [{
-                property: 'name',
-                label: 'sw-settings-product-feature-sets.valuesCard.labelValue',
-                primary: true,
-            }, {
-                property: 'type',
-                label: 'sw-settings-product-feature-sets.valuesCard.labelType',
-            }, {
-                property: 'position',
-                label: 'sw-settings-product-feature-sets.valuesCard.labelPosition',
-            }];
+            return [
+                {
+                    property: 'name',
+                    label: 'sw-settings-product-feature-sets.valuesCard.labelValue',
+                    primary: true,
+                },
+                {
+                    property: 'type',
+                    label: 'sw-settings-product-feature-sets.valuesCard.labelType',
+                },
+                {
+                    property: 'position',
+                    label: 'sw-settings-product-feature-sets.valuesCard.labelPosition',
+                },
+            ];
         },
     },
 };

@@ -1,33 +1,60 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
+const importLogin = () => {
+    return import.meta.glob('./sw-login/index!(*.spec).{j,t}s', {
+        eager: true,
+    });
+};
+
+const importInactivityLogin = () => {
+    return import.meta.glob('./sw-inactivity-login/index!(*.spec).{j,t}s', { eager: true });
+};
+
+const importSSOError = () => {
+    return import.meta.glob('./sw-sso-error/index!(*.spec).{j,t}s', {
+        eager: true,
+    });
+};
+
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-export default () => {
-    const context = require.context('./', true, /\.\/[a-z0-9-]+\/index\.[jt]s$/);
+export default async () => {
+    const context = await import.meta.glob([
+        './*/index!(*.spec).{j,t}s',
+        '!./sw-login/index!(*.spec).{j,t}s',
+        '!./sw-inactivity-login/index!(*.spec).{j,t}s',
+        '!./sw-sso-error/index!(*.spec).{j,t}s',
+    ]);
 
-    // Reversing the order so, for example sw-settings will be included before sw-settings-country.
-    return context.keys().reverse().reduce((accumulator, item) => {
-        // do not load the sw-login by default
-        if (item.includes('./sw-login/')) {
-            return accumulator;
-        }
+    // Directly trigger the import of inactivity login to ensure it's loaded.
+    // Normal login is not needed here because after redirection to the login page,
+    // the whole app is reloaded.
+    importInactivityLogin();
 
-        const module = context(item).default;
-        accumulator.push(module);
-        return accumulator;
-    }, []);
+    const modules = Object.values(context)
+        .reverse()
+        .map((module) => module());
+
+    return Promise.all(modules);
 };
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export const login = () => {
-    let context = require.context('./sw-login', true, /\.\/index\.[jt]s/);
+    let context = importLogin();
 
     // import login dependencies
-    const dependencies = context.keys().map((key) => context(key).default);
+    const dependencies = Object.values(context);
 
-    context = require.context('./sw-inactivity-login', true, /\.\/index\.[jt]s/);
-    dependencies.push(context.keys().map((key) => context(key).default));
+    context = importInactivityLogin();
+    dependencies.push(...Object.values(context));
 
     return dependencies;
+};
+
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export const ssoError = () => {
+    const context = importSSOError();
+
+    return Object.values(context);
 };

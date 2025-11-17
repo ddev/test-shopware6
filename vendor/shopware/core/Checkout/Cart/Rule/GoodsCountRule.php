@@ -11,7 +11,10 @@ use Shopware\Core\Framework\Rule\RuleComparison;
 use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class GoodsCountRule extends FilterRule
 {
     final public const RULE_NAME = 'cartGoodsCount';
@@ -34,23 +37,22 @@ class GoodsCountRule extends FilterRule
      */
     public function match(RuleScope $scope): bool
     {
-        if (!$scope instanceof CartRuleScope) {
+        if (!$scope instanceof CartRuleScope && !$scope instanceof LineItemScope) {
             return false;
         }
 
-        $goods = new LineItemCollection($scope->getCart()->getLineItems()->filterGoodsFlat());
-        $filter = $this->filter;
-        if ($filter !== null) {
-            $context = $scope->getSalesChannelContext();
+        $items = $scope instanceof CartRuleScope
+            ? $scope->getCart()->getLineItems()->filterGoodsFlat()
+            : ($scope->getLineItem()->isGood() ? [$scope->getLineItem()] : []);
 
-            $goods = $goods->filter(static function (LineItem $lineItem) use ($filter, $context) {
-                $scope = new LineItemScope($lineItem, $context);
+        $goods = (new LineItemCollection($items))
+            ->filter(fn (LineItem $li) => $this->filter?->match(new LineItemScope($li, $scope->getSalesChannelContext())) ?? true);
 
-                return $filter->match($scope);
-            });
-        }
-
-        return RuleComparison::numeric((float) $goods->count(), (float) $this->count, $this->operator);
+        return RuleComparison::numeric(
+            (float) $goods->count(),
+            (float) $this->count,
+            $this->operator
+        );
     }
 
     public function getConstraints(): array

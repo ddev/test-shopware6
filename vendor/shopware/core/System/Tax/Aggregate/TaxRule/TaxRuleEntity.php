@@ -9,55 +9,34 @@ use Shopware\Core\System\Country\CountryEntity;
 use Shopware\Core\System\Tax\Aggregate\TaxRuleType\TaxRuleTypeEntity;
 use Shopware\Core\System\Tax\TaxEntity;
 
+/**
+ * @phpstan-type TaxRuleData array{states?: list<string>, zipCode?: string, fromZipCode?: string, toZipCode?: string}
+ */
 #[Package('checkout')]
 class TaxRuleEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $taxId;
+    protected string $taxId;
+
+    protected ?TaxEntity $tax = null;
+
+    protected string $countryId;
+
+    protected ?CountryEntity $country = null;
+
+    protected string $taxRuleTypeId;
+
+    protected ?TaxRuleTypeEntity $type = null;
+
+    protected float $taxRate;
 
     /**
-     * @var TaxEntity|null
+     * @var TaxRuleData|null
      */
-    protected $tax;
+    protected ?array $data = null;
 
-    /**
-     * @var string
-     */
-    protected $countryId;
-
-    /**
-     * @var CountryEntity|null
-     */
-    protected $country;
-
-    /**
-     * @var string
-     */
-    protected $taxRuleTypeId;
-
-    /**
-     * @var TaxRuleTypeEntity
-     */
-    protected $type;
-
-    /**
-     * @var float
-     */
-    protected $taxRate;
-
-    /**
-     * @var array|null
-     */
-    protected $data;
-
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $activeFrom;
+    protected ?\DateTimeInterface $activeFrom = null;
 
     public function getTaxId(): string
     {
@@ -109,8 +88,15 @@ class TaxRuleEntity extends Entity
         $this->taxRuleTypeId = $taxRuleTypeId;
     }
 
+    /**
+     * @deprecated tag:v6.8.0 - reason:return-type-change - return type will be nullable and condition will be removed
+     */
     public function getType(): TaxRuleTypeEntity
     {
+        if ($this->type === null) {
+            return new TaxRuleTypeEntity();
+        }
+
         return $this->type;
     }
 
@@ -132,11 +118,17 @@ class TaxRuleEntity extends Entity
         $this->taxRate = $taxRate;
     }
 
+    /**
+     * @return TaxRuleData|null
+     */
     public function getData(): ?array
     {
         return $this->data;
     }
 
+    /**
+     * @param TaxRuleData|null $data
+     */
     public function setData(?array $data): void
     {
         $this->data = $data;

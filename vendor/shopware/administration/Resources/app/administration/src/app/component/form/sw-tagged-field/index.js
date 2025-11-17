@@ -1,28 +1,22 @@
 import template from './sw-tagged-field.html.twig';
 import './sw-tagged-field.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status deprecated
  * @example-type code-only
  * @component-example
  * <sw-tagged-field label="Label" :addOnKey="['enter', ',']">
  * </sw-tagged-field>
  */
-Component.register('sw-tagged-field', {
+export default {
     template,
 
     inject: ['feature'],
 
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
+    emits: ['update:value'],
 
     props: {
         value: {
@@ -78,23 +72,14 @@ Component.register('sw-tagged-field', {
                 return;
             }
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.value.slice(0, this.value.length - 1));
-
-                return;
-            }
-
-            this.$emit('change', this.value.slice(0, this.value.length - 1));
+            this.$emit('update:value', this.value.slice(0, this.value.length - 1));
         },
 
         dismissTag(index) {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.value.filter((item, itemIndex) => itemIndex !== index));
-
-                return;
-            }
-
-            this.$emit('change', this.value.filter((item, itemIndex) => itemIndex !== index));
+            this.$emit(
+                'update:value',
+                this.value.filter((item, itemIndex) => itemIndex !== index),
+            );
         },
 
         performAddTag(event) {
@@ -106,14 +91,10 @@ Component.register('sw-tagged-field', {
                 return;
             }
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', [...this.value, this.newTagName]);
-                this.newTagName = '';
-
-                return;
-            }
-
-            this.$emit('change', [...this.value, this.newTagName]);
+            this.$emit('update:value', [
+                ...this.value,
+                this.newTagName,
+            ]);
             this.newTagName = '';
         },
 
@@ -137,4 +118,4 @@ Component.register('sw-tagged-field', {
             return false;
         },
     },
-});
+};

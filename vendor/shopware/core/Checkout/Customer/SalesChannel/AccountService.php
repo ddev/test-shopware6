@@ -2,7 +2,8 @@
 
 namespace Shopware\Core\Checkout\Customer\SalesChannel;
 
-use Shopware\Core\Checkout\Cart\Exception\CustomerNotLoggedInException;
+use Shopware\Core\Checkout\Cart\CartException;
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\CustomerException;
 use Shopware\Core\Checkout\Customer\Event\CustomerBeforeLoginEvent;
@@ -17,20 +18,26 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\Feature;
+use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Exception\InvalidUuidException;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Framework\Validation\WriteConstraintViolationException;
 use Shopware\Core\System\SalesChannel\Context\CartRestorer;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\PasswordHasher\Hasher\CheckPasswordLengthTrait;
+use Symfony\Component\Validator\ConstraintViolation;
 
 #[Package('checkout')]
 class AccountService
 {
+    use CheckPasswordLengthTrait;
+
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerCollection> $customerRepository
      */
     public function __construct(
         private readonly EntityRepository $customerRepository,
@@ -42,7 +49,7 @@ class AccountService
     }
 
     /**
-     * @throws CustomerNotLoggedInException
+     * @throws CartException
      * @throws InvalidUuidException
      * @throws AddressNotFoundException
      */
@@ -52,7 +59,7 @@ class AccountService
     }
 
     /**
-     * @throws CustomerNotLoggedInException
+     * @throws CartException
      * @throws InvalidUuidException
      * @throws AddressNotFoundException
      */
@@ -63,29 +70,7 @@ class AccountService
 
     /**
      * @throws BadCredentialsException
-     * @throws UnauthorizedHttpException
-     */
-    public function login(string $email, SalesChannelContext $context, bool $includeGuest = false): string
-    {
-        if (empty($email)) {
-            throw CustomerException::badCredentials();
-        }
-
-        $event = new CustomerBeforeLoginEvent($context, $email);
-        $this->eventDispatcher->dispatch($event);
-
-        try {
-            $customer = $this->getCustomerByEmail($email, $context, $includeGuest);
-        } catch (CustomerNotFoundException $exception) {
-            throw new UnauthorizedHttpException('json', $exception->getMessage());
-        }
-
-        return $this->loginByCustomer($customer, $context);
-    }
-
-    /**
-     * @throws BadCredentialsException
-     * @throws UnauthorizedHttpException
+     * @throws CustomerNotFoundByIdException
      */
     public function loginById(string $id, SalesChannelContext $context): string
     {
@@ -93,10 +78,9 @@ class AccountService
             throw CustomerException::badCredentials();
         }
 
-        try {
-            $customer = $this->getCustomerById($id, $context);
-        } catch (CustomerNotFoundByIdException $exception) {
-            throw new UnauthorizedHttpException('json', $exception->getMessage());
+        $customer = $this->fetchCustomer(new Criteria([$id]), $context, true);
+        if ($customer === null) {
+            throw CustomerException::customerNotFoundByIdException($id);
         }
 
         $event = new CustomerBeforeLoginEvent($context, $customer->getEmail());
@@ -110,8 +94,31 @@ class AccountService
      * @throws BadCredentialsException
      * @throws CustomerOptinNotCompletedException
      */
-    public function getCustomerByLogin(string $email, string $password, SalesChannelContext $context): CustomerEntity
+    public function loginByCredentials(string $email, #[\SensitiveParameter] string $password, SalesChannelContext $context): string
     {
+        if ($email === '' || $password === '') {
+            throw CustomerException::badCredentials();
+        }
+
+        $event = new CustomerBeforeLoginEvent($context, $email);
+        $this->eventDispatcher->dispatch($event);
+
+        $customer = $this->getCustomerByLogin($email, $password, $context);
+
+        return $this->loginByCustomer($customer, $context);
+    }
+
+    /**
+     * @throws CustomerNotFoundException
+     * @throws BadCredentialsException
+     * @throws CustomerOptinNotCompletedException
+     */
+    public function getCustomerByLogin(string $email, #[\SensitiveParameter] string $password, SalesChannelContext $context): CustomerEntity
+    {
+        if ($this->isPasswordTooLong($password)) {
+            throw CustomerException::badCredentials();
+        }
+
         $customer = $this->getCustomerByEmail($email, $context);
 
         if ($customer->hasLegacyPassword()) {
@@ -132,6 +139,22 @@ class AccountService
         if (!$this->isCustomerConfirmed($customer)) {
             // Make sure to only throw this exception after it has been verified it was a valid login
             throw CustomerException::customerOptinNotCompleted($customer->getId());
+        }
+
+        return $customer;
+    }
+
+    /**
+     * @throws CustomerNotFoundException
+     */
+    public function getCustomerByEmail(string $email, SalesChannelContext $context): CustomerEntity
+    {
+        $criteria = (new Criteria())
+            ->addFilter(new EqualsFilter('email', $email));
+
+        $customer = $this->fetchCustomer($criteria, $context);
+        if ($customer === null) {
+            throw CustomerException::customerNotFound($email);
         }
 
         return $customer;
@@ -161,37 +184,6 @@ class AccountService
     }
 
     /**
-     * @throws CustomerNotFoundException
-     */
-    private function getCustomerByEmail(string $email, SalesChannelContext $context, bool $includeGuest = false): CustomerEntity
-    {
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('email', $email));
-
-        $customer = $this->fetchCustomer($criteria, $context, $includeGuest);
-        if ($customer === null) {
-            throw CustomerException::customerNotFound($email);
-        }
-
-        return $customer;
-    }
-
-    /**
-     * @throws CustomerNotFoundByIdException
-     */
-    private function getCustomerById(string $id, SalesChannelContext $context): CustomerEntity
-    {
-        $criteria = new Criteria([$id]);
-
-        $customer = $this->fetchCustomer($criteria, $context, true);
-        if ($customer === null) {
-            throw CustomerException::customerNotFoundByIdException($id);
-        }
-
-        return $customer;
-    }
-
-    /**
      * This method filters for the standard customer related constraints like active or the sales channel
      * assignment.
      * Add only filters to the $criteria for values which have an index in the database, e.g. id, or email. The rest
@@ -202,15 +194,11 @@ class AccountService
     {
         $criteria->setTitle('account-service::fetchCustomer');
 
-        $result = $this->customerRepository->search($criteria, $context->getContext());
+        $result = $this->customerRepository->search($criteria, $context->getContext())->getEntities();
         $result = $result->filter(function (CustomerEntity $customer) use ($includeGuest, $context): ?bool {
             // Skip not active users
             if (!$customer->getActive()) {
-                // Customers with double opt-in will be active by default starting at Shopware 6.6.0.0,
-                // remove complete if statement and always return null
-                if (Feature::isActive('v6.6.0.0') || $this->isCustomerConfirmed($customer)) {
-                    return null;
-                }
+                return null;
             }
 
             // Skip guest if not required
@@ -224,7 +212,7 @@ class AccountService
             }
 
             // It is bound, but not to the current one. Skip it
-            if ($customer->getBoundSalesChannelId() !== $context->getSalesChannel()->getId()) {
+            if ($customer->getBoundSalesChannelId() !== $context->getSalesChannelId()) {
                 return null;
             }
 
@@ -238,23 +226,40 @@ class AccountService
             $result->sort(fn (CustomerEntity $a, CustomerEntity $b) => ($a->getCreatedAt() <=> $b->getCreatedAt()) * -1);
         }
 
-        $customer = $result->first();
-        if (!$customer instanceof CustomerEntity) {
-            return null;
-        }
-
-        return $customer;
+        return $result->first();
     }
 
-    private function updatePasswordHash(string $password, CustomerEntity $customer, Context $context): void
+    private function updatePasswordHash(#[\SensitiveParameter] string $password, CustomerEntity $customer, Context $context): void
     {
-        $this->customerRepository->update([
-            [
-                'id' => $customer->getId(),
-                'password' => $password,
-                'legacyPassword' => null,
-                'legacyEncoder' => null,
-            ],
-        ], $context);
+        try {
+            $this->customerRepository->update([
+                [
+                    'id' => $customer->getId(),
+                    'password' => $password,
+                    'legacyPassword' => null,
+                    'legacyEncoder' => null,
+                ],
+            ], $context);
+        } catch (WriteException $writeException) {
+            $this->handleWriteExceptionForUpdatingPasswordHash($writeException);
+        }
+    }
+
+    private function handleWriteExceptionForUpdatingPasswordHash(WriteException $writeException): void
+    {
+        foreach ($writeException->getExceptions() as $exception) {
+            if (!$exception instanceof WriteConstraintViolationException) {
+                continue;
+            }
+
+            /** @var ConstraintViolation $constraintViolation */
+            foreach ($exception->getViolations() as $constraintViolation) {
+                if ($constraintViolation->getPropertyPath() === '/password') {
+                    throw CustomerException::passwordPoliciesUpdated();
+                }
+            }
+        }
+
+        throw $writeException;
     }
 }

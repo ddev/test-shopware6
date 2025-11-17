@@ -1,24 +1,30 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-sidebar-collapse.html.twig';
 import './sw-sidebar-collapse.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.extend('sw-sidebar-collapse', 'sw-collapse', {
+export default {
     template,
+
+    emits: ['change-expanded'],
 
     props: {
         expandChevronDirection: {
             type: String,
             required: false,
             default: 'right',
-            validator: (value) => ['up', 'left', 'right', 'bottom'].includes(value),
+            validator: (value) =>
+                [
+                    'up',
+                    'left',
+                    'right',
+                    'down',
+                ].includes(value),
         },
     },
 
@@ -42,4 +48,4 @@ Component.extend('sw-sidebar-collapse', 'sw-collapse', {
             this.$emit('change-expanded', { isExpanded: this.expanded });
         },
     },
-});
+};

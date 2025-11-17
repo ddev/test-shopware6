@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package fundamentals@discovery
  */
 import template from './sw-country-state-detail.html.twig';
 
@@ -10,6 +10,11 @@ export default {
     template,
 
     inject: ['acl'],
+
+    emits: [
+        'attribute-edit-cancel',
+        'attribute-edit-save',
+    ],
 
     mixins: [
         Mixin.getByName('placeholder'),

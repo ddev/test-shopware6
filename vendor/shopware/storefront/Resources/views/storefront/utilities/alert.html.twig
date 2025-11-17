@@ -1,6 +1,8 @@
 {#
 Global messages template
 
+@sw-package framework
+
 https://getbootstrap.com/docs/5.2/components/alerts
 
 *Type:
@@ -85,20 +87,22 @@ To display a dismissible button set the value of "dismissible" to true.
 
 {% block utilities_alert %}
     <div role="alert"
-         class="alert {% if type %}alert-{{ type }}{% endif %}{% if dismissible %} alert-dismissible fade show{% endif %}{% if icon != "error" %} alert-has-icon{% endif %}">
+         aria-live="polite"
+         class="alert {% if type %}alert-{{ type }}{% endif %}{% if dismissible %} alert-dismissible fade show{% endif %}{% if icon != 'error' %} d-flex align-items-center{% endif %}">
+
         {% block utilities_alert_icon %}
-            {% if icon != "false" %}
+            {% if icon != 'false' %}
                 {% set iconCacheSystem = config('core.storefrontSettings.iconCache') %}
                 {% if iconCache === false and iconCacheSystem === true %}
                     {{ sw_icon_cache_disable() }}
                 {% endif %}
-                {% if type == "danger" %}
+                {% if type == 'danger' %}
                     {% sw_icon 'blocked' %}
-                {% elseif type == "warning" %}
+                {% elseif type == 'warning' %}
                     {% sw_icon 'warning' %}
-                {% elseif type == "info" %}
+                {% elseif type == 'info' %}
                     {% sw_icon 'info' %}
-                {% elseif type == "success" %}
+                {% elseif type == 'success' %}
                     {% sw_icon 'checkmark-circle' %}
                 {% else %}
                     {% sw_icon 'alert' %}
@@ -120,30 +124,28 @@ To display a dismissible button set the value of "dismissible" to true.
                 {% endblock %}
 
                 {% block utilities_alert_content %}
-                    <div class="alert-content">
-                        {% if list|length > 1 %}
-                            <ul class="alert-list">
-                                {% for entry in list %}
-                                    <li>{{ entry|sw_sanitize }}</li>
-                                {% endfor %}
-                            </ul>
-                        {% elseif list|length == 1 %}
+                    {% if list|length > 1 %}
+                        <ul class="alert-list">
                             {% for entry in list %}
-                                {{ entry|sw_sanitize }}
+                                <li>{{ entry|sw_sanitize }}</li>
                             {% endfor %}
-                        {% else %}
-                            {{ content|sw_sanitize }}
-                        {% endif %}
-                    </div>
+                        </ul>
+                    {% elseif list|length == 1 %}
+                        {% for entry in list %}
+                            {{ entry|sw_sanitize }}
+                        {% endfor %}
+                    {% else %}
+                        {{ content|sw_sanitize }}
+                    {% endif %}
                 {% endblock %}
 
                 {% block utilities_alert_dismissible %}
                     {% if dismissible %}
                         <button type="button"
-                                class="close"
+                                class="btn-close"
                                 data-bs-dismiss="alert"
-                                aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
+                                aria-label="{{ 'global.default.close'|trans|striptags }}">
+                            <span aria-hidden="true"></span>
                         </button>
                     {% endif %}
                 {% endblock %}

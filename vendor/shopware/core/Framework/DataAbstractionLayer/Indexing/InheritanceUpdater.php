@@ -20,7 +20,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('core')]
+#[Package('framework')]
 class InheritanceUpdater
 {
     /**
@@ -80,7 +80,7 @@ class InheritanceUpdater
 
             $versionKey = \substr($foreignKey, 0, -3) . '_version_id';
 
-            $sql = sprintf(
+            $sql = \sprintf(
                 'UPDATE #root# SET #property# = IFNULL(
                         (
                             SELECT #reference#.#entity_id#

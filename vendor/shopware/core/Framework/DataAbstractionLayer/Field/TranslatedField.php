@@ -7,7 +7,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer\TranslatedField
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Language\LanguageDefinition;
 
-#[Package('core')]
+#[Package('framework')]
 class TranslatedField extends Field
 {
     final public const PRIORITY = 100;
@@ -16,7 +16,10 @@ class TranslatedField extends Field
 
     private readonly string $foreignFieldName;
 
-    public function __construct(string $propertyName)
+    /**
+     * @param bool $useForSorting - only relevant in OpenSearch context, if true, the translated field is filled with fallback value if no translation is available.
+     */
+    public function __construct(string $propertyName, private readonly bool $useForSorting = false)
     {
         $this->foreignClassName = LanguageDefinition::class;
         $this->foreignFieldName = 'id';
@@ -37,6 +40,11 @@ class TranslatedField extends Field
     public function getForeignFieldName(): string
     {
         return $this->foreignFieldName;
+    }
+
+    public function useForSorting(): bool
+    {
+        return $this->useForSorting;
     }
 
     protected function getSerializerClass(): string

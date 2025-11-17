@@ -1,11 +1,14 @@
 /**
- * @package services-settings
+ * @sw-package discovery
  */
 import Sanitizer from 'src/core/helper/sanitizer.helper';
 import template from './sw-settings-snippet-list.html.twig';
 import './sw-settings-snippet-list.scss';
 
-const { Mixin, Data: { Criteria } } = Shopware;
+const {
+    Mixin,
+    Data: { Criteria },
+} = Shopware;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -45,6 +48,7 @@ export default {
             emptyIcon: this.$route.meta.$module.icon,
             skeletonItemAmount: 25,
             filterSettings: null,
+            modalDeleteAll: false,
         };
     },
 
@@ -56,13 +60,15 @@ export default {
 
     computed: {
         identifier() {
-            return this.snippetSets ? this.$tc(
-                'sw-settings-snippet.list.identifier',
-                this.snippetSets.length,
-                {
-                    setName: this.metaName,
-                },
-            ) : '';
+            return this.snippetSets
+                ? this.$tc(
+                      'sw-settings-snippet.list.identifier',
+                      {
+                          setName: this.metaName,
+                      },
+                      this.snippetSets.length,
+                  )
+                : '';
         },
 
         columns() {
@@ -85,9 +91,7 @@ export default {
             const criteria = new Criteria(1, 25);
 
             criteria.addFilter(Criteria.equalsAny('id', this.queryIds));
-            criteria.addSorting(
-                Criteria.sort('name', 'ASC'),
-            );
+            criteria.addSorting(Criteria.sort('name', 'ASC'));
 
             if (this.term) {
                 criteria.setTerm(this.term);
@@ -129,9 +133,7 @@ export default {
         },
 
         contextMenuEditSnippet() {
-            return this.acl.can('snippet.editor') ?
-                this.$tc('global.default.edit') :
-                this.$tc('global.default.view');
+            return this.acl.can('snippet.editor') ? this.$tc('global.default.edit') : this.$tc('global.default.view');
         },
 
         hasActiveFilters() {
@@ -181,7 +183,7 @@ export default {
         this.createdComponent();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyComponent();
     },
 
@@ -189,10 +191,9 @@ export default {
         async createdComponent() {
             this.addEventListeners();
 
-            this.snippetSetRepository.search(this.snippetSetCriteria)
-                .then((sets) => {
-                    this.snippetSets = sets;
-                });
+            this.snippetSetRepository.search(this.snippetSetCriteria).then((sets) => {
+                this.snippetSets = sets;
+            });
 
             this.userService.getUser().then((response) => {
                 this.currentAuthor = `user/${response.data.username}`;
@@ -217,11 +218,11 @@ export default {
         },
 
         addEventListeners() {
-            window.addEventListener('beforeunload', (event) => this.beforeUnloadListener(event));
+            window.addEventListener('beforeunload', this.beforeUnloadListener);
         },
 
         removeEventListeners() {
-            window.removeEventListener('beforeunload', (event) => this.beforeUnloadListener(event));
+            window.removeEventListener('beforeunload', this.beforeUnloadListener);
         },
 
         // eslint-disable-next-line no-unused-vars
@@ -238,7 +239,9 @@ export default {
         },
 
         getUserConfig() {
-            return this.userConfigService.search(['grid.filter.setting-snippet-list']);
+            return this.userConfigService.search([
+                'grid.filter.setting-snippet-list',
+            ]);
         },
 
         saveUserConfig() {
@@ -269,14 +272,16 @@ export default {
         },
 
         getColumns() {
-            const columns = [{
-                property: 'id',
-                label: 'sw-settings-snippet.list.columnKey',
-                inlineEdit: true,
-                allowResize: true,
-                rawData: true,
-                primary: true,
-            }];
+            const columns = [
+                {
+                    property: 'id',
+                    label: 'sw-settings-snippet.list.columnKey',
+                    inlineEdit: true,
+                    allowResize: true,
+                    rawData: true,
+                    primary: true,
+                },
+            ];
 
             if (this.snippetSets) {
                 this.snippetSets.forEach((item) => {
@@ -318,7 +323,7 @@ export default {
                 const content = items.reduce((acc, item) => {
                     item.resetTo = item.value;
                     acc[item.setId] = item;
-                    acc.isCustomSnippet = item.author.includes('user/');
+                    acc.isCustomSnippet = item.author.includes('user/') || item.author.length < 1;
                     return acc;
                 }, {});
                 content.id = items[0].translationKey;
@@ -373,23 +378,19 @@ export default {
                     snippetEntity.translationKey = snippet.translationKey;
                     snippetEntity.setId = snippet.setId;
 
-                    responses.push(
-                        this.snippetRepository.save(snippetEntity),
-                    );
+                    responses.push(this.snippetRepository.save(snippetEntity));
                 } else if (snippet.id !== null && !snippet.author.startsWith('user/')) {
-                    responses.push(
-                        this.snippetRepository.delete(snippet.id),
-                    );
+                    responses.push(this.snippetRepository.delete(snippet.id));
                 }
             });
 
-            Promise.all(responses).then(() => {
-                this.inlineSaveSuccessMessage(key);
-                this.getList();
-            }).catch(() => {
-                this.inlineSaveErrorMessage(key);
-                this.getList();
-            });
+            Promise.all(responses)
+                .catch(() => {
+                    this.inlineSaveErrorMessage(key);
+                })
+                .finally(() => {
+                    this.getList();
+                });
         },
 
         onInlineEditCancel(rowItems) {
@@ -408,17 +409,19 @@ export default {
             this.getList();
         },
 
-
         onSearch(term) {
             this.term = term;
             this.page = 1;
 
-            this.updateRoute({
-                term: term,
-                page: 1,
-            }, {
-                ids: this.queryIds,
-            });
+            this.updateRoute(
+                {
+                    term: term,
+                    page: 1,
+                },
+                {
+                    ids: this.queryIds,
+                },
+            );
         },
 
         backRoutingError() {
@@ -429,44 +432,37 @@ export default {
             });
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed without replacement
+         */
         inlineSaveSuccessMessage(key) {
-            const titleSaveSuccess = this.$tc('global.default.success');
-            const messageSaveSuccess = this.$tc(
-                'sw-settings-snippet.list.messageSaveSuccess',
-                this.queryIdCount,
-                { key },
-            );
+            const messageSaveSuccess = this.$tc('sw-settings-snippet.list.messageSaveSuccess', { key }, this.queryIdCount);
 
             this.createNotificationSuccess({
-                title: titleSaveSuccess,
                 message: messageSaveSuccess,
             });
         },
 
         inlineSaveErrorMessage(key) {
-            const titleSaveError = this.$tc('global.default.error');
-            const messageSaveError = this.$tc(
-                'sw-settings-snippet.list.messageSaveError',
-                this.queryIdCount,
-                { key },
-            );
+            const messageSaveError = this.$tc('sw-settings-snippet.list.messageSaveError', { key }, this.queryIdCount);
 
             this.createNotificationError({
-                title: titleSaveError,
                 message: messageSaveError,
             });
         },
 
         onReset(item) {
             this.isLoading = true;
+            this.hasResetableItems = false;
 
-            this.snippetSetRepository.search(this.snippetSetCriteria)
+            this.snippetSetRepository
+                .search(this.snippetSetCriteria)
                 .then((response) => {
                     const resetItems = [];
                     const ids = Array.isArray(this.$route.query.ids) ? this.$route.query.ids : [this.$route.query.ids];
 
                     Object.values(item).forEach((currentItem, index) => {
-                        if (!(currentItem instanceof Object) || !ids.find(id => id === currentItem.setId)) {
+                        if (!(currentItem instanceof Object) || !ids.find((id) => id === currentItem.setId)) {
                             return;
                         }
 
@@ -502,81 +498,90 @@ export default {
 
         onSelectionChanged(selection) {
             this.snippetSelection = selection;
-            this.hasResetableItems = Object.keys(selection).length === 0;
+            this.hasResetableItems = selection && Object.keys(selection).length !== 0;
+        },
+
+        onCloseDeleteModal() {
+            this.showDeleteModal = false;
+            this.modalDeleteAll = false;
+            this.hasResetableItems = false;
+            this.resetItems = [];
         },
 
         onConfirmReset(fullSelection) {
             let items;
             const promises = [];
 
-            if (this.showOnlyEdited) {
-                items = Object.values(fullSelection).filter(item => typeof item !== 'string');
+            if (this.showOnlyEdited || this.modalDeleteAll) {
+                items = Object.values(fullSelection).filter((item) => typeof item === 'object');
             } else if (this.snippetSelection !== undefined) {
                 items = Object.values(this.snippetSelection);
             } else {
-                items = Object.values(this.resetItems);
+                this.onCloseDeleteModal();
+
+                return;
             }
 
-            this.showDeleteModal = false;
+            this.onCloseDeleteModal();
 
-            this.$nextTick(() => {
-                items.forEach((item) => {
-                    if (item.hasOwnProperty('isFileSnippet') || item.id === null) {
-                        return;
-                    }
-                    item.isCustomSnippet = fullSelection.isCustomSnippet;
-                    this.isLoading = true;
+            items.forEach((item) => {
+                if (item.hasOwnProperty('isFileSnippet') || item.id === null) {
+                    return;
+                }
 
-                    promises.push(
-                        this.snippetRepository.delete(item.id).then(() => {
-                            this.createSuccessMessage(item);
-                        }).catch(() => {
-                            this.createResetErrorNote(item);
-                        }),
-                    );
-                });
-                Promise.all(promises).then(() => {
-                    this.isLoading = false;
-                    this.getList();
-                }).catch(() => {
+                if (item.translationKey && typeof item.translationKey !== 'string') {
+                    item.translationKey = `${item.translationKey}`;
+                }
+
+                item.isCustomSnippet = fullSelection.isCustomSnippet;
+                this.isLoading = true;
+
+                promises.push(
+                    this.snippetRepository.delete(item.id).catch(() => {
+                        this.createResetErrorNote(item);
+                    }),
+                );
+
+                Promise.all(promises).finally(() => {
                     this.isLoading = false;
                     this.getList();
                 });
             });
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed without replacement
+         */
         createSuccessMessage(item) {
-            const title = this.$tc('global.default.success');
-            const message = this.$tc(
+            const message = this.$t(
                 'sw-settings-snippet.list.resetSuccessMessage',
-                !item.isCustomSnippet,
                 {
                     key: item.value,
                 },
+                item.isCustomSnippet ? 0 : 1,
             );
 
             this.createNotificationSuccess({
-                title,
                 message,
             });
         },
 
         createResetErrorNote(item) {
-            const title = this.$tc('global.default.error');
-            const message = this.$tc(
+            const message = this.$t(
                 'sw-settings-snippet.list.resetErrorMessage',
-                item.isCustomSnippet ? 2 : 0,
-                { key: item.value },
+                {
+                    key: item.value,
+                },
+                item.isCustomSnippet ? 0 : 1,
             );
 
             this.createNotificationError({
-                title,
                 message,
             });
         },
 
         onChange(field) {
-            this.$set(this.filterSettings, [field.name], field.value);
+            this.filterSettings[[field.name]] = field.value;
 
             this.page = 1;
             if (field.group === 'editedSnippets') {
@@ -630,18 +635,24 @@ export default {
             } else {
                 this.sortDirection = 'ASC';
             }
-            this.updateRoute({
-                sortDirection: this.sortDirection,
-                sortBy: column.dataIndex,
-            }, {
-                ids: this.queryIds,
-            });
+            this.updateRoute(
+                {
+                    sortDirection: this.sortDirection,
+                    sortBy: column.dataIndex,
+                },
+                {
+                    ids: this.queryIds,
+                },
+            );
         },
 
         onPageChange({ page, limit }) {
-            this.updateRoute({ page, limit }, {
-                ids: this.queryIds,
-            });
+            this.updateRoute(
+                { page, limit },
+                {
+                    ids: this.queryIds,
+                },
+            );
         },
 
         getNoPermissionsTooltip(role, showOnDisabledElements = true) {
@@ -662,7 +673,7 @@ export default {
             this.appliedAuthors = [];
 
             Object.keys(this.filterSettings).forEach((key) => {
-                this.$set(this.filterSettings, key, false);
+                this.filterSettings[key] = false;
             });
 
             this.initializeSnippetSet({});

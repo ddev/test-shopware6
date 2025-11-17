@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('system-settings')]
+#[Package('fundamentals@discovery')]
 class Migration1675323588ChangeEnglishLocaleTranslationOfUsLocale extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -62,11 +62,6 @@ class Migration1675323588ChangeEnglishLocaleTranslationOfUsLocale extends Migrat
                 ]
             );
         }
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 
     private function fetchLanguageId(string $code, Connection $connection): ?string

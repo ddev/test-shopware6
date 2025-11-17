@@ -2,35 +2,47 @@
 
 namespace Shopware\Core\Content\Category\SalesChannel;
 
+use Shopware\Core\Content\Category\Aggregate\CategoryTranslation\CategoryTranslationEntity;
+use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Category\CategoryDefinition;
 use Shopware\Core\Content\Category\CategoryEntity;
 use Shopware\Core\Content\Category\CategoryException;
-use Shopware\Core\Content\Cms\CmsPageEntity;
 use Shopware\Core\Content\Cms\DataResolver\ResolverContext\EntityResolverContext;
 use Shopware\Core\Content\Cms\SalesChannel\SalesChannelCmsPageLoaderInterface;
+use Shopware\Core\Framework\Adapter\Cache\CacheTagCollector;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
+use Shopware\Core\Framework\Routing\StoreApiRouteScope;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Entity\SalesChannelRepository;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(defaults: ['_routeScope' => ['store-api']])]
-#[Package('inventory')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StoreApiRouteScope::ID]])]
+#[Package('discovery')]
 class CategoryRoute extends AbstractCategoryRoute
 {
     final public const HOME = 'home';
 
     /**
      * @internal
+     *
+     * @param SalesChannelRepository<CategoryCollection> $categoryRepository
      */
     public function __construct(
         private readonly SalesChannelRepository $categoryRepository,
         private readonly SalesChannelCmsPageLoaderInterface $cmsPageLoader,
-        private readonly CategoryDefinition $categoryDefinition
+        private readonly CategoryDefinition $categoryDefinition,
+        private readonly CacheTagCollector $cacheTagCollector,
     ) {
+    }
+
+    public static function buildName(string $id): string
+    {
+        return 'category-route-' . $id;
     }
 
     public function getDecorated(): AbstractCategoryRoute
@@ -41,9 +53,12 @@ class CategoryRoute extends AbstractCategoryRoute
     #[Route(path: '/store-api/category/{navigationId}', name: 'store-api.category.detail', methods: ['GET', 'POST'])]
     public function load(string $navigationId, Request $request, SalesChannelContext $context): CategoryRouteResponse
     {
+        $this->cacheTagCollector->addTag(self::buildName($navigationId));
+
         if ($navigationId === self::HOME) {
             $navigationId = $context->getSalesChannel()->getNavigationCategoryId();
             $request->attributes->set('navigationId', $navigationId);
+
             $routeParams = $request->attributes->get('_route_params', []);
             $routeParams['navigationId'] = $navigationId;
             $request->attributes->set('_route_params', $routeParams);
@@ -51,20 +66,23 @@ class CategoryRoute extends AbstractCategoryRoute
 
         $category = $this->loadCategory($navigationId, $context);
 
-        if (($category->getType() === CategoryDefinition::TYPE_FOLDER
-                || $category->getType() === CategoryDefinition::TYPE_LINK)
-            && $context->getSalesChannel()->getNavigationCategoryId() !== $navigationId
-        ) {
+        $categoryHasContentlessPageType = \in_array($category->getType(), [CategoryDefinition::TYPE_FOLDER, CategoryDefinition::TYPE_LINK], true);
+        if ($categoryHasContentlessPageType && $context->getSalesChannel()->getNavigationCategoryId() !== $navigationId) {
+            if ($category->getType() === CategoryDefinition::TYPE_LINK) {
+                return new CategoryRouteResponse($category);
+            }
+
             throw CategoryException::categoryNotFound($navigationId);
         }
 
         $pageId = $category->getCmsPageId();
-        $slotConfig = $category->getTranslation('slotConfig');
-
         $salesChannel = $context->getSalesChannel();
+
         if ($category->getId() === $salesChannel->getNavigationCategoryId() && $salesChannel->getHomeCmsPageId()) {
             $pageId = $salesChannel->getHomeCmsPageId();
             $slotConfig = $salesChannel->getTranslation('homeSlotConfig');
+        } else {
+            $slotConfig = $this->buildMergedCmsSlotConfig($category, $context);
         }
 
         if (!$pageId) {
@@ -78,16 +96,15 @@ class CategoryRoute extends AbstractCategoryRoute
             $this->createCriteria($pageId, $request),
             $context,
             $slotConfig,
-            $resolverContext
+            $resolverContext,
         );
 
-        if (!$pages->has($pageId)) {
+        $cmsPage = $pages->first();
+        if ($cmsPage === null) {
             throw CategoryException::pageNotFound($pageId);
         }
 
-        /** @var CmsPageEntity $page */
-        $page = $pages->get($pageId);
-        $category->setCmsPage($page);
+        $category->setCmsPage($cmsPage);
         $category->setCmsPageId($pageId);
 
         return new CategoryRouteResponse($category);
@@ -99,11 +116,9 @@ class CategoryRoute extends AbstractCategoryRoute
         $criteria->setTitle('category::data');
 
         $criteria->addAssociation('media');
+        $criteria->addAssociation('translations');
 
-        $category = $this->categoryRepository
-            ->search($criteria, $context)
-            ->get($categoryId);
-
+        $category = $this->categoryRepository->search($criteria, $context)->getEntities()->get($categoryId);
         if (!$category instanceof CategoryEntity) {
             throw CategoryException::categoryNotFound($categoryId);
         }
@@ -129,5 +144,43 @@ class CategoryRoute extends AbstractCategoryRoute
         }
 
         return $criteria;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>|null
+     */
+    private function buildMergedCmsSlotConfig(CategoryEntity $category, SalesChannelContext $context): ?array
+    {
+        $inheritanceChain = $context->getLanguageIdChain();
+        if (\count($inheritanceChain) <= 1) {
+            return $category->getTranslation('slotConfig');
+        }
+
+        /** @var non-empty-list<string> $languageMergeOrder */
+        $languageMergeOrder = \array_reverse(\array_unique($inheritanceChain));
+        $translatedSlotConfigs = $this->getTranslatedSlotConfigs($category, $languageMergeOrder);
+
+        return \array_merge(...$translatedSlotConfigs);
+    }
+
+    /**
+     * @param non-empty-list<string> $languageMergeOrder
+     *
+     * @return non-empty-list<array<string, array<string, mixed>>>
+     */
+    private function getTranslatedSlotConfigs(CategoryEntity $category, array $languageMergeOrder): array
+    {
+        $getCategoryTranslationByLanguageId = static function (CategoryEntity $category, string $languageId): ?CategoryTranslationEntity {
+            return \array_find(
+                $category->getTranslations()?->getElements() ?? [],
+                static fn (CategoryTranslationEntity $translation) => $translation->getLanguageId() === $languageId,
+            );
+        };
+
+        return \array_map(static function (string $languageId) use ($category, $getCategoryTranslationByLanguageId) {
+            $currentTranslation = $getCategoryTranslationByLanguageId($category, $languageId);
+
+            return $currentTranslation?->getSlotConfig() ?? [];
+        }, $languageMergeOrder);
     }
 }

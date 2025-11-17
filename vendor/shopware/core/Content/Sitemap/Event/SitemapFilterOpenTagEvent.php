@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Contracts\EventDispatcher\Event;
 
-#[Package('sales-channel')]
+#[Package('discovery')]
 class SitemapFilterOpenTagEvent extends Event implements ShopwareEvent
 {
     private string $openTag = '<?xml version="1.0" encoding="UTF-8"?><urlset %urlsetNamespaces%>';
@@ -43,7 +43,7 @@ class SitemapFilterOpenTagEvent extends Event implements ShopwareEvent
     {
         $namespaces = '';
         foreach ($this->urlsetNamespaces as $name => $namespace) {
-            $namespaces .= sprintf(' %s="%s"', $name, $namespace);
+            $namespaces .= \sprintf(' %s="%s"', $name, $namespace);
         }
 
         return strtr($this->openTag, [

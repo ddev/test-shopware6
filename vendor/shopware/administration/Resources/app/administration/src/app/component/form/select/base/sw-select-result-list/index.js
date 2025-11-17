@@ -1,18 +1,15 @@
 import template from './sw-select-result-list.html.twig';
 import './sw-select-result-list.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @description Base component for rendering result lists.
  * @example-type code-only
  */
-Component.register('sw-select-result-list', {
+export default {
     template,
 
     provide() {
@@ -20,6 +17,16 @@ Component.register('sw-select-result-list', {
             setActiveItemIndex: this.setActiveItemIndex,
         };
     },
+
+    inject: ['feature'],
+
+    emits: [
+        'item-select',
+        'active-item-change',
+        'outside-click',
+        'paginate',
+        'item-select-by-keyboard',
+    ],
 
     props: {
         options: {
@@ -37,9 +44,14 @@ Component.register('sw-select-result-list', {
         },
 
         focusEl: {
-            type: [HTMLDocument, HTMLElement],
+            type: [
+                HTMLDocument,
+                HTMLElement,
+            ],
             required: false,
-            default() { return document; },
+            default() {
+                return document;
+            },
         },
 
         isLoading: {
@@ -59,7 +71,6 @@ Component.register('sw-select-result-list', {
         popoverResizeWidth: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -67,7 +78,7 @@ Component.register('sw-select-result-list', {
 
     data() {
         return {
-            activeItemIndex: 0,
+            activeItemIndex: -1,
         };
     },
 
@@ -77,7 +88,10 @@ Component.register('sw-select-result-list', {
         },
 
         popoverClass() {
-            return [...this.popoverClasses, 'sw-select-result-list-popover-wrapper'];
+            return [
+                ...this.popoverClasses,
+                'sw-select-result-list-popover-wrapper',
+            ];
         },
     },
 
@@ -85,22 +99,13 @@ Component.register('sw-select-result-list', {
         this.createdComponent();
     },
 
-    mounted() {
-        this.mountedComponent();
-    },
-
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyedComponent();
     },
 
     methods: {
         createdComponent() {
             this.addEventListeners();
-        },
-
-        mountedComponent() {
-            // Set first item active
-            this.emitActiveItemIndex();
         },
 
         beforeDestroyedComponent() {
@@ -113,17 +118,30 @@ Component.register('sw-select-result-list', {
         },
 
         addEventListeners() {
-            this.focusEl.addEventListener('keydown', this.navigate);
+            document.addEventListener('keydown', this.navigate);
             document.addEventListener('click', this.checkOutsideClick);
+
+            Shopware.Utils.EventBus.on('item-select', this.onItemSelect);
         },
 
         removeEventListeners() {
-            this.focusEl.removeEventListener('keydown', this.navigate);
+            document.removeEventListener('keydown', this.navigate);
             document.removeEventListener('click', this.checkOutsideClick);
+
+            Shopware.Utils.EventBus.off('item-select', this.onItemSelect);
         },
 
-        emitActiveItemIndex() {
-            this.$emit('active-item-change', this.activeItemIndex);
+        onItemSelect(item) {
+            this.$emit('item-select', item);
+        },
+
+        emitActiveItemIndex(shouldFocus = false) {
+            this.$emit('active-item-change', this.activeItemIndex, {
+                shouldFocus,
+            });
+            Shopware.Utils.EventBus.emit('active-item-change', this.activeItemIndex, {
+                shouldFocus,
+            });
         },
 
         /**
@@ -133,9 +151,9 @@ Component.register('sw-select-result-list', {
         checkOutsideClick(event) {
             event.stopPropagation();
 
-            const popoverContentClicked = this.$refs.popoverContent.contains(event.target);
+            const popoverContentClicked = this.$refs.popoverContent?.contains(event.target);
             const componentClicked = this.$el.contains(event.target);
-            const parentClicked = this.$parent.$el.contains(event.target);
+            const parentClicked = this.$parent.$parent.$el.contains(event.target);
 
             if (popoverContentClicked || componentClicked || parentClicked) {
                 return;
@@ -169,16 +187,19 @@ Component.register('sw-select-result-list', {
 
             this.activeItemIndex += 1;
 
-            this.emitActiveItemIndex();
+            this.emitActiveItemIndex({ shouldFocus: true });
             this.updateScrollPosition();
         },
 
         navigatePrevious() {
-            if (this.activeItemIndex > 0) {
+            if (this.activeItemIndex === -1) {
+                // Set the active item to the last item in the list
+                this.activeItemIndex = this.options.length - 1;
+            } else if (this.activeItemIndex > 0) {
                 this.activeItemIndex -= 1;
             }
 
-            this.emitActiveItemIndex();
+            this.emitActiveItemIndex({ shouldFocus: true });
             this.updateScrollPosition();
         },
 
@@ -211,6 +232,7 @@ Component.register('sw-select-result-list', {
             // This emit is subscribed in the sw-result component. They can for example be disabled and need
             // choose on their own if they are selected
             this.$emit('item-select-by-keyboard', this.activeItemIndex);
+            Shopware.Utils.EventBus.emit('item-select-by-keyboard', this.activeItemIndex);
         },
 
         onScroll(event) {
@@ -225,4 +247,4 @@ Component.register('sw-select-result-list', {
             return element.scrollHeight - element.clientHeight - element.scrollTop;
         },
     },
-});
+};

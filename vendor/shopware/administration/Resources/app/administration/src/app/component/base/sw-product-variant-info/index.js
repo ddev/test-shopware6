@@ -1,10 +1,8 @@
 import template from './sw-product-variant-info.html.twig';
 import './sw-product-variant-info.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  * @description Component which renders the variations of variant products.
@@ -13,7 +11,7 @@ const { Component } = Shopware;
  * @component-example
  * <sw-product-variant-info :variations="variations"></sw-product-variant-info>
  */
-Component.register('sw-product-variant-info', {
+export default {
     template,
 
     inject: ['feature'],
@@ -46,7 +44,6 @@ Component.register('sw-product-variant-info', {
         showTooltip: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -73,10 +70,7 @@ Component.register('sw-product-variant-info', {
 
     computed: {
         productName() {
-            if (this.feature.isActive('VUE3')) {
-                return this.$slots?.default?.()?.[0]?.children || '';
-            }
-            return this.$slots?.default?.[0]?.text || '';
+            return this.$slots?.default?.()?.[0]?.children || '';
         },
     },
 
@@ -96,10 +90,9 @@ Component.register('sw-product-variant-info', {
         },
 
         getFirstSlot() {
-            if (this.feature.isActive('VUE3')) {
-                return this.$slots?.default?.()?.[0]?.children || '';
-            }
-            return this.$slots?.default?.[0]?.text || '';
+            const label = this.$slots?.default?.()?.[0]?.children;
+
+            return typeof label === 'string' ? label : label?.default?.()?.[0]?.children || '';
         },
 
         setHelpText() {
@@ -119,4 +112,4 @@ Component.register('sw-product-variant-info', {
             }
         },
     },
-});
+};

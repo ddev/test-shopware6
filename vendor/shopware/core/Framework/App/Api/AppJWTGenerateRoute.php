@@ -9,20 +9,24 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Shopware\Core\Framework\App\AppException;
 use Shopware\Core\Framework\App\ShopId\ShopIdProvider;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\StoreApiRouteScope;
+use Shopware\Core\Framework\Store\InAppPurchase;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Route(defaults: ['_routeScope' => ['store-api']])]
-#[Package('core')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StoreApiRouteScope::ID]])]
+#[Package('framework')]
 class AppJWTGenerateRoute
 {
     public function __construct(
         private readonly Connection $connection,
-        private readonly ShopIdProvider $shopIdProvider
+        private readonly ShopIdProvider $shopIdProvider,
+        private readonly InAppPurchase $inAppPurchase,
     ) {
     }
 
@@ -43,6 +47,8 @@ class AppJWTGenerateRoute
         );
 
         $expiration = new \DateTimeImmutable('+10 minutes');
+
+        /** @var non-empty-string $shopId */
         $shopId = $this->shopIdProvider->getShopId();
         $builder = $configuration
             ->builder()
@@ -51,28 +57,30 @@ class AppJWTGenerateRoute
             ->canOnlyBeUsedAfter(new \DateTimeImmutable())
             ->expiresAt($expiration);
 
+        $builder = $builder->withClaim('inAppPurchases', $this->inAppPurchase->getJWTByExtension($name));
+
         if (\in_array('sales_channel:read', $privileges, true)) {
-            $builder->withClaim('salesChannelId', $context->getSalesChannel()->getId());
+            $builder = $builder->withClaim('salesChannelId', $context->getSalesChannelId());
         }
 
         if (\in_array('customer:read', $privileges, true)) {
-            $builder->withClaim('customerId', $context->getCustomer()->getId());
+            $builder = $builder->withClaim('customerId', $context->getCustomerId());
         }
 
         if (\in_array('currency:read', $privileges, true)) {
-            $builder->withClaim('currencyId', $context->getCurrency()->getId());
+            $builder = $builder->withClaim('currencyId', $context->getCurrencyId());
         }
 
         if (\in_array('language:read', $privileges, true)) {
-            $builder->withClaim('languageId', $context->getLanguageId());
+            $builder = $builder->withClaim('languageId', $context->getLanguageId());
         }
 
         if (\in_array('payment_method:read', $privileges, true)) {
-            $builder->withClaim('paymentMethodId', $context->getPaymentMethod()->getId());
+            $builder = $builder->withClaim('paymentMethodId', $context->getPaymentMethod()->getId());
         }
 
         if (\in_array('shipping_method:read', $privileges, true)) {
-            $builder->withClaim('shippingMethodId', $context->getShippingMethod()->getId());
+            $builder = $builder->withClaim('shippingMethodId', $context->getShippingMethod()->getId());
         }
 
         return new JsonResponse([
@@ -87,7 +95,6 @@ class AppJWTGenerateRoute
      */
     private function fetchAppDetails(string $name): array
     {
-        /** @var array{app_secret: non-empty-string, privileges: string} $row */
         $row = $this->connection->fetchAssociative('SELECT
     `app`.app_secret,
     `acl_role`.privileges
@@ -102,6 +109,7 @@ WHERE `app`.name = ? AND
 
         $row['privileges'] = json_decode($row['privileges'], true, 512, \JSON_THROW_ON_ERROR);
 
+        /** @phpstan-ignore-next-line PHPStan could not recognize the loaded array shape from the database */
         return $row;
     }
 }

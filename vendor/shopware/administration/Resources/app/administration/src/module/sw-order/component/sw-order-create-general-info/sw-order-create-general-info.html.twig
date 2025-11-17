@@ -1,14 +1,21 @@
+{% block sw_order_create_general_info %}
 <div>
+
+    {% block sw_order_create_general_info_summary %}
     <div class="sw-order-create-general-info__summary">
+
+        {% block sw_order_create_general_info_summary_main %}
         <div class="sw-order-create-general-info__summary-main">
             <div class="sw-order-create-general-info__summary-main-header">
                 {{ summaryMainHeader }}
             </div>
             <div class="sw-order-create-general-info__summary-main-total">
-                {{ currencyFilter(cart.price.totalPrice, context.currency.translated.shortName, context.currency.totalRounding.decimals) }}
+                {{ currencyFilter(cart.price.totalPrice, context.currency.isoCode, context.currency.totalRounding.decimals) }}
             </div>
         </div>
+        {% endblock %}
 
+        {% block sw_order_create_general_info_summary_sub %}
         <div class="sw-order-create-general-info__summary-sub">
             <div class="sw-order-create-general-info__summary-sub-description">
                 {{ $tc('sw-order.generalTab.info.summary.with') }}
@@ -17,9 +24,15 @@
                 {{ context.paymentMethod.translated.distinguishableName }}
             </div>
         </div>
-    </div>
+        {% endblock %}
 
+    </div>
+    {% endblock %}
+
+    {% block sw_order_create_general_info_order_states %}
     <div class="sw-order-create-general-info__order-states">
+
+        {% block sw_order_create_general_info_order_state_payment %}
         <div class="sw-order-create-general-info__order-state">
             <sw-order-state-select-v2
                 class="sw-order-create-general-info__order-state-payment"
@@ -30,6 +43,9 @@
                 disabled
             />
         </div>
+        {% endblock %}
+
+        {% block sw_order_create_general_info_order_state_delivery %}
         <div class="sw-order-create-general-info__order-state">
             <sw-order-state-select-v2
                 class="sw-order-create-general-info__order-state-delivery"
@@ -40,6 +56,9 @@
                 disabled
             />
         </div>
+        {% endblock %}
+
+        {% block sw_order_create_general_info_order_state_order %}
         <div class="sw-order-create-general-info__order-state">
             <sw-order-state-select-v2
                 class="sw-order-create-general-info__order-state-order"
@@ -50,8 +69,12 @@
                 disabled
             />
         </div>
-    </div>
+        {% endblock %}
 
+    </div>
+    {% endblock %}
+
+    {% block sw_order_create_general_info_order_tags %}
     <sw-entity-tag-select
         class="sw-order-create-general-info__order-tags"
         size="small"
@@ -60,4 +83,7 @@
         :placeholder="$tc('sw-order.generalTab.tagSelect.placeholder')"
         always-show-placeholder
     />
+    {% endblock %}
+
 </div>
+{% endblock %}

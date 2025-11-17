@@ -8,141 +8,64 @@ use Shopware\Core\Checkout\Payment\Aggregate\PaymentMethodTranslation\PaymentMet
 use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Content\Rule\RuleEntity;
 use Shopware\Core\Framework\App\Aggregate\AppPaymentMethod\AppPaymentMethodEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\Contract\IdAware;
+use Shopware\Core\Framework\DataAbstractionLayer\Contract\RuleIdAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\PluginEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 
 #[Package('checkout')]
-class PaymentMethodEntity extends Entity
+class PaymentMethodEntity extends Entity implements IdAware, RuleIdAware
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string|null
-     */
-    protected $pluginId;
+    protected ?string $pluginId = null;
 
-    /**
-     * @var string
-     */
-    protected $handlerIdentifier;
+    protected string $handlerIdentifier;
 
-    /**
-     * @var string|null
-     */
-    protected $name;
+    protected ?string $name = null;
 
-    /**
-     * @var string|null
-     */
-    protected $distinguishableName;
+    protected ?string $distinguishableName = null;
 
-    /**
-     * @var string|null
-     */
-    protected $description;
+    protected ?string $description = null;
 
-    /**
-     * @var int
-     */
-    protected $position;
+    protected int $position;
 
-    /**
-     * @var bool
-     */
-    protected $active;
+    protected bool $active;
 
-    /**
-     * @var bool
-     */
-    protected $afterOrderEnabled;
+    protected bool $afterOrderEnabled;
 
-    /**
-     * @var PluginEntity|null
-     */
-    protected $plugin;
+    protected ?PluginEntity $plugin = null;
 
-    /**
-     * @var PaymentMethodTranslationCollection|null
-     */
-    protected $translations;
+    protected ?PaymentMethodTranslationCollection $translations = null;
 
-    /**
-     * @var OrderTransactionCollection|null
-     */
-    protected $orderTransactions;
+    protected ?OrderTransactionCollection $orderTransactions = null;
 
-    /**
-     * @var CustomerCollection|null
-     */
-    protected $customers;
+    protected ?CustomerCollection $customers = null;
 
-    /**
-     * @var SalesChannelCollection|null
-     */
-    protected $salesChannelDefaultAssignments;
+    protected ?SalesChannelCollection $salesChannelDefaultAssignments = null;
 
-    /**
-     * @var SalesChannelCollection|null
-     */
-    protected $salesChannels;
+    protected ?SalesChannelCollection $salesChannels = null;
 
-    /**
-     * @var RuleEntity|null
-     */
-    protected $availabilityRule;
+    protected ?RuleEntity $availabilityRule = null;
 
-    /**
-     * @var string|null
-     */
-    protected $availabilityRuleId;
+    protected ?string $availabilityRuleId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $mediaId;
+    protected ?string $mediaId = null;
 
-    /**
-     * @var MediaEntity|null
-     */
-    protected $media;
+    protected ?MediaEntity $media = null;
 
-    /**
-     * @var string
-     */
-    protected $formattedHandlerIdentifier;
+    protected string $formattedHandlerIdentifier;
 
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed without replacement
-     *
-     * @var string|null
-     */
-    protected $shortName;
+    protected ?string $shortName = null;
 
-    /**
-     * @deprecated tag:v6.7.0 - will not be nullable
-     */
-    protected ?string $technicalName = null;
+    protected string $technicalName;
 
-    /**
-     * @var AppPaymentMethodEntity|null
-     */
-    protected $appPaymentMethod;
-
-    protected bool $synchronous = false;
-
-    protected bool $asynchronous = false;
-
-    protected bool $prepared = false;
-
-    protected bool $refundable = false;
-
-    protected bool $recurring = false;
+    protected ?AppPaymentMethodEntity $appPaymentMethod = null;
 
     public function getPluginId(): ?string
     {
@@ -334,46 +257,23 @@ class PaymentMethodEntity extends Entity
         $this->afterOrderEnabled = $afterOrderEnabled;
     }
 
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed without replacement
-     */
     public function getShortName(): ?string
     {
-        Feature::triggerDeprecationOrThrow('v6_6_0_0', Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0'));
-
         return $this->shortName;
     }
 
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed without replacement
-     */
     public function setShortName(?string $shortName): void
     {
-        Feature::triggerDeprecationOrThrow('v6_6_0_0', Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0'));
         $this->shortName = $shortName;
     }
 
-    /**
-     * @deprecated tag:v6.7.0 - reason:return-type-change - return type will not be nullable
-     */
-    public function getTechnicalName(): ?string
+    public function getTechnicalName(): string
     {
-        if (!$this->technicalName) {
-            Feature::triggerDeprecationOrThrow('v6.7.0.0', 'Parameter `technical_name` will be required');
-        }
-
         return $this->technicalName;
     }
 
-    /**
-     * @deprecated tag:v6.7.0 - reason:parameter-type-change - parameter type will not be nullable
-     */
-    public function setTechnicalName(?string $technicalName): void
+    public function setTechnicalName(string $technicalName): void
     {
-        if (!$technicalName) {
-            Feature::triggerDeprecationOrThrow('v6.7.0.0', 'Parameter `technical_name` will be required');
-        }
-
         $this->technicalName = $technicalName;
     }
 
@@ -385,55 +285,5 @@ class PaymentMethodEntity extends Entity
     public function setAppPaymentMethod(?AppPaymentMethodEntity $appPaymentMethod): void
     {
         $this->appPaymentMethod = $appPaymentMethod;
-    }
-
-    public function isSynchronous(): bool
-    {
-        return $this->synchronous;
-    }
-
-    public function setSynchronous(bool $synchronous): void
-    {
-        $this->synchronous = $synchronous;
-    }
-
-    public function isAsynchronous(): bool
-    {
-        return $this->asynchronous;
-    }
-
-    public function setAsynchronous(bool $asynchronous): void
-    {
-        $this->asynchronous = $asynchronous;
-    }
-
-    public function isPrepared(): bool
-    {
-        return $this->prepared;
-    }
-
-    public function setPrepared(bool $prepared): void
-    {
-        $this->prepared = $prepared;
-    }
-
-    public function isRefundable(): bool
-    {
-        return $this->refundable;
-    }
-
-    public function setRefundable(bool $refundable): void
-    {
-        $this->refundable = $refundable;
-    }
-
-    public function isRecurring(): bool
-    {
-        return $this->recurring;
-    }
-
-    public function setRecurring(bool $recurring): void
-    {
-        $this->recurring = $recurring;
     }
 }

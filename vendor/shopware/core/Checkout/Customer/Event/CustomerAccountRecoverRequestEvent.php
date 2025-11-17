@@ -8,9 +8,7 @@ use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Content\Flow\Dispatching\Action\FlowMailVariables;
 use Shopware\Core\Content\Flow\Dispatching\Aware\CustomerRecoveryAware;
-use Shopware\Core\Content\Flow\Dispatching\Aware\ResetUrlAware;
 use Shopware\Core\Content\Flow\Dispatching\Aware\ScalarValuesAware;
-use Shopware\Core\Content\Flow\Dispatching\Aware\ShopNameAware;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Event\CustomerAware;
 use Shopware\Core\Framework\Event\EventData\EntityType;
@@ -25,47 +23,20 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Contracts\EventDispatcher\Event;
 
-/**
- * @deprecated tag:v6.6.0 - reason:class-hierarchy-change - ResetUrlAware and ShopNameAware are deprecated and will be removed in v6.6.0
- */
 #[Package('checkout')]
-class CustomerAccountRecoverRequestEvent extends Event implements SalesChannelAware, ShopwareSalesChannelEvent, CustomerAware, MailAware, CustomerRecoveryAware, ResetUrlAware, ShopNameAware, ScalarValuesAware, FlowEventAware
+class CustomerAccountRecoverRequestEvent extends Event implements SalesChannelAware, ShopwareSalesChannelEvent, CustomerAware, MailAware, CustomerRecoveryAware, ScalarValuesAware, FlowEventAware
 {
     public const EVENT_NAME = 'customer.recovery.request';
 
-    /**
-     * @var CustomerRecoveryEntity
-     */
-    private $customerRecovery;
+    private readonly string $shopName;
 
-    /**
-     * @var SalesChannelContext
-     */
-    private $salesChannelContext;
-
-    /**
-     * @var string
-     */
-    private $resetUrl;
-
-    /**
-     * @var string
-     */
-    private $shopName;
-
-    /**
-     * @var MailRecipientStruct
-     */
-    private $mailRecipientStruct;
+    private ?MailRecipientStruct $mailRecipientStruct = null;
 
     public function __construct(
-        SalesChannelContext $salesChannelContext,
-        CustomerRecoveryEntity $customerRecovery,
-        string $resetUrl
+        private readonly SalesChannelContext $salesChannelContext,
+        private readonly CustomerRecoveryEntity $customerRecovery,
+        private readonly string $resetUrl,
     ) {
-        $this->salesChannelContext = $salesChannelContext;
-        $this->customerRecovery = $customerRecovery;
-        $this->resetUrl = $resetUrl;
         $this->shopName = $salesChannelContext->getSalesChannel()->getTranslation('name');
     }
 
@@ -111,9 +82,9 @@ class CustomerAccountRecoverRequestEvent extends Event implements SalesChannelAw
 
     public function getMailStruct(): MailRecipientStruct
     {
-        if (!$this->mailRecipientStruct instanceof MailRecipientStruct) {
-            /** @var CustomerEntity $customer */
+        if (!$this->mailRecipientStruct) {
             $customer = $this->customerRecovery->getCustomer();
+            \assert($customer !== null);
 
             $this->mailRecipientStruct = new MailRecipientStruct([
                 $customer->getEmail() => $customer->getFirstName() . ' ' . $customer->getLastName(),
@@ -125,7 +96,7 @@ class CustomerAccountRecoverRequestEvent extends Event implements SalesChannelAw
 
     public function getSalesChannelId(): string
     {
-        return $this->salesChannelContext->getSalesChannel()->getId();
+        return $this->salesChannelContext->getSalesChannelId();
     }
 
     public function getResetUrl(): string

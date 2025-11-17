@@ -15,7 +15,6 @@ use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\FieldException\UnexpectedFieldException;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\FieldException\WriteFieldException;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Json;
 use Symfony\Component\Validator\Constraints\NotNull;
@@ -24,22 +23,9 @@ use Symfony\Component\Validator\Constraints\Type;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class JsonFieldSerializer extends AbstractFieldSerializer
 {
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed, use \Shopware\Core\Framework\Util\Json::encode instead
-     */
-    public static function encodeJson(mixed $value, int $options = \JSON_UNESCAPED_UNICODE | \JSON_PRESERVE_ZERO_FRACTION | \JSON_THROW_ON_ERROR | \JSON_INVALID_UTF8_IGNORE): string
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6.6.0.0',
-            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.6.0.0', Json::class . '::encode')
-        );
-
-        return (string) json_encode($value, $options);
-    }
-
     public function encode(
         Field $field,
         EntityExistence $existence,
@@ -111,6 +97,11 @@ class JsonFieldSerializer extends AbstractFieldSerializer
         ];
     }
 
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
     protected function validateMapping(
         JsonField $field,
         array $data,
@@ -143,7 +134,7 @@ class JsonFieldSerializer extends AbstractFieldSerializer
             if ($kvPair === null) {
                 // The writer updates the whole field, so there is no possibility to update
                 // "some" fields. To enable a merge, we have to respect the $existence state
-                // for correct constraint validation. In addition the writer has to be rewritten
+                // for correct constraint validation. In addition, the writer has to be rewritten
                 // in order to handle merges.
                 if (!$nestedField->is(Required::class)) {
                     continue;
@@ -162,8 +153,9 @@ class JsonFieldSerializer extends AbstractFieldSerializer
             /*
              * Don't call `encode()` or `validateIfNeeded()` on nested JsonFields if they are not typed.
              * This also allows directly storing non-array values like strings.
+             * But all fields extending JsonField be properly validated.
              */
-            if ($nestedField instanceof JsonField && empty($nestedField->getPropertyMapping())) {
+            if ($nestedField::class === JsonField::class && empty($nestedField->getPropertyMapping())) {
                 // Validate required flag manually
                 if ($nestedField->is(Required::class)) {
                     $this->validate([new NotNull()], $kvPair, $nestedParams->getPath());

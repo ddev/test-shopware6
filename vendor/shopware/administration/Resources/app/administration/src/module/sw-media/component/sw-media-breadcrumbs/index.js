@@ -1,10 +1,10 @@
 import template from './sw-media-breadcrumbs.html.twig';
 import './sw-media-breadcrumbs.scss';
 
-const { Context } = Shopware;
+const { Context, Filter } = Shopware;
 
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -15,10 +15,7 @@ export default {
         'feature',
     ],
 
-    model: {
-        prop: 'currentFolderId',
-        event: 'media-folder-change',
-    },
+    emits: ['update:currentFolderId'],
 
     props: {
         currentFolderId: {
@@ -57,6 +54,10 @@ export default {
                 'is--small': this.small,
             };
         },
+
+        assetFilter() {
+            return Filter.getByName('asset');
+        },
     },
 
     watch: {
@@ -90,13 +91,7 @@ export default {
         },
 
         onBreadcrumbsItemClicked(id) {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:currentFolderId', id);
-
-                return;
-            }
-
-            this.$emit('media-folder-change', id);
+            this.$emit('update:currentFolderId', id);
         },
     },
 };

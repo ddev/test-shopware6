@@ -2,10 +2,11 @@
 
 namespace Shopware\Core\Framework\Api\Serializer;
 
-use Shopware\Core\Framework\Api\Exception\UnsupportedEncoderInputException;
+use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
+use Shopware\Core\Framework\DataAbstractionLayer\Exception\PropertyNotFoundException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\AssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Extension;
@@ -16,7 +17,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\Api\ResponseFields;
 
-#[Package('core')]
+#[Package('framework')]
 class JsonApiEncoder
 {
     /**
@@ -30,10 +31,13 @@ class JsonApiEncoder
     private array $serializeCache = [];
 
     /**
-     * @param EntityCollection<Entity>|Entity|null $data
+     * @template TEntityCollection of EntityCollection
+     *
+     * @param TEntityCollection|Entity|null $data
      * @param array<string, mixed> $metaData
      *
-     * @throws UnsupportedEncoderInputException
+     * @throws ApiException
+     * @throws \JsonException
      */
     public function encode(Criteria $criteria, EntityDefinition $definition, $data, string $baseUrl, array $metaData = []): string
     {
@@ -41,13 +45,13 @@ class JsonApiEncoder
         $result = new JsonApiEncodingResult($baseUrl);
 
         if (!$data instanceof EntityCollection && !$data instanceof Entity) {
-            throw new UnsupportedEncoderInputException();
+            throw ApiException::unsupportedEncoderInput();
         }
 
         $result->setSingleResult($data instanceof Entity);
         $result->setMetaData($metaData);
 
-        $fields = new ResponseFields($criteria->getIncludes());
+        $fields = new ResponseFields($criteria->getIncludes(), $criteria->getExcludes());
 
         $this->encodeData($fields, $definition, $data, $result);
 
@@ -88,9 +92,8 @@ class JsonApiEncoder
             $relationship['links']['related'] = $record->getLink('self') . '/' . $this->camelCaseToSnailCase($propertyName);
 
             try {
-                /** @var Entity|EntityCollection<Entity>|null $relationData */
                 $relationData = $entity->get($propertyName);
-            } catch (\InvalidArgumentException) {
+            } catch (PropertyNotFoundException) {
                 continue;
             }
 
@@ -98,8 +101,7 @@ class JsonApiEncoder
                 continue;
             }
 
-            if ($relationData instanceof EntityCollection) {
-                /** @var Entity $sub */
+            if ($relationData instanceof EntityCollection || \is_array($relationData)) {
                 foreach ($relationData as $sub) {
                     $this->serializeEntity($fields, $sub, $relationship['tmp']['definition'], $result, true);
                 }
@@ -125,17 +127,17 @@ class JsonApiEncoder
     }
 
     /**
-     * @param Entity|EntityCollection<Entity>|null $data
+     * @template TEntityCollection of EntityCollection
+     *
+     * @param Entity|TEntityCollection $data
      */
-    private function encodeData(ResponseFields $fields, EntityDefinition $definition, $data, JsonApiEncodingResult $result): void
+    private function encodeData(ResponseFields $fields, EntityDefinition $definition, Entity|EntityCollection $data, JsonApiEncodingResult $result): void
     {
-        if ($data === null) {
-            return;
-        }
-
         // single entity
         if ($data instanceof Entity) {
-            $data = [$data];
+            $this->serializeEntity($fields, $data, $definition, $result);
+
+            return;
         }
 
         // collection of entities
@@ -211,9 +213,12 @@ class JsonApiEncoder
         return $this->serializeCache[$definition->getEntityName()] = $serialized;
     }
 
+    /**
+     * @throws \JsonException
+     */
     private function formatToJson(JsonApiEncodingResult $result): string
     {
-        return json_encode($result, \JSON_PRESERVE_ZERO_FRACTION|\JSON_THROW_ON_ERROR);
+        return json_encode($result, \JSON_PRESERVE_ZERO_FRACTION | \JSON_THROW_ON_ERROR);
     }
 
     private function addExtensions(ResponseFields $fields, Record $serialized, Entity $entity, JsonApiEncodingResult $result): void
@@ -233,7 +238,7 @@ class JsonApiEncoder
 
         foreach ($serialized->getExtensions() as $property => $value) {
             if ($value === null) {
-                $extension->setAttribute($property, $entity->getExtension($property));
+                $extension->setAttribute((string) $property, $entity->getExtension($property));
 
                 continue;
             }
@@ -241,7 +246,7 @@ class JsonApiEncoder
             /** @var EntityDefinition $definition */
             $definition = $value['tmp']['definition'];
 
-            $association = $entity->getExtension($property);
+            $association = $entity->getExtension((string) $property);
             if ($value['data'] === null) {
                 $relationship = [
                     'data' => null,
@@ -276,7 +281,7 @@ class JsonApiEncoder
                 }
             }
 
-            $extension->addRelationship($property, $relationship);
+            $extension->addRelationship((string) $property, $relationship);
         }
 
         $result->addIncluded($extension);

@@ -7,13 +7,14 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class ScriptAppInformation
 {
     public function __construct(
         private readonly string $id,
         private readonly string $name,
-        private readonly string $integrationId
+        private readonly string $version,
+        private readonly string $integrationId,
     ) {
     }
 
@@ -25,6 +26,11 @@ class ScriptAppInformation
     public function getAppName(): string
     {
         return $this->name;
+    }
+
+    public function getAppVersion(): string
+    {
+        return $this->version;
     }
 
     public function getIntegrationId(): string

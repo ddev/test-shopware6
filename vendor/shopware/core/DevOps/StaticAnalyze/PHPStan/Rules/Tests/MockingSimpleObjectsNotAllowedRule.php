@@ -13,6 +13,7 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Reflection\ReflectionProvider;
 use PHPStan\Rules\Rule;
+use PHPStan\Rules\RuleErrorBuilder;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
@@ -27,7 +28,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * @implements Rule<MethodCall>
  */
-#[Package('core')]
+#[Package('framework')]
 class MockingSimpleObjectsNotAllowedRule implements Rule
 {
     private const DISALLOWED_CLASSES = [
@@ -84,7 +85,9 @@ class MockingSimpleObjectsNotAllowedRule implements Rule
         }
 
         return [
-            sprintf('Mocking of %s is not allowed. The object is very basic and can be constructed', $mockedClassString),
+            RuleErrorBuilder::message(\sprintf('Mocking of %s is not allowed. The object is very basic and can be constructed', $mockedClassString))
+                ->identifier('shopware.mockingSimpleObjects')
+                ->build(),
         ];
     }
 
@@ -94,24 +97,19 @@ class MockingSimpleObjectsNotAllowedRule implements Rule
             return false;
         }
 
-        $namespace = $node->getClassReflection()->getName();
-
-        if (!\str_contains($namespace, 'Shopware\\Tests\\Unit\\') && !\str_contains($namespace, 'Shopware\\Tests\\Migration\\')) {
+        $parentClassNames = $node->getClassReflection()->getParentClassesNames();
+        if (empty($parentClassNames)) {
             return false;
         }
 
-        if ($node->getClassReflection()->getParentClass() === null) {
-            return false;
-        }
-
-        return $node->getClassReflection()->getParentClass()->getName() === TestCase::class;
+        return \in_array(TestCase::class, $parentClassNames, true);
     }
 
     private function resolveClassName(Node $node): ?string
     {
         switch (true) {
             case $node instanceof String_:
-                return (string) $node->value;
+                return $node->value;
             case $node instanceof ClassConstFetch:
                 if ($node->class instanceof Name) {
                     return (string) $node->class;

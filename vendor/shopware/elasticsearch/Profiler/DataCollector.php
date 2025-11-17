@@ -13,7 +13,7 @@ use Symfony\Component\HttpKernel\DataCollector\DataCollector as BaseDataCollecto
 /**
  * @phpstan-import-type RequestInfo from ClientProfiler
  */
-#[Package('core')]
+#[Package('framework')]
 class DataCollector extends BaseDataCollector
 {
     /**
@@ -33,14 +33,15 @@ class DataCollector extends BaseDataCollector
         $enabled = $this->enabled;
         $client = $this->client;
 
-        if ($context instanceof Context && $context->getSource() instanceof AdminApiSource) {
+        if (empty($client->getCalledRequests()) && $context instanceof Context && $context->getSource() instanceof AdminApiSource) {
             $enabled = $this->adminEnabled;
             $client = $this->adminClient;
         }
 
+        $clientRequests = array_merge($this->client->getCalledRequests(), $this->adminClient->getCalledRequests());
         $this->data = [
             'enabled' => $enabled,
-            'requests' => $client->getCalledRequests(),
+            'requests' => $clientRequests,
             'time' => 0,
         ];
 
@@ -48,7 +49,7 @@ class DataCollector extends BaseDataCollector
             return;
         }
 
-        foreach ($client->getCalledRequests() as $calledRequest) {
+        foreach ($clientRequests as $calledRequest) {
             $this->data['time'] += $calledRequest['time'];
         }
 

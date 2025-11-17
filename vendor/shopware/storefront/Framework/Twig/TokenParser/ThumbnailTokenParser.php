@@ -6,21 +6,15 @@ use Shopware\Core\Framework\Adapter\Twig\Node\SwInclude;
 use Shopware\Core\Framework\Log\Package;
 use Twig\Node\Expression\ArrayExpression;
 use Twig\Node\Expression\ConstantExpression;
-use Twig\Parser;
 use Twig\Token;
 use Twig\TokenParser\AbstractTokenParser;
 
-#[Package('storefront')]
+#[Package('framework')]
 final class ThumbnailTokenParser extends AbstractTokenParser
 {
-    /**
-     * @var Parser
-     */
-    protected $parser;
-
     public function parse(Token $token): SwInclude
     {
-        $expr = $this->parser->getExpressionParser()->parseExpression();
+        $expr = $this->parser->parseExpression();
         $stream = $this->parser->getStream();
 
         $className = $expr->getAttribute('value');
@@ -29,7 +23,7 @@ final class ThumbnailTokenParser extends AbstractTokenParser
         $variables = new ArrayExpression([], $token->getLine());
         if ($stream->nextIf(Token::NAME_TYPE, 'with')) {
             /** @var ArrayExpression $variables */
-            $variables = $this->parser->getExpressionParser()->parseExpression();
+            $variables = $this->parser->parseExpression();
         }
 
         $stream->next();
@@ -39,7 +33,7 @@ final class ThumbnailTokenParser extends AbstractTokenParser
             new ConstantExpression('name', $token->getLine())
         );
 
-        return new SwInclude($expr, $variables, false, false, $token->getLine(), $this->getTag());
+        return new SwInclude($expr, $variables, false, false, $token->getLine());
     }
 
     public function getTag(): string

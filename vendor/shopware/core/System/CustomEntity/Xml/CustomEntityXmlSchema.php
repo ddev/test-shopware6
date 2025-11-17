@@ -3,13 +3,13 @@
 namespace Shopware\Core\System\CustomEntity\Xml;
 
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SystemConfig\Exception\XmlParsingException;
+use Shopware\Core\System\CustomEntity\CustomEntityException;
 use Symfony\Component\Config\Util\XmlUtils;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CustomEntityXmlSchema
 {
     final public const FILENAME = 'entities.xml';
@@ -27,7 +27,7 @@ class CustomEntityXmlSchema
         try {
             $doc = XmlUtils::loadFile($xmlFile, self::XSD_FILE);
         } catch (\Exception $e) {
-            throw new XmlParsingException($xmlFile, $e->getMessage());
+            throw CustomEntityException::xmlParsingException($xmlFile, $e->getMessage());
         }
 
         $entities = $doc->getElementsByTagName('entities')->item(0);

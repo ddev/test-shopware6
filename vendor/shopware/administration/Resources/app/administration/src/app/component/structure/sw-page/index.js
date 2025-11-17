@@ -1,14 +1,12 @@
 import template from './sw-page.html.twig';
 import './sw-page.scss';
 
-const { Component } = Shopware;
 const { dom } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Container for the content of a page, including the search bar, page header, actions and the actual content.
  * @status ready
@@ -43,8 +41,15 @@ const { dom } = Shopware.Utils;
  * </sw-page>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-page', {
+export default {
     template,
+
+    provide() {
+        return {
+            setSwPageSidebarOffset: this.setSidebarOffset,
+            removeSwPageSidebarOffset: this.removeSidebarOffset,
+        };
+    },
 
     props: {
         /**
@@ -52,7 +57,6 @@ Component.register('sw-page', {
          */
         showSmartBar: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -61,7 +65,6 @@ Component.register('sw-page', {
          */
         showSearchBar: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -79,6 +82,8 @@ Component.register('sw-page', {
         return {
             module: null,
             parentRoute: null,
+            previousPath: null,
+            previousRoute: null,
             sidebarOffset: 0,
             scrollbarOffset: 0,
             hasFullWidthHeader: false,
@@ -87,6 +92,16 @@ Component.register('sw-page', {
     },
 
     computed: {
+        routerBack() {
+            if (this.previousPath && this.previousRoute === this.parentRoute) {
+                return this.previousPath;
+            }
+
+            return {
+                name: this.parentRoute,
+            };
+        },
+
         pageColor() {
             if (this.headerBorderColor) {
                 return this.headerBorderColor;
@@ -138,6 +153,9 @@ Component.register('sw-page', {
             return `${this.sidebarOffset + this.scrollbarOffset}px`;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 -- There's no replacement
+         */
         headerStyles() {
             return {
                 'border-bottom-color': this.pageColor,
@@ -149,10 +167,6 @@ Component.register('sw-page', {
             return {
                 'margin-right': `-${this.pageOffset}`,
             };
-        },
-
-        additionalEventListeners() {
-            return this.$listeners;
         },
 
         smartBarContentStyle() {
@@ -176,15 +190,13 @@ Component.register('sw-page', {
         this.updatedComponent();
     },
 
-    beforeDestroy() {
-        Shopware.State.dispatch('error/resetApiErrors');
+    beforeUnmount() {
+        Shopware.Store.get('error').resetApiErrors();
         this.beforeDestroyComponent();
     },
 
     methods: {
         createdComponent() {
-            this.$on('mount', this.setSidebarOffset);
-            this.$on('destroy', this.removeSidebarOffset);
             window.addEventListener('resize', this.readScreenWidth);
         },
 
@@ -234,6 +246,12 @@ Component.register('sw-page', {
             if (this.$route.meta.parentPath) {
                 this.parentRoute = this.$route.meta.parentPath;
             }
+
+            this.previousPath = this.$router.options?.history?.state?.back;
+
+            if (this.previousPath) {
+                this.previousRoute = this.$router.resolve({ path: this.previousPath }).name;
+            }
         },
     },
-});
+};

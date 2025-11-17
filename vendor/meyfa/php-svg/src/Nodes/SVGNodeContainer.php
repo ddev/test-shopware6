@@ -13,13 +13,15 @@ use SVG\Utilities\SVGStyleParser;
  */
 abstract class SVGNodeContainer extends SVGNode
 {
-    /** @var SVGNode[] $children This node's child nodes. */
-    protected $children;
+    /**
+     * @var SVGNode[] $children This node's child nodes.
+     */
+    protected array $children;
 
     /**
      * @var string[] $globalStyles A 2D array mapping CSS selectors to values.
      */
-    protected $containerStyles;
+    protected array $containerStyles;
 
     public function __construct()
     {
@@ -34,12 +36,12 @@ abstract class SVGNodeContainer extends SVGNode
      * at the end of the child list.
      * Does nothing if the node already exists in this container.
      *
-     * @param SVGNode $node  The node to add to this container's children.
-     * @param int     $index The position to insert at (optional).
+     * @param SVGNode  $node  The node to add to this container's children.
+     * @param int|null $index The position to insert at (optional).
      *
      * @return $this This node instance, for call chaining.
      */
-    public function addChild(SVGNode $node, $index = null)
+    public function addChild(SVGNode $node, ?int $index = null): SVGNodeContainer
     {
         if ($node === $this || $node->parent === $this) {
             return $this;
@@ -49,7 +51,7 @@ abstract class SVGNodeContainer extends SVGNode
             $node->parent->removeChild($node);
         }
 
-        $index = ($index !== null) ? $index : count($this->children);
+        $index ??= count($this->children);
 
         // insert and set new parent
         array_splice($this->children, $index, 0, [$node]);
@@ -71,7 +73,7 @@ abstract class SVGNodeContainer extends SVGNode
      *
      * @return $this This node instance, for call chaining.
      */
-    public function removeChild($child)
+    public function removeChild($child): SVGNodeContainer
     {
         $index = $this->resolveChildIndex($child);
         if ($index === false) {
@@ -94,7 +96,7 @@ abstract class SVGNodeContainer extends SVGNode
      *
      * @return $this This node instance, for call chaining.
      */
-    public function setChild($child, SVGNode $node)
+    public function setChild($child, SVGNode $node): SVGNodeContainer
     {
         $index = $this->resolveChildIndex($child);
         if ($index === false) {
@@ -129,15 +131,16 @@ abstract class SVGNodeContainer extends SVGNode
     /**
      * @return int The amount of children in this container.
      */
-    public function countChildren()
+    public function countChildren(): int
     {
         return count($this->children);
     }
 
     /**
+     * @param int $index The index of the child to get.
      * @return SVGNode The child node at the given index.
      */
-    public function getChild($index)
+    public function getChild(int $index): SVGNode
     {
         return $this->children[$index];
     }
@@ -149,7 +152,7 @@ abstract class SVGNodeContainer extends SVGNode
      *
      * @return $this This node instance, for call chaining.
      */
-    public function addContainerStyle(SVGStyle $styleNode)
+    public function addContainerStyle(SVGStyle $styleNode): SVGNodeContainer
     {
         $newStyles = SVGStyleParser::parseCss($styleNode->getValue());
         $this->containerStyles = array_merge($this->containerStyles, $newStyles);
@@ -160,7 +163,7 @@ abstract class SVGNodeContainer extends SVGNode
     /**
      * @inheritdoc
      */
-    public function rasterize(SVGRasterizer $rasterizer)
+    public function rasterize(SVGRasterizer $rasterizer): void
     {
         if ($this->getComputedStyle('display') === 'none') {
             return;
@@ -185,7 +188,7 @@ abstract class SVGNodeContainer extends SVGNode
      *
      * @return string[] The style rules to be applied.
      */
-    public function getContainerStyleForNode(SVGNode $node)
+    public function getContainerStyleForNode(SVGNode $node): array
     {
         $pattern = $node->getIdAndClassPattern();
 
@@ -195,11 +198,11 @@ abstract class SVGNodeContainer extends SVGNode
     /**
      * Returns style rules for the given node id + class pattern.
      *
-     * @param string $pattern The node's pattern.
+     * @param string|null $pattern The node's pattern.
      *
      * @return string[] The style rules to be applied.
      */
-    public function getContainerStyleByPattern($pattern)
+    public function getContainerStyleByPattern(?string $pattern): array
     {
         if ($pattern === null) {
             return [];
@@ -226,7 +229,7 @@ abstract class SVGNodeContainer extends SVGNode
      *
      * @return string[] The matches array
      */
-    private function pregGrepStyle($pattern)
+    private function pregGrepStyle(string $pattern): array
     {
         return preg_grep($pattern, array_keys($this->containerStyles));
     }
@@ -234,7 +237,7 @@ abstract class SVGNodeContainer extends SVGNode
     /**
      * @inheritdoc
      */
-    public function getElementsByTagName($tagName, array &$result = [])
+    public function getElementsByTagName(string $tagName, array &$result = []): array
     {
         foreach ($this->children as $child) {
             if ($tagName === '*' || $child->getName() === $tagName) {
@@ -249,7 +252,7 @@ abstract class SVGNodeContainer extends SVGNode
     /**
      * @inheritdoc
      */
-    public function getElementsByClassName($className, array &$result = [])
+    public function getElementsByClassName($className, array &$result = []): array
     {
         if (!is_array($className)) {
             $className = preg_split('/\s+/', Str::trim($className));

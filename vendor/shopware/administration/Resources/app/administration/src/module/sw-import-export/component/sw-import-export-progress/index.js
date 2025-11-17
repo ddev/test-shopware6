@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import template from './sw-import-export-progress.html.twig';
 import './sw-import-export-progress.scss';
@@ -11,6 +11,11 @@ export default {
     template,
 
     inject: ['feature'],
+
+    emits: [
+        'process-start',
+        'process-start-dryrun',
+    ],
 
     props: {
         activityType: {
@@ -32,7 +37,6 @@ export default {
         disableButton: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },

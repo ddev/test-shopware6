@@ -10,9 +10,9 @@ class BillingAddressBlockedError extends Error
 {
     private const KEY = 'billing-address-blocked';
 
-    public function __construct(private readonly string $name)
+    public function __construct(protected readonly string $name)
     {
-        $this->message = sprintf(
+        $this->message = \sprintf(
             'Billings to billing address %s are not possible.',
             $name
         );
@@ -32,7 +32,7 @@ class BillingAddressBlockedError extends Error
 
     public function getKey(): string
     {
-        return sprintf('%s-%s', self::KEY, $this->name);
+        return \sprintf('%s-%s', self::KEY, $this->name);
     }
 
     public function getLevel(): int

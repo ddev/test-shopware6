@@ -151,7 +151,7 @@ class SignerV4 implements Signer
         if ($isPresign) {
             $request->setQueryAttribute('X-Amz-Signature', $signature);
         } else {
-            $request->setHeader('authorization', sprintf(
+            $request->setHeader('authorization', \sprintf(
                 '%s Credential=%s/%s, SignedHeaders=%s, Signature=%s',
                 self::ALGORITHM_REQUEST,
                 $credentials->getAccessKeyId(),
@@ -176,7 +176,7 @@ class SignerV4 implements Signer
     private function sanitizeHostForHeader(Request $request): void
     {
         if (false === $parsedUrl = parse_url($request->getEndpoint())) {
-            throw new InvalidArgument(sprintf('The endpoint "%s" is invalid.', $request->getEndpoint()));
+            throw new InvalidArgument(\sprintf('The endpoint "%s" is invalid.', $request->getEndpoint()));
         }
 
         if (!isset($parsedUrl['host'])) {
@@ -317,11 +317,13 @@ class SignerV4 implements Signer
         $query = $request->getQuery();
 
         unset($query['X-Amz-Signature']);
-        if (!$query) {
+        if (empty($query)) {
             return '';
         }
 
-        ksort($query);
+        uksort($query, static function (string $a, string $b): int {
+            return strcmp(rawurlencode($a), rawurlencode($b));
+        });
         $encodedQuery = [];
         foreach ($query as $key => $values) {
             if (!\is_array($values)) {
@@ -330,6 +332,7 @@ class SignerV4 implements Signer
                 continue;
             }
 
+            // @phpstan-ignore argument.unresolvableType
             sort($values);
             foreach ($values as $value) {
                 $encodedQuery[] = rawurlencode($key) . '=' . rawurlencode($value);

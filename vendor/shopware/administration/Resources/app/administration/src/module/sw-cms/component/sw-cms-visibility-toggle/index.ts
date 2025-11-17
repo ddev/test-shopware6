@@ -1,9 +1,9 @@
-import template from './sw-cms-visibility-toggle.html';
+import template from './sw-cms-visibility-toggle.html.twig';
 import './sw-cms-visibility-toggle.scss';
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,

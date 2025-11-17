@@ -12,7 +12,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\RouterInterface;
 
-#[Package('buyers-experience')]
+#[Package('inventory')]
 class SeoUrlPlaceholderHandler implements SeoUrlPlaceholderHandlerInterface
 {
     final public const DOMAIN_PLACEHOLDER = '124c71d524604ccbad6042edce3ac799';
@@ -33,7 +33,7 @@ class SeoUrlPlaceholderHandler implements SeoUrlPlaceholderHandlerInterface
      */
     public function generate($name, array $parameters = []): string
     {
-        $path = $this->router->generate($name, $parameters, RouterInterface::ABSOLUTE_PATH);
+        $path = $this->router->generate($name, $parameters);
 
         $request = $this->requestStack->getMainRequest();
         $basePath = $request ? $request->getBasePath() : '';
@@ -62,7 +62,7 @@ class SeoUrlPlaceholderHandler implements SeoUrlPlaceholderHandlerInterface
     }
 
     /**
-     * @param array<string, string> $matches
+     * @param list<string> $matches
      *
      * @return array<string, string>
      */
@@ -92,7 +92,7 @@ class SeoUrlPlaceholderHandler implements SeoUrlPlaceholderHandlerInterface
 
         $query = new QueryBuilder($this->connection);
         $query->setTitle('seo_url::replacement');
-        $query->addSelect(['seo_path_info', 'path_info', 'sales_channel_id']);
+        $query->addSelect('seo_path_info', 'path_info', 'sales_channel_id');
 
         $query->from('seo_url');
         $query->andWhere('seo_url.is_canonical = 1');
@@ -101,7 +101,7 @@ class SeoUrlPlaceholderHandler implements SeoUrlPlaceholderHandlerInterface
         $query->andWhere('seo_url.sales_channel_id = :salesChannelId OR seo_url.sales_channel_id IS NULL');
         $query->andWhere('seo_url.is_deleted = 0');
         $query->setParameter('pathInfo', $mapping, ArrayParameterType::STRING);
-        $query->setParameter('languageId', Uuid::fromHexToBytes($context->getContext()->getLanguageId()));
+        $query->setParameter('languageId', Uuid::fromHexToBytes($context->getLanguageId()));
         $query->setParameter('salesChannelId', Uuid::fromHexToBytes($context->getSalesChannelId()));
 
         $seoUrls = $query->executeQuery()->fetchAllAssociative();

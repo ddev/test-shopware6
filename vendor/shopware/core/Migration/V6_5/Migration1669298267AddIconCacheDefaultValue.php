@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1669298267AddIconCacheDefaultValue extends MigrationStep
 {
     final public const CONFIG_KEY = 'core.storefrontSettings.iconCache';
@@ -33,10 +33,5 @@ class Migration1669298267AddIconCacheDefaultValue extends MigrationStep
             'configuration_value' => json_encode(['_value' => true]),
             'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT),
         ]);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

@@ -1,19 +1,21 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-detail-reviews.html.twig';
 import './sw-product-detail-reviews.scss';
 
-const { Component, Data, Context } = Shopware;
+const { Data, Context } = Shopware;
 const { Criteria } = Data;
-const { mapState, mapGetters } = Component.getComponentHelper();
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
 
     data() {
         return {
@@ -27,13 +29,13 @@ export default {
     },
 
     computed: {
-        ...mapState('swProductDetail', [
-            'product',
-        ]),
+        product() {
+            return Shopware.Store.get('swProductDetail').product;
+        },
 
-        ...mapGetters('swProductDetail', [
-            'isLoading',
-        ]),
+        isLoading() {
+            return Shopware.Store.get('swProductDetail').isLoading;
+        },
 
         cardTitle() {
             return this.total ? this.$tc('sw-product.reviews.cardTitleReviews') : null;
@@ -46,9 +48,7 @@ export default {
         reviewCriteria() {
             const criteria = new Criteria(this.page, this.limit);
 
-            criteria.addFilter(
-                Criteria.equals('productId', this.product.id),
-            );
+            criteria.addFilter(Criteria.equals('productId', this.product.id));
             criteria.setTotalCountMode(1);
 
             return criteria;
@@ -85,6 +85,9 @@ export default {
             return Shopware.Filter.getByName('asset');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -122,7 +125,7 @@ export default {
                 this.dataSource = reviews;
 
                 if (this.total > 0 && this.dataSource.length <= 0) {
-                    this.page = (this.page === 1) ? 1 : this.page - 1;
+                    this.page = this.page === 1 ? 1 : this.page - 1;
                     this.getReviews();
                 }
             });

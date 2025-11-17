@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  *
- * Elasticsearch PHP client
+ * OpenSearch PHP client
  *
- * @link      https://github.com/elastic/elasticsearch-php/
+ * @link      https://github.com/opensearch-project/opensearch-php/
  * @copyright Copyright (c) Elasticsearch B.V (https://www.elastic.co)
  * @license   http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license   https://www.gnu.org/licenses/lgpl-2.1.html GNU Lesser General Public License, Version 2.1
@@ -23,6 +23,7 @@ namespace OpenSearch\Endpoints;
 
 use OpenSearch\Common\Exceptions\UnexpectedValueException;
 use OpenSearch\Serializers\SerializerInterface;
+
 use function array_filter;
 
 abstract class AbstractEndpoint
@@ -112,6 +113,8 @@ abstract class AbstractEndpoint
     }
 
     /**
+     * @param string|string[]|null $index
+     *
      * @return $this
      */
     public function setIndex($index)
@@ -187,7 +190,7 @@ abstract class AbstractEndpoint
     }
 
     /**
-     * @param array $params
+     * @param array<string, mixed> $params
      *
      * @throws UnexpectedValueException
      */
@@ -217,7 +220,7 @@ abstract class AbstractEndpoint
     }
 
     /**
-     * @param array $params Note: this is passed by-reference!
+     * @param array<string, mixed> $params Note: this is passed by-reference!
      */
     private function extractOptions(&$params)
     {
@@ -247,6 +250,11 @@ abstract class AbstractEndpoint
         }
     }
 
+    /**
+     * @param array<string, mixed> $params
+     *
+     * @return array<string, mixed>
+     */
     private function convertCustom(array $params): array
     {
         if (isset($params['custom']) === true) {
@@ -284,7 +292,7 @@ abstract class AbstractEndpoint
     }
 
     /**
-     * This function returns all param deprecations also optional with an replacement field
+     * This function returns all param deprecations also optional with a replacement field
      *
      * @return array<string, string|null>
      */

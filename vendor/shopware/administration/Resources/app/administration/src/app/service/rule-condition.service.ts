@@ -1,66 +1,70 @@
-import type EntityCollection from '@shopware-ag/admin-extension-sdk/es/data/_internals/EntityCollection';
-
 const { Criteria } = Shopware.Data;
 
-type appScriptCondition = {
-    id: string,
-    config: unknown
-}
+type AppScriptCondition = {
+    id: string;
+    config: unknown;
+};
 
-type condition = {
-    type: string,
-    component: string,
-    label: string,
-    scopes: string[],
-    group: string,
-    scriptId: string,
-    appScriptCondition: appScriptCondition,
-}
+type Condition = {
+    type: string;
+    component: string;
+    label: string;
+    scopes: string[];
+    group: string;
+    scriptId: string;
+    appScriptCondition: AppScriptCondition;
+};
 
-type script = {
-    id: string,
-    name?: string,
+type Script = {
+    id: string;
+    name?: string;
     translated?: {
-        name?: string,
-    },
-    group: string,
-    config: unknown,
-}
+        name?: string;
+    };
+    group: string;
+    config: unknown;
+};
 
-type operatorSetIdentifier =
-    'defaultSet' |
-    'singleStore' |
-    'multiStore' |
-    'string' |
-    'bool' |
-    'number' |
-    'date' |
-    'isNet' |
-    'empty' |
-    'zipCode';
+type OperatorSetIdentifier =
+    | 'defaultSet'
+    | 'singleStore'
+    | 'multiStore'
+    | 'string'
+    | 'bool'
+    | 'number'
+    | 'date'
+    | 'isNet'
+    | 'empty'
+    | 'zipCode';
 
-type component = {
-    type: string,
+type Component = {
+    type: string;
     config: {
-        componentName: string,
-    },
-}
+        componentName: string;
+    };
+};
 
-type moduleType = {
-    id: string,
-    name: string,
-}
+type ModuleType = {
+    id: string;
+    name: string;
+};
 
-type group = {
-    id: string,
-    name: string,
-}
+type Group = {
+    id: string;
+    name: string;
+};
 
-type awarenessConfiguration = {
-    notEquals?: Array<string>,
-    equalsAny?: Array<string>,
-    snippet?: string,
-}
+type AwarenessConfiguration = {
+    notEquals?: Array<string>;
+    equalsAny?: Array<string>;
+    snippet?: string;
+};
+
+type CustomFieldConditionConfig = {
+    type: string;
+    componentName: string;
+    customFieldType?: string;
+};
 
 /**
  * @module app/service/rule-condition
@@ -68,16 +72,16 @@ type awarenessConfiguration = {
 
 /**
  * @private
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @memberOf module:app/service/rule-condition
  * @constructor
  * @method createConditionService
  * @returns {Object}
  */
 export default class RuleConditionService {
-    $store: { [key: string]: condition} = {};
+    $store: { [key: string]: Condition } = {};
 
-    awarenessConfiguration: { [key: string]: awarenessConfiguration} = {};
+    awarenessConfiguration: { [key: string]: AwarenessConfiguration } = {};
 
     operators = {
         lowerThanEquals: {
@@ -179,7 +183,17 @@ export default class RuleConditionService {
         ],
     };
 
-    moduleTypes: { [key: string]: moduleType } = {
+    operatorSetMapping: { [key: string]: OperatorSetIdentifier } = {
+        'sw-entity-single-select': 'singleStore',
+        'sw-single-select': 'singleStore',
+        'sw-multi-select': 'multiStore',
+        'sw-text-editor': 'string',
+        text: 'string',
+        int: 'number',
+        bool: 'bool',
+    };
+
+    moduleTypes: { [key: string]: ModuleType } = {
         shipping: {
             id: 'shipping',
             name: 'sw-settings-rule.detail.types.shipping',
@@ -198,7 +212,7 @@ export default class RuleConditionService {
         },
     };
 
-    groups: { [key: string]: group} = {
+    groups: { [key: string]: Group } = {
         general: {
             id: 'general',
             name: 'sw-settings-rule.detail.groups.general',
@@ -233,15 +247,17 @@ export default class RuleConditionService {
         },
     };
 
-    getByType(type: string): condition {
+    getByType(type: string): Condition {
         if (!type) {
             return this.getByType('placeholder');
         }
 
         if (type === 'scriptRule') {
-            const scriptRule = this.getConditions().filter((condition) => {
-                return condition.type === 'scriptRule';
-            }).shift();
+            const scriptRule = this.getConditions()
+                .filter((condition) => {
+                    return condition.type === 'scriptRule';
+                })
+                .shift();
 
             if (scriptRule) {
                 return scriptRule;
@@ -251,18 +267,24 @@ export default class RuleConditionService {
         return this.$store[type];
     }
 
-    addCondition(type: string, condition: Partial<Omit<condition, 'type'>>) {
-        (condition as condition).type = type;
+    addCondition(type: string, condition: Partial<Omit<Condition, 'type'>>) {
+        (condition as Condition).type = type;
 
-        this.$store[condition.scriptId ?? type] = condition as condition;
+        this.$store[condition.scriptId ?? type] = condition as Condition;
     }
 
-    addScriptConditions(scripts: script[]) {
+    addScriptConditions(scripts: Script[]) {
         scripts.forEach((script) => {
             this.addCondition('scriptRule', {
                 component: 'sw-condition-script',
                 label: (script?.translated?.name || script.name) ?? '',
-                scopes: script.group === 'item' ? ['global', 'lineItem'] : ['global'],
+                scopes:
+                    script.group === 'item'
+                        ? [
+                              'global',
+                              'lineItem',
+                          ]
+                        : ['global'],
                 group: script.group,
                 scriptId: script.id,
                 appScriptCondition: {
@@ -273,7 +295,7 @@ export default class RuleConditionService {
         });
     }
 
-    getOperatorSet(operatorSetName: operatorSetIdentifier) {
+    getOperatorSet(operatorSetName: OperatorSetIdentifier) {
         return this.operatorSets[operatorSetName];
     }
 
@@ -281,41 +303,103 @@ export default class RuleConditionService {
         return operatorSet.concat(this.operatorSets.empty);
     }
 
-    getOperatorSetByComponent(component: component) {
-        const componentName = component.config.componentName;
-        const type = component.type;
+    getOperatorSetByComponent(component: Component) {
+        const { componentName } = component.config;
+        const { type } = component;
 
-        if (componentName === 'sw-single-select') {
-            return this.operatorSets.singleStore;
-        }
-        if (componentName === 'sw-multi-select') {
-            return this.operatorSets.multiStore;
-        }
-        if (type === 'bool') {
-            return this.operatorSets.bool;
-        }
-        if (type === 'text') {
-            return this.operatorSets.string;
-        }
-        if (type === 'int') {
-            return this.operatorSets.number;
+        const operatorSetKey = this.operatorSetMapping[componentName] ?? this.operatorSetMapping[type] ?? 'defaultSet';
+
+        return this.operatorSets[operatorSetKey];
+    }
+
+    getTransformedCustomFieldConditionConfig(config: CustomFieldConditionConfig) {
+        if (!config) {
+            return null;
         }
 
-        return this.operatorSets.defaultSet;
+        const transformedConfig = { ...config };
+
+        if (
+            [
+                'checkbox',
+                'switch',
+            ].includes(transformedConfig?.type)
+        ) {
+            return this.getTransformedBooleanFieldConfig(transformedConfig);
+        }
+
+        if (transformedConfig?.customFieldType === 'textEditor') {
+            return {
+                ...transformedConfig,
+                type: 'text',
+                componentName: 'sw-field',
+                customFieldType: 'text',
+            };
+        }
+
+        return transformedConfig;
+    }
+
+    private getTransformedBooleanFieldConfig(transformedConfig: CustomFieldConditionConfig) {
+        const locale = Shopware.Store.get('session')?.currentLocale || 'en-GB';
+        const app = Shopware.Application.getApplicationRoot();
+
+        if (!app) {
+            return transformedConfig;
+        }
+
+        const booleanOptions = [
+            {
+                label: {
+                    [locale]: app.$tc('global.default.yes'),
+                },
+                value: true,
+            },
+            {
+                label: {
+                    [locale]: app.$tc('global.default.no'),
+                },
+                value: false,
+            },
+        ];
+
+        return {
+            ...transformedConfig,
+            options: booleanOptions,
+            componentName: 'sw-single-select',
+            customFieldType: 'select',
+        };
     }
 
     getOperatorOptionsByIdentifiers(identifiers: Array<string>, isMatchAny = false) {
         return identifiers.map((identifier) => {
-            const option = Object.entries(this.operators).find(([name, operator]) => {
-                if (isMatchAny && ['equals', 'notEquals'].includes(name)) {
-                    return false;
-                }
-                if (!isMatchAny && ['isOneOf', 'isNoneOf'].includes(name)) {
-                    return false;
-                }
+            const option = Object.entries(this.operators).find(
+                ([
+                    name,
+                    operator,
+                ]) => {
+                    if (
+                        isMatchAny &&
+                        [
+                            'equals',
+                            'notEquals',
+                        ].includes(name)
+                    ) {
+                        return false;
+                    }
+                    if (
+                        !isMatchAny &&
+                        [
+                            'isOneOf',
+                            'isNoneOf',
+                        ].includes(name)
+                    ) {
+                        return false;
+                    }
 
-                return identifier === operator.identifier;
-            });
+                    return identifier === operator.identifier;
+                },
+            );
 
             if (option) {
                 return option.pop();
@@ -328,7 +412,7 @@ export default class RuleConditionService {
         });
     }
 
-    addModuleType(type: moduleType) {
+    addModuleType(type: ModuleType) {
         this.moduleTypes[type.id] = type;
     }
 
@@ -338,9 +422,9 @@ export default class RuleConditionService {
 
     getByGroup(group: string) {
         const values = Object.values(this.$store);
-        const conditions: Array<condition> = [];
+        const conditions: Array<Condition> = [];
 
-        values.forEach(condition => {
+        values.forEach((condition) => {
             if (condition.group === group) {
                 conditions.push(condition);
             }
@@ -353,7 +437,7 @@ export default class RuleConditionService {
         return this.groups;
     }
 
-    upsertGroup(groupName: string, groupData: group) {
+    upsertGroup(groupName: string, groupData: Group) {
         this.groups[groupName] = { ...this.groups[groupName], ...groupData };
     }
 
@@ -361,12 +445,12 @@ export default class RuleConditionService {
         delete this.groups[groupName];
     }
 
-    getConditions(allowedScopes: Array<string>|null = null): condition[] {
+    getConditions(allowedScopes: Array<string> | null = null): Condition[] {
         let values = Object.values(this.$store);
 
         if (allowedScopes !== null) {
-            values = values.filter(condition => {
-                return allowedScopes.some(scope => condition.scopes.indexOf(scope) !== -1);
+            values = values.filter((condition) => {
+                return allowedScopes.some((scope) => condition.scopes.indexOf(scope) !== -1);
             });
         }
 
@@ -377,7 +461,7 @@ export default class RuleConditionService {
         return { type: 'andContainer', value: {} };
     }
 
-    isAndContainer(condition: condition) {
+    isAndContainer(condition: Condition) {
         return condition.type === 'andContainer';
     }
 
@@ -385,7 +469,7 @@ export default class RuleConditionService {
         return { type: 'orContainer', value: {} };
     }
 
-    isOrContainer(condition: condition) {
+    isOrContainer(condition: Condition) {
         return condition.type === 'orContainer';
     }
 
@@ -393,11 +477,11 @@ export default class RuleConditionService {
         return { type: null, value: {} };
     }
 
-    isAllLineItemsContainer(condition: condition) {
+    isAllLineItemsContainer(condition: Condition) {
         return condition.type === 'allLineItemsContainer';
     }
 
-    getComponentByCondition(condition: condition) {
+    getComponentByCondition(condition: Condition) {
         if (this.isAndContainer(condition)) {
             return 'sw-condition-and-container';
         }
@@ -423,9 +507,9 @@ export default class RuleConditionService {
         return conditionType.component;
     }
 
-    addAwarenessConfiguration(assignmentName: string, configuration: awarenessConfiguration) {
+    addAwarenessConfiguration(assignmentName: string, configuration: AwarenessConfiguration) {
         this.awarenessConfiguration[assignmentName] = configuration;
-        configuration.equalsAny = configuration.equalsAny?.filter(value => !configuration.notEquals?.includes(value));
+        configuration.equalsAny = configuration.equalsAny?.filter((value) => !configuration.notEquals?.includes(value));
     }
 
     getAwarenessConfigurationByAssignmentName(assignmentName: string) {
@@ -436,11 +520,16 @@ export default class RuleConditionService {
 
     getAwarenessKeysWithEqualsAnyConfig() {
         const equalsAnyConfigurations: Array<string> = [];
-        Object.entries(this.awarenessConfiguration).forEach(([key, value]) => {
-            if (value?.equalsAny?.length && value?.equalsAny?.length > 0) {
-                equalsAnyConfigurations.push(key);
-            }
-        });
+        Object.entries(this.awarenessConfiguration).forEach(
+            ([
+                key,
+                value,
+            ]) => {
+                if (value?.equalsAny?.length && value?.equalsAny?.length > 0) {
+                    equalsAnyConfigurations.push(key);
+                }
+            },
+        );
 
         return equalsAnyConfigurations;
     }
@@ -463,12 +552,12 @@ export default class RuleConditionService {
         const keys = Object.keys(this.awarenessConfiguration);
 
         const conditions: { [key: string]: Array<unknown> } = {};
-        keys.forEach(key => {
+        keys.forEach((key) => {
             const association = r[key as keyof EntitySchema.rule] as Array<unknown>;
             const currentEntry = this.awarenessConfiguration[key];
 
             if (association && association.length > 0 && currentEntry.notEquals) {
-                currentEntry.notEquals.forEach(condition => {
+                currentEntry.notEquals.forEach((condition) => {
                     if (!conditions[condition]) {
                         conditions[condition] = [];
                     }
@@ -484,7 +573,7 @@ export default class RuleConditionService {
             return conditions;
         }
 
-        (r.flowSequences as EntityCollection<'flow_sequence'>).forEach(sequence => {
+        (r.flowSequences as EntityCollection<'flow_sequence'>).forEach((sequence) => {
             const eventName = `flowTrigger.${sequence.flow?.eventName ?? ''}`;
             const currentEntry = this.awarenessConfiguration[eventName];
 
@@ -492,7 +581,7 @@ export default class RuleConditionService {
                 return;
             }
 
-            currentEntry.notEquals.forEach(condition => {
+            currentEntry.notEquals.forEach((condition) => {
                 if (!conditions[condition]) {
                     conditions[condition] = [];
                 }
@@ -521,7 +610,11 @@ export default class RuleConditionService {
         }
 
         if (equalsAny) {
-            restrictions.push(Criteria.not('AND', [Criteria.equalsAny('conditions.type', equalsAny)]));
+            restrictions.push(
+                Criteria.not('AND', [
+                    Criteria.equalsAny('conditions.type', equalsAny),
+                ]),
+            );
         }
 
         if (restrictions.length === 0) {
@@ -530,12 +623,9 @@ export default class RuleConditionService {
 
         const ruleRepository = Shopware.Service('repositoryFactory').create('rule');
         const criteria = new Criteria(1, 25);
-        criteria.addFilter(Criteria.multi(
-            'OR',
-            restrictions,
-        ));
+        criteria.addFilter(Criteria.multi('OR', restrictions));
 
-        return ruleRepository.searchIds(criteria).then(result => result.data);
+        return ruleRepository.searchIds(criteria).then((result) => result.data);
     }
 
     /**
@@ -555,12 +645,12 @@ export default class RuleConditionService {
     getRestrictionsByAssociation(conditions: EntityCollection<'rule_condition'>, assignmentName: string) {
         const awarenessEntry = this.getAwarenessConfigurationByAssignmentName(assignmentName);
         const restrictionConfig: {
-            notEqualsViolations: Array<{ label: string }>,
-            equalsAnyNotMatched: Array<{ label: string }>,
-            isRestricted: boolean,
-            assignmentName: string,
-            equalsAnyMatched: condition[],
-            assignmentSnippet?: string,
+            notEqualsViolations: Array<{ label: string }>;
+            equalsAnyNotMatched: Array<{ label: string }>;
+            isRestricted: boolean;
+            assignmentName: string;
+            equalsAnyMatched: Condition[];
+            assignmentSnippet?: string;
         } = {
             assignmentName: assignmentName,
             notEqualsViolations: [],
@@ -575,7 +665,7 @@ export default class RuleConditionService {
         restrictionConfig.assignmentSnippet = awarenessEntry.snippet;
 
         if (awarenessEntry.notEquals) {
-            conditions.forEach(condition => {
+            conditions.forEach((condition) => {
                 if (awarenessEntry.notEquals?.includes(condition.type)) {
                     restrictionConfig.notEqualsViolations.push(this.getByType(condition.type));
                     restrictionConfig.isRestricted = true;
@@ -584,8 +674,8 @@ export default class RuleConditionService {
         }
 
         if (awarenessEntry.equalsAny) {
-            awarenessEntry.equalsAny.forEach(type => {
-                const matchedCondition = conditions.find(condition => {
+            awarenessEntry.equalsAny.forEach((type) => {
+                const matchedCondition = conditions.find((condition) => {
                     return condition.type === type;
                 });
                 if (matchedCondition) {
@@ -630,9 +720,9 @@ export default class RuleConditionService {
             return {};
         }
         const keys = Object.keys(this.awarenessConfiguration);
-        const restrictedAssociations: { [key: string]: unknown} = {};
+        const restrictedAssociations: { [key: string]: unknown } = {};
 
-        keys.forEach(key => {
+        keys.forEach((key) => {
             restrictedAssociations[key] = this.getRestrictionsByAssociation(conditions, key);
         });
 
@@ -670,7 +760,7 @@ export default class RuleConditionService {
      * @param {string|null} ruleAwareGroupKey
      * @returns {object}
      */
-    getRestrictedRuleTooltipConfig(ruleConditions: EntityCollection<'rule_condition'>, ruleAwareGroupKey: string|null) {
+    getRestrictedRuleTooltipConfig(ruleConditions: EntityCollection<'rule_condition'>, ruleAwareGroupKey: string | null) {
         const app = Shopware.Application.getApplicationRoot();
 
         if (!app || !ruleAwareGroupKey) {
@@ -693,6 +783,7 @@ export default class RuleConditionService {
                 disabled: false,
                 message: app.$tc(
                     'sw-restricted-rules.restrictedAssignment.notEqualsViolationTooltip',
+                    // @ts-expect-error
                     undefined,
                     {
                         conditions: this.getTranslatedConditionViolationList(
@@ -711,7 +802,6 @@ export default class RuleConditionService {
             width: 400,
             message: app.$tc(
                 'sw-restricted-rules.restrictedAssignment.equalsAnyViolationTooltip',
-                0,
                 {
                     conditions: this.getTranslatedConditionViolationList(
                         restrictionConfig.equalsAnyNotMatched,
@@ -719,6 +809,7 @@ export default class RuleConditionService {
                     ),
                     entityLabel: app.$tc(restrictionConfig.assignmentSnippet ?? '', 2),
                 },
+                0,
             ),
         };
     }
@@ -729,15 +820,12 @@ export default class RuleConditionService {
      * @param {string|null} ruleAwareGroupKey
      * @returns {boolean}
      */
-    isRuleRestricted(ruleConditions: EntityCollection<'rule_condition'>, ruleAwareGroupKey: string|null) {
+    isRuleRestricted(ruleConditions: EntityCollection<'rule_condition'>, ruleAwareGroupKey: string | null) {
         if (!ruleAwareGroupKey) {
             return false;
         }
 
-        const restrictionConfig = this.getRestrictionsByAssociation(
-            ruleConditions,
-            ruleAwareGroupKey,
-        );
+        const restrictionConfig = this.getRestrictionsByAssociation(ruleConditions, ruleAwareGroupKey);
 
         return restrictionConfig.isRestricted;
     }
@@ -745,10 +833,24 @@ export default class RuleConditionService {
     getRestrictionsByGroup(...wantedGroups: Array<string>) {
         const entries = Object.entries(this.$store);
 
-        return entries.reduce((acc, [restrictionName, condition]) => {
-            const inGroup = wantedGroups.includes(condition.group);
+        return entries.reduce(
+            (
+                acc,
+                [
+                    restrictionName,
+                    condition,
+                ],
+            ) => {
+                const inGroup = wantedGroups.includes(condition.group);
 
-            return inGroup ? [...acc, restrictionName] : acc;
-        }, [] as Array<string>);
+                return inGroup
+                    ? [
+                          ...acc,
+                          restrictionName,
+                      ]
+                    : acc;
+            },
+            [] as Array<string>,
+        );
     }
 }

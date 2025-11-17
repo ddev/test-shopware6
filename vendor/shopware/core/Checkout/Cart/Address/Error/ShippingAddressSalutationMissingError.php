@@ -13,7 +13,7 @@ class ShippingAddressSalutationMissingError extends SalutationMissingError
 
     public function __construct(CustomerAddressEntity $address)
     {
-        $this->message = sprintf(
+        $this->message = \sprintf(
             'A salutation needs to be defined for the shipping address "%s %s, %s %s".',
             $address->getFirstName(),
             $address->getLastName(),
@@ -36,6 +36,7 @@ class ShippingAddressSalutationMissingError extends SalutationMissingError
     public function getRoute(): ?ErrorRoute
     {
         return new ErrorRoute(
+            /** @phpstan-ignore shopware.storefrontRouteUsage (Do not use Storefront routes in the core. Will be fixed with https://github.com/shopware/shopware/issues/12969) */
             'frontend.account.address.edit.page',
             $this->parameters
         );

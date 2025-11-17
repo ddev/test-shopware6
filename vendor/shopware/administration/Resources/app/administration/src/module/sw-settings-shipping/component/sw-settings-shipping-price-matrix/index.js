@@ -1,18 +1,28 @@
 import template from './sw-settings-shipping-price-matrix.html.twig';
 import './sw-settings-shipping-price-matrix.scss';
 
-const { Mixin, Context, Data: { Criteria } } = Shopware;
+const {
+    Mixin,
+    Context,
+    Data: { Criteria },
+} = Shopware;
 const { cloneDeep } = Shopware.Utils.object;
-const { mapState, mapGetters } = Shopware.Component.getComponentHelper();
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+    ],
+
+    emits: [
+        'duplicate-price-matrix',
+        'delete-price-matrix',
+    ],
 
     mixins: [
         Mixin.getByName('placeholder'),
@@ -35,28 +45,54 @@ export default {
     data() {
         return {
             calculationTypes: [
-                { label: this.$tc('sw-settings-shipping.priceMatrix.calculationLineItemCount'), value: 1 },
-                { label: this.$tc('sw-settings-shipping.priceMatrix.calculationPrice'), value: 2 },
-                { label: this.$tc('sw-settings-shipping.priceMatrix.calculationWeight'), value: 3 },
-                { label: this.$tc('sw-settings-shipping.priceMatrix.calculationVolume'), value: 4 },
+                {
+                    label: this.$tc('sw-settings-shipping.priceMatrix.calculationLineItemCount'),
+                    value: 1,
+                },
+                {
+                    label: this.$tc('sw-settings-shipping.priceMatrix.calculationPrice'),
+                    value: 2,
+                },
+                {
+                    label: this.$tc('sw-settings-shipping.priceMatrix.calculationWeight'),
+                    value: 3,
+                },
+                {
+                    label: this.$tc('sw-settings-shipping.priceMatrix.calculationVolume'),
+                    value: 4,
+                },
             ],
             showDeleteModal: false,
             isLoading: false,
+            ruleColumns: [],
+            showAllPrices: true,
         };
     },
 
     computed: {
-        ...mapState('swShippingDetail', [
-            'shippingMethod',
-            'currencies',
-        ]),
+        shippingMethod() {
+            return Shopware.Store.get('swShippingDetail').shippingMethod;
+        },
 
-        ...mapGetters('swShippingDetail', [
-            'defaultCurrency',
-            'usedRules',
-            'unrestrictedPriceMatrixExists',
-            'newPriceMatrixExists',
-        ]),
+        currencies() {
+            return Shopware.Store.get('swShippingDetail').currencies;
+        },
+
+        restrictedRuleIds() {
+            return Shopware.Store.get('swShippingDetail').restrictedRuleIds;
+        },
+
+        unrestrictedPriceMatrixExists() {
+            return Shopware.Store.get('swShippingDetail').unrestrictedPriceMatrixExists;
+        },
+
+        newPriceMatrixExists() {
+            return Shopware.Store.get('swShippingDetail').newPriceMatrixExists;
+        },
+
+        defaultCurrency() {
+            return Shopware.Store.get('swShippingDetail').defaultCurrency;
+        },
 
         ruleRepository() {
             return this.repositoryFactory.create('rule');
@@ -74,8 +110,7 @@ export default {
                 4: 'sw-settings-shipping.priceMatrix.columnVolumeStart',
             };
 
-            return calculationType[this.priceGroup.calculation]
-                || 'sw-settings-shipping.priceMatrix.columnQuantityStart';
+            return calculationType[this.priceGroup.calculation] || 'sw-settings-shipping.priceMatrix.columnQuantityStart';
         },
 
         labelQuantityEnd() {
@@ -86,8 +121,7 @@ export default {
                 4: 'sw-settings-shipping.priceMatrix.columnVolumeEnd',
             };
 
-            return calculationType[this.priceGroup.calculation]
-                || 'sw-settings-shipping.priceMatrix.columnQuantityEnd';
+            return calculationType[this.priceGroup.calculation] || 'sw-settings-shipping.priceMatrix.columnQuantityEnd';
         },
 
         numberFieldType() {
@@ -98,62 +132,22 @@ export default {
                 4: 'float',
             };
 
-            return calculationType[this.priceGroup.calculation]
-                || 'float';
+            return calculationType[this.priceGroup.calculation] || 'float';
         },
 
         confirmDeleteText() {
             const name = this.priceGroup.rule ? this.priceGroup.rule.name : '';
-            return this.$tc(
-                'sw-settings-shipping.priceMatrix.textDeleteConfirm',
-                Number(!!this.priceGroup.rule),
-                { name: name },
-            );
-        },
-
-        ruleColumns() {
-            const columns = [];
-
-            if (this.isRuleMatrix) {
-                columns.push({
-                    property: 'calculationRule',
-                    label: 'sw-settings-shipping.priceMatrix.columnCalculationRule',
-                    allowResize: true,
-                    primary: true,
-                    rawData: true,
-                    width: '250px',
-                });
-            } else {
-                columns.push({
-                    property: 'quantityStart',
-                    label: this.labelQuantityStart,
-                    allowResize: true,
-                    primary: true,
-                    rawData: true,
-                });
-                columns.push({
-                    property: 'quantityEnd',
-                    label: this.labelQuantityEnd,
-                    allowResize: true,
-                    rawData: true,
-                    primary: true,
-                    width: '130px',
-                });
-            }
-
-            columns.push(...this.currencyColumns);
-
-            return columns;
+            return this.$tc('sw-settings-shipping.priceMatrix.textDeleteConfirm', { name }, Number(!!this.priceGroup.rule));
         },
 
         currencyColumns() {
-            return this.currencies.map((currency) => {
+            return this.currencies.map((currency, index) => {
                 let label = currency.translated.name || currency.name;
                 label = `${label} ${this.$tc('sw-settings-shipping.priceMatrix.labelGrossNet')}`;
                 return {
                     property: `price-${currency.isoCode}`,
                     label: label,
-                    visible: true,
+                    visible: index === 0 || (currency.salesChannels && currency.salesChannels.length > 0),
                     allowResize: true,
                     primary: !!currency.isSystemDefault,
                     rawData: false,
@@ -163,8 +157,10 @@ export default {
         },
 
         showDataGrid() {
-            return !!this.priceGroup.calculation ||
-                this.priceGroup.prices.some(shippingPrice => shippingPrice.calculationRuleId);
+            return (
+                !!this.priceGroup.calculation ||
+                this.priceGroup.prices.some((shippingPrice) => shippingPrice.calculationRuleId)
+            );
         },
 
         disableDeleteButton() {
@@ -173,31 +169,33 @@ export default {
 
         ruleFilterCriteria() {
             const criteria = new Criteria(1, 25);
-            criteria.addFilter(Criteria.multi(
-                'OR',
-                [
+            criteria.addSorting(Criteria.sort('name', 'ASC', false)).addFilter(
+                Criteria.multi('OR', [
                     Criteria.contains('rule.moduleTypes.types', 'price'),
                     Criteria.equals('rule.moduleTypes', null),
-                ],
-            ));
-
-            criteria.addAssociation('conditions')
-                .addSorting(Criteria.sort('name', 'ASC', false));
+                ]),
+            );
 
             return criteria;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed use ruleFilterCriteria instead.
+         * Filter for `type` "shipping" will be removed
+         */
         shippingRuleFilterCriteria() {
-            const criteria = new Criteria(1, 25);
-            criteria.addFilter(Criteria.multi(
-                'OR',
-                [
-                    Criteria.contains('rule.moduleTypes.types', 'shipping'),
-                    Criteria.equals('rule.moduleTypes', null),
-                ],
-            ));
+            if (Shopware.Feature.isActive('v6.8.0.0')) {
+                return this.ruleFilterCriteria;
+            }
 
-            criteria.addAssociation('conditions');
+            const criteria = new Criteria(1, 25);
+            criteria.addFilter(
+                Criteria.multi('OR', [
+                    Criteria.contains('rule.moduleTypes.types', 'shipping'),
+                    Criteria.contains('rule.moduleTypes.types', 'price'),
+                    Criteria.equals('rule.moduleTypes', null),
+                ]),
+            );
 
             return criteria;
         },
@@ -212,8 +210,8 @@ export default {
                 return rules;
             }
 
-            this.priceGroup.prices.forEach(shippingPrice => {
-                if (!rules.includes(shippingPrice.calculationRuleId)) {
+            this.priceGroup.prices.forEach((shippingPrice) => {
+                if (shippingPrice.calculationRuleId && !rules.includes(shippingPrice.calculationRuleId)) {
                     rules.push(shippingPrice.calculationRuleId);
                 }
             });
@@ -236,10 +234,60 @@ export default {
 
             return this.priceGroup.rule ? this.priceGroup.rule.name : this.$tc('sw-settings-shipping.priceMatrix.titleCard');
         },
+
+        prices() {
+            return this.showAllPrices ? this.priceGroup.prices : [this.priceGroup.prices[0]];
+        },
+    },
+
+    watch: {
+        isRuleMatrix() {
+            this.createdComponent();
+        },
+    },
+
+    created() {
+        this.createdComponent();
     },
 
     methods: {
+        createdComponent() {
+            this.ruleColumns = [];
+            this.showAllPrices = this.priceGroup.prices.length <= 1;
+
+            if (this.isRuleMatrix) {
+                this.ruleColumns.push({
+                    property: 'calculationRule',
+                    label: 'sw-settings-shipping.priceMatrix.columnCalculationRule',
+                    allowResize: true,
+                    primary: true,
+                    rawData: true,
+                    width: '250px',
+                });
+            } else {
+                this.ruleColumns.push({
+                    property: 'quantityStart',
+                    label: this.labelQuantityStart,
+                    allowResize: true,
+                    primary: true,
+                    rawData: true,
+                    width: '130px',
+                });
+                this.ruleColumns.push({
+                    property: 'quantityEnd',
+                    label: this.labelQuantityEnd,
+                    allowResize: true,
+                    rawData: true,
+                    primary: true,
+                    width: '130px',
+                });
+            }
+
+            this.ruleColumns.push(...this.currencyColumns);
+        },
+
         onAddNewShippingPrice() {
+            this.updateShowAllPrices();
             const refPrice = this.priceGroup.prices[this.priceGroup.prices.length - 1];
 
             const newShippingPrice = this.shippingPriceRepository.create(Context.api);
@@ -282,7 +330,7 @@ export default {
                 return;
             }
 
-            this.ruleRepository.get(ruleId, Context.api).then(rule => {
+            this.ruleRepository.get(ruleId, Context.api).then((rule) => {
                 this.priceGroup.prices.forEach((shippingPrice) => {
                     shippingPrice.ruleId = ruleId;
                     shippingPrice.rule = rule;
@@ -303,8 +351,10 @@ export default {
 
             // Next tick is necessary because otherwise the modal can not be removed from the dom, since it is moved
             // to the body and Vue can't keep track of it if the parent component is removed (by isLoading)
-            this.$nextTick(() => { this.isLoading = true; });
-            this.ruleRepository.get(ruleId, Context.api).then(rule => {
+            this.$nextTick(() => {
+                this.isLoading = true;
+            });
+            this.ruleRepository.get(ruleId, Context.api).then((rule) => {
                 shippingPrice.calculationRuleId = ruleId;
                 shippingPrice.calculationRule = rule;
                 this.isLoading = false;
@@ -312,7 +362,7 @@ export default {
         },
 
         onCalculationChange(calculation) {
-            this.priceGroup.prices.forEach(shippingPrice => {
+            this.priceGroup.prices.forEach((shippingPrice) => {
                 shippingPrice.calculation = Number(calculation);
                 shippingPrice.ruleId = this.priceGroup.ruleId;
             });
@@ -370,7 +420,7 @@ export default {
                 this.initCurrencyPrice(item);
             }
 
-            const defaultPrice = item.currencyPrice.find(price => {
+            const defaultPrice = item.currencyPrice.find((price) => {
                 return price.currencyId === this.defaultCurrency.id;
             });
 
@@ -381,12 +431,14 @@ export default {
          * Initialises the currencyPrice field with the default currency
          */
         initCurrencyPrice(shippingPrice) {
-            shippingPrice.currencyPrice = [{
-                currencyId: this.defaultCurrency.id,
-                gross: 0,
-                linked: false,
-                net: 0,
-            }];
+            shippingPrice.currencyPrice = [
+                {
+                    currencyId: this.defaultCurrency.id,
+                    gross: 0,
+                    linked: false,
+                    net: 0,
+                },
+            ];
         },
 
         getPrice(shippingPrice, currency) {
@@ -400,7 +452,7 @@ export default {
 
         setPrice(shippingPrice, currency, value) {
             if (!value) {
-                shippingPrice.currencyPrice = shippingPrice.currencyPrice.filter(price => {
+                shippingPrice.currencyPrice = shippingPrice.currencyPrice.filter((price) => {
                     return price.currencyId !== currency.id;
                 });
                 return;
@@ -420,7 +472,7 @@ export default {
                 this.initCurrencyPrice(priceArray);
             }
 
-            return priceArray.currencyPrice.find(price => {
+            return priceArray.currencyPrice.find((price) => {
                 return price.currencyId === currency.id;
             });
         },
@@ -441,6 +493,10 @@ export default {
             }
 
             this.onAddNewShippingPrice();
+        },
+
+        updateShowAllPrices() {
+            this.showAllPrices = true;
         },
     },
 };

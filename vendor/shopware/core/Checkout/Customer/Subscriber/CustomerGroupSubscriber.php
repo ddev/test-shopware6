@@ -5,6 +5,7 @@ namespace Shopware\Core\Checkout\Customer\Subscriber;
 use Cocur\Slugify\SlugifyInterface;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroup\CustomerGroupCollection;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroupTranslation\CustomerGroupTranslationCollection;
+use Shopware\Core\Content\Seo\SeoUrl\SeoUrlCollection;
 use Shopware\Core\Content\Seo\SeoUrlPersister;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
@@ -15,7 +16,6 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NandFilter;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Language\LanguageCollection;
 use Shopware\Core\System\Language\LanguageEntity;
@@ -27,10 +27,17 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 #[Package('checkout')]
 class CustomerGroupSubscriber implements EventSubscriberInterface
 {
+    /**
+     * @phpstan-ignore shopware.storefrontRouteUsage (Do not use Storefront routes in the core. Will be fixed with https://github.com/shopware/shopware/issues/12969)
+     */
     private const ROUTE_NAME = 'frontend.account.customer-group-registration.page';
 
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerGroupCollection> $customerGroupRepository
+     * @param EntityRepository<SeoUrlCollection> $seoUrlRepository
+     * @param EntityRepository<LanguageCollection> $languageRepository
      */
     public function __construct(
         private readonly EntityRepository $customerGroupRepository,
@@ -100,12 +107,12 @@ class CustomerGroupSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsAnyFilter('foreignKey', $ids));
-        $criteria->addFilter(new EqualsFilter('routeName', self::ROUTE_NAME));
+        $criteria = (new Criteria())
+            ->addFilter(new EqualsAnyFilter('foreignKey', $ids))
+            ->addFilter(new EqualsFilter('routeName', self::ROUTE_NAME));
 
-        /** @var array<string> $ids */
-        $ids = array_values($this->seoUrlRepository->searchIds($criteria, $event->getContext())->getIds());
+        /** @var list<string> $ids */
+        $ids = $this->seoUrlRepository->searchIds($criteria, $event->getContext())->getIds();
 
         if (\count($ids) === 0) {
             return;
@@ -119,19 +126,13 @@ class CustomerGroupSubscriber implements EventSubscriberInterface
      */
     private function createUrls(array $ids, Context $context): void
     {
-        $criteria = new Criteria($ids);
-        $criteria->addFilter(new EqualsFilter('registrationActive', true));
+        $criteria = (new Criteria($ids))
+            ->addFilter(new EqualsFilter('registrationActive', true))
+            ->addAssociations(['registrationSalesChannels.languages', 'translations']);
 
-        $criteria->addAssociation('registrationSalesChannels.languages');
-        $criteria->addAssociation('translations');
+        $criteria->getAssociation('registrationSalesChannels')
+            ->addFilter(new NandFilter([new EqualsFilter('typeId', Defaults::SALES_CHANNEL_TYPE_API)]));
 
-        if (Feature::isActive('v6.6.0.0')) {
-            $criteria->getAssociation('registrationSalesChannels')->addFilter(
-                new NandFilter([new EqualsFilter('typeId', Defaults::SALES_CHANNEL_TYPE_API)])
-            );
-        }
-
-        /** @var CustomerGroupCollection $groups */
         $groups = $this->customerGroupRepository->search($criteria, $context)->getEntities();
         $buildUrls = [];
 
@@ -146,21 +147,26 @@ class CustomerGroupSubscriber implements EventSubscriberInterface
                 }
 
                 if ($registrationSalesChannel->getTypeId() === Defaults::SALES_CHANNEL_TYPE_API) {
-                    if (Feature::isActive('v6.6.0.0')) {
-                        continue;
-                    }
+                    continue;
                 }
 
-                /** @var array<string> $languageIds */
                 $languageIds = $registrationSalesChannel->getLanguages()->getIds();
-                $criteria = new Criteria($languageIds);
-                /** @var LanguageCollection $languageCollection */
-                $languageCollection = $this->languageRepository->search($criteria, $context)->getEntities();
+                $languageCriteria = new Criteria($languageIds);
+                $languageCriteria->addFilter(new EqualsFilter('active', true));
+
+                $languageCollection = $this->languageRepository->search($languageCriteria, $context)->getEntities();
 
                 foreach ($languageIds as $languageId) {
-                    /** @var LanguageEntity $language */
                     $language = $languageCollection->get($languageId);
+                    if (!$language) {
+                        continue;
+                    }
+
                     $title = $this->getTranslatedTitle($group->getTranslations(), $language);
+
+                    if (empty($title)) {
+                        continue;
+                    }
 
                     if (!isset($buildUrls[$languageId])) {
                         $buildUrls[$languageId] = [

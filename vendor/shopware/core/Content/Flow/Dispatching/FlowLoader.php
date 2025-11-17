@@ -9,8 +9,10 @@ use Shopware\Core\Framework\Log\Package;
 
 /**
  * @internal not intended for decoration or replacement
+ *
+ * @phpstan-import-type EventGroupedFlowHolders from AbstractFlowLoader
  */
-#[Package('services-settings')]
+#[Package('after-sales')]
 class FlowLoader extends AbstractFlowLoader
 {
     public function __construct(
@@ -49,6 +51,10 @@ class FlowLoader extends AbstractFlowLoader
             $flows[$key]['payload'] = $payload;
         }
 
-        return FetchModeHelper::group($flows);
+        $result = FetchModeHelper::group($flows);
+
+        /** @var EventGroupedFlowHolders $result */
+        // @phpstan-ignore varTag.type (with the FetchModeHelper we lose the payload type information)
+        return $result;
     }
 }

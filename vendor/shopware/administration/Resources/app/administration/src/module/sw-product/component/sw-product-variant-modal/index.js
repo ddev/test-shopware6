@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-variant-modal.html.twig';
@@ -16,6 +16,8 @@ export default {
         'repositoryFactory',
         'acl',
     ],
+
+    emits: ['modal-close'],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -53,11 +55,15 @@ export default {
 
     computed: {
         modalTitle() {
-            return this.$t('sw-product.list.variantModalTitle', { productName: this.productEntity.translated.name });
+            return this.$t('sw-product.list.variantModalTitle', {
+                productName: this.productEntity.translated.name,
+            });
         },
 
         openMainProductText() {
-            return this.$t('sw-product.list.openMainProduct', { productName: this.productEntity.translated.name });
+            return this.$t('sw-product.list.openMainProduct', {
+                productName: this.productEntity.translated.name,
+            });
         },
 
         productRepository() {
@@ -65,7 +71,11 @@ export default {
         },
 
         productMediaRepository() {
-            return this.repositoryFactory.create(this.productEntity.media.entity);
+            return this.repositoryFactory.create('product_media');
+        },
+
+        productConfigurationRepository() {
+            return this.repositoryFactory.create('product_configurator_setting');
         },
 
         currencyRepository() {
@@ -77,9 +87,7 @@ export default {
         },
 
         contextMenuEditText() {
-            return this.acl.can('product.editor') ?
-                this.$tc('global.default.edit') :
-                this.$tc('global.default.view');
+            return this.acl.can('product.editor') ? this.$tc('global.default.edit') : this.$tc('global.default.view');
         },
 
         filterCriteria() {
@@ -125,17 +133,17 @@ export default {
                 criteria.setTerm(this.searchTerm);
             }
 
-            criteria.getAssociation('options')
-                .addAssociation('group');
-            criteria.addAssociation('cover');
-            criteria.addAssociation('media');
+            criteria.getAssociation('options').addAssociation('group');
+            criteria.addAssociation('cover.media');
+            criteria.addAssociation('media.media');
+            criteria.addAssociation('tax');
 
             if (this.searchTerm) {
                 // Split each word for search
                 const terms = this.searchTerm.split(' ');
 
                 // Create query for each single word
-                terms.forEach(term => {
+                terms.forEach((term) => {
                     criteria.addQuery(Criteria.equals('product.options.name', term), 3500);
                     criteria.addQuery(Criteria.contains('product.options.name', term), 500);
                 });
@@ -215,7 +223,7 @@ export default {
 
         canBeDeletedCriteria() {
             const criteria = new Criteria(1, 25);
-            const variantIds = this.toBeDeletedVariants.map(variant => variant.id);
+            const variantIds = this.toBeDeletedVariants.map((variant) => variant.id);
             criteria.addFilter(Criteria.equalsAny('canonicalProductId', variantIds));
 
             return criteria;
@@ -243,7 +251,8 @@ export default {
         filterOptionsListing() {
             // Prepare groups
             const groups = [...this.selectedGroups]
-                .sort((a, b) => a.position - b.position).map((group, index) => {
+                .sort((a, b) => a.position - b.position)
+                .map((group, index) => {
                     const children = this.getOptionsForGroup(group.id);
 
                     return {
@@ -261,32 +270,40 @@ export default {
                 const options = this.getOptionsForGroup(group.id);
 
                 // Iterate for each group options
-                const optionsForGroup = options.sort((elementA, elementB) => {
-                    return elementA.position - elementB.position;
-                }).map((element, index) => {
-                    const option = element.option;
+                const optionsForGroup = options
+                    .sort((elementA, elementB) => {
+                        return elementA.position - elementB.position;
+                    })
+                    .map((element, index) => {
+                        const option = element.option;
 
-                    // Get previous element
-                    let afterId = null;
-                    if (index > 0) {
-                        afterId = options[index - 1].option.id;
-                    }
+                        // Get previous element
+                        let afterId = null;
+                        if (index > 0) {
+                            afterId = options[index - 1].option.id;
+                        }
 
-                    return {
-                        id: option.id,
-                        name: option.name,
-                        childCount: 0,
-                        parentId: option.groupId,
-                        afterId,
-                        storeObject: element,
-                    };
-                });
+                        return {
+                            id: option.id,
+                            name: option.name,
+                            childCount: 0,
+                            parentId: option.groupId,
+                            afterId,
+                            storeObject: element,
+                        };
+                    });
 
-                return [...result, ...optionsForGroup];
+                return [
+                    ...result,
+                    ...optionsForGroup,
+                ];
             }, []);
 
             // Assign groups and children to order objects
-            return [...groups, ...children];
+            return [
+                ...groups,
+                ...children,
+            ];
         },
 
         stockColorVariantFilter() {
@@ -306,15 +323,42 @@ export default {
 
     methods: {
         createdComponent() {
-            this.fetchProductVariants();
-            this.fetchSystemCurrency();
-            this.loadGroups();
+            this.isLoading = true;
+
+            return Promise.all([
+                this.fetchProductMedias(),
+                this.fetchProductConfiguration(),
+                this.fetchProductVariants(),
+                this.fetchSystemCurrency(),
+                this.loadGroups(),
+            ]).finally(() => {
+                this.isLoading = false;
+            });
+        },
+
+        fetchProductMedias() {
+            const criteria = new Criteria();
+            criteria.addFilter(Criteria.equals('productId', this.productEntity.id));
+
+            return this.productMediaRepository.search(criteria).then((response) => {
+                this.productEntity.media = response;
+            });
+        },
+
+        fetchProductConfiguration() {
+            const criteria = new Criteria();
+            criteria.addAssociation('option');
+            criteria.addFilter(Criteria.equals('productId', this.productEntity.id));
+
+            return this.productConfigurationRepository.search(criteria).then((response) => {
+                this.productEntity.configuratorSettings = response;
+            });
         },
 
         fetchSystemCurrency() {
             const systemCurrencyId = Shopware.Context.app.systemCurrencyId;
 
-            this.currencyRepository.get(systemCurrencyId).then(response => {
+            return this.currencyRepository.get(systemCurrencyId).then((response) => {
                 this.currency = response;
             });
         },
@@ -322,10 +366,12 @@ export default {
         fetchProductVariants() {
             this.isLoading = true;
 
-            return this.productRepository.search(this.productVariantCriteria)
-                .then(response => {
+            return this.productRepository
+                .search(this.productVariantCriteria)
+                .then((response) => {
                     this.productVariants = response;
-                }).finally(() => {
+                })
+                .finally(() => {
                     this.isLoading = false;
                 });
         },
@@ -352,7 +398,7 @@ export default {
             });
 
             if (foundVariantIndex >= 0) {
-                this.$delete(variant.price, foundVariantIndex);
+                delete variant.price[foundVariantIndex];
             }
 
             if (variant.price.length <= 0) {
@@ -375,7 +421,7 @@ export default {
             };
 
             // add new price currency to variant
-            this.$set(variant.price, variant.price.length, newPrice);
+            variant.price.push(newPrice);
         },
 
         /**
@@ -409,17 +455,19 @@ export default {
             /* Creates following string: "color: black, size: xl".
              * The slice method removes the last two chars from the string wich are: ", ".
              */
-            const formattedOptions = sortedOptions.reduce((accumulator, currentOption) => {
-                const optionValue = currentOption.translated.name;
-                const optionGroupName = currentOption.group.translated.name;
+            const formattedOptions = sortedOptions
+                .reduce((accumulator, currentOption) => {
+                    const optionValue = currentOption.translated.name;
+                    const optionGroupName = currentOption.group.translated.name;
 
-                return accumulator.concat(
-                    !ommitOptionGroupName ? optionGroupName : '',
-                    !ommitOptionGroupName ? ': ' : '',
-                    optionValue,
-                    seperator,
-                );
-            }, '').slice(0, -seperator.length);
+                    return accumulator.concat(
+                        !ommitOptionGroupName ? optionGroupName : '',
+                        !ommitOptionGroupName ? ': ' : '',
+                        optionValue,
+                        seperator,
+                    );
+                }, '')
+                .slice(0, -seperator.length);
 
             return ommitParenthesis ? formattedOptions : `(${formattedOptions})`;
         },
@@ -483,11 +531,11 @@ export default {
         deleteVariants() {
             this.isDeleteButtonLoading = true;
 
-            const variantIds = this.toBeDeletedVariants.map(variant => variant.id);
+            const variantIds = this.toBeDeletedVariants.map((variant) => variant.id);
             const variantName = this.toBeDeletedVariants[0].translated.name || this.productEntity.translated.name;
             const amount = variantIds.length;
 
-            this.canVariantsBeDeleted().then(canBeDeleted => {
+            this.canVariantsBeDeleted().then((canBeDeleted) => {
                 if (!canBeDeleted) {
                     this.isDeleteButtonLoading = false;
                     this.isDeletionOver = true;
@@ -495,21 +543,27 @@ export default {
                     this.createNotificationError({
                         message: this.$tc(
                             'sw-product.list.notificationVariantDeleteErrorCanonicalUrl',
+                            {
+                                variantName,
+                            },
                             amount,
-                            { variantName },
                         ),
                     });
 
                     return;
                 }
 
-                this.productRepository.syncDeleted(variantIds)
+                this.productRepository
+                    .syncDeleted(variantIds)
                     .then(() => {
                         this.createNotificationSuccess({
                             message: this.$tc(
                                 'sw-product.list.notificationVariantDeleteSuccess',
+                                {
+                                    variantName,
+                                    amount,
+                                },
                                 amount,
-                                { variantName, amount },
                             ),
                         });
 
@@ -521,8 +575,11 @@ export default {
                         this.createNotificationError({
                             message: this.$tc(
                                 'sw-product.list.notificationVariantDeleteError',
+                                {
+                                    variantName,
+                                    amount,
+                                },
                                 amount,
-                                { variantName, amount },
                             ),
                         });
                     })
@@ -631,7 +688,12 @@ export default {
             variant.forceMediaInheritanceRemove = true;
             this.productEntity.media.forEach(({ id, mediaId, position, media }) => {
                 const mediaItem = this.productMediaRepository.create(Context.api);
-                Object.assign(mediaItem, { mediaId, position, productId: this.productEntity.id, media });
+                Object.assign(mediaItem, {
+                    mediaId,
+                    position,
+                    productId: this.productEntity.id,
+                    media,
+                });
 
                 if (this.productEntity.coverId === id) {
                     variant.coverId = mediaItem.id;
@@ -688,10 +750,11 @@ export default {
             await this.$nextTick();
 
             let includesDigital = '0';
-            const digital = Object.values(this.$refs.variantGrid.selection)
-                .filter(product => product.states.includes('is-download'));
+            const digital = Object.values(this.$refs.variantGrid.selection).filter((product) =>
+                product.states.includes('is-download'),
+            );
             if (digital.length > 0) {
-                includesDigital = (digital.filter(product => product.isCloseout).length !== digital.length) ? '1' : '2';
+                includesDigital = digital.filter((product) => product.isCloseout).length !== digital.length ? '1' : '2';
             }
 
             this.$router.push({

@@ -31,7 +31,7 @@ use Shopware\Core\System\Language\LanguageDefinition;
  *
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class EntityForeignKeyResolver
 {
     /**
@@ -167,8 +167,10 @@ class EntityForeignKeyResolver
             return [];
         }
 
-        // prevent foreign key check for language definition, otherwise all ids of language translations has to be checked
-        if ($definition->getClass() === LanguageDefinition::class) {
+        // prevent cascade delete and set null foreign key check for language definition,
+        // otherwise all ids of language translations have to be checked
+        // RestrictDelete is processed as usual to enable foreign key checks
+        if (!$restrictDeleteOnlyFirstLevel && $definition->getClass() === LanguageDefinition::class) {
             return [];
         }
 
@@ -238,10 +240,6 @@ class EntityForeignKeyResolver
             }
             $storageName = $field->getStorageName();
 
-            if (!$field instanceof Field) {
-                continue;
-            }
-
             $vars = [
                 '#root#' => EntityDefinitionQueryHelper::escape($alias),
                 '#field#' => EntityDefinitionQueryHelper::escape($storageName),
@@ -279,6 +277,14 @@ class EntityForeignKeyResolver
             $pk = $primaryKeys->first();
             $property = $pk->getPropertyName();
             $affected = array_column($affected, $property);
+
+            // prevent infinite loop when entity points to itself
+            if ($root === $association->getReferenceDefinition()) {
+                $flatIds = array_column($ids, $property);
+
+                /** @var list<string> $affected */
+                $affected = array_diff($affected, $flatIds);
+            }
         }
 
         // prevent circular reference for many to many

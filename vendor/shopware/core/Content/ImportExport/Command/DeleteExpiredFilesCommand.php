@@ -15,7 +15,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'import-export:delete-expired',
     description: 'Deletes expired files',
 )]
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class DeleteExpiredFilesCommand extends Command
 {
     /**
@@ -34,7 +34,7 @@ class DeleteExpiredFilesCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
 
         $count = $this->deleteExpiredFilesService->countFiles($context);
 
@@ -44,7 +44,7 @@ class DeleteExpiredFilesCommand extends Command
             return self::SUCCESS;
         }
 
-        $confirm = $io->confirm(sprintf('Are you sure that you want to delete %d expired files?', $count), false);
+        $confirm = $io->confirm(\sprintf('Are you sure that you want to delete %d expired files?', $count), false);
 
         if (!$confirm) {
             $io->caution('Aborting due to user input.');
@@ -53,7 +53,7 @@ class DeleteExpiredFilesCommand extends Command
         }
 
         $this->deleteExpiredFilesService->deleteFiles($context);
-        $io->success(sprintf('Successfully deleted %d expired files.', $count));
+        $io->success(\sprintf('Successfully deleted %d expired files.', $count));
 
         return self::SUCCESS;
     }

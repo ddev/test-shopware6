@@ -1,9 +1,4 @@
 <?php declare(strict_types=1);
-/*
- * (c) shopware AG <info@shopware.com>
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
 
 namespace Shopware\Core\Checkout\Cart\Address\Error;
 
@@ -17,10 +12,10 @@ class AddressValidationError extends Error
     private const KEY = 'address-invalid';
 
     public function __construct(
-        private readonly bool $isBillingAddress,
-        private readonly ConstraintViolationList $violations
+        protected readonly bool $isBillingAddress,
+        protected readonly ConstraintViolationList $violations
     ) {
-        $this->message = sprintf(
+        $this->message = \sprintf(
             'Please check your %s address for missing or invalid values.',
             $isBillingAddress ? 'billing' : 'shipping'
         );
@@ -35,7 +30,7 @@ class AddressValidationError extends Error
 
     public function getMessageKey(): string
     {
-        return sprintf('%s-%s', $this->isBillingAddress ? 'billing' : 'shipping', self::KEY);
+        return \sprintf('%s-%s', $this->isBillingAddress ? 'billing' : 'shipping', self::KEY);
     }
 
     public function getLevel(): int

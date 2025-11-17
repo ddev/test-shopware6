@@ -4,12 +4,13 @@ namespace Shopware\Core\Framework\Update\Services;
 
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Update\Event\UpdatePostFinishEvent;
+use Shopware\Core\Framework\Util\Hasher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * @internal
  */
-#[Package('system-settings')]
+#[Package('framework')]
 class UpdateHtaccess implements EventSubscriberInterface
 {
     private const MARKER_START = '# BEGIN Shopware';
@@ -37,11 +38,11 @@ class UpdateHtaccess implements EventSubscriberInterface
 
     public function update(): void
     {
-        if (!file_exists($this->htaccessPath) || !file_exists($this->htaccessPath . '.dist')) {
+        if (!\is_file($this->htaccessPath) || !\is_file($this->htaccessPath . '.dist')) {
             return;
         }
 
-        if (\in_array(md5_file($this->htaccessPath), self::OLD_FILES, true)) {
+        if (\in_array(Hasher::hashFile($this->htaccessPath, 'md5'), self::OLD_FILES, true)) {
             $this->replaceFile($this->htaccessPath);
 
             return;

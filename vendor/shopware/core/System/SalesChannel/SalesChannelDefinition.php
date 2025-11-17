@@ -16,6 +16,7 @@ use Shopware\Core\Content\Cms\CmsPageDefinition;
 use Shopware\Core\Content\LandingPage\Aggregate\LandingPageSalesChannel\LandingPageSalesChannelDefinition;
 use Shopware\Core\Content\LandingPage\LandingPageDefinition;
 use Shopware\Core\Content\MailTemplate\Aggregate\MailHeaderFooter\MailHeaderFooterDefinition;
+use Shopware\Core\Content\MeasurementSystem\Field\MeasurementUnitsField;
 use Shopware\Core\Content\Newsletter\Aggregate\NewsletterRecipient\NewsletterRecipientDefinition;
 use Shopware\Core\Content\Product\Aggregate\ProductReview\ProductReviewDefinition;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityDefinition;
@@ -30,6 +31,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\CascadeDelete;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\PrimaryKey;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Since;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IdField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IntField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\JsonField;
@@ -60,7 +62,7 @@ use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelTranslation\SalesCha
 use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelType\SalesChannelTypeDefinition;
 use Shopware\Core\System\SystemConfig\SystemConfigDefinition;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'sales_channel';
@@ -117,6 +119,7 @@ class SalesChannelDefinition extends EntityDefinition
             (new ReferenceVersionField(CategoryDefinition::class, 'service_category_version_id'))->addFlags(new ApiAware(), new Required()),
             (new FkField('mail_header_footer_id', 'mailHeaderFooterId', MailHeaderFooterDefinition::class))->addFlags(new ApiAware()),
             (new FkField('hreflang_default_domain_id', 'hreflangDefaultDomainId', SalesChannelDomainDefinition::class))->addFlags(new ApiAware()),
+            (new MeasurementUnitsField('measurement_units', 'measurementUnits'))->addFlags(new ApiAware(), new Since('6.7.1.0')),
             (new TranslatedField('name'))->addFlags(new ApiAware()),
             (new StringField('short_name', 'shortName'))->addFlags(new ApiAware()),
             (new StringField('tax_calculation_type', 'taxCalculationType'))->addFlags(new ApiAware()),
@@ -173,7 +176,7 @@ class SalesChannelDefinition extends EntityDefinition
             (new OneToManyAssociationField('seoUrlTemplates', SeoUrlTemplateDefinition::class, 'sales_channel_id'))->addFlags(new CascadeDelete()),
             (new OneToManyAssociationField('mainCategories', MainCategoryDefinition::class, 'sales_channel_id'))->addFlags(new CascadeDelete()),
             new OneToManyAssociationField('productExports', ProductExportDefinition::class, 'sales_channel_id', 'id'),
-            (new OneToOneAssociationField('analytics', 'analytics_id', 'id', SalesChannelAnalyticsDefinition::class, true))->addFlags(new CascadeDelete()),
+            (new OneToOneAssociationField('analytics', 'analytics_id', 'id', SalesChannelAnalyticsDefinition::class, false))->addFlags(new CascadeDelete()),
             new ManyToManyAssociationField('customerGroupsRegistrations', CustomerGroupDefinition::class, CustomerGroupRegistrationSalesChannelDefinition::class, 'sales_channel_id', 'customer_group_id', 'id', 'id'),
             new ManyToManyAssociationField('landingPages', LandingPageDefinition::class, LandingPageSalesChannelDefinition::class, 'sales_channel_id', 'landing_page_id', 'id', 'id'),
             new OneToManyAssociationField('boundCustomers', CustomerDefinition::class, 'bound_sales_channel_id', 'id'),

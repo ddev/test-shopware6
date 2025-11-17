@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class RestrictDeleteViolationException extends ShopwareHttpException
 {
     /**
@@ -34,7 +34,7 @@ class RestrictDeleteViolationException extends ShopwareHttpException
                 'entityName' => $name,
                 'count' => \count($ids),
             ];
-            $usagesStrings[] = sprintf('%s (%d)', $name, \count($ids));
+            $usagesStrings[] = \sprintf('%s (%d)', $name, \count($ids));
         }
 
         $this->restrictions = $restrictions;

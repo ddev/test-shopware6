@@ -2,7 +2,7 @@ import './sw-order-promotion-tag-field.scss';
 import template from './sw-order-promotion-tag-field.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Utils } = Shopware;
@@ -11,6 +11,11 @@ const { format } = Utils;
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'update:value',
+        'on-remove-code',
+    ],
 
     props: {
         currency: {
@@ -43,7 +48,7 @@ export default {
                 return;
             }
 
-            const tag = this.value.find(item => item.code === this.newTagName);
+            const tag = this.value.find((item) => item.code === this.newTagName);
 
             if (tag) {
                 return;
@@ -53,11 +58,10 @@ export default {
                 code: this.newTagName,
             };
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', [...this.value, newTagItem]);
-            } else {
-                this.$emit('change', [...this.value, newTagItem]);
-            }
+            this.$emit('update:value', [
+                ...this.value,
+                newTagItem,
+            ]);
 
             this.newTagName = '';
         },
@@ -82,15 +86,13 @@ export default {
 
             const { value, discountScope, discountType, groupId } = item;
 
-            const discountValue = discountType === 'percentage'
-                ? value
-                : format.currency(Number(value), this.currency.shortName);
+            const discountValue =
+                discountType === 'percentage' ? value : format.currency(Number(value), this.currency.isoCode);
 
-            return this.$tc(
-                `sw-order.createBase.textPromotionDescription.${discountScope}.${discountType}`,
-                0,
-                { value: discountValue, groupId },
-            );
+            return this.$tc(`sw-order.createBase.textPromotionDescription.${discountScope}.${discountType}`, 0, {
+                value: discountValue,
+                groupId,
+            });
         },
     },
 };

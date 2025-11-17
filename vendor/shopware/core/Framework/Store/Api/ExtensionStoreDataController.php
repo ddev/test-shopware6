@@ -9,20 +9,27 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Store\Services\AbstractExtensionDataProvider;
-use Shopware\Core\System\User\UserEntity;
+use Shopware\Core\PlatformRequest;
+use Shopware\Core\System\Language\LanguageCollection;
+use Shopware\Core\System\User\UserCollection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Route(defaults: ['_routeScope' => ['api'], '_acl' => ['system.plugin_maintain']])]
-#[Package('services-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID], '_acl' => ['system.plugin_maintain']])]
+#[Package('checkout')]
 class ExtensionStoreDataController extends AbstractController
 {
+    /**
+     * @param EntityRepository<UserCollection> $userRepository
+     * @param EntityRepository<LanguageCollection> $languageRepository
+     */
     public function __construct(
         private readonly AbstractExtensionDataProvider $extensionDataProvider,
         private readonly EntityRepository $userRepository,
@@ -55,8 +62,7 @@ class ExtensionStoreDataController extends AbstractController
 
         $criteria = new Criteria([$source->getUserId()]);
 
-        /** @var UserEntity|null $user */
-        $user = $this->userRepository->search($criteria, $context)->first();
+        $user = $this->userRepository->search($criteria, $context)->getEntities()->first();
 
         if ($user === null) {
             return $context;

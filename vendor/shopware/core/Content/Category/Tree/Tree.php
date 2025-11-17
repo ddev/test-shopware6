@@ -6,28 +6,16 @@ use Shopware\Core\Content\Category\CategoryEntity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('inventory')]
+#[Package('discovery')]
 class Tree extends Struct
 {
-    /**
-     * @var TreeItem[]
-     */
-    protected $tree;
-
-    /**
-     * @var CategoryEntity|null
-     */
-    protected $active;
-
     /**
      * @param TreeItem[] $tree
      */
     public function __construct(
-        ?CategoryEntity $active,
-        array $tree
+        protected ?CategoryEntity $active,
+        protected array $tree,
     ) {
-        $this->tree = $tree;
-        $this->active = $active;
     }
 
     public function isSelected(CategoryEntity $category): bool

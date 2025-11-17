@@ -1,8 +1,9 @@
-import DeviceDetection from 'src/helper/device-detection.helper';
 import NativeEventEmitter from 'src/helper/emitter.helper';
-import Iterator from 'src/helper/iterator.helper';
 
+// The bootstrap offcanvas class
 const OFF_CANVAS_CLASS = 'offcanvas';
+// Custom offcanvas class to identify offcanvas created by OffCanvasSingleton
+const OFF_CANVAS_JS_CLASS = 'js-offcanvas-singleton';
 const OFF_CANVAS_FULLWIDTH_CLASS = 'is-fullwidth';
 const OFF_CANVAS_CLOSE_TRIGGER_CLASS = 'js-offcanvas-close';
 const REMOVE_OFF_CANVAS_DELAY = 350;
@@ -10,7 +11,7 @@ const REMOVE_OFF_CANVAS_DELAY = 350;
 /**
  * OffCanvas uses Bootstraps OffCanvas JavaScript implementation
  * @see https://getbootstrap.com/docs/5.2/components/offcanvas
- * @package storefront
+ * @sw-package framework
  */
 class OffCanvasSingleton {
 
@@ -33,18 +34,16 @@ class OffCanvasSingleton {
         this._removeExistingOffCanvas();
 
         const offCanvas = this._createOffCanvas(position, fullwidth, cssClass, closable);
-        this.setContent(content, closable, delay);
+        this.setContent(content, delay);
         this._openOffcanvas(offCanvas, callback);
     }
 
     /**
      * Method to change the content of the already visible OffCanvas
      * @param {string} content
-     * @deprecated tag:v6.6.0 - Parameter `closable` is deprecated. The `closable` parameter will be set by the `open` method only instead.
-     * @param {boolean} closable
      * @param {number} delay
      */
-    setContent(content, closable, delay) {
+    setContent(content, delay) {
         const offCanvas = this.getOffCanvas();
 
         if (!offCanvas[0]) {
@@ -55,11 +54,11 @@ class OffCanvasSingleton {
 
         // register events again
         this._registerEvents(delay);
+        this._setAriaAttrs();
     }
 
     /**
-     * adds an additional class to the offcanvas
-     *
+     * Method to add additional class to the first OffCanvas
      * @param {string} className
      */
     setAdditionalClassName(className) {
@@ -73,7 +72,7 @@ class OffCanvasSingleton {
      * @private
      */
     getOffCanvas() {
-        return document.querySelectorAll(`.${OFF_CANVAS_CLASS}`);
+        return document.querySelectorAll(`.${OFF_CANVAS_JS_CLASS}`);
     }
 
     /**
@@ -83,7 +82,7 @@ class OffCanvasSingleton {
     close(delay) {
         const OffCanvasElements = this.getOffCanvas();
 
-        Iterator.iterate(OffCanvasElements, (offCanvas) => {
+        OffCanvasElements.forEach(offCanvas => {
             const offCanvasInstance = bootstrap.Offcanvas.getInstance(offCanvas);
             offCanvasInstance.hide();
         });
@@ -114,12 +113,14 @@ class OffCanvasSingleton {
     /**
      * Opens the offcanvas and its backdrop
      *
-     * @param {HTMLElement} offCanvas
+     * @param {HTMLElement} _offCanvas
      * @param {function} callback
      *
      * @private
      */
-    _openOffcanvas(offCanvas, callback) {
+    _openOffcanvas(_offCanvas, callback) {
+        window.focusHandler.saveFocusState('offcanvas');
+
         OffCanvasSingleton.bsOffcanvas.show();
         window.history.pushState('offcanvas-open', '');
 
@@ -135,21 +136,23 @@ class OffCanvasSingleton {
      * @private
      */
     _registerEvents(delay) {
-        const event = (DeviceDetection.isTouchDevice()) ? 'touchend' : 'click';
+        const event = 'click';
         const offCanvasElements = this.getOffCanvas();
 
         // Ensure OffCanvas is removed from the DOM and events are published.
-        Iterator.iterate(offCanvasElements, offCanvas => {
+        offCanvasElements.forEach(offCanvas => {
             const onBsClose = () => {
                 setTimeout(() => {
                     offCanvas.remove();
+
+                    window.focusHandler.resumeFocusState('offcanvas');
 
                     this.$emitter.publish('onCloseOffcanvas', {
                         offCanvasContent: offCanvasElements,
                     });
                 }, delay);
 
-                offCanvas.removeEventListener('hide.bs.offcanvas', onBsClose)
+                offCanvas.removeEventListener('hide.bs.offcanvas', onBsClose);
             };
 
             offCanvas.addEventListener('hide.bs.offcanvas', onBsClose);
@@ -157,7 +160,20 @@ class OffCanvasSingleton {
 
         window.addEventListener('popstate', this.close.bind(this, delay), { once: true });
         const closeTriggers = document.querySelectorAll(`.${OFF_CANVAS_CLOSE_TRIGGER_CLASS}`);
-        Iterator.iterate(closeTriggers, trigger => trigger.addEventListener(event, this.close.bind(this, delay)));
+        closeTriggers.forEach(trigger => {
+            trigger.addEventListener(event, this.close.bind(this, delay));
+        });
+    }
+
+    _setAriaAttrs() {
+        const offCanvas = this.getOffCanvas()[0];
+        const headlineId = 'off-canvas-headline';
+        const headline = offCanvas.querySelector(`[data-id="${headlineId}"]`);
+
+        if (headline && !offCanvas.hasAttribute('aria-labelledby')) {
+            headline.setAttribute('id', headlineId);
+            offCanvas.setAttribute('aria-labelledby', headlineId);
+        }
     }
 
     /**
@@ -165,9 +181,18 @@ class OffCanvasSingleton {
      * @private
      */
     _removeExistingOffCanvas() {
-        OffCanvasSingleton.bsOffcanvas = null;
         const offCanvasElements = this.getOffCanvas();
-        return Iterator.iterate(offCanvasElements, offCanvas => offCanvas.remove());
+        offCanvasElements.forEach(offCanvas => {
+            // Properly dispose of Bootstrap Offcanvas instance to clean up backdrop
+            const offCanvasInstance = bootstrap.Offcanvas.getInstance(offCanvas);
+            if (offCanvasInstance && typeof offCanvasInstance.dispose === 'function') {
+                offCanvasInstance.dispose();
+            }
+            offCanvas.remove();
+        });
+
+        // Clear the singleton reference after disposal
+        OffCanvasSingleton.bsOffcanvas = null;
     }
 
     /**
@@ -200,8 +225,9 @@ class OffCanvasSingleton {
      */
     _createOffCanvas(position, fullwidth, cssClass, closable) {
         const offCanvas = document.createElement('div');
-        offCanvas.classList.add(OFF_CANVAS_CLASS);
+        offCanvas.classList.add(OFF_CANVAS_CLASS, OFF_CANVAS_JS_CLASS);
         offCanvas.classList.add(this._getPositionClass(position));
+        offCanvas.setAttribute('tabindex', '-1');
 
         if (fullwidth === true) {
             offCanvas.classList.add(OFF_CANVAS_FULLWIDTH_CLASS);

@@ -24,7 +24,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class StringFieldSerializer extends AbstractFieldSerializer
 {
     /**
@@ -82,9 +82,14 @@ class StringFieldSerializer extends AbstractFieldSerializer
      */
     protected function getConstraints(Field $field): array
     {
+        $maxLength = $field->getMaxLength();
+        if ($maxLength < 1) {
+            $maxLength = null;
+        }
+
         $constraints = [
             new Type('string'),
-            new Length(['max' => $field->getMaxLength()]),
+            new Length(max: $maxLength),
         ];
 
         if (!$field->is(AllowEmptyString::class)) {

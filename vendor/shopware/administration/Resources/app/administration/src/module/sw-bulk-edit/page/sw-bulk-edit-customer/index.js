@@ -1,6 +1,5 @@
 import template from './sw-bulk-edit-customer.html.twig';
 import './sw-bulk-edit-customer.scss';
-import swBulkEditState from '../../state/sw-bulk-edit.state';
 
 const { Mixin } = Shopware;
 const { Criteria } = Shopware.Data;
@@ -9,14 +8,13 @@ const { chunk } = Shopware.Utils.array;
 const { cloneDeep } = Shopware.Utils.object;
 
 /**
- * @package system-settings
+ * @sw-package checkout
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
     inject: [
-        'feature',
         'bulkEditApiFactory',
         'repositoryFactory',
     ],
@@ -45,7 +43,7 @@ export default {
 
     computed: {
         selectedIds() {
-            return Shopware.State.get('shopwareApps').selectedIds;
+            return Shopware.Store.get('swBulkEdit').selectedIds;
         },
 
         customFieldSetRepository() {
@@ -73,58 +71,58 @@ export default {
         },
 
         actionsRequestGroup() {
-            return [{
-                value: 'accept',
-                label: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.options.accept'),
-            }, {
-                value: 'decline',
-                label: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.options.decline'),
-            }];
+            return [
+                {
+                    value: 'accept',
+                    label: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.options.accept'),
+                },
+                {
+                    value: 'decline',
+                    label: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.options.decline'),
+                },
+            ];
         },
 
         accountFormFields() {
-            return [{
-                name: 'groupId',
-                config: {
-                    componentName: 'sw-entity-single-select',
-                    entity: 'customer_group',
-                    changeLabel: this.$tc('sw-bulk-edit.customer.account.customerGroup.label'),
-                    placeholder: this.$tc('sw-bulk-edit.customer.account.customerGroup.placeholder'),
+            return [
+                {
+                    name: 'groupId',
+                    config: {
+                        componentName: 'sw-entity-single-select',
+                        entity: 'customer_group',
+                        changeLabel: this.$tc('sw-bulk-edit.customer.account.customerGroup.label'),
+                        placeholder: this.$tc('sw-bulk-edit.customer.account.customerGroup.placeholder'),
+                    },
                 },
-            }, {
-                name: 'defaultPaymentMethodId',
-                config: {
-                    componentName: 'sw-entity-single-select',
-                    entity: 'payment_method',
-                    changeLabel: this.$tc('sw-bulk-edit.customer.account.defaultPaymentMethod.label'),
-                    placeholder: this.$tc('sw-bulk-edit.customer.account.defaultPaymentMethod.placeholder'),
+                {
+                    name: 'active',
+                    type: 'bool',
+                    config: {
+                        type: 'switch',
+                        changeLabel: this.$tc('sw-bulk-edit.customer.account.status.label'),
+                    },
                 },
-            }, {
-                name: 'active',
-                type: 'bool',
-                config: {
-                    type: 'switch',
-                    changeLabel: this.$tc('sw-bulk-edit.customer.account.status.label'),
+                {
+                    name: 'languageId',
+                    config: {
+                        componentName: 'sw-entity-single-select',
+                        entity: 'language',
+                        changeLabel: this.$tc('sw-bulk-edit.customer.account.language.label'),
+                        placeholder: this.$tc('sw-bulk-edit.customer.account.language.placeholder'),
+                    },
                 },
-            }, {
-                name: 'languageId',
-                config: {
-                    componentName: 'sw-entity-single-select',
-                    entity: 'language',
-                    changeLabel: this.$tc('sw-bulk-edit.customer.account.language.label'),
-                    placeholder: this.$tc('sw-bulk-edit.customer.account.language.placeholder'),
+                {
+                    name: 'requestedCustomerGroupId',
+                    labelHelpText: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.helpText'),
+                    config: {
+                        componentName: 'sw-single-select',
+                        entity: 'customer_group',
+                        changeLabel: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.label'),
+                        placeholder: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.placeholder'),
+                        options: this.actionsRequestGroup,
+                    },
                 },
-            }, {
-                name: 'requestedCustomerGroupId',
-                labelHelpText: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.helpText'),
-                config: {
-                    componentName: 'sw-single-select',
-                    entity: 'customer_group',
-                    changeLabel: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.label'),
-                    placeholder: this.$tc('sw-bulk-edit.customer.account.customerGroupRequest.placeholder'),
-                    options: this.actionsRequestGroup,
-                },
-            }];
+            ];
         },
 
         tagsFormFields() {
@@ -146,45 +144,44 @@ export default {
         },
     },
 
-    beforeCreate() {
-        Shopware.State.registerModule('swBulkEdit', swBulkEditState);
-    },
-
     created() {
         this.createdComponent();
-    },
-
-    beforeDestroy() {
-        Shopware.State.unregisterModule('swBulkEdit');
     },
 
     methods: {
         createdComponent() {
             this.setRouteMetaModule();
-            if (!Shopware.State.getters['context/isSystemDefaultLanguage']) {
-                Shopware.State.commit('context/resetLanguageToDefault');
+            if (!Shopware.Store.get('context').isSystemDefaultLanguage) {
+                Shopware.Store.get('context').resetLanguageToDefault();
             }
 
             this.isLoading = true;
 
             this.customer = this.customerRepository.create(Shopware.Context.api);
 
-            this.loadCustomFieldSets().then(() => {
-                this.loadBulkEditData();
-                this.isLoadedData = true;
-            }).catch(error => {
-                this.createNotificationError({
-                    title: this.$tc('global.default.error'),
-                    message: error,
+            this.loadCustomFieldSets()
+                .then(() => {
+                    this.loadBulkEditData();
+                    this.isLoadedData = true;
+                })
+                .catch((error) => {
+                    this.createNotificationError({
+                        title: this.$tc('global.default.error'),
+                        message: error,
+                    });
+                })
+                .finally(() => {
+                    this.isLoading = false;
                 });
-            }).finally(() => {
-                this.isLoading = false;
-            });
         },
 
         setRouteMetaModule() {
-            this.$set(this.$route.meta.$module, 'color', '#F88962');
-            this.$set(this.$route.meta.$module, 'icon', 'regular-users');
+            if (!this.$route.meta.$module) {
+                this.$route.meta.$module = {};
+            }
+
+            this.$route.meta.$module.color = '#F88962';
+            this.$route.meta.$module.icon = 'regular-users';
         },
 
         defineBulkEditData(name, value = null, type = 'overwrite', isChanged = false) {
@@ -192,11 +189,11 @@ export default {
                 return;
             }
 
-            this.$set(this.bulkEditData, name, {
+            this.bulkEditData[name] = {
                 isChanged: isChanged,
                 type: type,
                 value: value,
-            });
+            };
         },
 
         loadBulkEditData() {
@@ -211,10 +208,10 @@ export default {
                 });
             });
 
-            this.$set(this.bulkEditData, 'customFields', {
+            this.bulkEditData.customFields = {
                 type: 'overwrite',
                 value: null,
-            });
+            };
         },
 
         loadCustomFieldSets() {
@@ -225,7 +222,7 @@ export default {
 
         onCustomFieldsChange(value) {
             if (Object.keys(value).length <= 0) {
-                this.bulkEditData = this.bulkEditData.filter(change => change.field !== 'customFields');
+                this.bulkEditData = this.bulkEditData.filter((change) => change.field !== 'customFields');
                 return;
             }
 
@@ -238,7 +235,7 @@ export default {
                 syncData: [],
             };
 
-            Object.keys(this.bulkEditData).forEach(key => {
+            Object.keys(this.bulkEditData).forEach((key) => {
                 const bulkEditField = cloneDeep(this.bulkEditData[key]);
 
                 let bulkEditValue = this.customer[key];
@@ -284,19 +281,21 @@ export default {
                 requests.push(bulkEditCustomerHandler.bulkEditRequestedGroup(this.selectedIds, requestData));
             }
 
-            payloadChunks.forEach(payload => {
+            payloadChunks.forEach((payload) => {
                 if (syncData.length) {
-                    requests.push(bulkEditCustomerHandler.bulkEdit(payload, syncData));
+                    requests.push(this.bulkEditApiFactory.getHandler('customer').bulkEdit(payload, syncData));
                 }
             });
 
             return Promise.all(requests)
                 .then(() => {
                     this.processStatus = 'success';
-                }).catch((e) => {
+                })
+                .catch((e) => {
                     console.error(e);
                     this.processStatus = 'fail';
-                }).finally(() => {
+                })
+                .finally(() => {
                     this.isLoading = false;
                 });
         },
@@ -306,7 +305,7 @@ export default {
         },
 
         onChangeLanguage(languageId) {
-            Shopware.State.commit('context/setApiLanguageId', languageId);
+            Shopware.Store.get('context').setApiLanguageId(languageId);
         },
     },
 };

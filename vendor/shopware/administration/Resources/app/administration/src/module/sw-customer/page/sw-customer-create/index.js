@@ -1,14 +1,14 @@
 import template from './sw-customer-create.html.twig';
-import CUSTOMER from '../../constant/sw-customer.constant';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 const { ShopwareError } = Shopware.Classes;
 const { Mixin } = Shopware;
 const { Criteria } = Shopware.Data;
+const { CUSTOMER } = Shopware.Constants;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -31,19 +31,7 @@ export default {
             address: null,
             customerNumberPreview: '',
             isSaveSuccessful: false,
-            /**
-             * @deprecated tag:v6.6.0 - salesChannels Will be removed due to unused
-             * */
-            salesChannels: null,
             isLoading: false,
-            /**
-             * @deprecated tag:v6.6.0 - errorEmailCustomer Will be removed due to unused
-            * */
-            errorEmailCustomer: null,
-            /**
-             * @deprecated tag:v6.6.0 - defaultMinPasswordLength will be removed due to unused
-             * */
-            defaultMinPasswordLength: null,
         };
     },
 
@@ -57,15 +45,7 @@ export default {
         },
 
         validCompanyField() {
-            return this.customer.accountType === CUSTOMER.ACCOUNT_TYPE_BUSINESS ?
-                this.address.company?.trim().length : true;
-        },
-
-        /**
-         * @deprecated tag:v6.6.0 - validPasswordField will be removed due to unused
-         * */
-        validPasswordField() {
-            return this.customer.password?.trim().length >= this.defaultMinPasswordLength;
+            return this.customer.accountType === CUSTOMER.ACCOUNT_TYPE_BUSINESS ? this.address.company?.trim().length : true;
         },
 
         languageRepository() {
@@ -77,9 +57,7 @@ export default {
             criteria.setLimit(1);
 
             if (this.customer?.salesChannelId) {
-                criteria.addFilter(
-                    Criteria.equals('salesChannelDefaultAssignments.id', this.customer.salesChannelId),
-                );
+                criteria.addFilter(Criteria.equals('salesChannelDefaultAssignments.id', this.customer.salesChannelId));
             }
 
             return criteria;
@@ -108,12 +86,11 @@ export default {
 
     watch: {
         'customer.salesChannelId'(salesChannelId) {
-            this.systemConfigApiService
-                .getValues('core.systemWideLoginRegistration').then(response => {
-                    if (response['core.systemWideLoginRegistration.isCustomerBoundToSalesChannel']) {
-                        this.customer.boundSalesChannelId = salesChannelId;
-                    }
-                });
+            this.systemConfigApiService.getValues('core.systemWideLoginRegistration').then((response) => {
+                if (response['core.systemWideLoginRegistration.isCustomerBoundToSalesChannel']) {
+                    this.customer.boundSalesChannelId = salesChannelId;
+                }
+            });
         },
 
         'customer.accountType'(value) {
@@ -121,12 +98,7 @@ export default {
                 return;
             }
 
-            Shopware.State.dispatch(
-                'error/removeApiError',
-                {
-                    expression: `customer_address.${this.address.id}.company`,
-                },
-            );
+            Shopware.Store.get('error').removeApiError(`customer_address.${this.address.id}.company`);
         },
     },
 
@@ -138,7 +110,7 @@ export default {
         async createdComponent() {
             const defaultSalutationId = await this.getDefaultSalutation();
 
-            Shopware.State.commit('context/resetLanguageToDefault');
+            Shopware.Store.get('context').resetLanguageToDefault();
             this.customer = this.customerRepository.create();
 
             const addressRepository = this.repositoryFactory.create(
@@ -160,7 +132,10 @@ export default {
 
         saveFinish() {
             this.isSaveSuccessful = false;
-            this.$router.push({ name: 'sw.customer.detail', params: { id: this.customer.id } });
+            this.$router.push({
+                name: 'sw.customer.detail',
+                params: { id: this.customer.id },
+            });
         },
 
         validateEmail() {
@@ -170,21 +145,21 @@ export default {
                 return Promise.resolve({ isValid: true });
             }
 
-            return this.customerValidationService.checkCustomerEmail({
-                id,
-                email,
-                boundSalesChannelId,
-            }).then((emailIsValid) => {
-                return emailIsValid;
-            }).catch((exception) => {
-                Shopware.State.dispatch(
-                    'error/addApiError',
-                    {
+            return this.customerValidationService
+                .checkCustomerEmail({
+                    id,
+                    email,
+                    boundSalesChannelId,
+                })
+                .then((emailIsValid) => {
+                    return emailIsValid;
+                })
+                .catch((exception) => {
+                    Shopware.Store.get('error').addApiError({
                         expression: `customer.${this.customer.id}.email`,
                         error: new ShopwareError(exception.response.data.errors[0]),
-                    },
-                );
-            });
+                    });
+                });
         },
 
         async onSave() {
@@ -200,7 +175,8 @@ export default {
             let numberRangePromise = Promise.resolve();
             if (this.customerNumberPreview === this.customer.customerNumber) {
                 numberRangePromise = this.numberRangeService
-                    .reserve('customer', this.customer.salesChannelId).then((response) => {
+                    .reserve('customer', this.customer.salesChannelId)
+                    .then((response) => {
                         this.customerNumberPreview = 'reserved';
                         this.customer.customerNumber = response.number;
                     });
@@ -223,17 +199,21 @@ export default {
             const context = { ...Shopware.Context.api, ...{ languageId } };
 
             return numberRangePromise.then(() => {
-                return this.customerRepository.save(this.customer, context).then((response) => {
-                    this.isLoading = false;
-                    this.isSaveSuccessful = true;
+                return this.customerRepository
+                    .save(this.customer, context)
+                    .then((response) => {
+                        this.isLoading = false;
+                        this.isSaveSuccessful = true;
 
-                    return response;
-                }).catch(() => {
-                    this.createNotificationError({
-                        message: this.$tc('sw-customer.detail.messageSaveError'),
+                        return response;
+                    })
+                    .catch((exception) => {
+                        this.createNotificationError({
+                            message: this.$tc('sw-customer.detail.messageSaveError'),
+                        });
+                        this.isLoading = false;
+                        throw exception;
                     });
-                    this.isLoading = false;
-                });
             });
         },
 
@@ -247,26 +227,15 @@ export default {
 
         createErrorMessageForCompanyField() {
             this.isLoading = false;
-            Shopware.State.dispatch('error/addApiError', {
+            Shopware.Store.get('error').addApiError({
                 expression: `customer_address.${this.address.id}.company`,
-                error: new Shopware.Classes.ShopwareError(
-                    {
-                        code: 'c1051bb4-d103-4f74-8988-acbcafc7fdc3',
-                    },
-                ),
+                error: new Shopware.Classes.ShopwareError({
+                    code: 'c1051bb4-d103-4f74-8988-acbcafc7fdc3',
+                }),
             });
 
             this.createNotificationError({
                 message: this.$tc('sw-customer.error.COMPANY_IS_REQUIRED'),
-            });
-        },
-
-        /**
-         * @deprecated tag:v6.6.0 - getDefaultRegistrationConfig will be removed due to unused
-         * */
-        getDefaultRegistrationConfig() {
-            this.systemConfigApiService.getValues('core.register').then((response) => {
-                this.defaultMinPasswordLength = response['core.register.minPasswordLength'];
             });
         },
 

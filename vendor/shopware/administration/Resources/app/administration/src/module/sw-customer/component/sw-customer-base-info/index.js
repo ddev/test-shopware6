@@ -2,10 +2,8 @@ import template from './sw-customer-base-info.html.twig';
 import './sw-customer-base-info.scss';
 import errorConfig from '../../error-config.json';
 
-import CUSTOMER from '../../constant/sw-customer.constant';
-
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Criteria } = Shopware.Data;
@@ -15,7 +13,9 @@ const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 export default {
     template,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+    ],
 
     props: {
         customer: {
@@ -36,9 +36,9 @@ export default {
 
     data() {
         return {
-            orderAmount: 0,
             orderCount: 0,
             customerLanguage: null,
+            currencyCode: Shopware.Context.app.systemCurrencyISOCode,
         };
     },
 
@@ -71,23 +71,17 @@ export default {
 
         orderCriteria() {
             const criteria = new Criteria(1, 1);
-            criteria.addAggregation(Criteria.filter('exceptCancelledOrder', [
-                Criteria.not('AND', [
-                    Criteria.equals('stateMachineState.technicalName', 'cancelled'),
-                ]),
-            ], Criteria.sum('orderAmount', 'amountTotal')));
             criteria.addFilter(Criteria.equals('order.orderCustomer.customerId', this.$route.params.id));
 
             return criteria;
         },
 
-        ...mapPropertyErrors(
-            'customer',
-            [...errorConfig['sw.customer.detail.base'].customer],
-        ),
+        ...mapPropertyErrors('customer', [
+            ...errorConfig['sw.customer.detail.base'].customer,
+        ]),
 
         isBusinessAccountType() {
-            return this.customer?.accountType === CUSTOMER.ACCOUNT_TYPE_BUSINESS;
+            return this.customer?.accountType === Shopware.Constants.CUSTOMER.ACCOUNT_TYPE_BUSINESS;
         },
 
         dateFilter() {
@@ -108,6 +102,9 @@ export default {
                 });
             },
         },
+        customer() {
+            this.createdComponent();
+        },
     },
 
     created() {
@@ -118,7 +115,6 @@ export default {
         createdComponent() {
             this.orderRepository.search(this.orderCriteria).then((response) => {
                 this.orderCount = response.total;
-                this.orderAmount = response.aggregations.orderAmount.sum;
             });
         },
     },

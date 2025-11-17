@@ -2,7 +2,6 @@
 
 namespace Shopware\Core\Framework\Routing;
 
-use Shopware\Core\Checkout\Cart\CartException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\Event\SalesChannelContextResolvedEvent;
 use Shopware\Core\Framework\Util\Random;
@@ -13,9 +12,8 @@ use Shopware\Core\System\SalesChannel\Context\SalesChannelContextServiceParamete
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
-#[Package('core')]
+#[Package('framework')]
 class SalesChannelRequestContextResolver implements RequestContextResolverInterface
 {
     use RouteScopeCheckTrait;
@@ -31,7 +29,7 @@ class SalesChannelRequestContextResolver implements RequestContextResolverInterf
     ) {
     }
 
-    public function resolve(SymfonyRequest $request): void
+    public function resolve(Request $request): void
     {
         if (!$request->attributes->has(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_ID)) {
             $this->decorated->resolve($request);
@@ -51,16 +49,34 @@ class SalesChannelRequestContextResolver implements RequestContextResolverInterf
             $request->headers->set(PlatformRequest::HEADER_CONTEXT_TOKEN, Random::getAlphanumericString(32));
         }
 
+        $session = $request->hasSession() ? $request->getSession() : null;
+
         // Retrieve context for current request
         $usedContextToken = (string) $request->headers->get(PlatformRequest::HEADER_CONTEXT_TOKEN);
+
+        // Check for currency header first, fallback to domain currency attribute
+        $currencyId = $request->headers->get(PlatformRequest::HEADER_CURRENCY_ID);
+        if ($currencyId === null) {
+            $currencyId = $request->attributes->get(SalesChannelRequest::ATTRIBUTE_DOMAIN_CURRENCY_ID);
+        }
+
         $contextServiceParameters = new SalesChannelContextServiceParameters(
             (string) $request->attributes->get(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_ID),
             $usedContextToken,
             $request->headers->get(PlatformRequest::HEADER_LANGUAGE_ID),
-            $request->attributes->get(SalesChannelRequest::ATTRIBUTE_DOMAIN_CURRENCY_ID),
-            $request->attributes->get(SalesChannelRequest::ATTRIBUTE_DOMAIN_ID)
+            $currencyId,
+            $request->attributes->get(SalesChannelRequest::ATTRIBUTE_DOMAIN_ID),
+            $request->attributes->get(PlatformRequest::ATTRIBUTE_CONTEXT_OBJECT),
+            null,
+            $session?->get(PlatformRequest::ATTRIBUTE_IMITATING_USER_ID)
         );
         $context = $this->contextService->get($contextServiceParameters);
+
+        // Remove imitating user id from session, if there is no customer
+        if ($session && $context->getImitatingUserId() && !$context->getCustomerId()) {
+            $session->remove(PlatformRequest::ATTRIBUTE_IMITATING_USER_ID);
+            $context->setImitatingUserId(null);
+        }
 
         // Validate if a customer login is required for the current request
         $this->validateLogin($request, $context);
@@ -73,18 +89,6 @@ class SalesChannelRequestContextResolver implements RequestContextResolverInterf
         $this->eventDispatcher->dispatch(
             new SalesChannelContextResolvedEvent($context, $usedContextToken)
         );
-    }
-
-    public function handleSalesChannelContext(Request $request, string $salesChannelId, string $contextToken): void
-    {
-        $language = $request->headers->get(PlatformRequest::HEADER_LANGUAGE_ID);
-        $currencyId = $request->attributes->get(SalesChannelRequest::ATTRIBUTE_DOMAIN_CURRENCY_ID);
-
-        $context = $this->contextService
-            ->get(new SalesChannelContextServiceParameters($salesChannelId, $contextToken, $language, $currencyId));
-
-        $request->attributes->set(PlatformRequest::ATTRIBUTE_CONTEXT_OBJECT, $context->getContext());
-        $request->attributes->set(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_CONTEXT_OBJECT, $context);
     }
 
     protected function getScopeRegistry(): RouteScopeRegistry
@@ -104,11 +108,11 @@ class SalesChannelRequestContextResolver implements RequestContextResolverInterf
         }
 
         if ($context->getCustomer() === null) {
-            throw CartException::customerNotLoggedIn();
+            throw RoutingException::customerNotLoggedIn();
         }
 
         if ($request->attributes->get(PlatformRequest::ATTRIBUTE_LOGIN_REQUIRED_ALLOW_GUEST, false) === false && $context->getCustomer()->getGuest()) {
-            throw CartException::customerNotLoggedIn();
+            throw RoutingException::customerNotLoggedIn();
         }
     }
 }

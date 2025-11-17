@@ -1,16 +1,48 @@
 import template from './sw-grid-row.html.twig';
 import './sw-grid-row.scss';
 
-const { Component } = Shopware;
 const utils = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
-Component.register('sw-grid-row', {
+export default {
     template,
+
+    inject: {
+        swGridInlineEditStart: {
+            from: 'swGridInlineEditStart',
+            default: null,
+        },
+        swGridInlineEditCancel: {
+            from: 'swGridInlineEditCancel',
+            default: null,
+        },
+        swOnInlineEditStart: {
+            from: 'swOnInlineEditStart',
+            default: null,
+        },
+        swRegisterGridDisableInlineEditListener: {
+            from: 'swRegisterGridDisableInlineEditListener',
+            default: null,
+        },
+        swUnregisterGridDisableInlineEditListener: {
+            from: 'swUnregisterGridDisableInlineEditListener',
+            default: null,
+        },
+        swGridSetColumns: {
+            from: 'swGridSetColumns',
+            default: null,
+        },
+        swGridColumns: {
+            from: 'swGridColumns',
+            default: null,
+        },
+    },
+
+    emits: ['inline-edit-finish'],
 
     props: {
         item: {
@@ -27,15 +59,15 @@ Component.register('sw-grid-row', {
         allowInlineEdit: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
     },
 
+    expose: ['startInlineEditing'],
+
     data() {
         return {
-            columns: [],
             isEditingActive: false,
             inlineEditingCls: 'is--inline-editing',
             id: utils.createId(),
@@ -57,14 +89,13 @@ Component.register('sw-grid-row', {
         this.createdComponent();
     },
 
+    beforeUnmount() {
+        this.swUnregisterGridDisableInlineEditListener(this.onInlineEditCancel);
+    },
+
     methods: {
         createdComponent() {
-            // Bubble up columns declaration for the column header definition
-            this.$parent.columns = this.columns;
-
-            this.$parent.$on('sw-grid-disable-inline-editing', (id) => {
-                this.onInlineEditCancel(id);
-            });
+            this.swRegisterGridDisableInlineEditListener(this.onInlineEditCancel);
         },
 
         onInlineEditStart() {
@@ -76,7 +107,7 @@ Component.register('sw-grid-row', {
 
             // If inline editing is already enabled, or no column has
             // the property "editable" we don't have to enable it.
-            this.columns.forEach((column) => {
+            this.swGridColumns.forEach((column) => {
                 if (column.editable || isInlineEditingConfigured) {
                     isInlineEditingConfigured = true;
                 }
@@ -87,8 +118,8 @@ Component.register('sw-grid-row', {
             }
 
             this.isEditingActive = true;
-            this.$parent.$emit('sw-row-inline-edit-start', this.id);
-            this.$parent.$emit('inline-edit-start', this.item);
+            this.swGridInlineEditStart(this.id);
+            this.swOnInlineEditStart(this.item);
         },
 
         onInlineEditCancel(id, index) {
@@ -97,13 +128,16 @@ Component.register('sw-grid-row', {
             }
 
             this.isEditingActive = false;
-            this.$parent.$emit('sw-row-inline-edit-cancel', this.id, index);
-            this.$parent.$emit('inline-edit-cancel', this.item, index);
+            this.swGridInlineEditCancel(this.item, index);
         },
 
         onInlineEditFinish() {
             this.isEditingActive = false;
             this.$emit('inline-edit-finish', this.item);
         },
+
+        startInlineEditing() {
+            this.onInlineEditStart();
+        },
     },
-});
+};

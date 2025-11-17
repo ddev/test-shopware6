@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\Category\DataAbstractionLayer;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Category\CategoryDefinition;
 use Shopware\Core\Content\Category\Event\CategoryIndexerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IterableQuery;
@@ -12,22 +13,27 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\ChildCountUpdater;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexer;
+use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexingMessage;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\TreeUpdater;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('inventory')]
+#[Package('discovery')]
 class CategoryIndexer extends EntityIndexer
 {
     final public const CHILD_COUNT_UPDATER = 'category.child-count';
     final public const TREE_UPDATER = 'category.tree';
     final public const BREADCRUMB_UPDATER = 'category.breadcrumb';
+    private const UPDATE_IDS_CHUNK_SIZE = 50;
 
     /**
      * @internal
+     *
+     * @param EntityRepository<CategoryCollection> $repository
      */
     public function __construct(
         private readonly Connection $connection,
@@ -36,7 +42,8 @@ class CategoryIndexer extends EntityIndexer
         private readonly ChildCountUpdater $childCountUpdater,
         private readonly TreeUpdater $treeUpdater,
         private readonly CategoryBreadcrumbUpdater $breadcrumbUpdater,
-        private readonly EventDispatcherInterface $eventDispatcher
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly MessageBusInterface $messageBus,
     ) {
     }
 
@@ -60,7 +67,10 @@ class CategoryIndexer extends EntityIndexer
             return null;
         }
 
-        return new CategoryIndexingMessage(array_values($ids), $iterator->getOffset());
+        return new CategoryIndexingMessage(
+            data: array_values($ids),
+            offset: $iterator->getOffset()
+        );
     }
 
     public function update(EntityWrittenContainerEvent $event): ?EntityIndexingMessage
@@ -100,23 +110,36 @@ class CategoryIndexer extends EntityIndexer
             $this->treeUpdater->batchUpdate(
                 $idsWithChangedParentIds,
                 CategoryDefinition::ENTITY_NAME,
-                $event->getContext()
+                $event->getContext(),
+                true
             );
         }
 
         $children = $this->fetchChildren($ids, $event->getContext()->getVersionId());
-
         $ids = array_unique(array_merge($ids, $children));
 
-        return new CategoryIndexingMessage(array_values($ids), null, $event->getContext(), \count($ids) > 20);
+        $chunks = \array_chunk($ids, self::UPDATE_IDS_CHUNK_SIZE);
+        $idsForReturnedMessage = array_shift($chunks);
+
+        foreach ($chunks as $chunk) {
+            $childrenIndexingMessage = new CategoryIndexingMessage($chunk, null, $event->getContext());
+            $childrenIndexingMessage->setIndexer($this->getName());
+            EntityIndexerRegistry::addSkips($childrenIndexingMessage, $event->getContext());
+
+            $this->messageBus->dispatch($childrenIndexingMessage);
+        }
+
+        return new CategoryIndexingMessage($idsForReturnedMessage, null, $event->getContext());
     }
 
     public function handle(EntityIndexingMessage $message): void
     {
         $ids = $message->getData();
+        if (!\is_array($ids)) {
+            return;
+        }
 
-        /** @var list<string> $ids */
-        $ids = array_unique(array_filter($ids));
+        $ids = array_values(array_unique(array_filter($ids)));
         if (empty($ids)) {
             return;
         }
@@ -130,7 +153,12 @@ class CategoryIndexer extends EntityIndexer
             }
 
             if ($message->allow(self::TREE_UPDATER)) {
-                $this->treeUpdater->batchUpdate($ids, CategoryDefinition::ENTITY_NAME, $context);
+                $this->treeUpdater->batchUpdate(
+                    $ids,
+                    CategoryDefinition::ENTITY_NAME,
+                    $context,
+                    !$message->isFullIndexing
+                );
             }
 
             if ($message->allow(self::BREADCRUMB_UPDATER)) {
@@ -139,7 +167,7 @@ class CategoryIndexer extends EntityIndexer
             }
         });
 
-        $this->eventDispatcher->dispatch(new CategoryIndexerEvent($ids, $context, $message->getSkip()));
+        $this->eventDispatcher->dispatch(new CategoryIndexerEvent($ids, $context, $message->getSkip(), $message->isFullIndexing));
     }
 
     public function getOptions(): array

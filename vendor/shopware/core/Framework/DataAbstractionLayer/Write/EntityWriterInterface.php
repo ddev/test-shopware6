@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal use entity repository to write data
  */
-#[Package('core')]
+#[Package('framework')]
 interface EntityWriterInterface
 {
     /**
@@ -30,17 +30,17 @@ interface EntityWriterInterface
      *
      * @return array<string, array<EntityWriteResult>>
      */
-    public function insert(EntityDefinition $definition, array $rawData, WriteContext $writeContext);
+    public function insert(EntityDefinition $definition, array $rawData, WriteContext $writeContext): array;
 
     /**
      * @param array<array<string, mixed>> $rawData
      *
      * @return array<string, array<EntityWriteResult>>
      */
-    public function update(EntityDefinition $definition, array $rawData, WriteContext $writeContext);
+    public function update(EntityDefinition $definition, array $rawData, WriteContext $writeContext): array;
 
     /**
-     * @param array<array<string, string>> $ids
+     * @param array<array<string, string>> $rawData
      */
-    public function delete(EntityDefinition $definition, array $ids, WriteContext $writeContext): WriteResult;
+    public function delete(EntityDefinition $definition, array $rawData, WriteContext $writeContext): WriteResult;
 }

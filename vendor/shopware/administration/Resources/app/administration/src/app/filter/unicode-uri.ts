@@ -1,11 +1,11 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import Punycode from 'punycode';
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 Shopware.Filter.register('unicodeUri', (value: string) => {
     if (!value) {
@@ -19,4 +19,3 @@ Shopware.Filter.register('unicodeUri', (value: string) => {
 
 /* @private */
 export {};
-

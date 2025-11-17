@@ -1,13 +1,13 @@
 import template from './sw-flow-tag-modal.html.twig';
 
-const { Component, Mixin, Context } = Shopware;
+const { Component, Mixin, Context, Store } = Shopware;
 const { ShopwareError } = Shopware.Classes;
 const { EntityCollection, Criteria } = Shopware.Data;
 const { mapState } = Component.getComponentHelper();
 
 /**
  * @private
- * @package services-settings
+ * @sw-package after-sales
  */
 export default {
     template,
@@ -16,6 +16,11 @@ export default {
         'acl',
         'repositoryFactory',
         'flowBuilderService',
+    ],
+
+    emits: [
+        'process-finish',
+        'modal-close',
     ],
 
     mixins: [
@@ -80,7 +85,13 @@ export default {
             return '';
         },
 
-        ...mapState('swFlowState', ['triggerEvent', 'triggerActions']),
+        ...mapState(
+            () => Store.get('swFlow'),
+            [
+                'triggerEvent',
+                'triggerActions',
+            ],
+        ),
     },
 
     watch: {
@@ -118,8 +129,9 @@ export default {
         },
 
         getTagCollection() {
-            return this.tagRepository.search(this.tagCriteria)
-                .then(tags => {
+            return this.tagRepository
+                .search(this.tagCriteria)
+                .then((tags) => {
                     this.tagCollection = tags;
                 })
                 .catch(() => {
@@ -128,11 +140,7 @@ export default {
         },
 
         createTagCollection() {
-            return new EntityCollection(
-                this.tagRepository.route,
-                this.tagRepository.entityName,
-                Context.api,
-            );
+            return new EntityCollection(this.tagRepository.route, this.tagRepository.entityName, Context.api);
         },
 
         onAddTag(data) {
@@ -151,7 +159,9 @@ export default {
 
             const allowedAware = this.triggerEvent.aware ?? [];
             // eslint-disable-next-line max-len
-            const options = this.flowBuilderService.getAvailableEntities(this.action, this.triggerActions, allowedAware, ['tags']);
+            const options = this.flowBuilderService.getAvailableEntities(this.action, this.triggerActions, allowedAware, [
+                'tags',
+            ]);
 
             if (options.length) {
                 this.entity = options[0].value;
@@ -162,7 +172,7 @@ export default {
 
         getConfig() {
             const tagIds = {};
-            this.tagCollection.forEach(tag => {
+            this.tagCollection.forEach((tag) => {
                 Object.assign(tagIds, {
                     [tag.id]: tag.name,
                 });

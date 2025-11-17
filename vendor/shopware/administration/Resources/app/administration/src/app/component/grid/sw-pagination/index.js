@@ -1,21 +1,20 @@
 import './sw-pagination.scss';
 import template from './sw-pagination.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type static
  * @component-example
  * <sw-pagination :total="500" :limit="25" :page="1"></sw-pagination>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-pagination', {
+export default {
     template,
+
+    emits: ['page-change'],
 
     props: {
         total: {
@@ -43,14 +42,19 @@ Component.register('sw-pagination', {
             type: Array,
             required: false,
             default() {
-                return [10, 25, 50, 75, 100];
+                return [
+                    10,
+                    25,
+                    50,
+                    75,
+                    100,
+                ];
             },
         },
 
         autoHide: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -78,7 +82,7 @@ Component.register('sw-pagination', {
 
             const even = maxLength % 2 === 0 ? 1 : 0;
             const left = Math.floor(maxLength / 2);
-            const right = (this.maxPage - left) + 1 + even;
+            const right = this.maxPage - left + 1 + even;
 
             if (currentPage === left || (left === 1 && currentPage === left + 1)) {
                 return [
@@ -97,10 +101,16 @@ Component.register('sw-pagination', {
             }
 
             if (currentPage > left && currentPage < right) {
-                const start = (currentPage - left) + 2;
-                const end = (currentPage + left) - 2 - even;
+                const start = currentPage - left + 2;
+                const end = currentPage + left - 2 - even;
 
-                return [1, '...', ...start > end ? [currentPage] : this.range(start, end), '...', this.maxPage];
+                return [
+                    1,
+                    '...',
+                    ...(start > end ? [currentPage] : this.range(start, end)),
+                    '...',
+                    this.maxPage,
+                ];
             }
 
             return [
@@ -123,13 +133,22 @@ Component.register('sw-pagination', {
             const stepsSorted = [...this.steps].sort((a, b) => a - b);
 
             let lastStep;
-            const possibleSteps = stepsSorted.filter(x => {
+            const possibleSteps = stepsSorted.filter((x) => {
                 if (lastStep > total) return false;
                 lastStep = x;
                 return true;
             });
 
             return possibleSteps;
+        },
+
+        possibleStepsOptions() {
+            return this.possibleSteps.map((step) => {
+                return {
+                    value: String(step),
+                    label: String(step),
+                };
+            });
         },
     },
 
@@ -207,4 +226,4 @@ Component.register('sw-pagination', {
             this.pageChange();
         },
     },
-});
+};

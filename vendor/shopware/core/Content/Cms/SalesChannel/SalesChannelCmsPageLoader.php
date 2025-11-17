@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\Cms\SalesChannel;
 
 use Shopware\Core\Content\Cms\Aggregate\CmsBlock\CmsBlockEntity;
+use Shopware\Core\Content\Cms\Aggregate\CmsSection\CmsSectionCollection;
 use Shopware\Core\Content\Cms\Aggregate\CmsSection\CmsSectionEntity;
 use Shopware\Core\Content\Cms\Aggregate\CmsSlot\CmsSlotEntity;
 use Shopware\Core\Content\Cms\CmsPageCollection;
@@ -11,6 +12,11 @@ use Shopware\Core\Content\Cms\DataResolver\CmsSlotsDataResolver;
 use Shopware\Core\Content\Cms\DataResolver\ResolverContext\ResolverContext;
 use Shopware\Core\Content\Cms\Events\CmsPageLoadedEvent;
 use Shopware\Core\Content\Cms\Events\CmsPageLoaderCriteriaEvent;
+use Shopware\Core\Content\Cms\SalesChannel\Struct\ProductBoxStruct;
+use Shopware\Core\Content\Cms\SalesChannel\Struct\ProductSliderStruct;
+use Shopware\Core\Framework\Adapter\Cache\CacheTagCollector;
+use Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
@@ -19,7 +25,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
 {
     /**
@@ -30,7 +36,8 @@ class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
     public function __construct(
         private readonly EntityRepository $cmsPageRepository,
         private readonly CmsSlotsDataResolver $slotDataResolver,
-        private readonly EventDispatcherInterface $eventDispatcher
+        private readonly EventDispatcherInterface $dispatcher,
+        private readonly CacheTagCollector $cacheTagCollector,
     ) {
     }
 
@@ -41,7 +48,7 @@ class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
         ?array $config = null,
         ?ResolverContext $resolverContext = null
     ): EntitySearchResult {
-        $this->eventDispatcher->dispatch(new CmsPageLoaderCriteriaEvent($request, $criteria, $context));
+        $this->dispatcher->dispatch(new CmsPageLoaderCriteriaEvent($request, $criteria, $context));
         $config ??= [];
 
         // ensure sections, blocks and slots are loaded, slots and blocks can be restricted by caller
@@ -54,18 +61,20 @@ class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
         $pages = $result->getEntities();
 
         foreach ($pages as $page) {
-            if ($page->getSections() === null) {
+            $sections = $page->getSections();
+
+            if ($sections === null) {
                 continue;
             }
 
-            $page->getSections()->sort(fn (CmsSectionEntity $a, CmsSectionEntity $b) => $a->getPosition() <=> $b->getPosition());
+            $sections->sort(fn (CmsSectionEntity $a, CmsSectionEntity $b) => $a->getPosition() <=> $b->getPosition());
 
             if (!$resolverContext) {
                 $resolverContext = new ResolverContext($context, $request);
             }
 
             // step 2, sort blocks into sectionPositions
-            foreach ($page->getSections() as $section) {
+            foreach ($sections as $section) {
                 $blocks = $section->getBlocks();
                 if ($blocks === null) {
                     continue;
@@ -85,24 +94,21 @@ class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
             $overwrite = $config[$page->getId()] ?? $config;
 
             // step 4, overwrite slot config
-            $this->overwriteSlotConfig($page, $overwrite);
+            $this->overwriteSlotConfig($sections, $overwrite);
 
             // step 5, resolve slot data
-            $this->loadSlotData($page, $resolverContext);
+            $this->loadSlotData($sections, $resolverContext);
         }
 
-        $this->eventDispatcher->dispatch(new CmsPageLoadedEvent($request, $pages, $context));
+        $this->dispatcher->dispatch(new CmsPageLoadedEvent($request, $pages, $context));
+
+        $this->cacheTagCollector->addTag(...$this->extractProductIds($pages));
 
         return $result;
     }
 
-    private function loadSlotData(CmsPageEntity $page, ResolverContext $resolverContext): void
+    private function loadSlotData(CmsSectionCollection $sections, ResolverContext $resolverContext): void
     {
-        $sections = $page->getSections();
-        if ($sections === null) {
-            return;
-        }
-
         $blocks = $sections->getBlocks();
         $slots = $this->slotDataResolver->resolve($blocks->getSlots(), $resolverContext);
 
@@ -112,13 +118,8 @@ class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
     /**
      * @param array<string, mixed> $config
      */
-    private function overwriteSlotConfig(CmsPageEntity $page, array $config): void
+    private function overwriteSlotConfig(CmsSectionCollection $sections, array $config): void
     {
-        $sections = $page->getSections();
-        if ($sections === null) {
-            return;
-        }
-
         foreach ($sections->getBlocks()->getSlots() as $slot) {
             if ($slot->getConfig() === null && $slot->getTranslation('config') !== null) {
                 $slot->setConfig($slot->getTranslation('config'));
@@ -133,13 +134,101 @@ class SalesChannelCmsPageLoader implements SalesChannelCmsPageLoaderInterface
             }
 
             $defaultConfig = $slot->getConfig() ?? [];
-            $merged = array_replace_recursive(
-                $defaultConfig,
-                $config[$slot->getId()]
-            );
+            $merged = $this->overrideArray($defaultConfig, $config[$slot->getId()]);
 
             $slot->setConfig($merged);
             $slot->addTranslated('config', $merged);
         }
+    }
+
+    /**
+     * @param EntityCollection<CmsPageEntity> $pages
+     *
+     * @return array<string>
+     */
+    private function extractProductIds(EntityCollection $pages): array
+    {
+        $ids = [];
+        $streamIds = [];
+
+        /** @var CmsPageEntity $page */
+        foreach ($pages as $page) {
+            $slots = $page->getElementsOfType('product-slider');
+
+            /** @var CmsSlotEntity $slot */
+            foreach ($slots as $slot) {
+                $slider = $slot->getData();
+
+                if (!$slider instanceof ProductSliderStruct) {
+                    continue;
+                }
+
+                if ($slider->getStreamId() !== null) {
+                    $streamIds[] = $slider->getStreamId();
+                }
+
+                if ($slider->getProducts() === null) {
+                    continue;
+                }
+                foreach ($slider->getProducts() as $product) {
+                    $ids[] = $product->getId();
+                    $ids[] = $product->getParentId();
+                }
+            }
+
+            $slots = $page->getElementsOfType('product-box');
+            /** @var CmsSlotEntity $slot */
+            foreach ($slots as $slot) {
+                $box = $slot->getData();
+
+                if (!$box instanceof ProductBoxStruct) {
+                    continue;
+                }
+                if ($box->getProduct() === null) {
+                    continue;
+                }
+
+                $ids[] = $box->getProduct()->getId();
+                $ids[] = $box->getProduct()->getParentId();
+            }
+
+            $ids = array_values(array_unique(array_filter($ids)));
+        }
+
+        return [
+            ...array_map(EntityCacheKeyGenerator::buildProductTag(...), $ids),
+            ...array_map(EntityCacheKeyGenerator::buildStreamTag(...), $streamIds),
+            ...array_map(EntityCacheKeyGenerator::buildCmsTag(...), $pages->getIds()),
+        ];
+    }
+
+    /**
+     * Recursively overrides the original array with values from the override array.
+     * Merges recursively for associative arrays and replaces completely for index arrays.
+     *
+     * @param array<string, mixed> $original
+     * @param array<string, mixed> $override
+     *
+     * @return array<string, mixed>
+     */
+    private function overrideArray(array $original, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            $originalValue = $original[$key] ?? null;
+            if (
+                \is_array($originalValue)
+                && \is_array($value)
+                && !array_is_list($originalValue)
+                && !array_is_list($value)
+            ) {
+                $original[$key] = $this->overrideArray($originalValue, $value);
+                continue;
+            }
+
+            // Simple value override
+            $original[$key] = $value;
+        }
+
+        return $original;
     }
 }

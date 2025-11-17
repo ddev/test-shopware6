@@ -5,23 +5,27 @@ namespace Shopware\Elasticsearch;
 use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\HttpException;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Elasticsearch\Exception\ElasticsearchIndexingException;
-use Shopware\Elasticsearch\Exception\ServerNotAvailableException;
-use Shopware\Elasticsearch\Exception\UnsupportedElasticsearchDefinitionException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class ElasticsearchException extends HttpException
 {
     public const DEFINITION_NOT_FOUND = 'ELASTICSEARCH__DEFINITION_NOT_FOUND';
     public const UNSUPPORTED_DEFINITION = 'ELASTICSEARCH__UNSUPPORTED_DEFINITION';
     public const INDEXING_ERROR = 'ELASTICSEARCH__INDEXING_ERROR';
+    public const INDEX_CREATION_ERROR = 'ELASTICSEARCH__INDEX_CREATION_ERROR';
     public const NESTED_AGGREGATION_MISSING = 'ELASTICSEARCH__NESTED_FILTER_AGGREGATION_MISSING';
     public const UNSUPPORTED_AGGREGATION = 'ELASTICSEARCH__UNSUPPORTED_AGGREGATION';
     public const UNSUPPORTED_FILTER = 'ELASTICSEARCH__UNSUPPORTED_FILTER';
     public const NESTED_AGGREGATION_PARSE_ERROR = 'ELASTICSEARCH__NESTED_AGGREGATION_PARSE_ERROR';
     public const PARENT_FILTER_ERROR = 'ELASTICSEARCH__PARENT_FILTER_ERROR';
     public const SERVER_NOT_AVAILABLE = 'ELASTICSEARCH__SERVER_NOT_AVAILABLE';
+    public const EMPTY_QUERY = 'ELASTICSEARCH__EMPTY_QUERY';
+    public const EMPTY_INDEXING_REQUEST = 'ELASTICSEARCH__EMPTY_INDEXING_REQUEST';
+
+    public const AWS_CREDENTIALS_NOT_FOUND = 'ELASTICSEARCH__AWS_CREDENTIALS_NOT_FOUND';
+
+    public const OPERATOR_NOT_ALLOWED = 'ELASTICSEARCH__OPERATOR_NOT_ALLOWED';
 
     public static function definitionNotFound(string $definition): self
     {
@@ -35,10 +39,6 @@ class ElasticsearchException extends HttpException
 
     public static function unsupportedElasticsearchDefinition(string $definition): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new UnsupportedElasticsearchDefinitionException($definition);
-        }
-
         return new self(
             Response::HTTP_BAD_REQUEST,
             self::UNSUPPORTED_DEFINITION,
@@ -52,17 +52,18 @@ class ElasticsearchException extends HttpException
      */
     public static function indexingError(array $items): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new ElasticsearchIndexingException($items);
-        }
+        $esErrors = \PHP_EOL . implode(\PHP_EOL, array_column($items, 'reason'));
 
-        $message = \PHP_EOL . implode(\PHP_EOL, array_column($items, 'reason'));
+        $exceptionMessage = 'Following errors occurred while indexing: {{ messages }}';
+        if (\in_array('mapper_parsing_exception', array_column($items, 'type'), true)) {
+            $exceptionMessage = 'Some fields are mapped to incorrect types. Please reset the index and rebuild it. Full errors: {{ messages }}';
+        }
 
         return new self(
             Response::HTTP_INTERNAL_SERVER_ERROR,
             self::INDEXING_ERROR,
-            'Following errors occurred while indexing: {{ messages }}',
-            ['messages' => $message]
+            $exceptionMessage,
+            ['messages' => $esErrors]
         );
     }
 
@@ -118,14 +119,67 @@ class ElasticsearchException extends HttpException
 
     public static function serverNotAvailable(): self
     {
-        if (!Feature::isActive('v6.6.0.0')) {
-            return new ServerNotAvailableException();
-        }
-
         return new self(
             Response::HTTP_INTERNAL_SERVER_ERROR,
             self::SERVER_NOT_AVAILABLE,
             'Elasticsearch server is not available'
+        );
+    }
+
+    public static function emptyQuery(): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::EMPTY_QUERY,
+            'Empty query provided'
+        );
+    }
+
+    public static function awsCredentialsNotFound(): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::AWS_CREDENTIALS_NOT_FOUND,
+            'Could not get AWS credentials'
+        );
+    }
+
+    public static function emptyIndexingRequest(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::EMPTY_INDEXING_REQUEST,
+            'Empty indexing request provided'
+        );
+    }
+
+    /**
+     * @param array<mixed> $config
+     */
+    public static function indexCreationFailed(string $index, array $config, \Throwable $exception): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::INDEX_CREATION_ERROR,
+            'Creating index {{ index }} failed with payload {{ payload }}. Reason: {{ reason }}',
+            ['index' => $index, 'reason' => $exception->getMessage(), 'payload' => json_encode($config, \JSON_THROW_ON_ERROR)]
+        );
+    }
+
+    /**
+     * @deprecated tag:v6.8.0 - reason:return-type-change - Will only return `self` in the future
+     */
+    public static function operatorNotAllowed(string $operator): self|\InvalidArgumentException
+    {
+        if (!Feature::isActive('v6.8.0.0')) {
+            return new \InvalidArgumentException('Operator ' . $operator . ' not allowed');
+        }
+
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::OPERATOR_NOT_ALLOWED,
+            'Operator {{ operator }} not allowed',
+            ['operator' => $operator]
         );
     }
 }

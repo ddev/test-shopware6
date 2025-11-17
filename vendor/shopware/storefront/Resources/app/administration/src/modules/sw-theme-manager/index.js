@@ -1,5 +1,5 @@
 /**
- * @package sales-channel
+ * @package discovery
  */
 
 import './mixin/sw-theme.mixin';

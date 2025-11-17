@@ -9,7 +9,6 @@ use PhpParser\Node\Identifier;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
-use PHPStan\Type\ObjectType;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
 use Shopware\Core\Content\Flow\Dispatching\Storer\FlowStorer;
 use Shopware\Core\Framework\Log\Package;
@@ -19,7 +18,7 @@ use Shopware\Core\Framework\Log\Package;
  *
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class NoFlowStoreFunctionRule implements Rule
 {
     use InTestClassTrait;
@@ -55,23 +54,20 @@ class NoFlowStoreFunctionRule implements Rule
             return [];
         }
 
-        $type = $scope->getVariableType($node->var->name);
-
-        if (!$type instanceof ObjectType) {
-            return [];
-        }
-
-        if ($type->getClassName() !== StorableFlow::class) {
+        $classNames = $scope->getVariableType($node->var->name)->getObjectClassNames();
+        if (!\in_array(StorableFlow::class, $classNames, true)) {
             return [];
         }
 
         $class = $scope->getClassReflection();
-        if ($class === null || $class->isSubclassOf(FlowStorer::class)) {
+        if ($class === null || $class->is(FlowStorer::class)) {
             return [];
         }
 
         return [
-            RuleErrorBuilder::message('Using Shopware::getStore, outside storer classes, is not allowed. Use getData instead')->build(),
+            RuleErrorBuilder::message('Using Shopware::getStore, outside storer classes, is not allowed. Use getData instead')
+                ->identifier('shopware.noFlowStoreFunction')
+                ->build(),
         ];
     }
 }

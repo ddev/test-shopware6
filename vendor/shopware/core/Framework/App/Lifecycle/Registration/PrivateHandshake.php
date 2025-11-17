@@ -10,11 +10,12 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class PrivateHandshake implements AppHandshakeInterface
 {
     public function __construct(
         private readonly string $shopUrl,
+        #[\SensitiveParameter]
         private readonly string $secret,
         private readonly string $appEndpoint,
         private readonly string $appName,

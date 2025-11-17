@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Event\EventData\EntityCollectionType;
 use Shopware\Core\Framework\Event\EventData\EntityType;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class HookableEventDoc
 {
     private const WRITE_EVENT_DESCRIPTION_TEMPLATE = 'Triggers when a %s is %s';
@@ -52,7 +52,7 @@ class HookableEventDoc
         try {
             return new self(
                 $event,
-                sprintf(
+                \sprintf(
                     self::WRITE_EVENT_DESCRIPTION_TEMPLATE,
                     $eventInfo[0],
                     $eventInfo[1]

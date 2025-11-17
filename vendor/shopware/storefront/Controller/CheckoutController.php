@@ -12,20 +12,20 @@ use Shopware\Core\Checkout\Customer\SalesChannel\AbstractLogoutRoute;
 use Shopware\Core\Checkout\Order\Exception\EmptyCartException;
 use Shopware\Core\Checkout\Order\OrderException;
 use Shopware\Core\Checkout\Order\SalesChannel\OrderService;
-use Shopware\Core\Checkout\Payment\Exception\InvalidOrderException;
-use Shopware\Core\Checkout\Payment\Exception\PaymentProcessException;
-use Shopware\Core\Checkout\Payment\Exception\UnknownPaymentMethodException;
 use Shopware\Core\Checkout\Payment\PaymentException;
-use Shopware\Core\Checkout\Payment\PaymentService;
+use Shopware\Core\Checkout\Payment\PaymentProcessor;
+use Shopware\Core\Content\Flow\FlowException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\Profiling\Profiler;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
-use Shopware\Core\System\SystemConfig\SystemConfigService;
+use Shopware\Core\System\StateMachine\Exception\IllegalTransitionException;
 use Shopware\Storefront\Checkout\Cart\Error\PaymentMethodChangedError;
 use Shopware\Storefront\Checkout\Cart\Error\ShippingMethodChangedError;
 use Shopware\Storefront\Framework\AffiliateTracking\AffiliateTrackingListener;
+use Shopware\Storefront\Framework\Routing\StorefrontRouteScope;
 use Shopware\Storefront\Page\Checkout\Cart\CheckoutCartPageLoadedHook;
 use Shopware\Storefront\Page\Checkout\Cart\CheckoutCartPageLoader;
 use Shopware\Storefront\Page\Checkout\Confirm\CheckoutConfirmPageLoadedHook;
@@ -35,18 +35,20 @@ use Shopware\Storefront\Page\Checkout\Finish\CheckoutFinishPageLoader;
 use Shopware\Storefront\Page\Checkout\Offcanvas\CheckoutInfoWidgetLoadedHook;
 use Shopware\Storefront\Page\Checkout\Offcanvas\CheckoutOffcanvasWidgetLoadedHook;
 use Shopware\Storefront\Page\Checkout\Offcanvas\OffcanvasCartPageLoader;
+use Shopware\Storefront\Pagelet\Footer\FooterPageletLoaderInterface;
+use Shopware\Storefront\Pagelet\Header\HeaderPageletLoaderInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
- * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put datas
+ * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put data
  */
-#[Route(defaults: ['_routeScope' => ['storefront']])]
-#[Package('storefront')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
+#[Package('framework')]
 class CheckoutController extends StorefrontController
 {
     private const REDIRECTED_FROM_SAME_ROUTE = 'redirected';
@@ -60,15 +62,22 @@ class CheckoutController extends StorefrontController
         private readonly CheckoutConfirmPageLoader $confirmPageLoader,
         private readonly CheckoutFinishPageLoader $finishPageLoader,
         private readonly OrderService $orderService,
-        private readonly PaymentService $paymentService,
+        private readonly PaymentProcessor $paymentProcessor,
         private readonly OffcanvasCartPageLoader $offcanvasCartPageLoader,
-        private readonly SystemConfigService $config,
         private readonly AbstractLogoutRoute $logoutRoute,
-        private readonly AbstractCartLoadRoute $cartLoadRoute
+        private readonly AbstractCartLoadRoute $cartLoadRoute,
+        private readonly HeaderPageletLoaderInterface $headerPageletLoader,
+        private readonly FooterPageletLoaderInterface $footerPageletLoader,
     ) {
     }
 
-    #[Route(path: '/checkout/cart', name: 'frontend.checkout.cart.page', options: ['seo' => false], defaults: ['_noStore' => true], methods: ['GET'])]
+    #[Route(
+        path: '/checkout/cart',
+        name: 'frontend.checkout.cart.page',
+        options: ['seo' => false],
+        defaults: ['_noStore' => true],
+        methods: ['GET']
+    )]
     public function cartPage(Request $request, SalesChannelContext $context): Response
     {
         $page = $this->cartPageLoader->load($request, $context);
@@ -93,13 +102,25 @@ class CheckoutController extends StorefrontController
         return $this->renderStorefront('@Storefront/storefront/page/checkout/cart/index.html.twig', ['page' => $page]);
     }
 
-    #[Route(path: '/checkout/cart.json', name: 'frontend.checkout.cart.json', methods: ['GET'], options: ['seo' => false], defaults: ['XmlHttpRequest' => true])]
+    #[Route(
+        path: '/checkout/cart.json',
+        name: 'frontend.checkout.cart.json',
+        options: ['seo' => false],
+        defaults: ['XmlHttpRequest' => true],
+        methods: ['GET']
+    )]
     public function cartJson(Request $request, SalesChannelContext $context): Response
     {
         return $this->cartLoadRoute->load($request, $context);
     }
 
-    #[Route(path: '/checkout/confirm', name: 'frontend.checkout.confirm.page', options: ['seo' => false], defaults: ['XmlHttpRequest' => true, '_noStore' => true], methods: ['GET'])]
+    #[Route(
+        path: '/checkout/confirm',
+        name: 'frontend.checkout.confirm.page',
+        options: ['seo' => false],
+        defaults: ['XmlHttpRequest' => true, '_noStore' => true],
+        methods: ['GET']
+    )]
     public function confirmPage(Request $request, SalesChannelContext $context): Response
     {
         if (!$context->getCustomer()) {
@@ -128,10 +149,23 @@ class CheckoutController extends StorefrontController
             );
         }
 
-        return $this->renderStorefront('@Storefront/storefront/page/checkout/confirm/index.html.twig', ['page' => $page]);
+        $header = $this->headerPageletLoader->load($request, $context);
+        $footer = $this->footerPageletLoader->load($request, $context);
+
+        return $this->renderStorefront('@Storefront/storefront/page/checkout/confirm/index.html.twig', [
+            'page' => $page,
+            'header' => $header,
+            'footer' => $footer,
+        ]);
     }
 
-    #[Route(path: '/checkout/finish', name: 'frontend.checkout.finish.page', options: ['seo' => false], defaults: ['_noStore' => true], methods: ['GET'])]
+    #[Route(
+        path: '/checkout/finish',
+        name: 'frontend.checkout.finish.page',
+        options: ['seo' => false],
+        defaults: ['_noStore' => true],
+        methods: ['GET']
+    )]
     public function finishPage(Request $request, SalesChannelContext $context, RequestDataBag $dataBag): Response
     {
         if ($context->getCustomer() === null) {
@@ -141,7 +175,7 @@ class CheckoutController extends StorefrontController
         try {
             $page = $this->finishPageLoader->load($request, $context);
         } catch (OrderException $exception) {
-            $this->addFlash(self::DANGER, $this->trans('error.' . $exception->getErrorCode()));
+            $this->addFlash(self::DANGER, $this->trans('error.' . $exception->getErrorCode(), $exception->getParameters()));
 
             return $this->redirectToRoute('frontend.checkout.cart.page');
         }
@@ -158,11 +192,18 @@ class CheckoutController extends StorefrontController
             );
         }
 
-        if ($context->getCustomer()->getGuest() && $this->config->get('core.cart.logoutGuestAfterCheckout', $context->getSalesChannelId())) {
+        if ($page->isLogoutCustomer()) {
             $this->logoutRoute->logout($context, $dataBag);
         }
 
-        return $this->renderStorefront('@Storefront/storefront/page/checkout/finish/index.html.twig', ['page' => $page]);
+        $header = $this->headerPageletLoader->load($request, $context);
+        $footer = $this->footerPageletLoader->load($request, $context);
+
+        return $this->renderStorefront('@Storefront/storefront/page/checkout/finish/index.html.twig', [
+            'page' => $page,
+            'header' => $header,
+            'footer' => $footer,
+        ]);
     }
 
     #[Route(path: '/checkout/order', name: 'frontend.checkout.finish.order', options: ['seo' => false], methods: ['POST'])]
@@ -184,11 +225,11 @@ class CheckoutController extends StorefrontController
             );
 
             return $this->forwardToRoute('frontend.checkout.confirm.page');
-        } catch (UnknownPaymentMethodException|CartException $e) {
+        } catch (PaymentException|CartException $e) {
             if ($e->getErrorCode() === CartException::CART_PAYMENT_INVALID_ORDER_STORED_CODE && $e->getParameter('orderId')) {
                 return $this->forwardToRoute('frontend.checkout.finish.page', ['orderId' => $e->getParameter('orderId'), 'changedPayment' => false, 'paymentFailed' => true]);
             }
-            $message = $this->trans('error.' . $e->getErrorCode());
+            $message = $this->trans('error.' . $e->getErrorCode(), $e->getParameters());
             $this->addFlash('danger', $message);
 
             return $this->forwardToRoute('frontend.checkout.confirm.page');
@@ -198,10 +239,10 @@ class CheckoutController extends StorefrontController
             $finishUrl = $this->generateUrl('frontend.checkout.finish.page', ['orderId' => $orderId]);
             $errorUrl = $this->generateUrl('frontend.account.edit-order.page', ['orderId' => $orderId]);
 
-            $response = Profiler::trace('handle-payment', fn (): ?RedirectResponse => $this->paymentService->handlePaymentByOrder($orderId, $data, $context, $finishUrl, $errorUrl));
+            $response = Profiler::trace('handle-payment', fn (): ?RedirectResponse => $this->paymentProcessor->pay($orderId, $request, $context, $finishUrl, $errorUrl));
 
             return $response ?? new RedirectResponse($finishUrl);
-        } catch (PaymentProcessException|InvalidOrderException|PaymentException|UnknownPaymentMethodException) {
+        } catch (PaymentException|IllegalTransitionException|FlowException) {
             return $this->forwardToRoute('frontend.checkout.finish.page', ['orderId' => $orderId, 'changedPayment' => false, 'paymentFailed' => true]);
         }
     }

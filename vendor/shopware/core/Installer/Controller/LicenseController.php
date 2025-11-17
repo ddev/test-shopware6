@@ -6,12 +6,12 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Installer\License\LicenseFetcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class LicenseController extends InstallerController
 {
     public function __construct(private readonly LicenseFetcher $licenseFetcher)
@@ -21,7 +21,7 @@ class LicenseController extends InstallerController
     #[Route(path: '/installer/license', name: 'installer.license', methods: ['GET', 'POST'])]
     public function license(Request $request): Response
     {
-        if ($request->isMethod('POST') && $request->request->get('tos', false)) {
+        if ($request->isMethod(Request::METHOD_POST) && $request->request->get('tos', false)) {
             return $this->redirectToRoute('installer.database-configuration');
         }
 

@@ -1,23 +1,29 @@
 import template from './sw-customer-card.html.twig';
 import './sw-customer-card.scss';
 import errorConfig from '../../error-config.json';
-import CUSTOMER from '../../constant/sw-customer.constant';
+import ApiService from '../../../../core/service/api.service';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Mixin, Defaults } = Shopware;
 const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 const { Criteria } = Shopware.Data;
+const { CUSTOMER } = Shopware.Constants;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory'],
+    inject: [
+        'acl',
+        'contextStoreService',
+        'repositoryFactory',
+    ],
 
     mixins: [
+        Mixin.getByName('notification'),
         Mixin.getByName('salutation'),
     ],
 
@@ -40,6 +46,12 @@ export default {
             required: false,
             default: false,
         },
+    },
+
+    data() {
+        return {
+            showImitateCustomerModal: false,
+        };
     },
 
     computed: {
@@ -68,34 +80,107 @@ export default {
                 company: this.customer.company,
             };
 
-            return Object.values(name).filter(item => item !== null).join(' - ').trim();
+            return Object.values(name)
+                .filter((item) => item !== null)
+                .join(' - ')
+                .trim();
         },
 
         salutationCriteria() {
             const criteria = new Criteria(1, 25);
 
-            criteria.addFilter(Criteria.not('or', [
-                Criteria.equals('id', Defaults.defaultSalutationId),
-            ]));
+            criteria.addFilter(
+                Criteria.not('or', [
+                    Criteria.equals('id', Defaults.defaultSalutationId),
+                ]),
+            );
 
             return criteria;
         },
 
-        ...mapPropertyErrors(
-            'customer',
-            [...errorConfig['sw.customer.detail.base'].customer],
-        ),
+        ...mapPropertyErrors('customer', [
+            ...errorConfig['sw.customer.detail.base'].customer,
+        ]),
 
         accountTypeOptions() {
-            return [{
-                value: CUSTOMER.ACCOUNT_TYPE_PRIVATE, label: this.$tc('sw-customer.customerType.labelPrivate'),
-            }, {
-                value: CUSTOMER.ACCOUNT_TYPE_BUSINESS, label: this.$tc('sw-customer.customerType.labelBusiness'),
-            }];
+            return [
+                {
+                    value: CUSTOMER.ACCOUNT_TYPE_PRIVATE,
+                    label: this.$tc('sw-customer.customerType.labelPrivate'),
+                },
+                {
+                    value: CUSTOMER.ACCOUNT_TYPE_BUSINESS,
+                    label: this.$tc('sw-customer.customerType.labelBusiness'),
+                },
+            ];
         },
 
         isBusinessAccountType() {
             return this.customer?.accountType === CUSTOMER.ACCOUNT_TYPE_BUSINESS;
+        },
+
+        canUseCustomerImitation() {
+            if (this.customer.guest) {
+                return false;
+            }
+
+            if (!this.customer.active) {
+                return false;
+            }
+
+            if (this.customer.boundSalesChannel) {
+                if (!this.customer.boundSalesChannel.active) {
+                    return false;
+                }
+
+                if (this.customer.boundSalesChannel.typeId !== Defaults.storefrontSalesChannelTypeId) {
+                    return false;
+                }
+
+                if (!this.customer.boundSalesChannel.domains?.length) {
+                    return false;
+                }
+            }
+
+            return this.acl.can('api_proxy_imitate-customer');
+        },
+
+        customerImitationWarning() {
+            if (this.customer.guest) {
+                return this.$tc('sw-customer.card.tooltipImitateCustomerGuest');
+            }
+
+            if (!this.customer.active) {
+                return this.$tc('sw-customer.card.tooltipImitateCustomerInactive');
+            }
+
+            if (this.customer.boundSalesChannel) {
+                if (!this.customer.boundSalesChannel.active) {
+                    return this.$tc('sw-customer.card.tooltipImitateCustomerInactiveSalesChannel');
+                }
+
+                if (this.customer.boundSalesChannel.typeId !== Defaults.storefrontSalesChannelTypeId) {
+                    return this.$tc('sw-customer.card.tooltipImitateCustomerNoStorefront');
+                }
+
+                if (!this.customer.boundSalesChannel.domains?.length) {
+                    return this.$tc('sw-customer.card.tooltipImitateCustomerNoDomain');
+                }
+            }
+
+            return this.$tc('sw-privileges.tooltip.warning');
+        },
+
+        hasSingleBoundSalesChannelUrl() {
+            return this.customer.boundSalesChannel?.domains?.length === 1;
+        },
+
+        currentUser() {
+            return Shopware.Store.get('session').currentUser;
+        },
+
+        emailIdnFilter() {
+            return Shopware.Filter.getByName('decode-idn-email');
         },
     },
 
@@ -105,18 +190,42 @@ export default {
                 return;
             }
 
-            Shopware.State.dispatch(
-                'error/removeApiError',
-                {
-                    expression: `customer.${this.customer.id}.company`,
-                },
-            );
+            Shopware.Store.get('error').removeApiError(`customer.${this.customer.id}.company`);
         },
     },
 
     methods: {
         getMailTo(mail) {
             return `mailto:${mail}`;
+        },
+
+        async onImitateCustomer() {
+            if (this.hasSingleBoundSalesChannelUrl) {
+                this.contextStoreService
+                    .generateImitateCustomerToken(this.customer.id, this.customer.boundSalesChannel.id)
+                    .then((response) => {
+                        const handledResponse = ApiService.handleResponse(response);
+
+                        this.contextStoreService.redirectToSalesChannelUrl(
+                            this.customer.boundSalesChannel.domains.first().url,
+                            handledResponse.token,
+                            this.customer.id,
+                            this.currentUser?.id,
+                        );
+                    })
+                    .catch(() => {
+                        this.createNotificationError({
+                            message: this.$tc('sw-customer.detail.notificationImitateCustomerErrorMessage'),
+                        });
+                    });
+                return;
+            }
+
+            this.showImitateCustomerModal = true;
+        },
+
+        onCloseImitateCustomerModal() {
+            this.showImitateCustomerModal = false;
         },
     },
 };

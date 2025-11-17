@@ -10,14 +10,16 @@ use Shopware\Core\Framework\Util\ArrayNormalizer;
 
 /**
  * @phpstan-import-type MappingArray from Mapping
+ *
+ * @internal
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class KeyMappingPipe extends AbstractPipe
 {
     private MappingCollection $mapping;
 
     /**
-     * @param iterable<string|MappingArray|Mapping|MappingCollection> $mapping
+     * @param iterable<string|MappingArray|Mapping>|MappingCollection $mapping
      */
     public function __construct(
         iterable $mapping = [],
@@ -50,6 +52,8 @@ class KeyMappingPipe extends AbstractPipe
             $mapped[$newKey] = $value;
         }
 
+        $sorted = [];
+
         foreach ($this->mapping as $m) {
             $sorted[$m->getMappedKey()] = $mapped[$m->getMappedKey()] ?? '';
         }
@@ -74,31 +78,21 @@ class KeyMappingPipe extends AbstractPipe
     {
         $this->loadConfig($config);
 
-        $flat = [];
-
         if (!$this->flatten) {
             $record = ArrayNormalizer::flatten($record);
         }
 
+        $flat = [];
         foreach ($record as $key => $value) {
-            $newKey = $this->mapKey($key);
+            $newKey = $this->mapping->getMapped($key)?->getKey();
             if ($newKey === null) {
                 continue;
             }
+
             $flat[$newKey] = $value;
         }
 
         yield from ArrayNormalizer::expand($flat);
-    }
-
-    private function mapKey(string $key): ?string
-    {
-        $mapping = $this->mapping->getMapped($key);
-        if ($mapping === null) {
-            return null;
-        }
-
-        return $mapping->getKey();
     }
 
     private function loadConfig(Config $config): void

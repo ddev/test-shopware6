@@ -9,11 +9,11 @@ use Shopware\Core\Checkout\Promotion\Cart\Discount\Composition\DiscountCompositi
 use Shopware\Core\Checkout\Promotion\Cart\Discount\DiscountCalculatorResult;
 use Shopware\Core\Checkout\Promotion\Cart\Discount\DiscountLineItem;
 use Shopware\Core\Checkout\Promotion\Cart\Discount\DiscountPackageCollection;
-use Shopware\Core\Checkout\Promotion\Exception\InvalidPriceDefinitionException;
+use Shopware\Core\Checkout\Promotion\PromotionException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-#[Package('buyers-experience')]
+#[Package('checkout')]
 class DiscountPercentageCalculator
 {
     public function __construct(
@@ -23,7 +23,7 @@ class DiscountPercentageCalculator
     }
 
     /**
-     * @throws InvalidPriceDefinitionException
+     * @throws PromotionException
      */
     public function calculate(
         DiscountLineItem $discount,
@@ -33,7 +33,7 @@ class DiscountPercentageCalculator
         $definition = $discount->getPriceDefinition();
 
         if (!$definition instanceof PercentagePriceDefinition) {
-            throw new InvalidPriceDefinitionException($discount->getLabel(), $discount->getCode());
+            throw PromotionException::invalidPriceDefinition($discount->getLabel(), $discount->getCode());
         }
 
         $definedPercentage = -abs($definition->getPercentage());
@@ -70,7 +70,7 @@ class DiscountPercentageCalculator
                 // including their quantities that need to be discounted
                 // based on our discount definition.
                 // the basis might only be from a few items and quantities of the cart
-                $assessmentBasis = $affectedPrices->sum()->getTotalPrice();
+                $assessmentBasis = $affectedPrices->getTotalPriceAmount();
 
                 // we have to get our new fictional and lower percentage.
                 // we now calculate the percentage with MAX VALUE against our basis
@@ -85,7 +85,7 @@ class DiscountPercentageCalculator
     }
 
     /**
-     * @return DiscountCompositionItem[]
+     * @return list<DiscountCompositionItem>
      */
     private function getCompositionItems(float $percentage, DiscountPackageCollection $packages): array
     {
@@ -122,6 +122,6 @@ class DiscountPercentageCalculator
         }
 
         // if we have an empty string value then we convert it to 0.00 when casting it,  thus we create an early return
-        return trim((string) $discount->getPayloadValue('maxValue')) !== '';
+        return trim($discount->getPayloadValue('maxValue')) !== '';
     }
 }

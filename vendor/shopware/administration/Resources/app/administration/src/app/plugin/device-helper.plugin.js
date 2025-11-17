@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 const { warn } = Shopware.Utils.debug;
@@ -8,10 +8,10 @@ const { DeviceHelper } = Shopware.Helper;
 let pluginInstalled = false;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default {
-    install(Vue) {
+    install(app) {
         if (pluginInstalled) {
             warn('DeviceHelper', 'This plugin is already installed');
             return false;
@@ -19,7 +19,7 @@ export default {
 
         const deviceHelper = new DeviceHelper();
 
-        Object.defineProperties(Vue.prototype, {
+        Object.defineProperties(app.config.globalProperties, {
             $device: {
                 get() {
                     return deviceHelper;
@@ -27,8 +27,8 @@ export default {
             },
         });
 
-        Vue.mixin({
-            destroyed() {
+        app.mixin({
+            unmounted() {
                 this.$device.removeResizeListener(this);
             },
         });

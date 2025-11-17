@@ -3,6 +3,7 @@
 namespace Shopware\Core\Framework\Store\Services;
 
 use Doctrine\DBAL\Connection;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Store\Authentication\StoreRequestOptionsProvider;
@@ -12,7 +13,7 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class ShopSecretInvalidMiddleware implements MiddlewareInterface
 {
     private const INVALID_SHOP_SECRET = 'ShopwarePlatformException-68';
@@ -26,7 +27,7 @@ class ShopSecretInvalidMiddleware implements MiddlewareInterface
     ) {
     }
 
-    public function __invoke(ResponseInterface $response): ResponseInterface
+    public function __invoke(ResponseInterface $response, RequestInterface $request): ResponseInterface
     {
         if ($response->getStatusCode() !== 401) {
             return $response;

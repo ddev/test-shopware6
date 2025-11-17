@@ -11,6 +11,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiCriteriaAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Inherited;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Runtime;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Since;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\WriteProtected;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IntField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\JsonField;
@@ -42,19 +43,24 @@ class SalesChannelProductDefinition extends ProductDefinition implements SalesCh
 
     public function processCriteria(Criteria $criteria, SalesChannelContext $context): void
     {
+        if (!$this->hasAvailableFilter($criteria)) {
+            $criteria->addFilter(
+                new ProductAvailableFilter($context->getSalesChannelId(), ProductVisibilityDefinition::VISIBILITY_LINK)
+            );
+        }
+
+        if ($criteria->getNestingLevel() !== Criteria::ROOT_NESTING_LEVEL) {
+            return;
+        }
+
         if (empty($criteria->getFields())) {
             $criteria
                 ->addAssociation('prices')
                 ->addAssociation('unit')
                 ->addAssociation('deliveryTime')
                 ->addAssociation('cover.media')
+                ->addAssociation('tax')
             ;
-        }
-
-        if (!$this->hasAvailableFilter($criteria)) {
-            $criteria->addFilter(
-                new ProductAvailableFilter($context->getSalesChannel()->getId(), ProductVisibilityDefinition::VISIBILITY_LINK)
-            );
         }
 
         if ($criteria->hasAssociation('productReviews')) {
@@ -101,7 +107,7 @@ class SalesChannelProductDefinition extends ProductDefinition implements SalesCh
         );
 
         $fields->add(
-            (new ObjectField('sortedProperties', 'sortedProperties'))->addFlags(new Runtime(), new ApiAware())
+            (new ObjectField('measurements', 'measurements'))->addFlags(new Runtime(), new ApiAware(), new Since('6.7.1.0'))
         );
 
         return $fields;

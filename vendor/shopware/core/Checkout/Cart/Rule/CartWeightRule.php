@@ -10,7 +10,10 @@ use Shopware\Core\Framework\Rule\RuleConfig;
 use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class CartWeightRule extends Rule
 {
     final public const RULE_NAME = 'cartWeight';
@@ -57,10 +60,7 @@ class CartWeightRule extends Rule
         $weight = 0.0;
 
         foreach ($cart->getLineItems()->filterGoodsFlat() as $lineItem) {
-            $itemWeight = 0.0;
-            if ($lineItem->getDeliveryInformation() !== null && $lineItem->getDeliveryInformation()->getWeight() !== null) {
-                $itemWeight = $lineItem->getDeliveryInformation()->getWeight();
-            }
+            $itemWeight = $lineItem->getDeliveryInformation()?->getWeight() ?? 0.0;
 
             $weight += $itemWeight * $lineItem->getQuantity();
         }

@@ -1,41 +1,34 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_order_detail_details %}
 <div class="sw-order-detail-details">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_details_payment %}
     <sw-order-details-state-card
         v-if="transaction"
+        position="transaction"
         :title="$tc('sw-order.detailsTab.labelTransactionCard')"
         :order="order"
         :entity="transaction"
         :state-label="$tc('sw-order.stateCard.headlineTransactionState')"
-        :disabled="!acl.can('order.editor')"
+        :disabled="!acl.can('order.editor') || undefined"
         @show-status-history="showStateHistoryModal = true"
         @save-edits="onSaveEdits"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_payment_billing_address %}
         <sw-order-address-selection
             class="sw-order-detail-details__billing-address"
             type="billing"
             :address="billingAddress"
             :address-id="selectedBillingAddressId"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :label="$tc('sw-order.createBase.detailsBody.labelBillingAddress')"
             @change-address="onChangeOrderAddress"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_payment_method_select %}
         <sw-entity-single-select
-            {% if VUE3 %}
             v-model:value="transaction.paymentMethodId"
-            {% else %}
-            v-model="transaction.paymentMethodId"
-            {% endif %}
             entity="payment_method"
             label-property="distinguishableName"
             disabled
@@ -49,40 +42,34 @@
     </sw-order-details-state-card>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_details_shipping %}
     <sw-order-details-state-card
         v-if="delivery"
+        position="delivery"
         :title="$tc('sw-order.detailsTab.labelDeliveryCard')"
         :order="order"
         :entity="delivery"
         :state-label="$tc('sw-order.stateCard.headlineDeliveryState')"
-        :disabled="!acl.can('order.editor')"
+        :disabled="!acl.can('order.editor') || undefined"
         @show-status-history="showStateHistoryModal = true"
         @save-edits="onSaveEdits"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_shipping_address %}
         <sw-order-address-selection
             class="sw-order-detail-details__shipping-address"
             type="shipping"
             :address="shippingAddress"
             :address-id="selectedShippingAddressId"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :label="$tc('sw-order.createBase.detailsBody.labelShippingAddress')"
             @change-address="onChangeOrderAddress"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_shipping_method_select %}
         <sw-entity-single-select
-            {% if VUE3 %}
             v-model:value="delivery.shippingMethodId"
-            {% else %}
-            v-model="delivery.shippingMethodId"
-            {% endif %}
             entity="shipping_method"
             disabled
             :criteria="salesChannelCriteria"
@@ -92,56 +79,42 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+        {# @deprecated tag:v6.8.0 - Will be removed, use shipping cost in general view instead. #}
+        {# file: src/Administration/Resources/app/administration/src/module/sw-order/view/sw-order-detail-general/sw-order-detail-general.html.twig #}
         {% block sw_order_detail_details_shipping_costs %}
-        <sw-number-field
-            {% if VUE3 %}
-            v-model:value="shippingCosts"
-            {% else %}
+        <mt-number-field
+            v-if="!feature.isActive('v6.8.0.0')"
             v-model="shippingCosts"
-            {% endif %}
             class="sw-order-detail-details__shipping-cost"
             :disabled="!acl.can('order.editor')"
-            fill-digits
+            :step="1"
+            :min="0"
             :label="$tc('sw-order.detailDeliveries.labelShippingCosts')"
         >
             <template #suffix>
                 {{ order.currency.symbol }}
             </template>
-        </sw-number-field>
+        </mt-number-field>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_shipping_date %}
-        <sw-datepicker
-            {% if VUE3 %}
-            v-model:value="delivery.shippingDateEarliest"
-            {% else %}
+        <mt-datepicker
             v-model="delivery.shippingDateEarliest"
-            {% endif %}
             disabled
+            hide-hint
             :label="$tc('sw-order.detailDeliveries.labelDeliveryDate')"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_shipping_tracking_codes %}
         <sw-multi-tag-select
-            {% if VUE3 %}
             v-model:value="delivery.trackingCodes"
-            {% else %}
-            v-model="delivery.trackingCodes"
-            {% endif %}
             class="sw-order-user-card__tracking-code-select"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :placeholder="$tc('sw-order.detailBase.placeholderTrackingCodeSelect')"
             :label="$tc('sw-order.detailBase.labelTrackingCodes')"
             :validate="validateTrackingCode"
-            {% if VUE3 %}
             @update:value="saveAndReload"
-            {% else %}
-            @change="saveAndReload"
-            {% endif %}
         >
             <template #message-add-data>
                 <span>{{ $tc('sw-order.detailBase.addTrackingCode') }}</span>
@@ -155,56 +128,45 @@
     </sw-order-details-state-card>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_details_order %}
     <sw-order-details-state-card
+        position="order"
         :title="$tc('sw-order.detailsTab.labelOrderCard')"
         :order="order"
         :entity="order"
-        :disabled="!acl.can('order.editor')"
+        :disabled="!acl.can('order.editor') || undefined"
         :state-label="$tc('sw-order.stateCard.headlineOrderState')"
         @show-status-history="showStateHistoryModal = true"
         @save-edits="onSaveEdits"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_email %}
-        <sw-text-field
-            {% if VUE3 %}
-            v-model:value="order.orderCustomer.email"
-            {% else %}
+
+        <mt-text-field
             v-model="order.orderCustomer.email"
-            {% endif %}
             class="sw-order-detail-details__email"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :label="$tc('sw-order.createBase.detailsBody.labelEmail')"
             :placeholder="$tc('sw-order.createBase.detailsBody.placeholderEmail')"
+            :error="orderOrderCustomerEmailError"
+            required
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_phone_number %}
-        <sw-text-field
-            {% if VUE3 %}
-            v-model:value="order.addresses.get(order.billingAddressId).phoneNumber"
-            {% else %}
+
+        <mt-text-field
             v-model="order.addresses.get(order.billingAddressId).phoneNumber"
-            {% endif %}
             class="sw-order-detail-details__phone-number"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :label="$tc('sw-order.createBase.detailsBody.labelPhoneNumber')"
             :placeholder="$tc('sw-order.createBase.detailsBody.placeholderPhoneNumber')"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_sales_channel %}
         <sw-entity-single-select
-            {% if VUE3 %}
             v-model:value="order.salesChannelId"
-            {% else %}
-            v-model="order.salesChannelId"
-            {% endif %}
             entity="sales_channel"
             disabled
             :label="$tc('sw-order.createBase.detailsFooter.labelSalesChannel')"
@@ -213,14 +175,9 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_language %}
         <sw-entity-single-select
-            {% if VUE3 %}
             v-model:value="order.languageId"
-            {% else %}
-            v-model="order.languageId"
-            {% endif %}
             entity="language"
             disabled
             :criteria="salesChannelCriteria"
@@ -230,68 +187,79 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_affiliate %}
-        <sw-text-field
-            {% if VUE3 %}
-            v-model:value="order.affiliateCode"
-            {% else %}
+
+        <mt-text-field
             v-model="order.affiliateCode"
-            {% endif %}
             class="sw-order-detail-details__affiliate-code"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :label="$tc('sw-order.detailBase.labelAffiliateCode')"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_campaign %}
-        <sw-text-field
-            {% if VUE3 %}
-            v-model:value="order.campaignCode"
-            {% else %}
+
+        <mt-text-field
             v-model="order.campaignCode"
-            {% endif %}
             class="sw-order-detail-details__campaign-code"
-            :disabled="!acl.can('order.editor')"
+            :disabled="!acl.can('order.editor') || undefined"
             :label="$tc('sw-order.detailBase.labelCampaignCode')"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_detail_details_order_customer_comment %}
-        <sw-textarea-field
-            {% if VUE3 %}
-            v-model:value="order.customerComment"
-            {% else %}
+        <mt-textarea
             v-model="order.customerComment"
-            {% endif %}
             class="sw-order-detail-details__customer-comment"
             :disabled="!acl.can('order.editor')"
             :label="$tc('sw-order.detailBase.labelCustomerComment')"
-        />
+        >
+            <template #hint>
+                <div class="sw-order-detail-details__field-hint">
+                    <mt-icon
+                        size="12"
+                        name="solid-info-circle"
+                        class="sw-order-detail-details__field-hint__icon"
+                    />
+                    <p>{{ $tc('sw-order.detailBase.helpTextCustomerComment') }}</p>
+                </div>
+            </template>
+        </mt-textarea>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+        {% block sw_order_detail_details_order_internal_comment %}
+        <mt-textarea
+            v-model="order.internalComment"
+            class="sw-order-detail-details__internal-comment"
+            :disabled="!acl.can('order.editor')"
+            :label="$tc('sw-order.detailBase.labelInternalComment')"
+        >
+            <template #hint>
+                <div class="sw-order-detail-details__field-hint">
+                    <mt-icon
+                        size="12"
+                        name="solid-info-circle"
+                        class="sw-order-detail-details__field-hint__icon"
+                    />
+                    <p>{{ $tc('sw-order.detailBase.helpTextInternalComment') }}</p>
+                </div>
+            </template>
+        </mt-textarea>
+        {% endblock %}
+
+        <!-- @deprecated tag:v6.8.0 - Block will be removed -->
         {% block sw_order_detail_details_order_promotion %}
-        <sw-order-promotion-field
-            class="sw-order-detail-details__promotion"
-            @loading-change="updateLoading"
-            @reload-entity-data="reloadEntityData"
-            @error="showError"
-        />
         {% endblock %}
 
     </sw-order-details-state-card>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_details_custom_fields %}
     <sw-extension-component-section
         position-identifier="sw-order-detail-base-custom-fields__before"
     />
 
-    <sw-card
+    <mt-card
         v-if="customFieldSets.length > 0"
         position-identifier="sw-order-detail-details-custom-fields"
         :title="$tc('sw-settings-custom-field.general.mainMenuItemGeneral')"
@@ -301,18 +269,16 @@
             :disabled="!acl.can('order.editor')"
             :sets="customFieldSets"
         />
-    </sw-card>
+    </mt-card>
 
     <sw-extension-component-section
         position-identifier="sw-order-detail-base-custom-fields__after"
     />
     {% endblock %}
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_order_detail_base_state_history_modal %}
     <sw-order-state-history-modal
         v-if="showStateHistoryModal"
         :order="order"
-        :is-loading="isLoading"
         @modal-close="showStateHistoryModal = false"
     />
     {% endblock %}

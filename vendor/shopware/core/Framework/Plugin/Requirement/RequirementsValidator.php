@@ -13,7 +13,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Composer\Factory;
 use Shopware\Core\Framework\Plugin\PluginCollection;
@@ -25,7 +25,7 @@ use Shopware\Core\Framework\Plugin\Requirement\Exception\RequirementStackExcepti
 use Shopware\Core\Framework\Plugin\Requirement\Exception\VersionMismatchException;
 use Shopware\Core\Framework\Plugin\Util\PluginFinder;
 
-#[Package('core')]
+#[Package('framework')]
 class RequirementsValidator
 {
     private Composer $pluginComposer;
@@ -34,6 +34,8 @@ class RequirementsValidator
 
     /**
      * @internal
+     *
+     * @param EntityRepository<PluginCollection> $pluginRepo
      */
     public function __construct(
         private readonly EntityRepository $pluginRepo,
@@ -70,25 +72,25 @@ class RequirementsValidator
     /**
      * resolveActiveDependants returns all active dependants of the given plugin.
      *
-     * @param PluginEntity[] $dependants the plugins to check for a dependency on the given plugin
+     * @param list<PluginEntity> $dependants the plugins to check for a dependency on the given plugin
      *
-     * @return PluginEntity[]
+     * @return list<PluginEntity>
      */
     public function resolveActiveDependants(PluginEntity $dependency, array $dependants): array
     {
-        return array_filter($dependants, function (PluginEntity $dependant) use ($dependency) {
+        return array_values(array_filter($dependants, function (PluginEntity $dependant) use ($dependency) {
             if (!$dependant->getActive()) {
                 return false;
             }
 
             return $this->dependsOn($dependant, $dependency);
-        });
+        }));
     }
 
     /**
      * dependsOn determines, whether a given plugin depends on another one.
      *
-     * @param PluginEntity $plugin     the plugin to be checked
+     * @param PluginEntity $plugin the plugin to be checked
      * @param PluginEntity $dependency the potential dependency
      */
     private function dependsOn(PluginEntity $plugin, PluginEntity $dependency): bool
@@ -210,7 +212,7 @@ class RequirementsValidator
                 continue;
             }
 
-            $pluginPath = sprintf('%s/%s', $this->projectDir, $pluginEntity->getPath());
+            $pluginPath = \sprintf('%s/%s', $this->projectDir, $pluginEntity->getPath());
 
             $installedPluginComposerPackage = $pluginPackages[$pluginComposerName] ?? $this->getComposer($pluginPath)->getPackage();
 
@@ -226,7 +228,7 @@ class RequirementsValidator
                 $installedPluginComposerPackage->getConflicts(),
                 $installedPluginComposerPackage->getName(),
                 $this->pluginComposer->getPackage()->getName(),
-                new Constraint('==', $parser->normalize($installingPlugin->getVersion())),
+                new Constraint('==', $parser->normalize($installingPlugin->getUpgradeVersion() ?? $installingPlugin->getVersion())),
                 $exceptionStack
             );
 
@@ -247,12 +249,10 @@ class RequirementsValidator
     private function getInstalledPlugins(Context $context): PluginCollection
     {
         $criteria = new Criteria();
-        $criteria->addFilter(new NotFilter(NotFilter::CONNECTION_AND, [new EqualsFilter('installedAt', null)]));
+        $criteria->addFilter(new NotEqualsFilter('installedAt', null));
         $criteria->addFilter(new EqualsFilter('active', true));
-        /** @var PluginCollection $plugins */
-        $plugins = $this->pluginRepo->search($criteria, $context)->getEntities();
 
-        return $plugins;
+        return $this->pluginRepo->search($criteria, $context)->getEntities();
     }
 
     /**
@@ -396,12 +396,11 @@ class RequirementsValidator
         if (!is_dir($vendorDir)) {
             return $pluginDependencies;
         }
-        $pluginDependencies = $this->checkComposerDependencies(
+
+        return $this->checkComposerDependencies(
             $pluginDependencies,
             $exceptionStack,
             $this->pluginComposer
         );
-
-        return $pluginDependencies;
     }
 }

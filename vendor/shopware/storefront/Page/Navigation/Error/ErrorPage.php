@@ -6,13 +6,10 @@ use Shopware\Core\Content\Cms\CmsPageEntity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Storefront\Page\Page;
 
-#[Package('storefront')]
+#[Package('framework')]
 class ErrorPage extends Page
 {
-    /**
-     * @var CmsPageEntity|null
-     */
-    protected $cmsPage;
+    protected ?CmsPageEntity $cmsPage = null;
 
     public function getCmsPage(): ?CmsPageEntity
     {
@@ -22,5 +19,10 @@ class ErrorPage extends Page
     public function setCmsPage(CmsPageEntity $cmsPage): void
     {
         $this->cmsPage = $cmsPage;
+    }
+
+    public function isErrorPage(): bool
+    {
+        return true;
     }
 }

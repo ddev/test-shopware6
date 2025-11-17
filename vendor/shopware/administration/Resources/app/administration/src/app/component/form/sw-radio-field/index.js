@@ -1,13 +1,12 @@
 import template from './sw-radio-field.html.twig';
 import './sw-radio-field.scss';
 
-const { Component, Mixin } = Shopware;
+const { Mixin } = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description radio input field.
  * @status ready
  * @example-type static
@@ -23,21 +22,19 @@ const { Component, Mixin } = Shopware;
  *          {'value': 'value5', 'name': 'Label #5'}
  * ]"></sw-radio-field>
  */
-Component.register('sw-radio-field', {
+export default {
     template,
+
     inheritAttrs: false,
 
     inject: ['feature'],
+
+    emits: ['update:value'],
 
     mixins: [
         Mixin.getByName('sw-form-field'),
         Mixin.getByName('remove-api-error'),
     ],
-
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
 
     props: {
         bordered: {
@@ -65,7 +62,6 @@ Component.register('sw-radio-field', {
                 return [];
             },
         },
-        // FIXME: add type and default attribute to property
         // eslint-disable-next-line vue/require-prop-types, vue/require-default-prop
         value: {
             required: false,
@@ -74,16 +70,18 @@ Component.register('sw-radio-field', {
 
     computed: {
         classes() {
-            return [{
-                'sw-field--radio-bordered': this.bordered,
-                'sw-field--radio-block': this.block,
-            }];
+            return [
+                {
+                    'sw-field--radio-bordered': this.bordered,
+                    'sw-field--radio-block': this.block,
+                },
+            ];
         },
         currentIndex() {
             const foundIndex = this.options.findIndex((item) => item.value === this.value);
 
             if (foundIndex < 0) {
-                console.warn(`Given value "${this.value}" does not exists in given options`);
+                console.warn(`Given value "${this.value}" does not exist in given options`);
             }
 
             return foundIndex;
@@ -95,16 +93,10 @@ Component.register('sw-radio-field', {
             const selectedIndex = event.target.value;
 
             if (this.options[selectedIndex] === undefined) {
-                console.warn(`Selected index "${this.value}" does not exists in given options`);
+                console.warn(`Selected index "${this.value}" does not exist in given options`);
             }
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.options[selectedIndex].value);
-
-                return;
-            }
-
-            this.$emit('change', this.options[selectedIndex].value);
+            this.$emit('update:value', this.options[selectedIndex].value);
         },
     },
-});
+};

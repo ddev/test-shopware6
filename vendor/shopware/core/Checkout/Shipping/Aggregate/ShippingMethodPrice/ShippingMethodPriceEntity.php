@@ -4,6 +4,7 @@ namespace Shopware\Core\Checkout\Shipping\Aggregate\ShippingMethodPrice;
 
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
 use Shopware\Core\Content\Rule\RuleEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\Contract\IdAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
@@ -11,60 +12,30 @@ use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
 use Shopware\Core\Framework\Log\Package;
 
 #[Package('checkout')]
-class ShippingMethodPriceEntity extends Entity
+class ShippingMethodPriceEntity extends Entity implements IdAware
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $shippingMethodId;
+    protected string $shippingMethodId;
 
-    /**
-     * @var string|null
-     */
-    protected $ruleId;
+    protected ?string $ruleId = null;
 
-    /**
-     * @var int|null
-     */
-    protected $calculation;
+    protected ?int $calculation = null;
 
-    /**
-     * @var float|null
-     */
-    protected $quantityStart;
+    protected ?float $quantityStart = null;
 
-    /**
-     * @var float|null
-     */
-    protected $quantityEnd;
+    protected ?float $quantityEnd = null;
 
-    /**
-     * @var ShippingMethodEntity|null
-     */
-    protected $shippingMethod;
+    protected ?ShippingMethodEntity $shippingMethod = null;
 
-    /**
-     * @var RuleEntity|null
-     */
-    protected $rule;
+    protected ?RuleEntity $rule = null;
 
-    /**
-     * @var string|null
-     */
-    protected $calculationRuleId;
+    protected ?string $calculationRuleId = null;
 
-    /**
-     * @var RuleEntity|null
-     */
-    protected $calculationRule;
+    protected ?RuleEntity $calculationRule = null;
 
-    /**
-     * @var PriceCollection|null
-     */
-    protected $currencyPrice;
+    protected ?PriceCollection $currencyPrice = null;
 
     public function getShippingMethodId(): string
     {

@@ -6,23 +6,16 @@ use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Storefront\Page\Page;
 
-#[Package('storefront')]
+#[Package('framework')]
 class CheckoutFinishPage extends Page
 {
-    /**
-     * @var OrderEntity
-     */
-    protected $order;
+    protected OrderEntity $order;
 
-    /**
-     * @var bool
-     */
-    protected $changedPayment = false;
+    protected bool $changedPayment = false;
 
-    /**
-     * @var bool
-     */
-    protected $paymentFailed = false;
+    protected bool $paymentFailed = false;
+
+    protected bool $logoutCustomer = false;
 
     public function getOrder(): OrderEntity
     {
@@ -52,5 +45,15 @@ class CheckoutFinishPage extends Page
     public function setPaymentFailed(bool $paymentFailed): void
     {
         $this->paymentFailed = $paymentFailed;
+    }
+
+    public function isLogoutCustomer(): bool
+    {
+        return $this->logoutCustomer;
+    }
+
+    public function setLogoutCustomer(bool $logoutCustomer): void
+    {
+        $this->logoutCustomer = $logoutCustomer;
     }
 }

@@ -10,10 +10,10 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('fundamentals@after-sales')]
 class MediaSerializerSubscriber implements EventSubscriberInterface
 {
-    public function __construct(private MediaSerializer $mediaSerializer)
+    public function __construct(private readonly AbstractMediaSerializer $mediaSerializer)
     {
     }
 

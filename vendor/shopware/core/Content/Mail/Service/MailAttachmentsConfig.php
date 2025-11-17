@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('system-settings')]
+#[Package('after-sales')]
 class MailAttachmentsConfig
 {
     /**

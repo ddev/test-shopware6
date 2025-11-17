@@ -1,6 +1,6 @@
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     computed: {
@@ -13,9 +13,7 @@ export default {
         createdComponent() {
             this.initElementConfig('manufacturer-logo');
 
-            if (this.isProductPage
-                && !this.element?.translated?.config?.media
-                && !this.element?.data?.media) {
+            if (this.isProductPage && !this.element?.translated?.config?.media && !this.element?.data?.media) {
                 this.element.config.media.source = 'mapped';
                 this.element.config.media.value = 'product.manufacturer.media';
             }

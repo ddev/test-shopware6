@@ -10,7 +10,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class AppFlowActionLoadedSubscriber implements EventSubscriberInterface
 {
     public static function getSubscribedEvents(): array
@@ -20,9 +20,11 @@ class AppFlowActionLoadedSubscriber implements EventSubscriberInterface
         ];
     }
 
+    /**
+     * @param EntityLoadedEvent<AppFlowActionEntity> $event
+     */
     public function unserialize(EntityLoadedEvent $event): void
     {
-        /** @var AppFlowActionEntity $appFlowAction */
         foreach ($event->getEntities() as $appFlowAction) {
             $iconRaw = $appFlowAction->getIconRaw();
 

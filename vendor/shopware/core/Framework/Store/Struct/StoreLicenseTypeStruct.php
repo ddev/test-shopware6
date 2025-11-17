@@ -8,13 +8,10 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class StoreLicenseTypeStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $name;
+    protected string $name;
 
     public function getApiAlias(): string
     {

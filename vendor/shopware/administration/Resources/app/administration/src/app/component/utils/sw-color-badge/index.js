@@ -1,13 +1,10 @@
 import template from './sw-color-badge.html.twig';
 import './sw-color-badge.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Renders a colored badge for example as indicator if an item is available.
  * @status ready
@@ -23,7 +20,7 @@ const { Component } = Shopware;
  * </div>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-color-badge', {
+export default {
     template,
 
     props: {
@@ -58,4 +55,4 @@ Component.register('sw-color-badge', {
             };
         },
     },
-});
+};

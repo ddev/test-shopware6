@@ -2,10 +2,12 @@
 
 namespace Shopware\Core\Content\ImportExport\ScheduledTask;
 
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\ImportExport\Service\DeleteExpiredFilesService;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskHandler;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -13,21 +15,24 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @internal
  */
 #[AsMessageHandler(handles: CleanupImportExportFileTask::class)]
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 final class CleanupImportExportFileTaskHandler extends ScheduledTaskHandler
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ScheduledTaskCollection> $repository
      */
     public function __construct(
         EntityRepository $repository,
+        LoggerInterface $logger,
         private readonly DeleteExpiredFilesService $deleteExpiredFilesService
     ) {
-        parent::__construct($repository);
+        parent::__construct($repository, $logger);
     }
 
     public function run(): void
     {
-        $this->deleteExpiredFilesService->deleteFiles(Context::createDefaultContext());
+        $this->deleteExpiredFilesService->deleteFiles(Context::createCLIContext());
     }
 }

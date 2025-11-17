@@ -8,14 +8,17 @@ use Shopware\Core\Checkout\Customer\SalesChannel\AbstractCustomerRoute;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Checkout\Order\SalesChannel\AbstractOrderRoute;
 use Shopware\Core\Content\Category\Exception\CategoryNotFoundException;
+use Shopware\Core\Framework\Adapter\Translation\AbstractTranslator;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InconsistentCriteriaIdsException;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Storefront\Event\RouteRequest\OrderRouteRequestEvent;
 use Shopware\Storefront\Page\GenericPageLoaderInterface;
+use Shopware\Storefront\Page\MetaInformation;
 use Shopware\Storefront\Pagelet\Newsletter\Account\NewsletterAccountPageletLoader;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -34,7 +37,8 @@ class AccountOverviewPageLoader
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AbstractOrderRoute $orderRoute,
         private readonly AbstractCustomerRoute $customerRoute,
-        private readonly NewsletterAccountPageletLoader $newsletterAccountPageletLoader
+        private readonly NewsletterAccountPageletLoader $newsletterAccountPageletLoader,
+        private readonly AbstractTranslator $translator
     ) {
     }
 
@@ -50,8 +54,7 @@ class AccountOverviewPageLoader
 
         $page = AccountOverviewPage::createFrom($page);
         $page->setCustomer($this->loadCustomer($salesChannelContext, $customer));
-
-        $page->getMetaInformation()?->setRobots('noindex,follow');
+        $this->setMetaInformation($page);
 
         $order = $this->loadNewestOrder($salesChannelContext, $request);
 
@@ -70,33 +73,60 @@ class AccountOverviewPageLoader
         return $page;
     }
 
+    protected function setMetaInformation(AccountOverviewPage $page): void
+    {
+        if ($page->getMetaInformation()) {
+            $page->getMetaInformation()->setRobots('noindex,follow');
+        }
+
+        if ($page->getMetaInformation() === null) {
+            $page->setMetaInformation(new MetaInformation());
+        }
+
+        $page->getMetaInformation()?->setMetaTitle(
+            $this->translator->trans('account.overviewMetaTitle') . ' | ' . $page->getMetaInformation()->getMetaTitle()
+        );
+    }
+
     private function loadNewestOrder(SalesChannelContext $context, Request $request): ?OrderEntity
     {
         $criteria = (new Criteria())
             ->addSorting(new FieldSorting('orderDateTime', FieldSorting::DESCENDING))
+            ->addAssociation('primaryOrderTransaction.paymentMethod')
+            ->addAssociation('primaryOrderTransaction.stateMachineState')
+            ->addAssociation('primaryOrderDelivery.shippingMethod')
+            ->addAssociation('primaryOrderDelivery.stateMachineState')
+            ->addAssociation('deliveries.shippingMethod')
             ->addAssociation('lineItems')
             ->addAssociation('lineItems.cover')
             ->addAssociation('lineItems.downloads.media')
-            ->addAssociation('transactions.paymentMethod')
-            ->addAssociation('deliveries.shippingMethod')
             ->addAssociation('addresses')
             ->addAssociation('currency')
+            ->addAssociation('stateMachineState')
             ->addAssociation('documents.documentType')
+            ->addAssociation('documents.documentMediaFile')
+            ->addAssociation('documents.documentA11yMediaFile')
             ->setLimit(1)
             ->addAssociation('orderCustomer');
 
-        $criteria->getAssociation('transactions')
-            ->addSorting(new FieldSorting('createdAt'));
+        if (!Feature::isActive('v6.8.0.0')) {
+            $criteria
+                ->addAssociation('transactions.paymentMethod')
+                ->addAssociation('transactions.stateMachineState')
+                ->addAssociation('deliveries.stateMachineState');
 
-        $apiRequest = new Request();
+            $criteria
+                ->getAssociation('transactions')
+                ->addSorting(new FieldSorting('createdAt'));
+        }
+
+        $apiRequest = $request->duplicate();
 
         $event = new OrderRouteRequestEvent($request, $apiRequest, $context, $criteria);
         $this->eventDispatcher->dispatch($event);
 
-        $responseStruct = $this->orderRoute
-            ->load($event->getStoreApiRequest(), $context, $criteria);
-
-        return $responseStruct->getOrders()->first();
+        return $this->orderRoute
+            ->load($event->getStoreApiRequest(), $context, $criteria)->getOrders()->getEntities()->first();
     }
 
     private function loadCustomer(SalesChannelContext $context, CustomerEntity $customer): CustomerEntity

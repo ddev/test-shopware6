@@ -2,17 +2,16 @@
 
 namespace Shopware\Core\Framework\App\Delta;
 
-use Shopware\Core\Framework\Api\Acl\Role\AclRoleDefinition;
 use Shopware\Core\Framework\App\AppEntity;
 use Shopware\Core\Framework\App\Manifest\Manifest;
+use Shopware\Core\Framework\App\Privileges\Utils;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Store\Struct\PermissionCollection;
-use Shopware\Core\Framework\Store\Struct\PermissionStruct;
 
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class PermissionsDeltaProvider extends AbstractAppDeltaProvider
 {
     final public const DELTA_NAME = 'permissions';
@@ -22,6 +21,9 @@ class PermissionsDeltaProvider extends AbstractAppDeltaProvider
         return self::DELTA_NAME;
     }
 
+    /**
+     * @return array<string, PermissionCollection>
+     */
     public function getReport(Manifest $manifest, AppEntity $app): array
     {
         $permissions = $manifest->getPermissions();
@@ -30,7 +32,7 @@ class PermissionsDeltaProvider extends AbstractAppDeltaProvider
             return [];
         }
 
-        return $this->makeCategorizedPermissions($permissions->asParsedPrivileges());
+        return Utils::makeCategorizedPermissions($permissions->asParsedPrivileges());
     }
 
     public function hasDelta(Manifest $manifest, AppEntity $app): bool
@@ -53,46 +55,5 @@ class PermissionsDeltaProvider extends AbstractAppDeltaProvider
         $privilegesDelta = array_diff($newPrivileges, $currentPrivileges);
 
         return \count($privilegesDelta) > 0;
-    }
-
-    private function makePermissions(array $appPrivileges): array
-    {
-        $permissions = [];
-
-        foreach ($appPrivileges as $privilege) {
-            if ($this->isCrudPrivilege($privilege)) {
-                $entityAndOperation = explode(':', (string) $privilege);
-                if (\array_key_exists($entityAndOperation[1], AclRoleDefinition::PRIVILEGE_DEPENDENCE)) {
-                    $permissions[] = array_combine(['entity', 'operation'], $entityAndOperation);
-
-                    continue;
-                }
-            }
-
-            $permissions[] = ['entity' => 'additional_privileges', 'operation' => $privilege];
-        }
-
-        return $permissions;
-    }
-
-    private function isCrudPrivilege(string $privilege): bool
-    {
-        return substr_count($privilege, ':') === 1;
-    }
-
-    private function makeCategorizedPermissions(array $privilegesDelta): array
-    {
-        $permissions = $this->makePermissions($privilegesDelta);
-
-        $permissionCollection = new PermissionCollection();
-
-        foreach ($permissions as $permission) {
-            $permissionCollection->add(PermissionStruct::fromArray([
-                'entity' => $permission['entity'],
-                'operation' => $permission['operation'],
-            ]));
-        }
-
-        return $permissionCollection->getCategorizedPermissions();
     }
 }

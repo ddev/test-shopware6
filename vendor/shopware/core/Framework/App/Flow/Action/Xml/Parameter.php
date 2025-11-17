@@ -3,13 +3,13 @@
 namespace Shopware\Core\Framework\App\Flow\Action\Xml;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
-use Symfony\Component\Config\Util\XmlUtils;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Parameter extends XmlElement
 {
     protected string $type;
@@ -37,15 +37,6 @@ class Parameter extends XmlElement
 
     protected static function parse(\DOMElement $element): array
     {
-        $values = [];
-
-        foreach ($element->attributes as $item) {
-            if (!$item instanceof \DOMAttr) {
-                continue;
-            }
-            $values[$item->name] = XmlUtils::phpize($item->value);
-        }
-
-        return $values;
+        return XmlParserUtils::parseAttributes($element);
     }
 }

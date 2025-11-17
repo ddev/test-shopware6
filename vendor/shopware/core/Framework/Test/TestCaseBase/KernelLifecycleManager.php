@@ -6,6 +6,7 @@ use Composer\Autoload\ClassLoader;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\DevOps\Environment\EnvironmentHelper;
 use Shopware\Core\Framework\Adapter\Database\MySQLFactory;
+use Shopware\Core\Framework\Adapter\Kernel\KernelFactory;
 use Shopware\Core\Framework\Plugin\KernelPluginLoader\DbalKernelPluginLoader;
 use Shopware\Core\Framework\Plugin\KernelPluginLoader\StaticKernelPluginLoader;
 use Shopware\Core\Framework\Test\Filesystem\Adapter\MemoryAdapterFactory;
@@ -20,24 +21,15 @@ use Symfony\Contracts\Service\ResetInterface;
 class KernelLifecycleManager
 {
     /**
-     * @var class-string<Kernel>
+     * @var class-string<Kernel>|null
      */
-    protected static $class;
+    protected static ?string $class = null;
 
-    /**
-     * @var Kernel|null
-     */
-    protected static $kernel;
+    protected static ?Kernel $kernel = null;
 
-    /**
-     * @var ClassLoader
-     */
-    protected static $classLoader;
+    protected static ?ClassLoader $classLoader = null;
 
-    /**
-     * @var Connection|null
-     */
-    protected static $connection;
+    protected static ?Connection $connection = null;
 
     public static function prepare(ClassLoader $classLoader): void
     {
@@ -46,6 +38,10 @@ class KernelLifecycleManager
 
     public static function getClassLoader(): ClassLoader
     {
+        if (self::$classLoader === null) {
+            throw new \InvalidArgumentException('No class loader set. Please call KernelLifecycleManager::prepare');
+        }
+
         return self::$classLoader;
     }
 
@@ -69,7 +65,7 @@ class KernelLifecycleManager
     public static function createBrowser(KernelInterface $kernel, bool $enableReboot = false): TestBrowser
     {
         /** @var TestBrowser $apiBrowser */
-        $apiBrowser = $kernel->getContainer()->get('test.browser');
+        $apiBrowser = $kernel->getContainer()->get('test.client');
 
         if ($enableReboot) {
             $apiBrowser->enableReboot();
@@ -99,6 +95,8 @@ class KernelLifecycleManager
      */
     public static function createKernel(?string $kernelClass = null, bool $reuseConnection = true, string $cacheId = 'h8f3f0ee9c61829627676afd6294bb029', ?string $projectDir = null): Kernel
     {
+        $_SERVER['SHOPWARE_CACHE_ID'] = $cacheId;
+
         if ($kernelClass === null) {
             if (static::$class === null) {
                 static::$class = static::getKernelClass();
@@ -107,7 +105,7 @@ class KernelLifecycleManager
             $kernelClass = static::$class;
         }
 
-        $env = EnvironmentHelper::getVariable('APP_ENV', 'test');
+        $env = (string) EnvironmentHelper::getVariable('APP_ENV', 'test');
         $debug = (bool) EnvironmentHelper::getVariable('APP_DEBUG', true);
 
         if (self::$classLoader === null) {
@@ -139,7 +137,17 @@ class KernelLifecycleManager
             $pluginLoader = new StaticKernelPluginLoader(self::$classLoader);
         }
 
-        return new $kernelClass($env, $debug, $pluginLoader, $cacheId, null, $existingConnection, $projectDir);
+        $kernel = KernelFactory::create(
+            environment: $env,
+            debug: $debug,
+            classLoader: self::$classLoader,
+            pluginLoader: $pluginLoader,
+            connection: $existingConnection
+        );
+
+        \assert($kernel instanceof Kernel);
+
+        return $kernel;
     }
 
     /**
@@ -149,7 +157,7 @@ class KernelLifecycleManager
     {
         if (!class_exists($class = (string) EnvironmentHelper::getVariable('KERNEL_CLASS', Kernel::class))) {
             throw new \RuntimeException(
-                sprintf(
+                \sprintf(
                     'Class "%s" doesn\'t exist or cannot be autoloaded. Check that the KERNEL_CLASS value in phpunit.xml matches the fully-qualified class name of your Kernel or override the %s::createKernel() method.',
                     $class,
                     static::class
@@ -159,7 +167,7 @@ class KernelLifecycleManager
 
         if (!is_a($class, Kernel::class, true)) {
             throw new \RuntimeException(
-                sprintf(
+                \sprintf(
                     'Class "%s" must extend "%s". Check that the KERNEL_CLASS value in phpunit.xml matches the fully-qualified class name of your Kernel or override the %s::createKernel() method.',
                     $class,
                     Kernel::class,

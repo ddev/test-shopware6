@@ -7,15 +7,16 @@ use Shopware\Core\Framework\Api\Acl\Role\AclRoleDefinition;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\PlatformRequest;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\RouterInterface;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('system-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('fundamentals@framework')]
 class AclController extends AbstractController
 {
     /**
@@ -28,7 +29,7 @@ class AclController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/api/_action/acl/privileges', name: 'api.acl.privileges.get', methods: ['GET'], defaults: ['auth_required' => true, '_acl' => ['api_acl_privileges_get']])]
+    #[Route(path: '/api/_action/acl/privileges', name: 'api.acl.privileges.get', methods: ['GET'], defaults: ['auth_required' => true, '_acl' => ['api_acl_privileges_get'], '_httpCache' => true])]
     public function getPrivileges(): JsonResponse
     {
         $privileges = $this->getFromRoutes();
@@ -73,15 +74,15 @@ class AclController extends AbstractController
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     private function getFromRoutes(): array
     {
         $permissions = [];
 
         foreach ($this->router->getRouteCollection()->all() as $route) {
-            /** @var array<string>|null $acl */
-            if ($acl = $route->getDefault(PlatformRequest::ATTRIBUTE_ACL)) {
+            $acl = $route->getDefault(PlatformRequest::ATTRIBUTE_ACL);
+            if ($acl) {
                 $permissions[] = $acl;
             }
         }

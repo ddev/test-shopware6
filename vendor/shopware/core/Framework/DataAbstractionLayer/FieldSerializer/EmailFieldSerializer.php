@@ -2,10 +2,11 @@
 
 namespace Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer;
 
+use Shopware\Core\Checkout\Customer\Service\EmailIdnConverter;
 use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\EmailField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
@@ -16,7 +17,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class EmailFieldSerializer extends AbstractFieldSerializer
 {
     public function encode(
@@ -25,8 +26,12 @@ class EmailFieldSerializer extends AbstractFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        if (!$field instanceof EmailField) {
-            throw DataAbstractionLayerException::invalidSerializerField(EmailField::class, $field);
+        if (!$field instanceof StorageAware) {
+            throw DataAbstractionLayerException::invalidSerializerField(self::class, $field);
+        }
+
+        if ($data->getValue() !== null) {
+            $data->setValue(EmailIdnConverter::encode($data->getValue()));
         }
 
         $this->validateIfNeeded($field, $existence, $data, $parameters);

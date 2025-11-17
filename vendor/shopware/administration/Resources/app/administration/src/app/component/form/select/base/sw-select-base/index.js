@@ -1,20 +1,24 @@
 import template from './sw-select-base.html.twig';
 import './sw-select-base.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @description Base component for creating new select components. Uses sw-field base components as basic structure.
  * @example-type code-only
  */
-Component.register('sw-select-base', {
+export default {
     template,
+
     inheritAttrs: false,
+
+    emits: [
+        'select-expanded',
+        'select-collapsed',
+        'clear',
+    ],
 
     props: {
         isLoading: {
@@ -34,6 +38,12 @@ Component.register('sw-select-base', {
             required: false,
             default: false,
         },
+
+        size: {
+            type: String,
+            required: false,
+            default: 'default',
+        },
     },
 
     data() {
@@ -48,7 +58,34 @@ Component.register('sw-select-base', {
         },
     },
 
+    mounted() {
+        this.onMounted();
+    },
+
+    beforeUnmount() {
+        this.onBeforeUnmount();
+    },
+
     methods: {
+        onMounted() {
+            document.addEventListener('keydown', this.handleKeydown);
+        },
+
+        onBeforeUnmount() {
+            document.removeEventListener('keydown', this.handleKeydown);
+        },
+
+        handleKeydown(event) {
+            if (!this.expanded) {
+                return;
+            }
+
+            // Handle escape key
+            if (event.key === 'Escape' || event.key === 'Esc') {
+                this.collapse();
+            }
+        },
+
         toggleExpand() {
             if (!this.expanded) {
                 this.expand();
@@ -92,7 +129,7 @@ Component.register('sw-select-base', {
             const myFocusable = this.$el.querySelector(focusableSelector);
             const keyboardFocusable = [
                 ...document.querySelectorAll(focusableSelector),
-            ].filter(el => !el.hasAttribute('disabled') && el.dataset.clearableButton === undefined);
+            ].filter((el) => !el.hasAttribute('disabled') && el.dataset.clearableButton === undefined);
 
             keyboardFocusable.forEach((element, index) => {
                 if (index > 0 && element === myFocusable) {
@@ -109,9 +146,11 @@ Component.register('sw-select-base', {
                 path = this.computePath(event);
             }
 
-            if (!path.find((element) => {
-                return element === this.$el;
-            })) {
+            if (
+                !path.find((element) => {
+                    return element === this.$el;
+                })
+            ) {
                 this.collapse();
             }
         },
@@ -139,4 +178,4 @@ Component.register('sw-select-base', {
             }
         },
     },
-});
+};

@@ -1,42 +1,33 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_custom_field_translated_labels %}
 <div class="sw-custom-field-translated-labels">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_custom_field_translated_labels_single %}
     <template v-if="localeCount == 1">
         <div
             v-for="locale in locales"
             :key="locale"
+            class="sw-custom-field-translated-labels__single"
         >
-            <sw-text-field
+
+            <mt-text-field
                 v-for="(label, name) in propertyNames"
                 :key="getInlineSnippet(name)"
-                {% if VUE3 %}
-                v-model:value="config[name][locale]"
-                {% else %}
                 v-model="config[name][locale]"
-                {% endif %}
                 :disabled="disabled"
                 :label="getLabel(label, locale)"
-                {% if VUE3 %}
-                @update:value="onInput($event, name, locale)"
-                {% else %}
-                @input="onInput($event, name, locale)"
-                {% endif %}
+                @update:model-value="onInput($event, name, locale)"
             />
         </div>
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_custom_field_translated_labels_translated %}
     <sw-tabs
         v-else
         variant="minimal"
         position-identifier="sw-custom-field-translated-labels"
+        class="sw-custom-field-translated-labels__tabs"
         :default-item="fallbackLocale"
     >
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_custom_field_translated_labels_translated_tabs %}
         <template #default="{ active }">
             <sw-tabs-item
@@ -52,38 +43,29 @@
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_custom_field_translated_labels_translated_content %}
         <template
             #content="{ active }"
         >
-            <!-- eslint-disable vue/no-use-v-if-with-v-for -->
-            <div
+            <template
                 v-for="locale in locales"
-                v-if="active === locale"
                 :key="locale"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
-                {% block sw_custom_field_translated_labels_translated_content_field %}
-                <sw-text-field
-                    v-for="(label, name) in propertyNames"
-                    :key="getInlineSnippet(name)"
-                    {% if VUE3 %}
-                    v-model:value="config[name][locale]"
-                    {% else %}
-                    v-model="config[name][locale]"
-                    {% endif %}
-                    class="sw-custom-field-translated-labels__translated-content-field"
-                    :disabled="disabled"
-                    :label="getLabel(label, locale)"
-                    {% if VUE3 %}
-                    @update:value="onInput($event, name, locale)"
-                    {% else %}
-                    @input="onInput($event, name, locale)"
-                    {% endif %}
-                />
-                {% endblock %}
-            </div>
+                <div v-if="active === locale">
+                    {% block sw_custom_field_translated_labels_translated_content_field %}
+
+                    <mt-text-field
+                        v-for="(label, name) in propertyNames"
+                        :key="getInlineSnippet(name)"
+                        v-model="config[name][locale]"
+                        class="sw-custom-field-translated-labels__translated-content-field"
+                        :disabled="disabled"
+                        :label="getLabel(label, locale)"
+                        @update:model-value="onInput($event, name, locale)"
+                    />
+                    {% endblock %}
+                </div>
+            </template>
         </template>
         {% endblock %}
     </sw-tabs>

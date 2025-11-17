@@ -52,7 +52,7 @@ use Shopware\Core\System\CustomEntity\Schema\DynamicEntityDefinition;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class EntitySchemaGenerator implements ApiDefinitionGeneratorInterface
 {
     final public const FORMAT = 'entity-schema';
@@ -137,7 +137,6 @@ class EntitySchemaGenerator implements ApiDefinitionGeneratorInterface
      */
     private function parseField(EntityDefinition $definition, Field $field): array
     {
-        /** @var array<string, mixed> $flags */
         $flags = [];
         foreach ($field->getFlags() as $flag) {
             $flags = array_replace_recursive($flags, iterator_to_array($flag->parse()));
@@ -189,7 +188,7 @@ class EntitySchemaGenerator implements ApiDefinitionGeneratorInterface
 
                 $primary = $reference->getPrimaryKeys()->first();
                 if (!$primary) {
-                    throw new \RuntimeException(sprintf('No primary key defined for %s', $reference->getEntityName()));
+                    throw new \RuntimeException(\sprintf('No primary key defined for %s', $reference->getEntityName()));
                 }
 
                 return [
@@ -230,10 +229,10 @@ class EntitySchemaGenerator implements ApiDefinitionGeneratorInterface
                 );
 
                 if (!$mappingReference) {
-                    throw new \RuntimeException(sprintf('Can not find mapping entity field for storage field %s', $field->getMappingReferenceColumn()));
+                    throw new \RuntimeException(\sprintf('Can not find mapping entity field for storage field %s', $field->getMappingReferenceColumn()));
                 }
                 if (!$mappingLocal) {
-                    throw new \RuntimeException(sprintf('Can not find mapping entity field for storage field %s', $field->getMappingLocalColumn()));
+                    throw new \RuntimeException(\sprintf('Can not find mapping entity field for storage field %s', $field->getMappingLocalColumn()));
                 }
 
                 return [

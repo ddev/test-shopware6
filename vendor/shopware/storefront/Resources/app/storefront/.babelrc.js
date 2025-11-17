@@ -1,11 +1,11 @@
 /**
- * @package storefront
+ * @sw-package framework
  */
 module.exports = {
     presets: [
         ['@babel/preset-env', {
             useBuiltIns: 'entry',
-            corejs: '3.27',
+            corejs: '3.34.0',
             bugfixes: true,
         }],
         '@babel/preset-typescript',

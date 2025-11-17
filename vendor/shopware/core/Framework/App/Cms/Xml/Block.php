@@ -3,12 +3,33 @@
 namespace Shopware\Core\Framework\App\Cms\Xml;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
 
 /**
  * @internal
+ *
+ * @phpstan-type BlockArray array{
+ *       name: string,
+ *       category: string,
+ *       label: array<string, string>,
+ *       slots: array<string, array{
+ *           type: string,
+ *           position: int,
+ *           default: array{
+ *               config: array<string, array{
+ *                   source: string,
+ *                   value: string
+ *               }>
+ *           }
+ *       }>,
+ *       defaultConfig: array<string, array{
+ *           source: string,
+ *           value: string
+ *       }>
+ *  }
  */
-#[Package('content')]
+#[Package('discovery')]
 class Block extends XmlElement
 {
     private const TRANSLATABLE_FIELDS = [
@@ -52,33 +73,17 @@ class Block extends XmlElement
      *     appId: string,
      *     name: string,
      *     label: array<string, string>,
-     *     block: array{
-     *          name: string,
-     *          category: string,
-     *          label: array<string, string>,
-     *          slots: array<string, array{
-     *              type: string,
-     *              default: array{
-     *                  config: array<string, array{
-     *                      source: string,
-     *                      value: string
-     *                  }>
-     *              }
-     *          }>,
-     *          defaultConfig: array<string, array{
-     *              source: string,
-     *              value: string
-     *          }>
-     *     }
+     *     block: BlockArray
      * }
      */
     public function toEntityArray(string $appId, string $defaultLocale): array
     {
         $slots = [];
 
-        foreach ($this->slots as $slot) {
+        foreach ($this->slots as $position => $slot) {
             $slots[$slot->getName()] = [
                 'type' => $slot->getType(),
+                'position' => $position,
                 'default' => [
                     'config' => $slot->getConfig()->toArray($defaultLocale),
                 ],
@@ -154,11 +159,11 @@ class Block extends XmlElement
     {
         // translated
         if (\in_array($child->tagName, self::TRANSLATABLE_FIELDS, true)) {
-            return self::mapTranslatedTag($child, $values);
+            return XmlParserUtils::mapTranslatedTag($child, $values);
         }
 
         if ($child->tagName === 'slots') {
-            $values[$child->tagName] = self::parseChildNodes(
+            $values[$child->tagName] = XmlParserUtils::parseChildrenAsList(
                 $child,
                 static fn (\DOMElement $element): Slot => Slot::fromXml($element)
             );
@@ -167,12 +172,12 @@ class Block extends XmlElement
         }
 
         if ($child->tagName === 'default-config') {
-            $values[self::kebabCaseToCamelCase($child->tagName)] = DefaultConfig::fromXml($child);
+            $values[XmlParserUtils::kebabCaseToCamelCase($child->tagName)] = DefaultConfig::fromXml($child);
 
             return $values;
         }
 
-        $values[self::kebabCaseToCamelCase($child->tagName)] = $child->nodeValue;
+        $values[XmlParserUtils::kebabCaseToCamelCase($child->tagName)] = $child->nodeValue;
 
         return $values;
     }

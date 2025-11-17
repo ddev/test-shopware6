@@ -7,42 +7,38 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class DiscountCampaignStruct extends StoreStruct
 {
-    /**
-     * @var string
-     */
-    protected $name;
+    protected string $name;
+
+    protected \DateTimeImmutable $startDate;
+
+    protected \DateTimeImmutable $endDate;
+
+    protected float $discount;
+
+    protected float $discountedPrice;
+
+    protected float $discountedPricePerMonth;
+
+    protected ?int $discountAppliesForMonths = null;
 
     /**
-     * @var \DateTimeImmutable
+     * @return DiscountCampaignStruct
      */
-    protected $startDate;
-
-    /**
-     * @var \DateTimeImmutable
-     */
-    protected $endDate;
-
-    /**
-     * @var float
-     */
-    protected $discount;
-
-    /**
-     * @var float
-     */
-    protected $discountedPrice;
-
-    /**
-     * @var int|null
-     */
-    protected $discountAppliesForMonths;
-
     public static function fromArray(array $data): StoreStruct
     {
-        return (new self())->assign($data);
+        $discountCampaign = (new self())->assign($data);
+
+        if (isset($data['startDate']) && \is_string($data['startDate'])) {
+            $discountCampaign->setStartDate(new \DateTimeImmutable($data['startDate']));
+        }
+        if (isset($data['endDate']) && \is_string($data['endDate'])) {
+            $discountCampaign->setEndDate(new \DateTimeImmutable($data['endDate']));
+        }
+
+        return $discountCampaign;
     }
 
     public function getName(): string
@@ -93,6 +89,16 @@ class DiscountCampaignStruct extends StoreStruct
     public function setDiscountedPrice(float $discountedPrice): void
     {
         $this->discountedPrice = $discountedPrice;
+    }
+
+    public function getDiscountedPricePerMonth(): float
+    {
+        return $this->discountedPricePerMonth;
+    }
+
+    public function setDiscountedPricePerMonth(float $discountedPricePerMonth): void
+    {
+        $this->discountedPricePerMonth = $discountedPricePerMonth;
     }
 
     public function getDiscountAppliesForMonths(): ?int

@@ -5,8 +5,8 @@ namespace Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer;
 
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\DateField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityExistence;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
@@ -17,7 +17,7 @@ use Symfony\Component\Validator\Constraints\Type;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class DateFieldSerializer extends AbstractFieldSerializer
 {
     public function encode(
@@ -26,8 +26,8 @@ class DateFieldSerializer extends AbstractFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        if (!$field instanceof DateField) {
-            throw DataAbstractionLayerException::invalidSerializerField(DateField::class, $field);
+        if (!$field instanceof StorageAware) {
+            throw DataAbstractionLayerException::invalidSerializerField(self::class, $field);
         }
 
         $value = $data->getValue();

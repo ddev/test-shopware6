@@ -5,15 +5,15 @@ namespace Shopware\Core\Framework\Event;
 use Shopware\Core\Framework\Event\EventData\MailRecipientStruct;
 use Shopware\Core\Framework\Log\Package;
 
-/**
- * @deprecated tag:v6.6.0 - reason:class-hierarchy-change - extends of FlowEventAware will be removed, implement the interface inside your event
- */
-#[Package('business-ops')]
-interface MailAware extends FlowEventAware
+#[Package('fundamentals@after-sales')]
+#[IsFlowEventAware]
+interface MailAware
 {
     public const MAIL_STRUCT = 'mailStruct';
 
     public const SALES_CHANNEL_ID = 'salesChannelId';
+
+    public const TIMEZONE = 'timezone';
 
     public function getMailStruct(): MailRecipientStruct;
 

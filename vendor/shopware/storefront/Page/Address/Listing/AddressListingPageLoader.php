@@ -7,9 +7,9 @@ use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\SalesChannel\AbstractListAddressRoute;
 use Shopware\Core\Content\Category\Exception\CategoryNotFoundException;
+use Shopware\Core\Framework\Adapter\Translation\AbstractTranslator;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InconsistentCriteriaIdsException;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RoutingException;
@@ -23,7 +23,7 @@ use Shopware\Storefront\Page\GenericPageLoaderInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('storefront')]
+#[Package('framework')]
 class AddressListingPageLoader
 {
     /**
@@ -35,7 +35,8 @@ class AddressListingPageLoader
         private readonly AbstractSalutationRoute $salutationRoute,
         private readonly AbstractListAddressRoute $listAddressRoute,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly CartService $cartService
+        private readonly CartService $cartService,
+        private readonly AbstractTranslator $translator
     ) {
     }
 
@@ -50,6 +51,7 @@ class AddressListingPageLoader
         $page = $this->genericLoader->load($request, $salesChannelContext);
 
         $page = AddressListingPage::createFrom($page);
+        $this->setMetaInformation($page);
 
         $page->setSalutations($this->getSalutations($salesChannelContext));
 
@@ -72,6 +74,14 @@ class AddressListingPageLoader
         return $page;
     }
 
+    protected function setMetaInformation(AddressListingPage $page): void
+    {
+        $page->getMetaInformation()?->setRobots('noindex,follow');
+        $page->getMetaInformation()?->setMetaTitle(
+            $this->translator->trans('account.addressMetaTitle') . ' | ' . $page->getMetaInformation()->getMetaTitle()
+        );
+    }
+
     /**
      * @throws InconsistentCriteriaIdsException
      */
@@ -90,15 +100,15 @@ class AddressListingPageLoader
     private function getCountries(SalesChannelContext $salesChannelContext): CountryCollection
     {
         $criteria = (new Criteria())
-            ->addFilter(new EqualsFilter('country.active', true))
-            ->addAssociation('states');
+            ->addSorting(new FieldSorting('position', FieldSorting::ASCENDING))
+            ->addSorting(new FieldSorting('name', FieldSorting::ASCENDING));
 
-        $countries = $this->countryRoute
+        $criteria->getAssociation('states')
+            ->addSorting(new FieldSorting('position', FieldSorting::ASCENDING))
+            ->addSorting(new FieldSorting('name', FieldSorting::ASCENDING));
+
+        return $this->countryRoute
             ->load(new Request(), $criteria, $salesChannelContext)
             ->getCountries();
-
-        $countries->sortCountryAndStates();
-
-        return $countries;
     }
 }

@@ -11,17 +11,14 @@ use Shopware\Core\Content\LandingPage\LandingPageEvents;
 use Shopware\Core\Content\Product\Events\ProductIndexerEvent;
 use Shopware\Core\Content\Product\ProductEvents;
 use Shopware\Core\Content\Seo\SeoUrlUpdater;
-use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
-use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
-use Shopware\Core\System\SalesChannel\SalesChannelDefinition;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * @internal
  */
-#[Package('sales-channel')]
+#[Package('inventory')]
 class SeoUrlUpdateListener implements EventSubscriberInterface
 {
     final public const CATEGORY_SEO_URL_UPDATER = 'category.seo-url';
@@ -33,22 +30,8 @@ class SeoUrlUpdateListener implements EventSubscriberInterface
      */
     public function __construct(
         private readonly SeoUrlUpdater $seoUrlUpdater,
-        private readonly Connection $connection,
-        private readonly EntityIndexerRegistry $indexerRegistry
+        private readonly Connection $connection
     ) {
-    }
-
-    public function detectSalesChannelEntryPoints(EntityWrittenContainerEvent $event): void
-    {
-        $properties = ['navigationCategoryId', 'footerCategoryId', 'serviceCategoryId'];
-
-        $salesChannelIds = $event->getPrimaryKeysWithPropertyChange(SalesChannelDefinition::ENTITY_NAME, $properties);
-
-        if (empty($salesChannelIds)) {
-            return;
-        }
-
-        $this->indexerRegistry->sendIndexingMessage(['category.indexer', 'product.indexer']);
     }
 
     /**
@@ -60,7 +43,6 @@ class SeoUrlUpdateListener implements EventSubscriberInterface
             ProductEvents::PRODUCT_INDEXER_EVENT => 'updateProductUrls',
             CategoryEvents::CATEGORY_INDEXER_EVENT => 'updateCategoryUrls',
             LandingPageEvents::LANDING_PAGE_INDEXER_EVENT => 'updateLandingPageUrls',
-            EntityWrittenContainerEvent::class => 'detectSalesChannelEntryPoints',
         ];
     }
 
@@ -70,7 +52,11 @@ class SeoUrlUpdateListener implements EventSubscriberInterface
             return;
         }
 
-        $ids = array_merge(array_values($event->getIds()), $this->getCategoryChildren($event->getIds()));
+        $ids = array_values($event->getIds());
+
+        if (!$event->isFullIndexing) {
+            $ids = array_merge($ids, $this->getCategoryChildren($ids));
+        }
 
         $this->seoUrlUpdater->update(NavigationPageSeoUrlRoute::ROUTE_NAME, $ids);
     }
@@ -94,9 +80,9 @@ class SeoUrlUpdateListener implements EventSubscriberInterface
     }
 
     /**
-     * @param list<string> $ids
+     * @param array<string> $ids
      *
-     * @return list<string>
+     * @return array<string>
      */
     private function getCategoryChildren(array $ids): array
     {
@@ -123,7 +109,6 @@ class SeoUrlUpdateListener implements EventSubscriberInterface
             return [];
         }
 
-        /** @var list<string> $ids */
         $ids = Uuid::fromBytesToHexList($children);
 
         return $ids;

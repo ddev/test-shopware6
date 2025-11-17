@@ -7,14 +7,15 @@ const { EntityCollection, Criteria } = Shopware.Data;
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Condition for the LineItemRule. This component must a be child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-line-item :condition="condition" :level="0"></sw-condition-line-item>
  */
-Component.extend('sw-condition-line-item', 'sw-condition-base-line-item', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     inject: ['repositoryFactory'],
@@ -45,7 +46,10 @@ Component.extend('sw-condition-line-item', 'sw-condition-base-line-item', {
             },
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.identifiers']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.identifiers',
+        ]),
 
         currentError() {
             return this.conditionValueOperatorError || this.conditionValueIdentifiersError;
@@ -82,7 +86,6 @@ Component.extend('sw-condition-line-item', 'sw-condition-base-line-item', {
                 this.productContext,
             );
 
-
             if (this.productIds.length <= 0) {
                 return Promise.resolve();
             }
@@ -101,4 +104,4 @@ Component.extend('sw-condition-line-item', 'sw-condition-base-line-item', {
             this.products = productCollection;
         },
     },
-});
+};

@@ -1,13 +1,12 @@
 import template from './sw-multi-select.html.twig';
 
-const { Component, Mixin } = Shopware;
+const { Mixin } = Shopware;
 const { debounce, get } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @description Renders a multi select field with a defined list of options. This component uses the sw-field base
  * components. This adds the base properties such as <code>helpText</code>, <code>error</code>, <code>disabled</code> etc.
@@ -25,20 +24,25 @@ const { debounce, get } = Shopware.Utils;
  *     value="">
  * </sw-multi-select>
  */
-Component.register('sw-multi-select', {
+export default {
     template,
+
     inheritAttrs: false,
 
     inject: ['feature'],
 
+    emits: [
+        'update:value',
+        'item-add',
+        'item-remove',
+        'search-term-change',
+        'display-values-expand',
+        'paginate',
+    ],
+
     mixins: [
         Mixin.getByName('remove-api-error'),
     ],
-
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
 
     props: {
         options: {
@@ -79,7 +83,6 @@ Component.register('sw-multi-select', {
         highlightSearchTerm: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -89,7 +92,7 @@ Component.register('sw-multi-select', {
             type: Function,
             required: false,
             default({ options, labelProperty, searchTerm }) {
-                return options.filter(option => {
+                return options.filter((option) => {
                     const label = this.getKey(option, labelProperty);
                     if (!label) {
                         return false;
@@ -97,6 +100,11 @@ Component.register('sw-multi-select', {
                     return label.toLowerCase().includes(searchTerm.toLowerCase());
                 });
             },
+        },
+        label: {
+            type: String,
+            required: false,
+            default: undefined,
         },
     },
 
@@ -113,9 +121,11 @@ Component.register('sw-multi-select', {
                 return [];
             }
 
-            return this.options.filter((item) => {
-                return this.currentValue.includes(this.getKey(item, this.valueProperty));
-            }).slice(0, this.limit);
+            return this.options
+                .filter((item) => {
+                    return this.currentValue.includes(this.getKey(item, this.valueProperty));
+                })
+                .slice(0, this.limit);
         },
 
         totalValuesCount() {
@@ -143,26 +153,18 @@ Component.register('sw-multi-select', {
                 return this.value;
             },
             set(newValue) {
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:value', newValue);
-
-                    return;
-                }
-
-                this.$emit('change', newValue);
+                this.$emit('update:value', newValue);
             },
         },
 
         visibleResults() {
             if (this.searchTerm) {
-                return this.searchFunction(
-                    {
-                        options: this.options,
-                        labelProperty: this.labelProperty,
-                        valueProperty: this.valueProperty,
-                        searchTerm: this.searchTerm,
-                    },
-                );
+                return this.searchFunction({
+                    options: this.options,
+                    labelProperty: this.labelProperty,
+                    valueProperty: this.valueProperty,
+                    searchTerm: this.searchTerm,
+                });
             }
 
             return this.options;
@@ -184,7 +186,10 @@ Component.register('sw-multi-select', {
 
             this.$emit('item-add', item);
 
-            this.currentValue = [...this.currentValue, identifier];
+            this.currentValue = [
+                ...this.currentValue,
+                identifier,
+            ];
 
             this.$refs.selectionList.focus();
             this.$refs.selectionList.select();
@@ -235,10 +240,15 @@ Component.register('sw-multi-select', {
         onSelectCollapsed() {
             this.searchTerm = '';
             this.$refs.selectionList.blur();
+
+            // Focus on the input field when the select is collapsed
+            if (this.$refs.selectionList?.$refs?.swSelectInput) {
+                this.$refs.selectionList.$refs.swSelectInput.focus();
+            }
         },
 
         getKey(object, keyPath, defaultValue) {
             return get(object, keyPath, defaultValue);
         },
     },
-});
+};

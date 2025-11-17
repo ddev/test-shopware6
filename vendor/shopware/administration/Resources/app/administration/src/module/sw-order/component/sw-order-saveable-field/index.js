@@ -2,15 +2,19 @@ import template from './sw-order-saveable-field.html.twig';
 import './sw-order-saveable-field.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
+    emits: [
+        'value-change',
+        'update:value',
+    ],
+
     props: {
-        // FIXME: add type to value property
         // eslint-disable-next-line vue/require-prop-types
         value: {
             required: true,
@@ -21,7 +25,6 @@ export default {
             required: true,
             default: 'text',
         },
-        // FIXME: add type to placeholder property
         // eslint-disable-next-line vue/require-prop-types
         placeholder: {
             required: false,
@@ -30,7 +33,6 @@ export default {
         editable: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -59,7 +61,7 @@ export default {
                 case 'number':
                     return 'sw-number-field';
                 case 'password':
-                    return 'sw-password-field';
+                    return 'mt-password-field';
                 case 'radio':
                     return 'sw-radio-field';
                 case 'select':
@@ -73,6 +75,25 @@ export default {
                 default:
                     return 'sw-text-field';
             }
+        },
+
+        valuePropName() {
+            switch (this.component) {
+                case 'mt-textarea':
+                case 'mt-switch':
+                case 'mt-number-field':
+                    return 'modelValue';
+                default:
+                    return 'value';
+            }
+        },
+
+        computedAttrs() {
+            return {
+                ...this.$attrs,
+                [this.valuePropName]: this.value,
+                'onUpdate:modelValue': (value) => this.$emit('update:value', value),
+            };
         },
     },
 

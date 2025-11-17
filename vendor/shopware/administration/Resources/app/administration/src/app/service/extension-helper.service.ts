@@ -1,11 +1,13 @@
 // eslint-disable-next-line max-len
-import type { ExtensionStoreActionService, ExtensionType } from '../../module/sw-extension/service/extension-store-action.service';
+import type {
+    ExtensionStoreActionService,
+    ExtensionType,
+} from '../../module/sw-extension/service/extension-store-action.service';
 
 /**
- * @package merchant-services
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
+ * @sw-package framework
  */
-// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default class ExtensionHelperService {
     private readonly extensionStoreActionService: ExtensionStoreActionService;
 
@@ -43,7 +45,7 @@ export default class ExtensionHelperService {
 
     async getStatusOfExtension(extensionName: string) {
         const extensions = await this.extensionStoreActionService.getMyExtensions();
-        const extension = extensions.find(e => e && e.name === extensionName);
+        const extension = extensions.find((e) => e && e.name === extensionName);
 
         if (!extension) {
             return {

@@ -7,8 +7,8 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class MultiSelectField extends SingleSelectField
 {
-    protected const COMPONENT_NAME = 'sw-multi-select';
+    public const COMPONENT_NAME = 'sw-multi-select';
 }

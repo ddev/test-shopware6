@@ -3,20 +3,14 @@
 namespace Shopware\Core\Framework\Increment;
 
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
-#[Package('core')]
+#[Package('framework')]
 class ArrayIncrementer extends AbstractIncrementer
 {
     /**
      * @var array<string, array<string, int>>
      */
     private array $logs = [];
-
-    public function getDecorated(): AbstractIncrementer
-    {
-        throw new DecorationPatternException(self::class);
-    }
 
     public function increment(string $cluster, string $key): void
     {
@@ -45,8 +39,8 @@ class ArrayIncrementer extends AbstractIncrementer
         }
 
         if ($key === null) {
-            foreach ($this->logs[$cluster] as $key => $count) {
-                $this->logs[$cluster][$key] = 0;
+            foreach ($this->logs[$cluster] as $clusterKey => $count) {
+                $this->logs[$cluster][$clusterKey] = 0;
             }
 
             return;
@@ -79,6 +73,23 @@ class ArrayIncrementer extends AbstractIncrementer
         }
 
         return $mapped;
+    }
+
+    public function delete(string $cluster, array $keys = []): void
+    {
+        if (!\array_key_exists($cluster, $this->logs)) {
+            return;
+        }
+
+        if (empty($keys)) {
+            unset($this->logs[$cluster]);
+
+            return;
+        }
+
+        foreach ($keys as $key) {
+            unset($this->logs[$cluster][$key]);
+        }
     }
 
     public function resetAll(): void

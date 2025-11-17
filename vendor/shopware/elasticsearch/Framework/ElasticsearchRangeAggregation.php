@@ -9,15 +9,10 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class ElasticsearchRangeAggregation extends AbstractAggregation
 {
     use BucketingTrait;
-
-    /**
-     * @var array<int, array<string, float>>
-     */
-    private array $ranges = [];
 
     /**
      * @param array<int, array<string, float>> $ranges
@@ -25,12 +20,11 @@ class ElasticsearchRangeAggregation extends AbstractAggregation
     public function __construct(
         string $name,
         string $field,
-        array $ranges
+        private array $ranges,
     ) {
         parent::__construct($name);
 
         $this->setField($field);
-        $this->setRanges($ranges);
     }
 
     /**

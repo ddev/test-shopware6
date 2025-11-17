@@ -1,29 +1,28 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
-import template from './sw-error-summary.html';
+import template from './sw-error-summary.html.twig';
 import './sw-error-summary.scss';
 
-const { Component } = Shopware;
 const { hasOwnProperty } = Shopware.Utils.object;
 
 type error = {
-    _code: string,
-    _detail: string,
-    selfLink: string,
+    _code: string;
+    _detail: string;
+    selfLink: string;
 };
 
 /**
  * @private
  */
-Component.register('sw-error-summary', {
+export default Shopware.Component.wrapComponentConfig({
     template,
 
     computed: {
         errors(): { [key: string]: number } {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-            const allErrors = (Shopware.State.getters['error/getAllApiErrors']() || []) as Array<unknown>;
+            const allErrors = (Shopware.Store.get('error').getAllApiErrors() || []) as Array<unknown>;
 
             // Helper function to recursively get all error objects
             const extractErrorObjects = (errors: Array<unknown>) => {
@@ -32,8 +31,11 @@ Component.register('sw-error-summary', {
                         return acc;
                     }
 
-                    if (error.hasOwnProperty('selfLink') && error.hasOwnProperty('_code') &&
-                        error.hasOwnProperty('_detail')) {
+                    if (
+                        error.hasOwnProperty('selfLink') &&
+                        error.hasOwnProperty('_code') &&
+                        error.hasOwnProperty('_detail')
+                    ) {
                         acc.push(error);
 
                         return acc;
@@ -70,11 +72,16 @@ Component.register('sw-error-summary', {
             }, {});
         },
 
-        errorEntries(): Array<{ message: string, count: number }> {
-            return Object.entries(this.errors).map(([message, count]) => ({
-                message,
-                count,
-            }));
+        errorEntries(): Array<{ message: string; count: number }> {
+            return Object.entries(this.errors).map(
+                ([
+                    message,
+                    count,
+                ]) => ({
+                    message,
+                    count,
+                }),
+            );
         },
 
         errorCount(): number {

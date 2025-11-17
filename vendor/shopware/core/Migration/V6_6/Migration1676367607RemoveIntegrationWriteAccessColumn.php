@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1676367607RemoveIntegrationWriteAccessColumn extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -23,12 +23,6 @@ class Migration1676367607RemoveIntegrationWriteAccessColumn extends MigrationSte
 
     public function updateDestructive(Connection $connection): void
     {
-        if (!$this->columnExists($connection, 'integration', 'write_access')) {
-            return;
-        }
-
-        $connection->executeStatement('
-            ALTER TABLE `integration` DROP COLUMN `write_access`
-        ');
+        $this->dropColumnIfExists($connection, 'integration', 'write_access');
     }
 }

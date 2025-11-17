@@ -13,7 +13,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1600349343AddDeliveryStateTransitions extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -62,7 +62,7 @@ class Migration1600349343AddDeliveryStateTransitions extends MigrationStep
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     private function fetchMissingOrderDeliveryStates(Connection $connection, string $stateMachineId): array
     {

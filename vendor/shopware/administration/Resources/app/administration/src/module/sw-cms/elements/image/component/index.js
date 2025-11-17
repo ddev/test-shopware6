@@ -1,12 +1,12 @@
-import CMS from '../../../constant/sw-cms.constant';
 import template from './sw-cms-el-image.html.twig';
 import './sw-cms-el-image.scss';
 
 const { Mixin, Filter } = Shopware;
+const { CMS } = Shopware.Constants;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -28,9 +28,12 @@ export default {
 
         styles() {
             return {
-                'min-height': this.element.config.displayMode.value === 'cover' &&
-                              this.element.config.minHeight.value &&
-                              this.element.config.minHeight.value !== 0 ? this.element.config.minHeight.value : '340px',
+                'min-height':
+                    this.element.config.displayMode.value === 'cover' &&
+                    this.element.config.minHeight.value &&
+                    this.element.config.minHeight.value !== 0
+                        ? this.element.config.minHeight.value
+                        : '340px',
             };
         },
 
@@ -48,7 +51,9 @@ export default {
 
         mediaUrl() {
             const fallBackImageFileName = CMS.MEDIA.previewMountain.slice(CMS.MEDIA.previewMountain.lastIndexOf('/') + 1);
-            const staticFallBackImage = this.assetFilter(`administration/static/img/cms/${fallBackImageFileName}`);
+            const staticFallBackImage = this.assetFilter(
+                `administration/administration/static/img/cms/${fallBackImageFileName}`,
+            );
             const elemData = this.element.data.media;
             const elemConfig = this.element.config.media;
 
@@ -65,15 +70,11 @@ export default {
             if (elemConfig.source === 'default') {
                 // use only the filename
                 const fileName = elemConfig.value?.slice(elemConfig.value.lastIndexOf('/') + 1) ?? '';
-                return this.assetFilter(`/administration/static/img/cms/${fileName}`);
+                return this.assetFilter(`/administration/administration/static/img/cms/${fileName}`);
             }
 
             if (elemData?.id) {
-                if (this.feature.isActive('MEDIA_PATH') || this.feature.isActive('v6.6.0.0')) {
-                    return this.element.data.media.url;
-                }
-
-                return `${this.element.data.media.url}?${Shopware.Utils.createId()}`;
+                return this.element.data.media.url;
             }
 
             if (elemData?.url) {
@@ -88,25 +89,19 @@ export default {
         },
 
         mediaConfigValue() {
-            return this.element?.config?.sliderItems?.value;
+            return this.element?.config?.media?.value;
         },
     },
 
     watch: {
-        cmsPageState: {
-            deep: true,
+        'cmsPageState.currentDemoEntity': {
             handler() {
-                this.$forceUpdate();
+                this.updateDemoValue(this.mediaConfigValue);
             },
         },
 
         mediaConfigValue(value) {
-            const mediaId = this.element?.data?.media?.id;
-            const isSourceStatic = this.element?.config?.media?.source === 'static';
-
-            if (isSourceStatic && mediaId && value !== mediaId) {
-                this.element.config.media.value = mediaId;
-            }
+            this.updateDemoValue(value);
         },
     },
 
@@ -118,6 +113,15 @@ export default {
         createdComponent() {
             this.initElementConfig('image');
             this.initElementData('image');
+        },
+
+        updateDemoValue(value) {
+            const mediaId = this.element?.data?.media?.id;
+            const isSourceStatic = this.element?.config?.media?.source === 'static';
+
+            if (isSourceStatic && mediaId && value !== mediaId) {
+                this.element.config.media.value = mediaId;
+            }
         },
     },
 };

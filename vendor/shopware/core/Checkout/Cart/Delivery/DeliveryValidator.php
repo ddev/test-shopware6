@@ -6,7 +6,6 @@ use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartValidatorInterface;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
 use Shopware\Core\Checkout\Shipping\Cart\Error\ShippingMethodBlockedError;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
@@ -19,11 +18,7 @@ class DeliveryValidator implements CartValidatorInterface
             $shippingMethod = $delivery->getShippingMethod();
             $ruleId = $shippingMethod->getAvailabilityRuleId();
 
-            if (Feature::isActive('v6.6.0.0')) {
-                $matches = \in_array($ruleId, $context->getRuleIds(), true) || $ruleId === null;
-            } else {
-                $matches = \in_array($ruleId, $context->getRuleIds(), true);
-            }
+            $matches = \in_array($ruleId, $context->getRuleIds(), true) || $ruleId === null;
 
             if ($matches && $shippingMethod->getActive()) {
                 continue;
@@ -31,7 +26,9 @@ class DeliveryValidator implements CartValidatorInterface
 
             $errors->add(
                 new ShippingMethodBlockedError(
-                    (string) $shippingMethod->getTranslation('name')
+                    id: $shippingMethod->getId(),
+                    name: (string) $shippingMethod->getTranslation('name'),
+                    reason: 'rule not matching or inactive',
                 )
             );
         }

@@ -17,7 +17,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\TranslationsAssociationFi
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class ImportExportProfileDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'import_export_profile';
@@ -41,8 +41,7 @@ class ImportExportProfileDefinition extends EntityDefinition
     {
         $fields = new FieldCollection([
             (new IdField('id', 'id'))->addFlags(new PrimaryKey(), new Required()),
-
-            new StringField('name', 'name'),
+            (new StringField('technical_name', 'technicalName'))->addFlags(new Required()),
             (new TranslatedField('label'))->addFlags(new Required()),
             new StringField('type', 'type'),
             new BoolField('system_default', 'systemDefault'),

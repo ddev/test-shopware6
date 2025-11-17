@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import { searchRankingPoint } from 'src/app/service/search-ranking.service';
@@ -31,7 +31,7 @@ export default {
         return {
             products: null,
             currencies: [],
-            sortBy: 'productNumber',
+            sortBy: 'createdAt',
             sortDirection: 'DESC',
             naturalSorting: false,
             isLoading: false,
@@ -42,6 +42,7 @@ export default {
             productEntityVariantModal: false,
             filterCriteria: [],
             defaultFilters: [
+                'product-number-filter',
                 'active-filter',
                 'product-without-images-filter',
                 'release-date-filter',
@@ -81,22 +82,23 @@ export default {
         },
 
         currenciesColumns() {
-            // eslint-disable-next-line vue/no-side-effects-in-computed-properties
-            return this.currencies.sort((a, b) => {
-                return b.isSystemDefault ? 1 : -1;
-            }).map(item => {
-                return {
-                    property: `price-${item.isoCode}`,
-                    dataIndex: `price.${item.id}`,
-                    label: `${item.name}`,
-                    routerLink: 'sw.product.detail',
-                    allowResize: true,
-                    currencyId: item.id,
-                    visible: item.isSystemDefault,
-                    align: 'right',
-                    useCustomSort: true,
-                };
-            });
+            return this.currencies
+                .toSorted((a, b) => {
+                    return b.isSystemDefault ? 1 : -1;
+                })
+                .map((item) => {
+                    return {
+                        property: `price-${item.isoCode}`,
+                        dataIndex: `price.${item.id}`,
+                        label: `${item.name}`,
+                        routerLink: 'sw.product.detail',
+                        allowResize: true,
+                        currencyId: item.id,
+                        visible: item.isSystemDefault,
+                        align: 'right',
+                        useCustomSort: true,
+                    };
+                });
         },
 
         productCriteria() {
@@ -104,12 +106,11 @@ export default {
 
             productCriteria.setTerm(this.term);
             productCriteria.addSorting(Criteria.sort(this.sortBy, this.sortDirection, this.naturalSorting));
-            productCriteria.addAssociation('cover');
+            productCriteria.addAssociation('cover.media');
             productCriteria.addAssociation('manufacturer');
-            productCriteria.addAssociation('media');
-            productCriteria.addAssociation('configuratorSettings.option');
+            productCriteria.addAssociation('tax');
 
-            this.filterCriteria.forEach(filter => {
+            this.filterCriteria.forEach((filter) => {
                 productCriteria.addFilter(filter);
             });
 
@@ -126,6 +127,15 @@ export default {
 
         listFilterOptions() {
             return {
+                'product-number-filter': {
+                    property: 'productNumber',
+                    type: 'string-filter',
+                    label: this.$tc('sw-product.filters.productNumberFilter.label'),
+                    placeholder: this.$tc('sw-product.filters.productNumberFilter.placeholder'),
+                    valueProperty: 'key',
+                    labelProperty: 'key',
+                    criteriaFilterType: 'equals',
+                },
                 'active-filter': {
                     property: 'active',
                     label: this.$tc('sw-product.filters.activeFilter.label'),
@@ -216,7 +226,7 @@ export default {
         },
 
         productBulkEditColumns() {
-            return this.productColumns.map(item => {
+            return this.productColumns.map((item) => {
                 const { inlineEdit, ...restParams } = item;
                 return restParams;
             });
@@ -230,6 +240,9 @@ export default {
             return Shopware.Filter.getByName('currency');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -264,15 +277,21 @@ export default {
         async getList() {
             this.isLoading = true;
 
-            let criteria = await Shopware.Service('filterService')
-                .mergeWithStoredFilters(this.storeKey, this.productCriteria);
+            let criteria = await Shopware.Service('filterService').mergeWithStoredFilters(
+                this.storeKey,
+                this.productCriteria,
+            );
 
             criteria = await this.addQueryScores(this.term, criteria);
 
             // Clone product query to its variant
             const variantCriteria = cloneDeep(criteria);
             criteria.addFilter(Criteria.equals('product.parentId', null));
-            variantCriteria.addFilter(Criteria.not('AND', [Criteria.equals('product.parentId', null)]));
+            variantCriteria.addFilter(
+                Criteria.not('AND', [
+                    Criteria.equals('product.parentId', null),
+                ]),
+            );
 
             this.activeFilterNumber = criteria.filters.length - 1;
 
@@ -293,7 +312,7 @@ export default {
                     if (variants.length > 0) {
                         const parentIds = [];
 
-                        variants.forEach(variant => {
+                        variants.forEach((variant) => {
                             parentIds.push(variant.parentId);
                         });
 
@@ -324,16 +343,18 @@ export default {
         onInlineEditSave(promise, product) {
             const productName = product.name || this.placeholder(product, 'name');
 
-            return promise.then(() => {
-                this.createNotificationSuccess({
-                    message: this.$tc('sw-product.list.messageSaveSuccess', 0, { name: productName }),
+            return promise
+                .then(() => {
+                    this.createNotificationSuccess({
+                        message: this.$tc('sw-product.list.messageSaveSuccess', { name: productName }, 0),
+                    });
+                })
+                .catch(() => {
+                    this.getList();
+                    this.createNotificationError({
+                        message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
+                    });
                 });
-            }).catch(() => {
-                this.getList();
-                this.createNotificationError({
-                    message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
-                });
-            });
         },
 
         onInlineEditCancel(product) {
@@ -345,7 +366,7 @@ export default {
         },
 
         onChangeLanguage(languageId) {
-            Shopware.State.commit('context/setApiLanguageId', languageId);
+            Shopware.Store.get('context').setApiLanguageId(languageId);
             this.getList();
         },
 
@@ -356,7 +377,7 @@ export default {
         },
 
         getCurrencyPriceByCurrencyId(currencyId, prices) {
-            const priceForProduct = prices.find(price => price.currencyId === currencyId);
+            const priceForProduct = prices.find((price) => price.currencyId === currencyId);
 
             if (priceForProduct) {
                 return priceForProduct;
@@ -371,58 +392,66 @@ export default {
         },
 
         getProductColumns() {
-            return [{
-                property: 'name',
-                label: this.$tc('sw-product.list.columnName'),
-                routerLink: 'sw.product.detail',
-                inlineEdit: 'string',
-                allowResize: true,
-                primary: true,
-            }, {
-                property: 'productNumber',
-                naturalSorting: true,
-                label: this.$tc('sw-product.list.columnProductNumber'),
-                align: 'right',
-                allowResize: true,
-            }, {
-                property: 'manufacturer.name',
-                label: this.$tc('sw-product.list.columnManufacturer'),
-                allowResize: true,
-            }, {
-                property: 'active',
-                label: this.$tc('sw-product.list.columnActive'),
-                inlineEdit: 'boolean',
-                allowResize: true,
-                align: 'center',
-            }, {
-                property: 'sales',
-                label: this.$tc('sw-product.list.columnSales'),
-                allowResize: true,
-                align: 'right',
-            },
-            ...this.currenciesColumns,
-            {
-                property: 'stock',
-                label: this.$tc('sw-product.list.columnInStock'),
-                inlineEdit: 'number',
-                allowResize: true,
-                align: 'right',
-            }, {
-                property: 'availableStock',
-                label: this.$tc('sw-product.list.columnAvailableStock'),
-                allowResize: true,
-                align: 'right',
-            }, {
-                property: 'createdAt',
-                label: this.$tc('sw-product.list.columnCreatedAt'),
-                allowResize: true,
-                visible: false,
-            }, {
-                property: 'updatedAt',
-                label: this.$tc('sw-product.list.columnUpdatedAt'),
-                allowResize: true,
-                visible: false,
-            }];
+            return [
+                {
+                    property: 'name',
+                    label: this.$tc('sw-product.list.columnName'),
+                    routerLink: 'sw.product.detail',
+                    inlineEdit: 'string',
+                    allowResize: true,
+                    primary: true,
+                },
+                {
+                    property: 'productNumber',
+                    naturalSorting: true,
+                    label: this.$tc('sw-product.list.columnProductNumber'),
+                    align: 'right',
+                    allowResize: true,
+                },
+                {
+                    property: 'manufacturer.name',
+                    label: this.$tc('sw-product.list.columnManufacturer'),
+                    allowResize: true,
+                },
+                {
+                    property: 'active',
+                    label: this.$tc('sw-product.list.columnActive'),
+                    inlineEdit: 'boolean',
+                    allowResize: true,
+                    align: 'center',
+                },
+                {
+                    property: 'sales',
+                    label: this.$tc('sw-product.list.columnSales'),
+                    allowResize: true,
+                    align: 'right',
+                },
+                ...this.currenciesColumns,
+                {
+                    property: 'stock',
+                    label: this.$tc('sw-product.list.columnInStock'),
+                    inlineEdit: 'number',
+                    allowResize: true,
+                    align: 'right',
+                },
+                {
+                    property: 'availableStock',
+                    label: this.$tc('sw-product.list.columnAvailableStock'),
+                    allowResize: true,
+                    align: 'right',
+                },
+                {
+                    property: 'createdAt',
+                    label: this.$tc('sw-product.list.columnCreatedAt'),
+                    allowResize: true,
+                },
+                {
+                    property: 'updatedAt',
+                    label: this.$tc('sw-product.list.columnUpdatedAt'),
+                    allowResize: true,
+                    visible: false,
+                },
+            ];
         },
 
         onDuplicate(referenceProduct) {
@@ -435,7 +464,10 @@ export default {
             this.product = null;
 
             this.$nextTick(() => {
-                this.$router.push({ name: 'sw.product.detail', params: { id: duplicate.id } });
+                this.$router.push({
+                    name: 'sw.product.detail',
+                    params: { id: duplicate.id },
+                });
             });
         },
 
@@ -463,9 +495,9 @@ export default {
 
         onBulkEditItems() {
             let includesDigital = '0';
-            const digital = Object.values(this.selection).filter(product => product.states.includes('is-download'));
+            const digital = Object.values(this.selection).filter((product) => product.states.includes('is-download'));
             if (digital.length > 0) {
-                includesDigital = (digital.filter(product => product.isCloseout).length !== digital.length) ? '1' : '2';
+                includesDigital = digital.filter((product) => product.isCloseout).length !== digital.length ? '1' : '2';
             }
 
             this.$router.push({

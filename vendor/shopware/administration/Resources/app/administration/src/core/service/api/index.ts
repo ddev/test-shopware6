@@ -1,17 +1,13 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations, @typescript-eslint/no-explicit-any
-export default (): any[] => {
-    const context = require.context('./', false, /(?<!index)(?<!\.spec)(?<!spec\.vue3\.)(\.js|\.ts)$/);
-    return context.keys().reduce((accumulator, item) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
-        const service = context(item).default;
+export default () => {
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call
+    const context = import.meta.glob('./**/!(*.spec).{j,t}s');
 
-        // @ts-expect-error - never can be converted to any
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        accumulator.push(service);
-        return accumulator;
-    }, []);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    return Object.values(context);
 };

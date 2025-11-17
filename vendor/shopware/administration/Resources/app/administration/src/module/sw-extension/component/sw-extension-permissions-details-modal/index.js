@@ -2,11 +2,13 @@ import template from './sw-extension-permissions-details-modal.html.twig';
 import './sw-extension-permissions-details-modal.scss';
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
     template,
+
+    emits: ['modal-close'],
 
     props: {
         permissions: {
@@ -72,7 +74,10 @@ export default {
             const topOfElement = entityElement.offsetTop;
             const headRow = this.$el.querySelector('.sw-extension-permissions-details-modal__operations');
 
-            modalBody.scroll({ top: topOfElement - headRow.offsetHeight, behavior: 'smooth' });
+            modalBody.scroll({
+                top: topOfElement - headRow.offsetHeight,
+                behavior: 'smooth',
+            });
         },
 
         close() {

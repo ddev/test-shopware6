@@ -2,38 +2,39 @@
 
 namespace Shopware\Administration\Controller;
 
-use Shopware\Administration\Controller\Exception\AppByNameNotFoundException;
-use Shopware\Administration\Controller\Exception\MissingAppSecretException;
-use Shopware\Administration\Controller\Exception\MissingShopUrlException;
-use Shopware\Core\DevOps\Environment\EnvironmentHelper;
 use Shopware\Core\Framework\App\ActionButton\AppAction;
 use Shopware\Core\Framework\App\ActionButton\Executor;
-use Shopware\Core\Framework\App\AppEntity;
+use Shopware\Core\Framework\App\AppCollection;
+use Shopware\Core\Framework\App\AppException;
 use Shopware\Core\Framework\App\Hmac\QuerySigner;
-use Shopware\Core\Framework\App\Manifest\Exception\UnallowedHostException;
-use Shopware\Core\Framework\App\ShopId\ShopIdProvider;
+use Shopware\Core\Framework\App\Payload\AppPayloadServiceHelper;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\PlatformRequest;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal Only to be used by the admin-extension-sdk.
  */
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('administration')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('framework')]
 class AdminExtensionApiController extends AbstractController
 {
+    /**
+     * @param EntityRepository<AppCollection> $appRepository
+     */
     public function __construct(
         private readonly Executor $executor,
-        private readonly ShopIdProvider $shopIdProvider,
+        private readonly AppPayloadServiceHelper $appPayloadServiceHelper,
         private readonly EntityRepository $appRepository,
         private readonly QuerySigner $querySigner
     ) {
@@ -48,38 +49,34 @@ class AdminExtensionApiController extends AbstractController
             new EqualsFilter('name', $appName)
         );
 
-        /** @var AppEntity|null $app */
-        $app = $this->appRepository->search($criteria, $context)->first();
-        if ($app === null) {
-            throw new AppByNameNotFoundException($appName);
+        $app = $this->appRepository->search($criteria, $context)->getEntities()->first();
+        if (!$app) {
+            throw AppException::appNotFoundByName($appName);
         }
 
-        $shopUrl = EnvironmentHelper::getVariable('APP_URL');
-        if (!\is_string($shopUrl)) {
-            throw new MissingShopUrlException();
+        if (!$app->getAppSecret()) {
+            throw AppException::appSecretMissing($app->getName());
         }
 
-        $appSecret = $app->getAppSecret();
-        if ($appSecret === null) {
-            throw new MissingAppSecretException();
-        }
-
-        $targetUrl = $requestDataBag->get('url');
-        $targetHost = \parse_url((string) $targetUrl, \PHP_URL_HOST);
+        $targetUrl = $requestDataBag->getString('url');
+        $targetHost = \parse_url($targetUrl, \PHP_URL_HOST);
         $allowedHosts = $app->getAllowedHosts() ?? [];
         if (!$targetHost || !\in_array($targetHost, $allowedHosts, true)) {
-            throw new UnallowedHostException($targetUrl, $allowedHosts, $app->getName());
+            throw AppException::hostNotAllowed($targetUrl, $app->getName());
+        }
+
+        $ids = $requestDataBag->get('ids', []);
+        if (!$ids instanceof RequestDataBag) {
+            throw AppException::invalidArgument('Ids must be an array');
         }
 
         $action = new AppAction(
+            $app,
+            $this->appPayloadServiceHelper->buildSource($app->getVersion(), $app->getName()),
             $targetUrl,
-            $shopUrl,
-            $app->getVersion(),
-            $requestDataBag->get('entity'),
-            $requestDataBag->get('action'),
-            $requestDataBag->get('ids')->all(),
-            $appSecret,
-            $this->shopIdProvider->getShopId(),
+            $requestDataBag->getString('entity'),
+            $requestDataBag->getString('action'),
+            $ids->all(),
             Uuid::randomHex()
         );
 
@@ -95,18 +92,12 @@ class AdminExtensionApiController extends AbstractController
             new EqualsFilter('name', $appName)
         );
 
-        /** @var AppEntity|null $app */
-        $app = $this->appRepository->search($criteria, $context)->first();
-        if ($app === null) {
-            throw new AppByNameNotFoundException($appName);
+        $app = $this->appRepository->search($criteria, $context)->getEntities()->first();
+        if (!$app) {
+            throw AppException::appNotFoundByName($appName);
         }
 
-        $secret = $app->getAppSecret();
-        if ($secret === null) {
-            throw new MissingAppSecretException();
-        }
-
-        $uri = $this->querySigner->signUri($requestDataBag->get('uri'), $secret, $context)->__toString();
+        $uri = $this->querySigner->signUri($requestDataBag->get('uri'), $app, $context)->__toString();
 
         return new JsonResponse([
             'uri' => $uri,

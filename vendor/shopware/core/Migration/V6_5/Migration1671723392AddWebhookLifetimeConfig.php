@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1671723392AddWebhookLifetimeConfig extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -35,9 +35,5 @@ class Migration1671723392AddWebhookLifetimeConfig extends MigrationStep
             'configuration_value' => '{"_value": "1209600"}', // 2 weeks
             'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT),
         ]);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 }

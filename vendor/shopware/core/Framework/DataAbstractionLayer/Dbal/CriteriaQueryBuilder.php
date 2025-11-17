@@ -3,7 +3,7 @@
 namespace Shopware\Core\Framework\DataAbstractionLayer\Dbal;
 
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Exception\InvalidSortingDirectionException;
+use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\FieldResolver\CriteriaPartResolver;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
@@ -21,7 +21,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CriteriaQueryBuilder
 {
     public function __construct(
@@ -50,7 +50,7 @@ class CriteriaQueryBuilder
         }
 
         if ($criteria->getTerm()) {
-            $pattern = $this->interpreter->interpret((string) $criteria->getTerm());
+            $pattern = $this->interpreter->interpret($criteria->getTerm(), $context);
             $queries = $this->scoreBuilder->buildScoreQueries($pattern, $definition, $definition->getEntityName(), $context);
             $criteria->addQuery(...$queries);
         }
@@ -125,7 +125,7 @@ class CriteriaQueryBuilder
             $accessor = $this->helper->getFieldAccessor($sorting->getField(), $definition, $definition->getEntityName(), $context);
 
             if ($sorting instanceof CountSorting) {
-                $query->addOrderBy(sprintf('COUNT(%s)', $accessor), $sorting->getDirection());
+                $query->addOrderBy(\sprintf('COUNT(%s)', $accessor), $sorting->getDirection());
 
                 continue;
             }
@@ -146,6 +146,8 @@ class CriteriaQueryBuilder
                 } else {
                     $accessor = 'MAX(' . $accessor . ')';
                 }
+            } else {
+                $accessor = 'MIN(' . $accessor . ')';
             }
             $query->addOrderBy($accessor, $sorting->getDirection());
         }
@@ -159,6 +161,7 @@ class CriteriaQueryBuilder
             $definition->getEntityName(),
             $context
         );
+
         if (empty($queries->getWheres())) {
             return;
         }
@@ -169,8 +172,42 @@ class CriteriaQueryBuilder
 
         \assert($primary instanceof StorageAware);
 
+        $distincts = [];
+
+        foreach ($criteria->getQueries() as $scoreQuery) {
+            if (!$scoreQuery->getScoreField() || \array_key_exists($scoreQuery->getScoreField(), $distincts)) {
+                continue;
+            }
+
+            $associatedDefinition = $this->helper->getAssociatedDefinition($definition, $scoreQuery->getScoreField());
+
+            if ($associatedDefinition === $definition) {
+                continue;
+            }
+
+            $associationPath = $this->helper->getAssociationPath($scoreQuery->getScoreField(), $definition);
+            $associationPrimary = $associatedDefinition->getPrimaryKeys()->first();
+
+            \assert($associationPrimary instanceof StorageAware);
+
+            $field = $this->helper->getFieldAccessor(
+                \sprintf('%s.%s', $associationPath, $associationPrimary->getPropertyName()),
+                $definition,
+                $definition->getEntityName(),
+                $context
+            );
+
+            $distincts[$scoreQuery->getScoreField()] = \sprintf('COUNT(DISTINCT %s)', $field);
+        }
+
         $select = 'SUM(' . implode(' + ', $queries->getWheres()) . ') / ' . \sprintf('COUNT(%s.%s)', $definition->getEntityName(), $primary->getStorageName());
+
+        if (!empty($distincts)) {
+            $select .= ' * (' . implode(' + ', $distincts) . ')';
+        }
+
         $query->addSelect($select . ' as _score');
+        $this->addConditions($criteria->getQueries(), $definition, $query, $context);
 
         // Sort by _score primarily if the criteria has a score query or search term
         if (!$this->hasScoreSorting($criteria)) {
@@ -189,6 +226,34 @@ class CriteriaQueryBuilder
         foreach ($queries->getParameters() as $key => $value) {
             $query->setParameter($key, $value, $queries->getType($key));
         }
+    }
+
+    /**
+     * @param array<ScoreQuery> $queries
+     */
+    private function addConditions(array $queries, EntityDefinition $definition, QueryBuilder $query, Context $context): void
+    {
+        $conditions = [];
+        foreach ($queries as $scoreQuery) {
+            $parsed = $this->parser->parse($scoreQuery->getQuery(), $definition, $context);
+
+            if (empty($parsed->getWheres())) {
+                continue;
+            }
+
+            $conditions = array_merge($conditions, $parsed->getWheres());
+
+            foreach ($parsed->getParameters() as $key => $value) {
+                $query->setParameter($key, $value, $parsed->getType($key));
+            }
+        }
+
+        if (empty($conditions)) {
+            return;
+        }
+
+        $wheres = implode(' OR ', $conditions);
+        $query->andWhere($wheres);
     }
 
     private function hasGroupBy(Criteria $criteria, QueryBuilder $query): bool
@@ -241,7 +306,7 @@ class CriteriaQueryBuilder
     private function validateSortingDirection(string $direction): void
     {
         if (!\in_array(mb_strtoupper($direction), [FieldSorting::ASCENDING, FieldSorting::DESCENDING], true)) {
-            throw new InvalidSortingDirectionException($direction);
+            throw DataAbstractionLayerException::invalidSortingDirection($direction);
         }
     }
 }

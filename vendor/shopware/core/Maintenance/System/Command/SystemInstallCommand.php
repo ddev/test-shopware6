@@ -3,8 +3,11 @@
 namespace Shopware\Core\Maintenance\System\Command;
 
 use Shopware\Core\DevOps\Environment\EnvironmentHelper;
+use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
 use Shopware\Core\Framework\Adapter\Console\ShopwareStyle;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Installer\Finish\SystemLocker;
+use Shopware\Core\Maintenance\MaintenanceException;
 use Shopware\Core\Maintenance\System\Service\DatabaseConnectionFactory;
 use Shopware\Core\Maintenance\System\Service\SetupDatabaseAdapter;
 use Shopware\Core\Maintenance\System\Struct\DatabaseConnectionInformation;
@@ -23,13 +26,15 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'system:install',
     description: 'Installs the Shopware 6 system',
 )]
-#[Package('core')]
+#[Package('framework')]
 class SystemInstallCommand extends Command
 {
     public function __construct(
         private readonly string $projectDir,
         private readonly SetupDatabaseAdapter $setupDatabaseAdapter,
-        private readonly DatabaseConnectionFactory $databaseConnectionFactory
+        private readonly DatabaseConnectionFactory $databaseConnectionFactory,
+        private readonly CacheClearer $cacheClearer,
+        private readonly SystemLocker $systemLocker,
     ) {
         parent::__construct();
     }
@@ -45,8 +50,8 @@ class SystemInstallCommand extends Command
             ->addOption('shop-email', null, InputOption::VALUE_REQUIRED, 'Shop email address')
             ->addOption('shop-locale', null, InputOption::VALUE_REQUIRED, 'Default language locale of the shop')
             ->addOption('shop-currency', null, InputOption::VALUE_REQUIRED, 'Iso code for the default currency of the shop')
-            ->addOption('skip-jwt-keys-generation', null, InputOption::VALUE_NONE, 'Skips generation of jwt private and public key')
             ->addOption('skip-assets-install', null, InputOption::VALUE_NONE, 'Skips installing of assets')
+            ->addOption('skip-first-run-wizard', null, InputOption::VALUE_NONE, 'Skips the first run wizard')
         ;
     }
 
@@ -56,14 +61,18 @@ class SystemInstallCommand extends Command
 
         // set default
         $isBlueGreen = EnvironmentHelper::getVariable('BLUE_GREEN_DEPLOYMENT', '1');
-        $_ENV['BLUE_GREEN_DEPLOYMENT'] = $_SERVER['BLUE_GREEN_DEPLOYMENT'] = $isBlueGreen;
+        $_SERVER['BLUE_GREEN_DEPLOYMENT'] = $isBlueGreen;
+        $_ENV['BLUE_GREEN_DEPLOYMENT'] = $isBlueGreen;
         putenv('BLUE_GREEN_DEPLOYMENT=' . $isBlueGreen);
 
-        if (!$input->getOption('force') && file_exists($this->projectDir . '/install.lock')) {
+        if (!$input->getOption('force') && \is_file($this->projectDir . '/install.lock')) {
             $output->comment('install.lock already exists. Delete it or pass --force to do it anyway.');
 
             return self::FAILURE;
         }
+
+        // Delete old object cache, which can lead to wrong assumptions
+        $this->cacheClearer->clearObjectCache();
 
         $this->initializeDatabase($output, $input);
 
@@ -98,18 +107,7 @@ class SystemInstallCommand extends Command
             ],
         ];
 
-        if (!$input->getOption('skip-jwt-keys-generation')) {
-            array_unshift(
-                $commands,
-                [
-                    'command' => 'system:generate-jwt',
-                    'allowedToFail' => true,
-                ]
-            );
-        }
-
-        /** @var Application $application */
-        $application = $this->getApplication();
+        $application = $this->getConsoleApplication();
         if ($application->has('theme:refresh')) {
             $commands[] = [
                 'command' => 'theme:refresh',
@@ -119,6 +117,7 @@ class SystemInstallCommand extends Command
         if ($application->has('theme:compile')) {
             $commands[] = [
                 'command' => 'theme:compile',
+                '--sync' => true,
                 'allowedToFail' => true,
             ];
         }
@@ -145,6 +144,7 @@ class SystemInstallCommand extends Command
                     'command' => 'theme:change',
                     'allowedToFail' => true,
                     '--all' => true,
+                    '--sync' => true,
                     'theme-name' => 'Storefront',
                 ];
             }
@@ -160,35 +160,36 @@ class SystemInstallCommand extends Command
             'command' => 'cache:clear',
         ];
 
-        $this->runCommands($commands, $output);
-
-        if (!file_exists($this->projectDir . '/public/.htaccess')
-            && file_exists($this->projectDir . '/public/.htaccess.dist')
-        ) {
-            copy($this->projectDir . '/public/.htaccess.dist', $this->projectDir . '/public/.htaccess');
+        if ($input->getOption('skip-first-run-wizard')) {
+            $commands[] = [
+                'command' => 'system:config:set',
+                'key' => 'core.frw.completedAt',
+                'value' => (new \DateTime())->format('Y-m-d H:i:s'),
+            ];
         }
 
-        touch($this->projectDir . '/install.lock');
+        $result = $this->runCommands($commands, $output);
 
-        return self::SUCCESS;
+        if ($result !== self::SUCCESS) {
+            return $result;
+        }
+
+        if ($this->shouldSkipFileOperations()) {
+            $output->comment('Skipping install.lock and .htaccess creation (SHOPWARE_SKIP_WEBINSTALLER is set)');
+
+            return $result;
+        }
+
+        $this->ensureHtaccessExists();
+        $this->systemLocker->lock();
+
+        return $result;
     }
 
     /**
      * @param array<int, array<string, string|bool|null>> $commands
      */
     private function runCommands(array $commands, OutputInterface $output): int
-    {
-        $application = $this->getApplication();
-
-        \assert($application !== null);
-
-        return $this->runCommandByApplication($application, $commands, $output);
-    }
-
-    /**
-     * @param array<int, array<string, string|bool|null>> $commands
-     */
-    private function runCommandByApplication(Application $application, array $commands, OutputInterface $output): int
     {
         foreach ($commands as $parameters) {
             // remove params with null value
@@ -200,7 +201,7 @@ class SystemInstallCommand extends Command
             unset($parameters['allowedToFail']);
 
             try {
-                $returnCode = $application->doRun(new ArrayInput($parameters), $output);
+                $returnCode = $this->getConsoleApplication()->doRun(new ArrayInput($parameters), $output);
 
                 if ($returnCode !== 0 && !$allowedToFail) {
                     return $returnCode;
@@ -230,8 +231,7 @@ class SystemInstallCommand extends Command
             $output->writeln('Drop database `' . $databaseConnectionInformation->getDatabaseName() . '`');
         }
 
-        $createDatabase = $input->getOption('create-database') || $dropDatabase;
-        if ($createDatabase) {
+        if ($input->getOption('create-database') || $dropDatabase) {
             $this->setupDatabaseAdapter->createDatabase($connection, $databaseConnectionInformation->getDatabaseName());
             $output->writeln('Created database `' . $databaseConnectionInformation->getDatabaseName() . '`');
         }
@@ -243,5 +243,36 @@ class SystemInstallCommand extends Command
         }
 
         $output->writeln('');
+    }
+
+    private function getConsoleApplication(): Application
+    {
+        $application = $this->getApplication();
+        if (!$application instanceof Application) {
+            throw MaintenanceException::consoleApplicationNotFound();
+        }
+
+        return $application;
+    }
+
+    private function shouldSkipFileOperations(): bool
+    {
+        return (bool) EnvironmentHelper::getVariable('SHOPWARE_SKIP_WEBINSTALLER', false);
+    }
+
+    private function ensureHtaccessExists(): void
+    {
+        $htaccessPath = $this->projectDir . '/public/.htaccess';
+        $htaccessDistPath = $this->projectDir . '/public/.htaccess.dist';
+
+        if (\is_file($htaccessPath)) {
+            return;
+        }
+
+        if (!\is_file($htaccessDistPath)) {
+            return;
+        }
+
+        copy($htaccessDistPath, $htaccessPath);
     }
 }

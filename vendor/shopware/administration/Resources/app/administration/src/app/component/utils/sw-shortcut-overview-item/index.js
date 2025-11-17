@@ -1,12 +1,14 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-shortcut-overview-item.html.twig';
 import './sw-shortcut-overview-item.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-shortcut-overview-item', {
+export default {
     template,
 
     inject: ['acl'],
@@ -36,4 +38,4 @@ Component.register('sw-shortcut-overview-item', {
             return this.content.split(' ') || [];
         },
     },
-});
+};

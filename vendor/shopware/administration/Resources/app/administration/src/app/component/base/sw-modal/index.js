@@ -1,14 +1,12 @@
 import template from './sw-modal.html.twig';
 import './sw-modal.scss';
 
-const { Component } = Shopware;
 const utils = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Modal box component which can be displayed in different variants and sizes
  * @status ready
  * @example-type static
@@ -17,12 +15,14 @@ const utils = Shopware.Utils;
  *     Lorem Ipsum
  * </sw-modal>
  */
-Component.register('sw-modal', {
+export default {
     template,
 
     inheritAttrs: false,
 
     inject: ['shortcutService'],
+
+    emits: ['modal-close'],
 
     props: {
         title: {
@@ -45,12 +45,22 @@ Component.register('sw-modal', {
             type: String,
             required: false,
             default: 'default',
-            validValues: ['default', 'small', 'large', 'full'],
+            validValues: [
+                'default',
+                'small',
+                'large',
+                'full',
+            ],
             validator(value) {
                 if (!value.length) {
                     return true;
                 }
-                return ['default', 'small', 'large', 'full'].includes(value);
+                return [
+                    'default',
+                    'small',
+                    'large',
+                    'full',
+                ].includes(value);
             },
         },
 
@@ -69,7 +79,13 @@ Component.register('sw-modal', {
         showHeader: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
+            // eslint-disable-next-line vue/no-boolean-default
+            default: true,
+        },
+
+        showFooter: {
+            type: Boolean,
+            required: false,
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -77,7 +93,6 @@ Component.register('sw-modal', {
         closable: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -92,15 +107,9 @@ Component.register('sw-modal', {
     computed: {
         modalClasses() {
             return {
-                [`sw-modal--${this.variant}`]: (this.variant && !this.size),
+                [`sw-modal--${this.variant}`]: this.variant && !this.size,
+                'sw-modal--has-sidebar': this.showHelpSidebar,
             };
-        },
-
-        /**
-         * @deprecated tag:v6.6.0 - will be removed
-         */
-        identifierClass() {
-            return `sw-modal--${this.id}`;
         },
 
         modalDialogClasses() {
@@ -110,8 +119,18 @@ Component.register('sw-modal', {
             ];
         },
 
+        modalBodyClasses() {
+            return {
+                'has--no-footer': !this.showFooter,
+            };
+        },
+
         hasFooterSlot() {
             return !!this.$slots['modal-footer'];
+        },
+
+        showHelpSidebar() {
+            return Shopware.Store.get('adminHelpCenter').showHelpSidebar;
         },
     },
 
@@ -123,11 +142,11 @@ Component.register('sw-modal', {
         this.mountedComponent();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyComponent();
     },
 
-    destroyed() {
+    unmounted() {
         this.destroyedComponent();
     },
 
@@ -154,7 +173,7 @@ Component.register('sw-modal', {
         },
 
         setFocusToModal() {
-            this.$el.querySelector('.sw-modal__dialog').focus();
+            this.$el?.querySelector?.('.sw-modal__dialog').focus();
         },
 
         closeModalOnClickOutside(domEvent) {
@@ -181,4 +200,4 @@ Component.register('sw-modal', {
             }
         },
     },
-});
+};

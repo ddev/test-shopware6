@@ -4,8 +4,8 @@ namespace Shopware\Core\Content\ProductExport\Service;
 
 use Doctrine\DBAL\Connection;
 use Monolog\Level;
-use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductDefinition;
+use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductCollection;
 use Shopware\Core\Content\ProductExport\Event\ProductExportChangeEncodingEvent;
 use Shopware\Core\Content\ProductExport\Event\ProductExportLoggingEvent;
 use Shopware\Core\Content\ProductExport\Event\ProductExportProductCriteriaEvent;
@@ -42,7 +42,7 @@ class ProductExportGenerator implements ProductExportGeneratorInterface
     /**
      * @internal
      *
-     * @param SalesChannelRepository<ProductCollection> $productRepository
+     * @param SalesChannelRepository<SalesChannelProductCollection> $productRepository
      */
     public function __construct(
         private readonly ProductStreamBuilderInterface $productStreamBuilder,
@@ -66,6 +66,12 @@ class ProductExportGenerator implements ProductExportGeneratorInterface
 
     public function generate(ProductExportEntity $productExport, ExportBehavior $exportBehavior): ?ProductExportResult
     {
+        $domain = $productExport->getSalesChannelDomain();
+
+        if ($domain === null) {
+            throw ProductExportException::salesChannelDomainNotFound($productExport->getId());
+        }
+
         $contextToken = Uuid::randomHex();
         $this->contextPersister->save(
             $contextToken,
@@ -75,19 +81,21 @@ class ProductExportGenerator implements ProductExportGeneratorInterface
             $productExport->getSalesChannelId()
         );
 
+        $languageId = $domain->getLanguageId();
+
         $context = $this->salesChannelContextService->get(
             new SalesChannelContextServiceParameters(
                 $productExport->getStorefrontSalesChannelId(),
                 $contextToken,
-                $productExport->getSalesChannelDomain()->getLanguageId(),
+                $languageId,
                 $productExport->getCurrencyId()
             )
         );
 
         $this->translator->injectSettings(
             $productExport->getStorefrontSalesChannelId(),
-            $productExport->getSalesChannelDomain()->getLanguageId(),
-            $this->languageLocaleProvider->getLocaleForLanguageId($productExport->getSalesChannelDomain()->getLanguageId()),
+            $languageId,
+            $this->languageLocaleProvider->getLocaleForLanguageId($languageId),
             $context->getContext()
         );
 
@@ -99,9 +107,8 @@ class ProductExportGenerator implements ProductExportGeneratorInterface
         $associations = $this->getAssociations($productExport, $context);
 
         $criteria = new Criteria();
-        $criteria->setTitle('product-export::products');
-
         $criteria
+            ->setTitle('product-export::products')
             ->addFilter(...$filters)
             ->setOffset($exportBehavior->offset())
             ->setLimit($this->readBufferSize);
@@ -149,7 +156,6 @@ class ProductExportGenerator implements ProductExportGeneratorInterface
             )
         );
 
-        $body = '';
         while ($productResult = $iterator->fetch()) {
             foreach ($productResult->getEntities() as $product) {
                 $data = $productContext->getContext();
@@ -162,21 +168,24 @@ class ProductExportGenerator implements ProductExportGeneratorInterface
                     continue; // Skip variants unless they are included
                 }
 
-                $body .= $this->productExportRender->renderBody($productExport, $context, $data);
+                $content .= $this->productExportRender->renderBody($productExport, $context, $data);
             }
 
             if ($exportBehavior->batchMode()) {
                 break;
             }
         }
-        $content .= $this->seoUrlPlaceholderHandler->replace($body, $productExport->getSalesChannelDomain()->getUrl(), $context);
 
         if ($exportBehavior->generateFooter()) {
             $content .= $this->productExportRender->renderFooter($productExport, $context);
         }
 
+        $content = $this->seoUrlPlaceholderHandler->replace($content, $domain->getUrl(), $context);
+
+        $encodedContent = mb_convert_encoding($content, $productExport->getEncoding());
+        \assert(\is_string($encodedContent));
         $encodingEvent = $this->eventDispatcher->dispatch(
-            new ProductExportChangeEncodingEvent($productExport, $content, mb_convert_encoding($content, $productExport->getEncoding()))
+            new ProductExportChangeEncodingEvent($productExport, $content, $encodedContent)
         );
 
         $this->translator->resetInjection();

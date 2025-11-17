@@ -7,7 +7,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class WebhookEventLogEntity extends Entity
 {
     use EntityCustomFieldsTrait;
@@ -30,12 +30,12 @@ class WebhookEventLogEntity extends Entity
     /**
      * @var array<string, mixed>|null
      */
-    protected ?array $requestContent;
+    protected ?array $requestContent = null;
 
     /**
      * @var array<string, mixed>|null
      */
-    protected ?array $responseContent;
+    protected ?array $responseContent = null;
 
     protected ?int $responseStatusCode = null;
 

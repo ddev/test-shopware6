@@ -6,9 +6,14 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\AsyncMessageInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[Package('core')]
-abstract class ScheduledTask implements AsyncMessageInterface
+#[Package('framework')]
+abstract class ScheduledTask implements ScheduledTaskMessageInterface, AsyncMessageInterface
 {
+    protected const MINUTELY = 60;
+    protected const HOURLY = 3600;
+    protected const DAILY = 86400;
+    protected const WEEKLY = 604800;
+
     protected ?string $taskId = null;
 
     /**
@@ -39,5 +44,10 @@ abstract class ScheduledTask implements AsyncMessageInterface
     public static function shouldRun(ParameterBagInterface $bag): bool
     {
         return true;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return false;
     }
 }

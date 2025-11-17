@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-custom-field-type-entity.html.twig';
 
@@ -12,17 +12,19 @@ export default {
     inject: [
         'repositoryFactory',
     ],
+
     mounted() {
-        this.customEntityRepository.search(new Criteria(), Shopware.Context.api)
-            .then(result => {
-                this.customEntities = result;
-            });
+        this.customEntityRepository.search(new Criteria(), Shopware.Context.api).then((result) => {
+            this.customEntities = result;
+        });
     },
+
     data() {
         return {
             customEntities: [],
         };
     },
+
     computed: {
         entityTypes() {
             const entityTypes = [
@@ -50,7 +52,10 @@ export default {
                     label: this.$tc('sw-settings-custom-field.customField.entity.customer'),
                     value: 'customer',
                     config: {
-                        labelProperty: ['firstName', 'lastName'],
+                        labelProperty: [
+                            'firstName',
+                            'lastName',
+                        ],
                     },
                 },
                 {
@@ -71,7 +76,7 @@ export default {
                 },
             ];
 
-            this.customFieldsAwareCustomEntities.forEach(customEntity => {
+            this.customFieldsAwareCustomEntities.forEach((customEntity) => {
                 entityTypes.push({
                     label: this.$tc(`${customEntity.name}.label`),
                     value: customEntity.name,
@@ -85,13 +90,11 @@ export default {
         },
 
         customFieldsAwareCustomEntities() {
-            return this.customEntities.filter(customEntity => customEntity.customFieldsAware);
+            return this.customEntities.filter((customEntity) => customEntity.customFieldsAware);
         },
 
         customEntityRepository() {
-            return this.repositoryFactory.create(
-                'custom_entity',
-            );
+            return this.repositoryFactory.create('custom_entity');
         },
 
         sortedEntityTypes() {
@@ -104,17 +107,29 @@ export default {
 
     methods: {
         createdComponent() {
-            if (!this.currentCustomField.config.hasOwnProperty('componentName')) {
+            if (this.currentCustomField.config.hasOwnProperty('options')) {
+                delete this.currentCustomField.config.options;
+            }
+
+            const componentName = this.currentCustomField.config.componentName;
+            if (
+                !componentName ||
+                ![
+                    'sw-entity-single-select',
+                    'sw-entity-multi-id-select',
+                ].includes(componentName)
+            ) {
                 this.currentCustomField.config.componentName = 'sw-entity-single-select';
             }
 
-            this.multiSelectSwitch = this.currentCustomField.config.componentName === 'sw-entity-multi-id-select';
+            this.multiSelectSwitchDisabled = !this.currentCustomField._isNew;
+            this.multiSelectSwitch = componentName === 'sw-entity-multi-id-select';
         },
 
         onChangeEntityType(entity) {
-            const entityType = this.entityTypes.find(type => type.value === entity);
+            const entityType = this.entityTypes.find((type) => type.value === entity);
 
-            this.$delete(this.currentCustomField.config, 'labelProperty');
+            delete this.currentCustomField.config.labelProperty;
 
             // pass the label property into the custom field's config to allow different / multiple labelProperties
             if (entityType.hasOwnProperty('config') && entityType.config.hasOwnProperty('labelProperty')) {

@@ -5,20 +5,20 @@ namespace Shopware\Core\Framework\Adapter\Twig\TokenParser;
 use Shopware\Core\Framework\Adapter\Twig\Node\SwInclude;
 use Shopware\Core\Framework\Adapter\Twig\TemplateFinder;
 use Shopware\Core\Framework\Log\Package;
+use Twig\Node\Expression\AbstractExpression;
 use Twig\Node\IncludeNode;
 use Twig\Node\Node;
-use Twig\Parser;
 use Twig\Token;
 use Twig\TokenParser\AbstractTokenParser;
 
-#[Package('core')]
+/**
+ * @internal
+ *
+ * @see \Twig\TokenParser\IncludeTokenParser
+ */
+#[Package('framework')]
 final class IncludeTokenParser extends AbstractTokenParser
 {
-    /**
-     * @var Parser
-     */
-    protected $parser;
-
     public function __construct(private readonly TemplateFinder $finder)
     {
     }
@@ -28,7 +28,8 @@ final class IncludeTokenParser extends AbstractTokenParser
      */
     public function parse(Token $token)
     {
-        $expr = $this->parser->getExpressionParser()->parseExpression();
+        $expr = $this->parser->parseExpression();
+        \assert($expr instanceof AbstractExpression);
 
         [$variables, $only, $ignoreMissing] = $this->parseArguments();
 
@@ -39,10 +40,10 @@ final class IncludeTokenParser extends AbstractTokenParser
 
             $expr->setAttribute('value', $parent);
 
-            return new IncludeNode($expr, $variables, $only, $ignoreMissing, $token->getLine(), $this->getTag());
+            return new IncludeNode($expr, $variables, $only, $ignoreMissing, $token->getLine());
         }
 
-        return new SwInclude($expr, $variables, $only, $ignoreMissing, $token->getLine(), $this->getTag());
+        return new SwInclude($expr, $variables, $only, $ignoreMissing, $token->getLine());
     }
 
     public function getTag(): string
@@ -50,6 +51,9 @@ final class IncludeTokenParser extends AbstractTokenParser
         return 'sw_include';
     }
 
+    /**
+     * @return array{AbstractExpression|null, bool, bool}
+     */
     private function parseArguments(): array
     {
         $stream = $this->parser->getStream();
@@ -63,7 +67,7 @@ final class IncludeTokenParser extends AbstractTokenParser
 
         $variables = null;
         if ($stream->nextIf(Token::NAME_TYPE, 'with')) {
-            $variables = $this->parser->getExpressionParser()->parseExpression();
+            $variables = $this->parser->parseExpression();
         }
 
         $only = false;

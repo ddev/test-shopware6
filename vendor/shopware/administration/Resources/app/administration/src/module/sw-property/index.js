@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import './acl';
@@ -25,7 +25,7 @@ Module.register('sw-property', {
     version: '1.0.0',
     targetVersion: '1.0.0',
     color: '#57D9A3',
-    icon: 'regular-products',
+    icon: 'solid-products',
     favicon: 'icon-module-products.png',
     entity: 'property_group',
 
@@ -46,7 +46,7 @@ Module.register('sw-property', {
             props: {
                 default: (route) => {
                     return {
-                        groupId: route.params.id,
+                        groupId: route.params.id.toLowerCase(),
                     };
                 },
             },
@@ -73,14 +73,16 @@ Module.register('sw-property', {
         },
     },
 
-    navigation: [{
-        id: 'sw-property',
-        label: 'sw-property.general.mainMenuItemGeneral',
-        parent: 'sw-catalogue',
-        path: 'sw.property.index',
-        position: 40,
-        privilege: 'property.viewer',
-    }],
+    navigation: [
+        {
+            id: 'sw-property',
+            label: 'sw-property.general.mainMenuItemGeneral',
+            parent: 'sw-catalogue',
+            path: 'sw.property.index',
+            position: 40,
+            privilege: 'property.viewer',
+        },
+    ],
 
     defaultSearchConfiguration,
 });

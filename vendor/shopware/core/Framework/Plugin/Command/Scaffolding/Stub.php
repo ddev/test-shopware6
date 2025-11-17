@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Stub
 {
     public const TYPE_TEMPLATE = 'template';
@@ -18,7 +18,7 @@ class Stub
      */
     public function __construct(
         private readonly string $path,
-        private string $content,
+        private readonly string $content,
         private readonly string $type = self::TYPE_TEMPLATE,
         private readonly array $params = [],
     ) {

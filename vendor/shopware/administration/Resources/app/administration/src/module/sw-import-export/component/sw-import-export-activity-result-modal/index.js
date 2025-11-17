@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import template from './sw-import-export-activity-result-modal.html.twig';
 import './sw-import-export-activity-result-modal.scss';
@@ -11,6 +11,8 @@ export default {
     template,
 
     inject: ['importExport'],
+
+    emits: ['result-close'],
 
     props: {
         logEntity: {
@@ -35,6 +37,7 @@ export default {
             return Object.keys(this.logEntity.result).reduce((items, entityName) => {
                 if (entityName !== this.mainEntity) {
                     items.push({
+                        id: entityName, // sw-grid items should always have a unique id
                         entityName,
                         ...this.logEntity.result[entityName],
                     });
@@ -48,6 +51,9 @@ export default {
             return this.$tc(`sw-import-export.activity.detail.${this.logEntity.activity}Label`);
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },

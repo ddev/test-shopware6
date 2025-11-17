@@ -32,6 +32,7 @@
         <service id="Shopware\Core\Framework\Update\Services\ExtensionCompatibility">
             <argument type="service" id="Shopware\Core\Framework\Store\Services\StoreClient"/>
             <argument type="service" id="Shopware\Core\Framework\Store\Services\AbstractExtensionDataProvider"/>
+            <argument type="service" id="event_dispatcher"/>
         </service>
 
         <service id="Shopware\Core\Framework\Update\Services\Filesystem"/>
@@ -53,8 +54,8 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
-        <service id="Shopware\Core\Framework\Update\Services\CreateCustomAppsDir">
-            <argument>%kernel.app_dir%</argument>
+        <service id="Shopware\Core\Framework\Update\Subscriber\UpdateSubscriber">
+            <argument type="service" id="Shopware\Core\Framework\Notification\NotificationService" />
             <tag name="kernel.event_subscriber"/>
         </service>
     </services>

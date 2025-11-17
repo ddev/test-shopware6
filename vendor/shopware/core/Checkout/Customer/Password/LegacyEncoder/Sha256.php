@@ -3,6 +3,7 @@
 namespace Shopware\Core\Checkout\Customer\Password\LegacyEncoder;
 
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Util\Hasher;
 
 #[Package('checkout')]
 class Sha256 implements LegacyEncoderInterface
@@ -12,7 +13,7 @@ class Sha256 implements LegacyEncoderInterface
         return 'Sha256';
     }
 
-    public function isPasswordValid(string $password, string $hash): bool
+    public function isPasswordValid(#[\SensitiveParameter] string $password, string $hash): bool
     {
         [$iterations, $salt] = explode(':', $hash);
 
@@ -21,11 +22,11 @@ class Sha256 implements LegacyEncoderInterface
         return hash_equals($hash, $verifyHash);
     }
 
-    private function generateInternal(string $password, string $salt, int $iterations): string
+    private function generateInternal(#[\SensitiveParameter] string $password, string $salt, int $iterations): string
     {
         $hash = '';
         for ($i = 0; $i <= $iterations; ++$i) {
-            $hash = hash('sha256', $hash . $password . $salt);
+            $hash = Hasher::hash($hash . $password . $salt, 'sha256');
         }
 
         return $iterations . ':' . $salt . ':' . $hash;

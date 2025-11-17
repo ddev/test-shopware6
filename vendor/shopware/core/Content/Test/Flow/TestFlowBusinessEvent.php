@@ -11,24 +11,15 @@ use Symfony\Contracts\EventDispatcher\Event;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('after-sales')]
 class TestFlowBusinessEvent extends Event implements FlowEventAware
 {
     public const EVENT_NAME = 'test.flow_event';
 
-    /**
-     * @var string
-     */
-    protected $name = self::EVENT_NAME;
+    protected string $name = self::EVENT_NAME;
 
-    /**
-     * @var Context
-     */
-    protected $context;
-
-    public function __construct(Context $context)
+    public function __construct(protected Context $context)
     {
-        $this->context = $context;
     }
 
     public function getName(): string

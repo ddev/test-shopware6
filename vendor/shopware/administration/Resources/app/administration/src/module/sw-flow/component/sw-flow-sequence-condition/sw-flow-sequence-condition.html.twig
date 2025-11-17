@@ -1,65 +1,56 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_flow_sequence_condition %}
 <div class="sw-flow-sequence-condition">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_flow_sequence_condition_true_arrow %}
     <div
         v-if="!showHelpElement"
         class="sw-flow-sequence-condition__true-arrow"
         :class="arrowClasses(true)"
     >
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_true_arrow_line %}
         <div class="sw-flow-sequence-condition__true-line"></div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_true_arrow_oval %}
         <div class="sw-flow-sequence-condition__oval"></div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_true_arrow_icon %}
-        <sw-icon
+        <mt-icon
             v-if="showArrowIcon(true)"
             name="regular-chevron-right-s"
-            small
+            size="16px"
         />
 
         <sw-context-button
             v-else
             class="arrow-action sw-flow-sequence-condition__true-action"
             icon="regular-plus-xs"
-            :disabled="disabledAddSequence(true)"
+            :disabled="disabledAddSequence(true) || undefined"
         >
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_true_arrow_add_condition %}
             <sw-context-menu-item
                 class="sw-flow-sequence-condition__add-true-condition"
-                :disabled="disabled"
+                :disabled="disabled || undefined"
                 @click="addIfCondition(true)"
             >
                 {{ $tc('sw-flow.detail.sequence.selectorIfCondition') }}
             </sw-context-menu-item>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_true_arrow_add_action %}
             <sw-context-menu-item
                 class="sw-flow-sequence-condition__add-true-action"
-                :disabled="disabled"
+                :disabled="disabled || undefined"
                 @click="addThenAction(true)"
             >
                 {{ $tc('sw-flow.detail.sequence.selectorThenAction') }}
             </sw-context-menu-item>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_true_arrow_extension_options %}{% endblock %}
         </sw-context-button>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_true_arrow_label %}
         <sw-label
             appearance="pill"
@@ -74,24 +65,20 @@
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_flow_sequence_condition_false_arrow %}
     <div
         v-if="!showHelpElement"
         class="sw-flow-sequence-condition__false-arrow"
         :class="arrowClasses(false)"
     >
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_false_arrow_line %}
         <div class="sw-flow-sequence-condition__false-line"></div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_false_arrow_oval %}
         <div class="sw-flow-sequence-condition__oval"></div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_false_arrow_label %}
         <sw-label
             appearance="pill"
@@ -104,59 +91,51 @@
         </sw-label>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_false_arrow_icon %}
-        <sw-icon
+        <mt-icon
             v-if="showArrowIcon(false)"
             name="regular-chevron-down-s"
-            small
+            size="16px"
         />
 
         <sw-context-button
             v-else
             class="arrow-action sw-flow-sequence-condition__false-action"
             icon="regular-plus-xs"
-            :disabled="disabledAddSequence(false)"
+            :disabled="disabledAddSequence(false) || undefined"
         >
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_false_arrow_add_condition %}
             <sw-context-menu-item
                 class="sw-flow-sequence-condition__add-false-condition"
-                :disabled="disabled"
+                :disabled="disabled || undefined"
                 @click="addIfCondition(false)"
             >
                 {{ $tc('sw-flow.detail.sequence.selectorIfCondition') }}
             </sw-context-menu-item>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_false_arrow_add_action %}
             <sw-context-menu-item
                 class="sw-flow-sequence-condition__add-false-action"
-                :disabled="disabled"
+                :disabled="disabled || undefined"
                 @click="addThenAction(false)"
             >
                 {{ $tc('sw-flow.detail.sequence.selectorThenAction') }}
             </sw-context-menu-item>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_false_arrow_extension_options %}{% endblock %}
         </sw-context-button>
         {% endblock %}
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_flow_sequence_condition_container %}
     <div class="sw-flow-sequence-condition__container">
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_card %}
         <div class="sw-flow-sequence-condition__card">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_header %}
             <div class="sw-flow-sequence-condition__header">
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_flow_sequence_condition_title %}
                 <div class="sw-flow-sequence-condition__title-description">
                     <h3 class="sw-flow-sequence-condition__title">
@@ -169,14 +148,12 @@
                 </div>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_flow_sequence_condition_context_button %}
                 <sw-context-button
                     class="sw-flow-sequence-condition__context-button"
-                    :disabled="disabled"
+                    :disabled="disabled || undefined"
                 >
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_flow_sequence_condition_context_button_delete %}
                     <sw-context-menu-item
                         class="sw-flow-sequence-condition__delete-condition"
@@ -191,20 +168,17 @@
             </div>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_condition_content %}
             <div class="sw-flow-sequence-condition__content">
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_flow_sequence_condition_rule %}
                 <div class="sw-flow-sequence-condition__rule">
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_flow_sequence_condition_rule_empty %}
                     <div
                         v-if="!sequence.rule"
                         class="sw-flow-sequence-condition__rule-empty"
                     >
-                        <sw-icon
+                        <mt-icon
                             size="12px"
                             name="regular-rule-s"
                         />
@@ -214,37 +188,32 @@
                     </div>
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_flow_sequence_condition_rule_info %}
                     <div
                         v-else
                         class="sw-flow-sequence-condition__rule-info"
                     >
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_flow_sequence_condition_rule_header %}
                         <div class="sw-flow-sequence-condition__rule-header">
                             <div class="sw-flow-sequence-condition__rule-icon">
-                                <sw-icon
+                                <mt-icon
                                     size="12px"
                                     name="regular-rule-s"
                                 />
                             </div>
 
-                            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                             {% block sw_flow_sequence_condition_rule_name %}
                             <div class="sw-flow-sequence-condition__rule-name">
                                 <h3>{{ sequence.rule.name }}</h3>
                             </div>
                             {% endblock %}
 
-                            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                             {% block sw_flow_sequence_condition_rule_context_button %}
                             <sw-context-button
                                 class="sw-flow-sequence-condition__rule-context-button"
-                                :disabled="disabled"
+                                :disabled="disabled || undefined"
                             >
 
-                                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                                 {% block sw_flow_sequence_condition_rule_context_button_edit %}
                                 <sw-context-menu-item
                                     class="sw-flow-sequence-condition__rule-edit"
@@ -254,7 +223,6 @@
                                 </sw-context-menu-item>
                                 {% endblock %}
 
-                                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                                 {% block sw_flow_sequence_condition_rule_context_button_change %}
                                 <sw-context-menu-item
                                     class="sw-flow-sequence-condition__rule-change"
@@ -264,7 +232,6 @@
                                 </sw-context-menu-item>
                                 {% endblock %}
 
-                                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                                 {% block sw_flow_sequence_condition_rule_context_button_delete %}
                                 <sw-context-menu-item
                                     class="sw-flow-sequence-condition__rule-delete"
@@ -280,7 +247,6 @@
 
                         {% endblock %}
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_flow_sequence_condition_rule_description %}
                         <div
                             class="sw-flow-sequence-condition__rule-description"
@@ -293,11 +259,9 @@
                 </div>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_flow_sequence_condition_content_custom %}
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_flow_sequence_condition_rule_selection %}
                 <div
                     v-if="showRuleSelection || !sequence.ruleId"
@@ -310,7 +274,7 @@
                         entity="rule"
                         :criteria="ruleCriteria"
                         :placeholder="$tc('sw-flow.rule.placeholderSelectRule')"
-                        :disabled="disabled"
+                        :disabled="disabled || undefined"
                         :error="fieldError"
                         advanced-selection-component="sw-advanced-selection-rule"
                         :advanced-selection-parameters="advanceSelectionParameters"
@@ -319,14 +283,9 @@
                             message: $t('sw-restricted-rules.restrictedAssignment.general', {
                                 relation: $t('sw-restricted-rules.restrictedAssignment.flowSequences'),
                             }), }"
-                        {% if VUE3 %}
                         @update:value="(id, rule) => onRuleChange(rule)"
-                        {% else %}
-                        @change="(id, rule) => onRuleChange(rule)"
-                        {% endif %}
                     >
                         <template #before-item-list>
-                            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                             {% block sw_flow_sequence_condition_select_selection_before_list %}
                             <ul class="sw-select-result__item-list">
                                 <li
@@ -353,18 +312,15 @@
         </div>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_flow_sequence_condition_help_text %}
         <div
             v-if="showHelpElement"
             class="sw-flow-sequence-condition__explains"
         >
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_selector_title %}
             <h4>{{ $tc('sw-flow.detail.sequence.conditionExplainsTitle') }}</h4>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_flow_sequence_selector_help_text %}
             <p v-html="$tc('sw-flow.detail.sequence.conditionExplainsDescription')"></p>
             {% endblock %}
@@ -373,7 +329,6 @@
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_flow_sequence_condition_rule_modal %}
     <sw-flow-rule-modal
         v-if="showCreateRuleModal"

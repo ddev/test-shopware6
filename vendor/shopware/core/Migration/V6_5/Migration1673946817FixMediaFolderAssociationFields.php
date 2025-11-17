@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1673946817FixMediaFolderAssociationFields extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -47,10 +47,5 @@ class Migration1673946817FixMediaFolderAssociationFields extends MigrationStep
             WHERE id = :id',
             ['id' => $data['id'], 'association_fields' => \json_encode(\array_keys($fields))]
         );
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

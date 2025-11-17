@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Exception\InvalidArgumentException;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
-#[Package('core')]
+#[Package('framework')]
 class StructNormalizer implements DenormalizerInterface, NormalizerInterface
 {
     /**
@@ -23,9 +23,9 @@ class StructNormalizer implements DenormalizerInterface, NormalizerInterface
     /**
      * {@inheritdoc}
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed>|\ArrayObject<string, mixed>|bool|float|int|string|null
      */
-    public function normalize(mixed $object, ?string $format = null, array $context = [])
+    public function normalize(mixed $object, ?string $format = null, array $context = []): float|array|\ArrayObject|bool|int|string|null
     {
         $encoder = new JsonEncode();
 
@@ -46,10 +46,8 @@ class StructNormalizer implements DenormalizerInterface, NormalizerInterface
      * {@inheritdoc}
      *
      * @param array<string, mixed> $context
-     *
-     * @return mixed
      */
-    public function denormalize(mixed $data, ?string $type = null, ?string $format = null, array $context = [])
+    public function denormalize(mixed $data, ?string $type = null, ?string $format = null, array $context = []): mixed
     {
         if (\is_string($data) && $date = $this->createDate($data)) {
             return $date;
@@ -117,7 +115,7 @@ class StructNormalizer implements DenormalizerInterface, NormalizerInterface
         $struct = $reflectionClass->newInstanceWithoutConstructor();
         if (!$struct instanceof Struct) {
             throw new InvalidArgumentException(
-                sprintf('Unable to unserialize a non-struct class: %s', $reflectionClass->getName())
+                \sprintf('Unable to unserialize a non-struct class: %s', $reflectionClass->getName())
             );
         }
 
@@ -141,7 +139,7 @@ class StructNormalizer implements DenormalizerInterface, NormalizerInterface
             if (!\array_key_exists($name, $arguments)) {
                 if (!$constructorParam->isOptional()) {
                     throw new InvalidArgumentException(
-                        sprintf(
+                        \sprintf(
                             'Required constructor parameter missing: "$%s". Please check if the property is protected and not private.',
                             $name
                         )
@@ -161,7 +159,7 @@ class StructNormalizer implements DenormalizerInterface, NormalizerInterface
         $struct = $reflectionClass->newInstanceArgs($params);
         if (!$struct instanceof Struct) {
             throw new InvalidArgumentException(
-                sprintf('Unable to unserialize a non-struct class: %s', $reflectionClass->getName())
+                \sprintf('Unable to unserialize a non-struct class: %s', $reflectionClass->getName())
             );
         }
         $struct->assign($arguments);

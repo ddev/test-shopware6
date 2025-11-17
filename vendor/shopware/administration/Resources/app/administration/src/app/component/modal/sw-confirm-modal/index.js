@@ -1,12 +1,9 @@
 import template from './sw-confirm-modal.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type static
  * @component-example
@@ -21,8 +18,14 @@ const { Component } = Shopware;
  * </sw-confirm-modal>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-confirm-modal', {
+export default {
     template,
+
+    emits: [
+        'close',
+        'cancel',
+        'confirm',
+    ],
 
     props: {
         title: {
@@ -41,12 +44,22 @@ Component.register('sw-confirm-modal', {
             type: String,
             required: false,
             default: 'small',
-            validValues: ['default', 'small', 'large', 'full'],
+            validValues: [
+                'default',
+                'small',
+                'large',
+                'full',
+            ],
             validator(value) {
                 if (!value.length) {
                     return true;
                 }
-                return ['default', 'small', 'large', 'full'].includes(value);
+                return [
+                    'default',
+                    'small',
+                    'large',
+                    'full',
+                ].includes(value);
             },
         },
 
@@ -54,12 +67,22 @@ Component.register('sw-confirm-modal', {
             type: String,
             required: false,
             default: 'confirm',
-            validValues: ['confirm', 'delete', 'yesno', 'discard'],
+            validValues: [
+                'confirm',
+                'delete',
+                'yesno',
+                'discard',
+            ],
             validator(value) {
                 if (!value.length) {
                     return true;
                 }
-                return ['confirm', 'delete', 'yesno', 'discard'].includes(value);
+                return [
+                    'confirm',
+                    'delete',
+                    'yesno',
+                    'discard',
+                ].includes(value);
             },
         },
     },
@@ -106,10 +129,10 @@ Component.register('sw-confirm-modal', {
             switch (this.type) {
                 case 'delete':
                 case 'discard':
-                    return 'danger';
+                    return 'critical';
                 default:
                     return 'primary';
             }
         },
     },
-});
+};

@@ -10,7 +10,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1668435503ChangeStornoDocumentTranslationName extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -50,9 +50,5 @@ class Migration1668435503ChangeStornoDocumentTranslationName extends MigrationSt
                 'typeId' => $cancellationId,
             ]
         );
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 }

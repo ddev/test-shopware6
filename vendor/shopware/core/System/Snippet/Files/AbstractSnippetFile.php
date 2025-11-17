@@ -4,14 +4,14 @@ namespace Shopware\Core\System\Snippet\Files;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('system-settings')]
+#[Package('discovery')]
 abstract class AbstractSnippetFile
 {
     /**
      * Returns the displayed name.
      *
      * Example:
-     * storefront.en-GB
+     * storefront.en
      */
     abstract public function getName(): string;
 
@@ -19,7 +19,7 @@ abstract class AbstractSnippetFile
      * Returns the path to the json language file.
      *
      * Example:
-     * /appPath/subDirectory/storefront.en-GB.json
+     * /appPath/subDirectory/storefront.en.json
      */
     abstract public function getPath(): string;
 
@@ -27,7 +27,10 @@ abstract class AbstractSnippetFile
      * Returns the associated language ISO.
      *
      * Example:
+     * en
+     * de
      * en-GB
+     * en-US
      * de-DE
      */
     abstract public function getIso(): string;
@@ -42,7 +45,7 @@ abstract class AbstractSnippetFile
     abstract public function getAuthor(): string;
 
     /**
-     * Returns a boolean which determines if its a base language file
+     * Returns a boolean which determines if it's a base language file
      */
     abstract public function isBase(): bool;
 

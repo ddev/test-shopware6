@@ -6,9 +6,9 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\AsyncMessageInterface;
 
 /**
- * @deprecated tag:v6.6.0 - Will be internal - reason:visibility-change
+ * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class WebhookEventMessage implements AsyncMessageInterface
 {
     /**

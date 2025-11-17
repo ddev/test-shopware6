@@ -1,34 +1,33 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-property-search.html.twig';
 import './sw-property-search.scss';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 const utils = Shopware.Utils;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-property-search', {
+export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: ['option-select'],
 
     props: {
         collapsible: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
         overlay: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -39,7 +38,7 @@ Component.register('sw-property-search', {
                 return [];
             },
         },
-        disabled: {
+        isAddOnly: {
             type: Boolean,
             required: false,
             default: false,
@@ -59,6 +58,7 @@ Component.register('sw-property-search', {
             optionPage: 1,
             groupTotal: 1,
             optionTotal: 1,
+            prevSearchTerm: '',
         };
     },
 
@@ -80,18 +80,32 @@ Component.register('sw-property-search', {
         },
 
         propertyGroupOptionRepository() {
-            const entity = this.currentGroup ? this.currentGroup.options.entity : 'property_group_option';
-            const source = this.currentGroup ? this.currentGroup.options.source : undefined;
-
-            return this.repositoryFactory.create(entity, source);
+            return this.repositoryFactory.create('property_group_option');
         },
 
         propertyGroupOptionCriteria() {
             const criteria = new Criteria(this.optionPage, 10);
             criteria.addSorting(Criteria.sort('name', 'ASC', true));
-            criteria.setTotalCountMode(1);
-            criteria.setTerm(this.searchTerm);
-            criteria.addAssociation('group');
+
+            if (this.currentGroup) {
+                criteria.addFilter(Criteria.equals('groupId', this.currentGroup.id));
+            }
+
+            if (this.searchTerm.length > 0) {
+                this.searchTerm
+                    .trim()
+                    .split(' ')
+                    .forEach((option) => {
+                        if (option.trim().length === 0) {
+                            return;
+                        }
+
+                        criteria.addQuery(Criteria.contains('name', option.trim()), 1000);
+                        criteria.addQuery(Criteria.contains('group.name', option.trim()), 800);
+                    });
+
+                criteria.addAssociation('group');
+            }
 
             return criteria;
         },
@@ -101,11 +115,17 @@ Component.register('sw-property-search', {
         },
     },
 
+    watch: {
+        isAddOnly() {
+            this.addOptionCount();
+        },
+    },
+
     created() {
         this.createdComponent();
     },
 
-    destroyed() {
+    unmounted() {
         this.destroyedComponent();
     },
 
@@ -118,7 +138,7 @@ Component.register('sw-property-search', {
                 this.showTree();
             }
 
-            this.$parent.$on('options-load', this.addOptionCount);
+            // Info: there is no component available with this event so it can be removed safely
         },
 
         destroyedComponent() {
@@ -178,9 +198,12 @@ Component.register('sw-property-search', {
         onSearchOptions: utils.debounce(function debouncedSearch(input) {
             const validInput = input || '';
 
-            this.optionPage = 1;
-            this.searchTerm = validInput.trim();
-            this.onFocusSearch();
+            if (this.prevSearchTerm !== validInput) {
+                this.prevSearchTerm = validInput;
+                this.searchTerm = validInput;
+                this.optionPage = 1;
+                this.onFocusSearch();
+            }
         }, 400),
 
         closeOnClickOutside(event) {
@@ -212,17 +235,22 @@ Component.register('sw-property-search', {
 
         showSearch() {
             this.currentGroup = null;
-            this.displaySearch = true;
-            this.displayTree = false;
 
-            this.propertyGroupOptionRepository.search(this.propertyGroupOptionCriteria, Shopware.Context.api)
+            this.propertyGroupOptionRepository
+                .search(this.propertyGroupOptionCriteria, Shopware.Context.api)
                 .then((groupOptions) => {
                     this.groupOptions = groupOptions;
                     this.optionTotal = groupOptions.total;
-                }).then(() => {
+                    this.displaySearch = true;
+                    this.displayTree = false;
+                })
+                .then(() => {
                     if (this.$refs.optionSearchGrid) {
                         this.selectOptions(this.$refs.optionSearchGrid);
                     }
+                })
+                .catch((error) => {
+                    this.createNotificationError({ message: error.message });
                 });
         },
 
@@ -244,14 +272,10 @@ Component.register('sw-property-search', {
         },
 
         loadOptions() {
-            const criteria = new Criteria(1, null);
-
-            criteria.setTotalCountMode(1);
-            criteria.addAssociation('group');
-
-            this.propertyGroupOptionRepository.search(criteria, Shopware.Context.api)
+            this.propertyGroupOptionRepository
+                .search(this.propertyGroupOptionCriteria, Shopware.Context.api)
                 .then((groupOptions) => {
-                    this.groupOptions = this.sortOptions(groupOptions);
+                    this.groupOptions = groupOptions;
                     this.optionTotal = groupOptions.total;
                     this.selectOptions(this.$refs.optionGrid);
                 });
@@ -259,9 +283,9 @@ Component.register('sw-property-search', {
 
         sortOptions(options) {
             if (options.length > 0 && options[0].group.sortingType === 'alphanumeric') {
-                options.sort((a, b) => (a.translated.name.localeCompare(b.translated.name, undefined, { numeric: true })));
+                options.sort((a, b) => a.translated.name.localeCompare(b.translated.name, undefined, { numeric: true }));
             } else {
-                options.sort((a, b) => (a.position - b.position));
+                options.sort((a, b) => a.position - b.position);
             }
             const start = (this.optionPage - 1) * 10;
             const end = start + 10;
@@ -283,8 +307,8 @@ Component.register('sw-property-search', {
                     return option.groupId === group.id && !option.isDeleted;
                 });
 
-                this.$set(group, 'optionCount', optionCount.length);
+                group.optionCount = optionCount.length;
             });
         },
     },
-});
+};

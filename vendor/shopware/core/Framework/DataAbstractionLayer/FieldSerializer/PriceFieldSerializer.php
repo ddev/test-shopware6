@@ -6,7 +6,7 @@ use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\PriceField;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\StorageAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Pricing\Price;
 use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
@@ -15,7 +15,6 @@ use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteParameterBag;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Json;
 use Shopware\Core\Framework\Validation\Constraint\Uuid;
-use Shopware\Core\Framework\Validation\WriteConstraintViolationException;
 use Symfony\Component\Validator\Constraints\Collection;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Optional;
@@ -26,7 +25,7 @@ use Symfony\Component\Validator\ConstraintViolationList;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class PriceFieldSerializer extends AbstractFieldSerializer
 {
     public function encode(
@@ -35,16 +34,19 @@ class PriceFieldSerializer extends AbstractFieldSerializer
         KeyValuePair $data,
         WriteParameterBag $parameters
     ): \Generator {
-        if (!$field instanceof PriceField) {
-            throw DataAbstractionLayerException::invalidSerializerField(PriceField::class, $field);
+        if (!$field instanceof StorageAware) {
+            throw DataAbstractionLayerException::invalidSerializerField(self::class, $field);
         }
 
-        $value = $data->getValue();
+        $value = json_decode(json_encode($data->getValue(), \JSON_PRESERVE_ZERO_FRACTION | \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR);
 
         if ($this->requiresValidation($field, $existence, $value, $parameters)) {
             if ($value !== null) {
                 foreach ($value as &$row) {
-                    unset($row['extensions']);
+                    if (isset($row['extensions'])) {
+                        // unset extensions if we have them, proper validation is done later
+                        unset($row['extensions']);
+                    }
                 }
             }
             $data->setValue($value);
@@ -54,13 +56,13 @@ class PriceFieldSerializer extends AbstractFieldSerializer
             }
 
             $constraints = $this->getCachedConstraints($field);
-            $pricePath = $parameters->getPath() . '/price';
+            $pricePath = $parameters->getPath() . '/' . $field->getPropertyName();
 
             foreach ($data->getValue() as $index => $price) {
                 $this->validate($constraints, new KeyValuePair((string) $index, $price, true), $pricePath);
             }
 
-            $this->ensureDefaultPrice($parameters, $data->getValue());
+            $this->ensureDefaultPrice($parameters, $data->getValue(), $field->getPropertyName());
 
             $converted = [];
 
@@ -112,9 +114,17 @@ class PriceFieldSerializer extends AbstractFieldSerializer
             $value = json_decode($value, true, 512, \JSON_THROW_ON_ERROR);
         }
 
+        if (!\is_array($value)) {
+            throw DataAbstractionLayerException::expectedArrayWithType('$value', \gettype($value));
+        }
+
         $collection = new PriceCollection();
 
         foreach ($value as $row) {
+            if (empty($row['currencyId'])) {
+                throw DataAbstractionLayerException::missingFieldValue($field);
+            }
+
             if ((!isset($row['listPrice']) || !isset($row['listPrice']['gross'])) && (!isset($row['regulationPrice']) || !isset($row['regulationPrice']['gross']))) {
                 $collection->add(
                     new Price($row['currencyId'], (float) $row['net'], (float) $row['gross'], (bool) $row['linked'])
@@ -163,42 +173,42 @@ class PriceFieldSerializer extends AbstractFieldSerializer
     protected function getConstraints(Field $field): array
     {
         $constraints = [
-            new Collection([
-                'allowExtraFields' => true,
-                'allowMissingFields' => false,
-                'fields' => [
+            new Collection(
+                fields: [
                     'currencyId' => [new NotBlank(), new Uuid()],
-                    'gross' => [new NotBlank(), new Type(['numeric'])],
-                    'net' => [new NotBlank(), new Type(['numeric'])],
-                    'linked' => [new Type('boolean')],
+                    'gross' => [new NotBlank(), new Type(type: 'numeric')],
+                    'net' => [new NotBlank(), new Type(type: 'numeric')],
+                    'linked' => [new Type(type: 'boolean')],
                     'listPrice' => [
                         new Optional(
-                            new Collection([
-                                'allowExtraFields' => true,
-                                'allowMissingFields' => false,
-                                'fields' => [
-                                    'gross' => [new NotBlank(), new Type(['numeric'])],
+                            new Collection(
+                                fields: [
+                                    'gross' => [new NotBlank(), new Type(type: 'numeric')],
                                     'net' => [new NotBlank(), new Type('numeric')],
-                                    'linked' => [new Type('boolean')],
+                                    'linked' => [new Type(type: 'boolean')],
                                 ],
-                            ])
+                                allowExtraFields: true,
+                                allowMissingFields: false
+                            )
                         ),
                     ],
                     'regulationPrice' => [
                         new Optional(
-                            new Collection([
-                                'allowExtraFields' => true,
-                                'allowMissingFields' => false,
-                                'fields' => [
-                                    'gross' => [new NotBlank(), new Type(['numeric'])],
+                            new Collection(
+                                fields: [
+                                    'gross' => [new NotBlank(), new Type(type: 'numeric')],
                                     'net' => [new NotBlank(), new Type('numeric')],
-                                    'linked' => [new Type('boolean')],
+                                    'linked' => [new Type(type: 'boolean')],
                                 ],
-                            ])
+                                allowExtraFields: true,
+                                allowMissingFields: false
+                            )
                         ),
                     ],
                 ],
-            ]),
+                allowExtraFields: true,
+                allowMissingFields: false
+            ),
         ];
 
         return $constraints;
@@ -207,7 +217,7 @@ class PriceFieldSerializer extends AbstractFieldSerializer
     /**
      * @param array<array<string, mixed>> $prices
      */
-    private function ensureDefaultPrice(WriteParameterBag $parameters, array $prices): void
+    private function ensureDefaultPrice(WriteParameterBag $parameters, array $prices, string $propertyName): void
     {
         foreach ($prices as $price) {
             if ($price['currencyId'] === Defaults::CURRENCY) {
@@ -222,11 +232,10 @@ class PriceFieldSerializer extends AbstractFieldSerializer
                 'No price for default currency defined',
                 [],
                 '',
-                '/price',
+                '/' . $propertyName,
                 $prices
             )
         );
-
-        throw new WriteConstraintViolationException($violationList, $parameters->getPath());
+        throw DataAbstractionLayerException::invalidWriteConstraintViolation($violationList, $parameters->getPath());
     }
 }

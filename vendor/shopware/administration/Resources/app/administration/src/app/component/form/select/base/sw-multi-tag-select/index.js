@@ -1,14 +1,13 @@
 import template from './sw-multi-tag-select.html.twig';
 import './sw-multi-tag-select.scss';
 
-const { Component, Mixin } = Shopware;
+const { Mixin } = Shopware;
 const { get } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @description Renders a multi select field for data of any kind. This component uses the sw-field base
  * components. This adds the base properties such as <code>helpText</code>, <code>error</code>, <code>disabled</code> etc.
@@ -18,26 +17,33 @@ const { get } = Shopware.Utils;
  *     :value="['lorem', 'ipsum', 'dolor', 'sit', 'amet']"
  * ></sw-multi-tag-select>
  */
-Component.register('sw-multi-tag-select', {
+export default {
     template,
 
     inheritAttrs: false,
 
     inject: ['feature'],
 
+    emits: [
+        'add-item-is-valid',
+        'update:value',
+        'display-values-expand',
+    ],
+
     mixins: [
         Mixin.getByName('remove-api-error'),
     ],
-
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
 
     props: {
         value: {
             type: Array,
             required: true,
+        },
+
+        valueLimit: {
+            type: Number,
+            required: false,
+            default: 5,
         },
 
         placeholder: {
@@ -67,7 +73,7 @@ Component.register('sw-multi-tag-select', {
         validate: {
             type: Function,
             required: false,
-            default: searchTerm => searchTerm.length > 0,
+            default: (searchTerm) => searchTerm.length > 0,
         },
 
         disabled: {
@@ -81,14 +87,11 @@ Component.register('sw-multi-tag-select', {
         return {
             searchTerm: '',
             hasFocus: false,
+            limit: this.valueLimit,
         };
     },
 
     computed: {
-        objectValues() {
-            return this.value.map((entry) => ({ value: entry }));
-        },
-
         errorObject() {
             return null;
         },
@@ -96,30 +99,33 @@ Component.register('sw-multi-tag-select', {
         inputIsValid() {
             return this.validate(this.searchTerm);
         },
+
+        visibleValues() {
+            if (!this.value || this.value.length <= 0) {
+                return [];
+            }
+
+            return this.value.map((entry) => ({ value: entry })).slice(0, this.limit);
+        },
+
+        totalValuesCount() {
+            if (this.value.length) {
+                return this.value.length;
+            }
+
+            return 0;
+        },
+
+        invisibleValueCount() {
+            if (!this.value) {
+                return 0;
+            }
+
+            return Math.max(0, this.totalValuesCount - this.limit);
+        },
     },
 
     methods: {
-        /**
-         * @deprecated tag:v6.6.0 - Will be removed
-         */
-        mountedComponent() {
-        },
-
-        /**
-         * @deprecated tag:v6.6.0 - Will be removed
-         */
-        beforeDestroyComponent() {
-        },
-
-        /**
-         * @deprecated tag:v6.6.0 - Will be removed
-         */
-        onKeyDown({ key }) {
-            if (key.toUpperCase() === 'ENTER') {
-                this.addItem();
-            }
-        },
-
         onSelectionListKeyDownEnter() {
             this.addItem();
         },
@@ -131,35 +137,31 @@ Component.register('sw-multi-tag-select', {
                 return;
             }
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', [...this.value, this.searchTerm]);
-                this.searchTerm = '';
-
-                return;
-            }
-
-            this.$emit('change', [...this.value, this.searchTerm]);
+            this.$emit('update:value', [
+                ...this.value,
+                this.searchTerm,
+            ]);
             this.searchTerm = '';
         },
 
         remove({ value }) {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.value.filter(entry => entry !== value));
-
-                return;
-            }
-
-            this.$emit('change', this.value.filter(entry => entry !== value));
+            this.$emit(
+                'update:value',
+                this.value.filter((entry) => entry !== value),
+            );
         },
 
         removeLastItem() {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', this.value.slice(0, -1));
-
+            if (!this.value.length) {
                 return;
             }
 
-            this.$emit('change', this.value.slice(0, -1));
+            if (this.invisibleValueCount > 0) {
+                this.expandValueLimit();
+                return;
+            }
+
+            this.$emit('update:value', this.value.slice(0, -1));
         },
 
         onSearchTermChange(term) {
@@ -179,5 +181,11 @@ Component.register('sw-multi-tag-select', {
 
             this.addItem();
         },
+
+        expandValueLimit() {
+            this.$emit('display-values-expand');
+
+            this.limit += this.limit;
+        },
     },
-});
+};

@@ -7,19 +7,16 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class PermissionStruct extends StoreStruct
 {
-    /**
-     * @var string
-     */
-    protected $entity;
+    protected string $entity;
+
+    protected string $operation;
 
     /**
-     * @var string
+     * @return PermissionStruct
      */
-    protected $operation;
-
     public static function fromArray(array $data): StoreStruct
     {
         return (new self())->assign($data);

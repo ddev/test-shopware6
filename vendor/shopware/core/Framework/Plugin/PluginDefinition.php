@@ -24,7 +24,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Aggregate\PluginTranslation\PluginTranslationDefinition;
 
-#[Package('core')]
+#[Package('framework')]
 class PluginDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'plugin';
@@ -73,7 +73,6 @@ class PluginDefinition extends EntityDefinition
             new TranslatedField('description'),
             new TranslatedField('manufacturerLink'),
             new TranslatedField('supportLink'),
-            new TranslatedField('changelog'),
             new TranslatedField('customFields'),
 
             (new TranslationsAssociationField(PluginTranslationDefinition::class, 'plugin_id'))->addFlags(new Required(), new CascadeDelete()),

@@ -1,11 +1,12 @@
 /* eslint-disable */
 
-import Vue, {VNode} from "vue";
+import { VNode } from 'vue';
+import { ComponentPublicInstance } from 'vue';
 
 const { Directive } = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * Directive for automatic edge detection of the element place
  *
@@ -21,7 +22,7 @@ const outsideClasses = {
     top: '--placement-top-outside',
     right: '--placement-right-outside',
     bottom: '--placement-bottom-outside',
-    left: '--placement-left-outside'
+    left: '--placement-left-outside',
 };
 
 interface PopoverConfig {
@@ -35,13 +36,20 @@ const defaultConfig: PopoverConfig = {
     active: false,
     targetSelector: '',
     resizeWidth: false,
-    style: {}
+    style: {},
 };
 
-const customStylingBlacklist = ['width', 'position', 'top', 'left', 'right', 'bottom'];
+const customStylingBlacklist = [
+    'width',
+    'position',
+    'top',
+    'left',
+    'right',
+    'bottom',
+];
 
 Directive.register('popover', {
-    inserted(element, binding, vnode) {
+    mounted(element, binding) {
         // We need a configuration
         if (!binding.value) {
             return false;
@@ -60,20 +68,22 @@ Directive.register('popover', {
         }
 
         targetElement.appendChild(element);
-        setElementPosition(element, vnode.context?.$el, config);
+        setElementPosition(element, binding.instance?.$el, config);
 
         // Resize the width of the element
         if (config.resizeWidth) {
-            element.style.width = `${vnode.context?.$el.clientWidth}px`;
+            element.style.width = `${binding.instance?.$el.clientWidth}px`;
         }
 
+        // @ts-expect-error
         // append to target element
-        calculateOutsideEdges(element, vnode);
+        calculateOutsideEdges(element, binding.instance!);
 
-        registerVirtualScrollingElement(element, vnode.context, config);
+        // @ts-expect-error
+        registerVirtualScrollingElement(element, binding.instance!, config);
     },
 
-    unbind(element, binding, vnode) {
+    unmounted(element, binding, vnode) {
         // remove element from body
         if (element.parentNode) {
             element.parentNode.removeChild(element);
@@ -81,7 +91,7 @@ Directive.register('popover', {
 
         // @ts-expect-error - _uid exists on the context but is private
         unregisterVirtualScrollingElement(vnode.context?._uid);
-    }
+    },
 });
 
 /**
@@ -91,14 +101,14 @@ Directive.register('popover', {
  * v-placement
  */
 
-function calculateOutsideEdges(el: HTMLElement, vnode: VNode) {
+function calculateOutsideEdges(el: HTMLElement, vnode: VNode | ComponentPublicInstance) {
+    // @ts-expect-error - parent exists on the vnode but is private
     // orientation element is needed for calculating the available space
-    const orientationElement = vnode?.context?.$parent?.$el ?? el;
+    const orientationElement = vnode.$parent?.$el;
 
     // get position
     const boundingClientRect = orientationElement.getBoundingClientRect();
-    const windowHeight =
-        window.innerHeight || document.documentElement.clientHeight;
+    const windowHeight = window.innerHeight || document.documentElement.clientHeight;
     const windowWidth = window.innerWidth || document.documentElement.clientWidth;
 
     // calculate which edges are in viewport
@@ -106,7 +116,7 @@ function calculateOutsideEdges(el: HTMLElement, vnode: VNode) {
         topSpace: boundingClientRect.top,
         rightSpace: windowWidth - boundingClientRect.right,
         bottomSpace: windowHeight - boundingClientRect.bottom,
-        leftSpace: boundingClientRect.left
+        leftSpace: boundingClientRect.left,
     };
 
     // remove all existing placement classes
@@ -115,20 +125,20 @@ function calculateOutsideEdges(el: HTMLElement, vnode: VNode) {
     // get new classes for placement
     const placementClasses = [
         visibleEdges.bottomSpace < visibleEdges.topSpace ? outsideClasses.bottom : outsideClasses.top,
-        visibleEdges.rightSpace > visibleEdges.leftSpace ? outsideClasses.left : outsideClasses.right
-    ]
+        visibleEdges.rightSpace > visibleEdges.leftSpace ? outsideClasses.left : outsideClasses.right,
+    ];
     // add new classes to element
     el.classList.add(...placementClasses);
 }
 
-function setElementPosition(element: HTMLElement, refElement: Element|undefined, config: PopoverConfig) {
+function setElementPosition(element: HTMLElement, refElement: Element | undefined, config: PopoverConfig) {
     const originElement = refElement ? refElement : element;
     const elementPosition = originElement.getBoundingClientRect();
 
     let targetElement = originElement;
     let targetPosition = {
         top: 0,
-        left: 0
+        left: 0,
     };
 
     if (config.targetSelector && config.targetSelector.length > 0) {
@@ -137,24 +147,29 @@ function setElementPosition(element: HTMLElement, refElement: Element|undefined,
     }
 
     // set custom inline element styling
-    Object.entries(config.style).forEach(([key, value]) => {
-        if (customStylingBlacklist.includes(key)) {
-            return;
-        }
+    Object.entries(config.style).forEach(
+        ([
+            key,
+            value,
+        ]) => {
+            if (customStylingBlacklist.includes(key)) {
+                return;
+            }
 
-        // @ts-expect-error - key can be set
-        element.style[key] = value;
-    });
+            // @ts-expect-error - key can be set
+            element.style[key] = value;
+        },
+    );
 
     // add inline styling
     element.style.position = 'absolute';
-    element.style.top = `${(elementPosition.top - targetPosition.top) + originElement.clientHeight}px`;
+    element.style.top = `${elementPosition.top - targetPosition.top + originElement.clientHeight}px`;
     element.style.left = `${elementPosition.left - targetPosition.left}px`;
 }
 
 /*
-* Virtual Scrolling
-*/
+ * Virtual Scrolling
+ */
 
 function startVirtualScrolling() {
     window.addEventListener('scroll', virtualScrollingHandler, true);
@@ -175,7 +190,11 @@ function virtualScrollingHandler() {
     });
 }
 
-function registerVirtualScrollingElement(modifiedElement: HTMLElement, vnodeContext: Vue|undefined, config: PopoverConfig) {
+function registerVirtualScrollingElement(
+    modifiedElement: HTMLElement,
+    vnodeContext: ComponentPublicInstance | undefined,
+    config: PopoverConfig,
+) {
     // @ts-expect-error - _uid exists on the context but is private
     const uid = vnodeContext?._uid;
 
@@ -190,7 +209,7 @@ function registerVirtualScrollingElement(modifiedElement: HTMLElement, vnodeCont
     virtualScrollingElements.set(uid, {
         el: modifiedElement,
         ref: vnodeContext.$el,
-        config
+        config,
     });
 }
 
@@ -207,10 +226,10 @@ function unregisterVirtualScrollingElement(uid?: string) {
 }
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default {
     virtualScrollingElements,
     registerVirtualScrollingElement,
-    unregisterVirtualScrollingElement
+    unregisterVirtualScrollingElement,
 };

@@ -10,34 +10,16 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 #[Package('checkout')]
-class AfterLineItemRemovedEvent implements ShopwareSalesChannelEvent
+class AfterLineItemRemovedEvent implements ShopwareSalesChannelEvent, CartEvent
 {
-    /**
-     * @var LineItem[]
-     */
-    protected $lineItems;
-
-    /**
-     * @var Cart
-     */
-    protected $cart;
-
-    /**
-     * @var SalesChannelContext
-     */
-    protected $salesChannelContext;
-
     /**
      * @param LineItem[] $lineItems
      */
     public function __construct(
-        array $lineItems,
-        Cart $cart,
-        SalesChannelContext $salesChannelContext
+        protected array $lineItems,
+        protected Cart $cart,
+        protected SalesChannelContext $salesChannelContext
     ) {
-        $this->lineItems = $lineItems;
-        $this->cart = $cart;
-        $this->salesChannelContext = $salesChannelContext;
     }
 
     /**

@@ -32,8 +32,6 @@ class CustomerEntity extends Entity implements \Stringable
 
     protected string $groupId;
 
-    protected string $defaultPaymentMethodId;
-
     protected string $salesChannelId;
 
     protected string $languageId;
@@ -108,16 +106,6 @@ class CustomerEntity extends Entity implements \Stringable
     protected int $reviewCount;
 
     /**
-     * @var \DateTimeInterface|null
-     */
-    protected $createdAt;
-
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $updatedAt;
-
-    /**
      * @internal
      */
     protected ?string $legacyEncoder = null;
@@ -128,8 +116,6 @@ class CustomerEntity extends Entity implements \Stringable
     protected ?string $legacyPassword = null;
 
     protected ?CustomerGroupEntity $group = null;
-
-    protected ?PaymentMethodEntity $defaultPaymentMethod = null;
 
     protected ?SalesChannelEntity $salesChannel = null;
 
@@ -199,16 +185,6 @@ class CustomerEntity extends Entity implements \Stringable
     public function setGroupId(string $groupId): void
     {
         $this->groupId = $groupId;
-    }
-
-    public function getDefaultPaymentMethodId(): string
-    {
-        return $this->defaultPaymentMethodId;
-    }
-
-    public function setDefaultPaymentMethodId(string $defaultPaymentMethodId): void
-    {
-        $this->defaultPaymentMethodId = $defaultPaymentMethodId;
     }
 
     public function getSalesChannelId(): string
@@ -324,7 +300,7 @@ class CustomerEntity extends Entity implements \Stringable
     /**
      * @internal
      */
-    public function setPassword(?string $password): void
+    public function setPassword(#[\SensitiveParameter] ?string $password): void
     {
         $this->password = $password;
     }
@@ -548,7 +524,7 @@ class CustomerEntity extends Entity implements \Stringable
     /**
      * @internal
      */
-    public function setLegacyPassword(?string $legacyPassword): void
+    public function setLegacyPassword(#[\SensitiveParameter] ?string $legacyPassword): void
     {
         $this->legacyPassword = $legacyPassword;
     }
@@ -566,16 +542,6 @@ class CustomerEntity extends Entity implements \Stringable
     public function setGroup(CustomerGroupEntity $group): void
     {
         $this->group = $group;
-    }
-
-    public function getDefaultPaymentMethod(): ?PaymentMethodEntity
-    {
-        return $this->defaultPaymentMethod;
-    }
-
-    public function setDefaultPaymentMethod(PaymentMethodEntity $defaultPaymentMethod): void
-    {
-        $this->defaultPaymentMethod = $defaultPaymentMethod;
     }
 
     public function getSalesChannel(): ?SalesChannelEntity
@@ -640,28 +606,26 @@ class CustomerEntity extends Entity implements \Stringable
 
     public function getActiveBillingAddress(): ?CustomerAddressEntity
     {
-        if (!$this->activeBillingAddress) {
-            return $this->defaultBillingAddress;
-        }
-
-        return $this->activeBillingAddress;
+        return $this->activeBillingAddress ?? $this->defaultBillingAddress;
     }
 
-    public function setActiveBillingAddress(CustomerAddressEntity $activeBillingAddress): void
+    /**
+     * @deprecated tag:v6.8.0 - reason:parameter-type-change $activeBillingAddress will accept null values
+     */
+    public function setActiveBillingAddress(/* ? */ CustomerAddressEntity $activeBillingAddress): void
     {
         $this->activeBillingAddress = $activeBillingAddress;
     }
 
     public function getActiveShippingAddress(): ?CustomerAddressEntity
     {
-        if (!$this->activeShippingAddress) {
-            return $this->defaultShippingAddress;
-        }
-
-        return $this->activeShippingAddress;
+        return $this->activeShippingAddress ?? $this->defaultShippingAddress;
     }
 
-    public function setActiveShippingAddress(CustomerAddressEntity $activeShippingAddress): void
+    /**
+     * @deprecated tag:v6.8.0 - reason:parameter-type-change $activeShippingAddress will accept null values
+     */
+    public function setActiveShippingAddress(/* ? */ CustomerAddressEntity $activeShippingAddress): void
     {
         $this->activeShippingAddress = $activeShippingAddress;
     }

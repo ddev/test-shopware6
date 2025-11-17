@@ -2,16 +2,17 @@
 
 namespace Shopware\Core\Framework\Increment;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
 /**
- * @deprecated tag:v6.6.0 - reason:becomes-internal - Type hint to AbstractIncrementer, implementations are internal and should not be used for type hints
+ * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class MySQLIncrementer extends AbstractIncrementer
 {
     /**
@@ -19,11 +20,6 @@ class MySQLIncrementer extends AbstractIncrementer
      */
     public function __construct(private readonly Connection $connection)
     {
-    }
-
-    public function getDecorated(): AbstractIncrementer
-    {
-        throw new DecorationPatternException(self::class);
     }
 
     public function increment(string $cluster, string $key): void
@@ -81,6 +77,25 @@ class MySQLIncrementer extends AbstractIncrementer
         });
     }
 
+    public function delete(string $cluster, array $keys = []): void
+    {
+        $query = $this->connection->createQueryBuilder()
+            ->delete('increment')
+            ->where('pool = :pool')
+            ->andWhere('cluster = :cluster')
+            ->setParameter('pool', $this->poolName)
+            ->setParameter('cluster', $cluster);
+
+        if (!empty($keys)) {
+            $query->andWhere('`key` IN (:keys)')
+                ->setParameter('keys', $keys, ArrayParameterType::STRING);
+        }
+
+        RetryableQuery::retryable($this->connection, function () use ($query): void {
+            $query->executeStatement();
+        });
+    }
+
     public function list(string $cluster, int $limit = 5, int $offset = 0): array
     {
         $sql = 'SELECT `key` as array_key, `pool`, `cluster`, `key`, `count`
@@ -99,8 +114,8 @@ class MySQLIncrementer extends AbstractIncrementer
             $payload['limit'] = $limit;
             $payload['offset'] = $offset;
             $types = [
-                'offset' => \PDO::PARAM_INT,
-                'limit' => \PDO::PARAM_INT,
+                'offset' => ParameterType::INTEGER,
+                'limit' => ParameterType::INTEGER,
             ];
         }
 

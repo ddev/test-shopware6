@@ -2,6 +2,8 @@
 
 namespace Shopware\Core\Framework\Test\TestCaseBase;
 
+use PHPUnit\Framework\Attributes\After;
+
 trait EnvTestBehaviour
 {
     /**
@@ -20,18 +22,18 @@ trait EnvTestBehaviour
             }
             $_SERVER[$envVar] = $value;
             $_ENV[$envVar] = $value;
+            putenv("{$envVar}={$value}");
         }
     }
 
-    /**
-     * @after
-     */
+    #[After]
     public function resetEnvVars(): void
     {
         if ($this->originalEnvVars) {
             foreach ($this->originalEnvVars as $envVar => $value) {
                 $_SERVER[$envVar] = $value;
                 $_ENV[$envVar] = $value;
+                putenv("{$envVar}={$value}");
             }
 
             $this->originalEnvVars = [];

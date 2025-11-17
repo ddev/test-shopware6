@@ -1,12 +1,9 @@
 import './sw-boolean-radio-group.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description radio input field for boolean and named entries.
  * @status ready
  * @example-type static
@@ -18,19 +15,13 @@ const { Component } = Shopware;
  *      :bordered="bordered">
  * </sw-boolean-radio-group>
  */
-Component.register('sw-boolean-radio-group', {
-
-    template:
-`
+export default {
+    template: `
 <sw-radio-field
     class="sw-boolean-radio-group"
     v-bind="$attrs"
     :options="options"
-    {% if VUE3 %}
     v-model:value="castedValue"
-    {% else %}
-    v-model="castedValue"
-    {% endif %}
     name="sw-field--castedValue"
     :bordered="bordered">
 </sw-radio-field>
@@ -38,16 +29,12 @@ Component.register('sw-boolean-radio-group', {
 
     inject: ['feature'],
 
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
+    emits: ['update:value'],
 
     props: {
         value: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -83,14 +70,8 @@ Component.register('sw-boolean-radio-group', {
             },
 
             set(val) {
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:value', val === 'true');
-
-                    return;
-                }
-
-                this.$emit('change', val === 'true');
+                this.$emit('update:value', val === 'true');
             },
         },
     },
-});
+};

@@ -7,14 +7,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('core')]
+#[Package('fundamentals@after-sales')]
 class EntitySerializer extends AbstractEntitySerializer
 {
-    /**
-     * @param array<mixed>|Struct|null $entity
-     *
-     * @return \Generator
-     */
     public function serialize(Config $config, EntityDefinition $definition, $entity): iterable
     {
         if ($entity === null) {
@@ -52,11 +47,6 @@ class EntitySerializer extends AbstractEntitySerializer
         }
     }
 
-    /**
-     * @param array<mixed>|\Traversable<mixed> $entity
-     *
-     * @return array<mixed>|\Traversable<mixed>
-     */
     public function deserialize(Config $config, EntityDefinition $definition, $entity)
     {
         $entity = \is_array($entity) ? $entity : iterator_to_array($entity);
@@ -73,7 +63,11 @@ class EntitySerializer extends AbstractEntitySerializer
             }
 
             $serializer = $this->serializerRegistry->getFieldSerializer($field);
-            $value = $serializer->deserialize($config, $field, $value);
+            try {
+                $value = $serializer->deserialize($config, $field, $value);
+            } catch (\Throwable $e) {
+                yield '_error' => $e;
+            }
 
             if ($value === null) {
                 continue;

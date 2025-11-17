@@ -5,7 +5,7 @@ namespace Shopware\Core\Content\Newsletter\ScheduledTask;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 
-#[Package('buyers-experience')]
+#[Package('after-sales')]
 class NewsletterRecipientTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -15,6 +15,11 @@ class NewsletterRecipientTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 1 day
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
     }
 }

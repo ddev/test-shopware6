@@ -1,16 +1,14 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-list-price-field.html.twig';
 import './sw-list-price-field.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-list-price-field', {
+export default {
     template,
 
     inheritAttrs: false,
@@ -39,7 +37,6 @@ Component.register('sw-list-price-field', {
             },
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         label: {
             required: false,
@@ -62,7 +59,6 @@ Component.register('sw-list-price-field', {
             },
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         compact: {
             required: false,
@@ -75,7 +71,6 @@ Component.register('sw-list-price-field', {
             default: null,
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         disabled: {
             required: false,
@@ -121,7 +116,6 @@ Component.register('sw-list-price-field', {
         showSettingPrice: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -163,19 +157,22 @@ Component.register('sw-list-price-field', {
                     return [price.listPrice];
                 }
 
-                return [{
-                    gross: null,
-                    currencyId: this.defaultPrice.currencyId ? this.defaultPrice.currencyId : this.currency.id,
-                    linked: true,
-                    net: null,
-                }];
+                return [
+                    {
+                        gross: null,
+                        currencyId: this.defaultPrice.currencyId ? this.defaultPrice.currencyId : this.currency.id,
+                        linked: true,
+                        net: null,
+                    },
+                ];
             },
 
             set(newValue) {
                 const price = this.priceForCurrency;
 
                 if (price) {
-                    this.$set(price, 'listPrice', newValue);
+                    // eslint-disable-next-line vue/no-mutating-props
+                    price.listPrice = newValue;
                 }
             },
         },
@@ -188,19 +185,21 @@ Component.register('sw-list-price-field', {
                     return [price.regulationPrice];
                 }
 
-                return [{
-                    gross: null,
-                    currencyId: this.defaultPrice.currencyId ? this.defaultPrice.currencyId : this.currency.id,
-                    linked: true,
-                    net: null,
-                }];
+                return [
+                    {
+                        gross: null,
+                        currencyId: this.defaultPrice.currencyId ? this.defaultPrice.currencyId : this.currency.id,
+                        linked: true,
+                        net: null,
+                    },
+                ];
             },
 
             set(newValue) {
                 const price = this.priceForCurrency;
 
                 if (price) {
-                    this.$set(price, 'regulationPrice', newValue);
+                    price.regulationPrice = newValue;
                 }
             },
         },
@@ -279,4 +278,4 @@ Component.register('sw-list-price-field', {
             return Number(priceRounded);
         },
     },
-});
+};

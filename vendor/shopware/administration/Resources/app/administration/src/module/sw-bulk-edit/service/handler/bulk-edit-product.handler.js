@@ -1,4 +1,5 @@
 import BulkEditBaseHandler from './bulk-edit-base.handler';
+import RetryHelper from '../../../../core/helper/retry.helper';
 
 const types = Shopware.Utils.types;
 const { Service, Application } = Shopware;
@@ -8,7 +9,7 @@ const { cloneDeep } = Shopware.Utils.object;
 /**
  * @class
  * @extends BulkEditBaseHandler
- * @package system-settings
+ * @sw-package inventory
  */
 class BulkEditProductHandler extends BulkEditBaseHandler {
     constructor() {
@@ -20,11 +21,11 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
         this.products = {};
     }
 
-    async bulkEdit(entityIds, payload) {
+    async bulkEdit(entityIds, payload, context) {
         this.entityIds = entityIds;
-        const taxId = payload.find(change => change.field === 'taxId')?.value;
-        const price = payload.find(change => change.field === 'price')?.value;
-        const purchasePrices = payload.find(change => change.field === 'purchasePrices')?.value;
+        const taxId = payload.find((change) => change.field === 'taxId')?.value;
+        const price = payload.find((change) => change.field === 'price')?.value;
+        const purchasePrices = payload.find((change) => change.field === 'purchasePrices')?.value;
         let updatedPricePayload = [];
 
         if (taxId || price || purchasePrices) {
@@ -34,13 +35,13 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
         if (this.shouldRecalculateTax(taxId, price, purchasePrices)) {
             updatedPricePayload = await this.recalculatePrices(taxId, price, purchasePrices);
 
-            payload = payload.filter(change => change.field !== 'taxId');
+            payload = payload.filter((change) => change.field !== 'taxId');
         }
 
         if (price || purchasePrices) {
             updatedPricePayload = this.updatePriceDirectly(price, purchasePrices, updatedPricePayload);
 
-            payload = payload.filter(change => change.field !== 'price' && change.field !== 'purchasePrices');
+            payload = payload.filter((change) => change.field !== 'price' && change.field !== 'purchasePrices');
         }
 
         const syncPayload = await this.buildBulkSyncPayload(payload);
@@ -64,11 +65,16 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
             return Promise.resolve({ data: [] });
         }
 
-        const syncPayloadStringified = JSON.stringify(syncPayload, (k, v) => (v === undefined ? null : v));
-
-        return this.syncService.sync(syncPayloadStringified, {}, {
-            'single-operation': 1,
-            'sw-language-id': Shopware.Context.api.languageId,
+        return RetryHelper.retry(() => {
+            return this.syncService.sync(
+                syncPayload,
+                {},
+                {
+                    'single-operation': 1,
+                    'sw-language-id': Shopware.Context.api.languageId,
+                    ...context,
+                },
+            );
         });
     }
 
@@ -82,12 +88,12 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
 
     mapProductPricesToSyncPayload(syncPayload, updatePricePayload) {
         const mappedPayload = [];
-        syncPayload.forEach(payload => {
-            const pricePayload = updatePricePayload.find(productPrice => productPrice.id === payload.id);
+        syncPayload.forEach((payload) => {
+            const pricePayload = updatePricePayload.find((productPrice) => productPrice.id === payload.id);
 
             if (pricePayload) {
                 payload = { ...payload, ...pricePayload };
-                updatePricePayload = updatePricePayload.filter(productPrice => productPrice.id !== payload.id);
+                updatePricePayload = updatePricePayload.filter((productPrice) => productPrice.id !== payload.id);
             }
 
             mappedPayload.push(payload);
@@ -113,13 +119,13 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
         const updateRegulationPriceTax = {};
         const updatePurchasePriceTax = {};
 
-        const products = this.products.filter(product => product.taxId !== taxId);
+        const products = this.products.filter((product) => product.taxId !== taxId);
 
         products.forEach((product) => {
             if (!inputPrice) {
-                const productPrice = product.price?.filter(price => price.linked)?.map(
-                    price => this.getRecalculatePrice(price),
-                );
+                const productPrice = product.price
+                    ?.filter((price) => price.linked)
+                    ?.map((price) => this.getRecalculatePrice(price));
 
                 if (!types.isEmpty(productPrice)) {
                     updatePriceTax[product.id] = productPrice;
@@ -127,9 +133,9 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
             }
 
             if (!inputPrice || !inputPrice[0].listPrice) {
-                const productListPrice = product.price?.filter(price => price.listPrice?.linked)?.map(
-                    price => this.getRecalculatePrice(price.listPrice),
-                );
+                const productListPrice = product.price
+                    ?.filter((price) => price.listPrice?.linked)
+                    ?.map((price) => this.getRecalculatePrice(price.listPrice));
 
                 if (!types.isEmpty(productListPrice)) {
                     updateListPriceTax[product.id] = productListPrice;
@@ -137,9 +143,9 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
             }
 
             if (!inputPrice || !inputPrice[0].regulationPrice) {
-                const productRegulationPrice = product.price?.filter(price => price.regulationPrice?.linked)?.map(
-                    price => this.getRecalculatePrice(price.regulationPrice),
-                );
+                const productRegulationPrice = product.price
+                    ?.filter((price) => price.regulationPrice?.linked)
+                    ?.map((price) => this.getRecalculatePrice(price.regulationPrice));
 
                 if (!types.isEmpty(productRegulationPrice)) {
                     updateRegulationPriceTax[product.id] = productRegulationPrice;
@@ -147,9 +153,9 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
             }
 
             if (!inputPurchasePrices) {
-                const productPurchasePrice = product.purchasePrices?.filter(price => price.linked)?.map(
-                    price => this.getRecalculatePrice(price),
-                );
+                const productPurchasePrice = product.purchasePrices
+                    ?.filter((price) => price.linked)
+                    ?.map((price) => this.getRecalculatePrice(price));
 
                 if (!types.isEmpty(productPurchasePrice)) {
                     updatePurchasePriceTax[product.id] = productPurchasePrice;
@@ -216,7 +222,7 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
 
     getCalculatedPrices(dbPrices, calculatedPrices, calculatedListPrices = [], calculatedRegulationPrices = []) {
         const price = [];
-        dbPrices.forEach(dbPrice => {
+        dbPrices.forEach((dbPrice) => {
             const { currencyId, listPrice, regulationPrice } = dbPrice;
             if (dbPrice.linked && calculatedPrices[currencyId]) {
                 dbPrice.net = dbPrice.gross - this.getTax(calculatedPrices[currencyId].calculatedTaxes);
@@ -250,7 +256,7 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
     updatePriceDirectly(inputPrice, inputPurchasePrices, calculatedProductPrices) {
         const payload = [];
         this.products.forEach((product) => {
-            const calculatedPrice = calculatedProductPrices.find(productPrice => productPrice.id === product.id);
+            const calculatedPrice = calculatedProductPrices.find((productPrice) => productPrice.id === product.id);
             const currentData = calculatedPrice ?? { id: product.id };
 
             if (inputPrice) {
@@ -263,7 +269,7 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
             }
 
             if (calculatedPrice) {
-                calculatedProductPrices = calculatedProductPrices.filter(productPrice => productPrice.id !== product.id);
+                calculatedProductPrices = calculatedProductPrices.filter((productPrice) => productPrice.id !== product.id);
             }
 
             payload.push(currentData);
@@ -275,11 +281,11 @@ class BulkEditProductHandler extends BulkEditBaseHandler {
     updatePrice(inputPrice, dbPrices) {
         const currencyId = inputPrice.currencyId;
         let productPrices = [];
-        const dbPrice = dbPrices?.find(productPrice => productPrice.currencyId === currencyId) ?? null;
+        const dbPrice = dbPrices?.find((productPrice) => productPrice.currencyId === currencyId) ?? null;
         const currentPrice = this.getPrice(inputPrice, dbPrice);
 
         if (dbPrices) {
-            productPrices = dbPrices.filter(productPrice => productPrice.currencyId !== currencyId);
+            productPrices = dbPrices.filter((productPrice) => productPrice.currencyId !== currencyId);
         }
 
         productPrices.push(currentPrice);

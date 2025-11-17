@@ -6,9 +6,9 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 
 /**
- * @deprecated tag:v6.6.0 - Will be internal - reason:visibility-change
+ * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CleanupWebhookEventLogTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -18,6 +18,11 @@ class CleanupWebhookEventLogTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 24 hours
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
     }
 }

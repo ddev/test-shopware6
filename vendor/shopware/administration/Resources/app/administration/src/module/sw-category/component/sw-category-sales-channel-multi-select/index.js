@@ -3,11 +3,13 @@ import template from './sw-category-sales-channel-multi-select.html.twig';
 const { EntityCollection } = Shopware.Data;
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: ['item-add'],
 
     computed: {
         salesChannelRepository() {

@@ -1,3 +1,4 @@
+{% block sw_settings_units %}
 <sw-page class="sw-settings-units">
     <template #search-bar>
         <sw-search-bar />
@@ -6,44 +7,45 @@
     <template #smart-bar-header>
         <h2>
             {{ $tc('sw-settings.index.title') }}
-            <sw-icon
+            <mt-icon
                 name="regular-chevron-right-xs"
-                small
+                size="12px"
             />
             {{ $tc('sw-settings-units.general.mainMenuItemGeneral') }}
         </h2>
     </template>
 
     <template #smart-bar-actions>
-        <sw-button
+        <mt-button
             v-tooltip="tooltipCreate"
             class="sw-settings-units__create-action"
             variant="primary"
-            :disabled="isAddingUnitsDisabled || !acl.can('scale_unit.creator')"
+            :disabled="isAddingUnitsDisabled || !acl.can('scale_unit.creator') || undefined"
+            size="default"
             @click="createNewUnit"
         >
             {{ $tc('sw-settings-units.general.createNewUnit') }}
-        </sw-button>
+        </mt-button>
     </template>
 
     <template #language-switch>
         <sw-language-switch
-            :disabled="!!newUnit"
+            :disabled="!!newUnit || undefined"
             @on-change="onChangeLanguage"
         />
     </template>
 
     <template #content>
         <sw-card-view>
-            <sw-card
+            <mt-card
                 position-identifier="sw-settings-units-content"
                 :class="{ 'sw-settings-units-card-empty': isEmpty }"
             >
-                <sw-empty-state
+                <mt-empty-state
                     v-if="!isLoading && isEmpty"
-                    :title="$tc('sw-settings-units.empty-state.title')"
-                    :subline="$tc('sw-settings-units.empty-state.subline')"
-                    icon="regular-balance-scale"
+                    :icon="$route.meta.$module.icon"
+                    :headline="$tc('sw-settings-units.empty-state.title')"
+                    :description="$tc('sw-settings-units.empty-state.subline')"
                 />
 
                 <template #grid>
@@ -55,7 +57,7 @@
                         :data-source="unitList"
                         :columns="unitColumns()"
                         :show-selection="false"
-                        :allow-inline-edit="acl.can('scale_unit.editor')"
+                        :allow-inline-edit="acl.can('scale_unit.editor') || undefined"
                         :skeleton-item-amount="placeholderAmount"
                         @inline-edit-save="saveUnit"
                         @inline-edit-cancel="cancelUnit"
@@ -64,7 +66,7 @@
                         <template #actions="{ item }">
                             <sw-context-menu-item
                                 class="sw-settings-units__edit-action"
-                                :disabled="!acl.can('scale_unit.editor')"
+                                :disabled="!acl.can('scale_unit.editor') || undefined"
                                 @click="editUnit(item)"
                             >
                                 {{ $tc('global.default.edit') }}
@@ -75,7 +77,7 @@
                             <sw-context-menu-item
                                 class="sw-settings-units__delete-action"
                                 variant="danger"
-                                :disabled="!acl.can('scale_unit.deleter')"
+                                :disabled="!acl.can('scale_unit.deleter') || undefined"
                                 @click="deleteUnit(item)"
                             >
                                 {{ $tc('global.default.delete') }}
@@ -84,7 +86,8 @@
 
                     </sw-data-grid>
                 </template>
-            </sw-card>
+            </mt-card>
         </sw-card-view>
     </template>
 </sw-page>
+{% endblock %}

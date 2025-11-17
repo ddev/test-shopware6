@@ -1,6 +1,11 @@
 import template from './sw-settings-listing-visibility-detail.html.twig';
 
+/**
+ * @sw-package inventory
+ */
+
 const { Criteria } = Shopware.Data;
+const { Filter } = Shopware;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -34,6 +39,10 @@ export default {
         salesChannelRepository() {
             return this.repositoryFactory.create('sales_channel');
         },
+
+        truncateFilter() {
+            return Filter.getByName('truncate');
+        },
     },
 
     created() {
@@ -49,7 +58,7 @@ export default {
             const offset = (params.page - 1) * params.limit;
             this.total = this.config.length;
 
-            this.fetchSalesChannels().then(config => {
+            this.fetchSalesChannels().then((config) => {
                 this.items = config.slice(offset, offset + params.limit);
             });
         },
@@ -59,13 +68,13 @@ export default {
         },
 
         fetchSalesChannels() {
-            const salesChannelIds = this.config.map(config => config.id);
+            const salesChannelIds = this.config.map((config) => config.id);
             const criteria = new Criteria(1, 25);
 
             criteria.addFilter(Criteria.equalsAny('id', salesChannelIds));
 
-            return this.salesChannelRepository.search(criteria).then(salesChannels => {
-                return this.config.map(config => {
+            return this.salesChannelRepository.search(criteria).then((salesChannels) => {
+                return this.config.map((config) => {
                     const salesChannel = salesChannels.get(config.id);
                     if (!salesChannel) {
                         return config;

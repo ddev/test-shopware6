@@ -2,7 +2,7 @@ import template from './sw-order-nested-line-items-modal.html.twig';
 import './sw-order-nested-line-items-modal.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Filter } = Shopware;
@@ -15,6 +15,8 @@ export default {
     inject: [
         'repositoryFactory',
     ],
+
+    emits: ['modal-close'],
 
     props: {
         lineItem: {
@@ -40,12 +42,16 @@ export default {
         },
 
         modalTitle() {
-            const price = Filter.getByName('currency')(this.lineItem.totalPrice, this.order.currency.shortName);
+            const price = Filter.getByName('currency')(this.lineItem.totalPrice, this.order.currency.isoCode);
 
-            return this.$tc('sw-order.nestedLineItemsModal.titlePrefix', 0, {
-                lineItemLabel: this.lineItem.label,
-                price,
-            });
+            return this.$tc(
+                'sw-order.nestedLineItemsModal.titlePrefix',
+                {
+                    lineItemLabel: this.lineItem.label,
+                    price,
+                },
+                0,
+            );
         },
     },
 
@@ -78,20 +84,17 @@ export default {
                 return;
             }
 
-            const parentIds = nestedLineItems.map(lineItem => lineItem.id);
-            const criteria = (new Criteria(1, 25))
-                .addFilter(Criteria.equalsAny('parentId', parentIds));
+            const parentIds = nestedLineItems.map((lineItem) => lineItem.id);
+            const criteria = new Criteria(1, 25).addFilter(Criteria.equalsAny('parentId', parentIds));
 
-            criteria
-                .getAssociation('children')
-                .addSorting(Criteria.naturalSorting('label'));
+            criteria.getAssociation('children').addSorting(Criteria.naturalSorting('label'));
 
             const children = await this.lineItemRepository.search(criteria, Shopware.Context.api);
 
             const descendants = [];
             nestedLineItems.forEach((nestedLineItem) => {
                 nestedLineItem.nestingLevel = nestingLevel;
-                nestedLineItem.children = children.filter(child => child.parentId === nestedLineItem.id);
+                nestedLineItem.children = children.filter((child) => child.parentId === nestedLineItem.id);
                 nestedLineItem.children.sort(this.naturalSort);
 
                 descendants.push(...nestedLineItem.children);
@@ -101,14 +104,10 @@ export default {
         },
 
         naturalSort(a, b) {
-            return a.label.localeCompare(
-                b.label,
-                'en-GB',
-                {
-                    numeric: true,
-                    ignorePunctuation: true,
-                },
-            );
+            return a.label.localeCompare(b.label, 'en-GB', {
+                numeric: true,
+                ignorePunctuation: true,
+            });
         },
 
         onCloseModal() {

@@ -15,7 +15,6 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -25,6 +24,8 @@ class ProductExporter implements ProductExporterInterface
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ProductExportCollection> $productExportRepository
      */
     public function __construct(
         private readonly EntityRepository $productExportRepository,
@@ -49,21 +50,12 @@ class ProductExporter implements ProductExporterInterface
             ->addAssociation('salesChannelDomain.salesChannel')
             ->addAssociation('salesChannelDomain.language.locale')
             ->addAssociation('productStream.filters.queries')
-            ->addFilter(
-                new MultiFilter(
-                    'OR',
-                    [
-                        new EqualsFilter('salesChannelId', $context->getSalesChannel()->getId()),
-                        new EqualsFilter('salesChannelDomain.salesChannel.id', $context->getSalesChannel()->getId()),
-                    ]
-                )
-            );
+            ->addFilter(new EqualsFilter('storefrontSalesChannelId', $context->getSalesChannelId()));
 
         if (!$behavior->includeInactive()) {
             $criteria->addFilter(new EqualsFilter('salesChannel.active', true));
         }
 
-        /** @var ProductExportCollection $productExports */
         $productExports = $this->productExportRepository->search($criteria, $context->getContext())->getEntities();
 
         if ($productExports->count() === 0) {

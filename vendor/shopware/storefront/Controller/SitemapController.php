@@ -2,27 +2,32 @@
 
 namespace Shopware\Storefront\Controller;
 
+use Shopware\Core\Content\Sitemap\SalesChannel\SitemapFileRoute;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Storefront\Framework\Routing\StorefrontRouteScope;
 use Shopware\Storefront\Page\Sitemap\SitemapPageLoadedHook;
 use Shopware\Storefront\Page\Sitemap\SitemapPageLoader;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put data
  */
-#[Route(defaults: ['_routeScope' => ['storefront']])]
-#[Package('sales-channel')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]
+#[Package('discovery')]
 class SitemapController extends StorefrontController
 {
     /**
      * @internal
      */
-    public function __construct(private readonly SitemapPageLoader $sitemapPageLoader)
-    {
+    public function __construct(
+        private readonly SitemapPageLoader $sitemapPageLoader,
+        private readonly SitemapFileRoute $sitemapFileRoute
+    ) {
     }
 
     #[Route(path: '/sitemap.xml', name: 'frontend.sitemap.xml', defaults: ['_format' => 'xml'], methods: ['GET'])]
@@ -36,5 +41,11 @@ class SitemapController extends StorefrontController
         $response->headers->set('content-type', 'text/xml; charset=utf-8');
 
         return $response;
+    }
+
+    #[Route(path: '/sitemap/{filePath}', name: 'frontend.sitemap.proxy', requirements: ['filePath' => '.+\.xml\.gz'], methods: ['GET'])]
+    public function sitemapProxy(SalesChannelContext $context, Request $request, string $filePath): Response
+    {
+        return $this->sitemapFileRoute->getSitemapFile($request, $context, $filePath);
     }
 }

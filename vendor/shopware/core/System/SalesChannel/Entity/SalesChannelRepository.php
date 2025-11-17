@@ -9,6 +9,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityLoadedEventFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntitySearchResultLoadedEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InconsistentCriteriaIdsException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\AssociationField;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\ManyToManyAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Read\EntityReaderInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\RepositorySearchDetector;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\AggregationResult\AggregationResultCollection;
@@ -19,6 +20,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\ArrayEntity;
+use Shopware\Core\Profiling\Profiler;
 use Shopware\Core\System\SalesChannel\Event\SalesChannelProcessCriteriaEvent;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -28,7 +30,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  *
  * @template TEntityCollection of EntityCollection
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelRepository
 {
     /**
@@ -50,6 +52,38 @@ class SalesChannelRepository
      * @return EntitySearchResult<TEntityCollection>
      */
     public function search(Criteria $criteria, SalesChannelContext $salesChannelContext): EntitySearchResult
+    {
+        if (!$criteria->getTitle()) {
+            return $this->_search($criteria, $salesChannelContext);
+        }
+
+        return Profiler::trace($criteria->getTitle(), fn () => $this->_search($criteria, $salesChannelContext), 'saleschannel-repository');
+    }
+
+    public function aggregate(Criteria $criteria, SalesChannelContext $salesChannelContext): AggregationResultCollection
+    {
+        if (!$criteria->getTitle()) {
+            return $this->_aggregate($criteria, $salesChannelContext);
+        }
+
+        return Profiler::trace($criteria->getTitle(), fn () => $this->_aggregate($criteria, $salesChannelContext), 'saleschannel-repository');
+    }
+
+    public function searchIds(Criteria $criteria, SalesChannelContext $salesChannelContext): IdSearchResult
+    {
+        if (!$criteria->getTitle()) {
+            return $this->_searchIds($criteria, $salesChannelContext);
+        }
+
+        return Profiler::trace($criteria->getTitle(), fn () => $this->_searchIds($criteria, $salesChannelContext), 'saleschannel-repository');
+    }
+
+    /**
+     * @throws InconsistentCriteriaIdsException
+     *
+     * @return EntitySearchResult<TEntityCollection>
+     */
+    private function _search(Criteria $criteria, SalesChannelContext $salesChannelContext): EntitySearchResult
     {
         $criteria = clone $criteria;
 
@@ -80,19 +114,21 @@ class SalesChannelRepository
 
         $search = $ids->getData();
 
-        foreach ($entities as $element) {
-            if (!\array_key_exists($element->getUniqueIdentifier(), $search)) {
-                continue;
+        if (!$criteria->hasState(Criteria::STATE_DISABLE_SEARCH_INFO)) {
+            foreach ($entities as $element) {
+                if (!\array_key_exists($element->getUniqueIdentifier(), $search)) {
+                    continue;
+                }
+
+                $data = $search[$element->getUniqueIdentifier()];
+                unset($data['id']);
+
+                if (empty($data)) {
+                    continue;
+                }
+
+                $element->addExtension('search', new ArrayEntity($data));
             }
-
-            $data = $search[$element->getUniqueIdentifier()];
-            unset($data['id']);
-
-            if (empty($data)) {
-                continue;
-            }
-
-            $element->addExtension('search', new ArrayEntity($data));
         }
 
         $result = new EntitySearchResult($this->definition->getEntityName(), $ids->getTotal(), $entities, $aggregations, $criteria, $salesChannelContext->getContext());
@@ -107,7 +143,7 @@ class SalesChannelRepository
         return $result;
     }
 
-    public function aggregate(Criteria $criteria, SalesChannelContext $salesChannelContext): AggregationResultCollection
+    private function _aggregate(Criteria $criteria, SalesChannelContext $salesChannelContext): AggregationResultCollection
     {
         $criteria = clone $criteria;
 
@@ -121,7 +157,7 @@ class SalesChannelRepository
         return $result;
     }
 
-    public function searchIds(Criteria $criteria, SalesChannelContext $salesChannelContext): IdSearchResult
+    private function _searchIds(Criteria $criteria, SalesChannelContext $salesChannelContext): IdSearchResult
     {
         $criteria = clone $criteria;
 
@@ -138,6 +174,7 @@ class SalesChannelRepository
         $criteria = clone $criteria;
 
         /** @var TEntityCollection $entities */
+        // @phpstan-ignore varTag.type (phpstan can't detect that TEntityCollection is always an EntityCollection<Entity>)
         $entities = $this->reader->read($this->definition, $criteria, $salesChannelContext->getContext());
 
         if ($criteria->getFields() === []) {
@@ -170,7 +207,7 @@ class SalesChannelRepository
         }
 
         $queue = [
-            ['definition' => $this->definition, 'criteria' => $topCriteria],
+            ['definition' => $this->definition, 'criteria' => $topCriteria, 'path' => ''],
         ];
 
         $maxCount = 100;
@@ -183,8 +220,10 @@ class SalesChannelRepository
 
             $definition = $cur['definition'];
             $criteria = $cur['criteria'];
+            $path = $cur['path'];
+            $processedKey = $path . $definition::class;
 
-            if (isset($processed[$definition::class])) {
+            if (isset($processed[$processedKey])) {
                 continue;
             }
 
@@ -197,7 +236,7 @@ class SalesChannelRepository
                 $this->eventDispatcher->dispatch($event, $eventName);
             }
 
-            $processed[$definition::class] = true;
+            $processed[$processedKey] = true;
 
             foreach ($criteria->getAssociations() as $associationName => $associationCriteria) {
                 // find definition
@@ -207,7 +246,14 @@ class SalesChannelRepository
                 }
 
                 $referenceDefinition = $field->getReferenceDefinition();
-                $queue[] = ['definition' => $referenceDefinition, 'criteria' => $associationCriteria];
+                $queue[] = ['definition' => $referenceDefinition, 'criteria' => $associationCriteria, 'path' => $path . '.' . $associationName];
+
+                if (!$field instanceof ManyToManyAssociationField) {
+                    continue;
+                }
+
+                $referenceDefinition = $field->getToManyReferenceDefinition();
+                $queue[] = ['definition' => $referenceDefinition, 'criteria' => $associationCriteria, 'path' => $path . '.' . $associationName];
             }
         }
     }

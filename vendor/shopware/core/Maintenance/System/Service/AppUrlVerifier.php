@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class AppUrlVerifier
 {
     public function __construct(
@@ -34,8 +34,10 @@ class AppUrlVerifier
             return true;
         }
 
-        /** @var string $appUrl */
         $appUrl = EnvironmentHelper::getVariable('APP_URL');
+        if (!\is_string($appUrl)) {
+            return false;
+        }
 
         if (str_starts_with($request->getUri(), $appUrl)) {
             // if the request was made to the same domain as the APP_URL we know that it can be reached

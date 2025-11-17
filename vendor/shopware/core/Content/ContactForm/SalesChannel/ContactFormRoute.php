@@ -2,8 +2,13 @@
 
 namespace Shopware\Core\Content\ContactForm\SalesChannel;
 
+use Shopware\Core\Checkout\Customer\Service\EmailIdnConverter;
+use Shopware\Core\Content\Category\CategoryCollection;
+use Shopware\Core\Content\Cms\Aggregate\CmsSlot\CmsSlotCollection;
 use Shopware\Core\Content\ContactForm\Event\ContactFormEvent;
+use Shopware\Core\Content\LandingPage\LandingPageCollection;
 use Shopware\Core\Content\LandingPage\LandingPageDefinition;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -11,23 +16,32 @@ use Shopware\Core\Framework\Event\EventData\MailRecipientStruct;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\Framework\Routing\StoreApiRouteScope;
 use Shopware\Core\Framework\Validation\DataBag\DataBag;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\DataValidationFactoryInterface;
 use Shopware\Core\Framework\Validation\DataValidator;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Core\System\Salutation\SalutationCollection;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Route(defaults: ['_routeScope' => ['store-api']])]
-#[Package('buyers-experience')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StoreApiRouteScope::ID]])]
+#[Package('discovery')]
 class ContactFormRoute extends AbstractContactFormRoute
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<CmsSlotCollection> $cmsSlotRepository
+     * @param EntityRepository<SalutationCollection> $salutationRepository
+     * @param EntityRepository<CategoryCollection> $categoryRepository
+     * @param EntityRepository<LandingPageCollection> $landingPageRepository
+     * @param EntityRepository<ProductCollection> $productRepository
      */
     public function __construct(
         private readonly DataValidationFactoryInterface $contactFormValidationFactory,
@@ -52,6 +66,8 @@ class ContactFormRoute extends AbstractContactFormRoute
     #[Route(path: '/store-api/contact-form', name: 'store-api.contact.form', methods: ['POST'])]
     public function load(RequestDataBag $data, SalesChannelContext $context): ContactFormRouteResponse
     {
+        EmailIdnConverter::encodeDataBag($data);
+
         $this->validateContactForm($data, $context);
 
         if (($request = $this->requestStack->getMainRequest()) !== null && $request->getClientIp() !== null) {
@@ -68,7 +84,7 @@ class ContactFormRoute extends AbstractContactFormRoute
         }
 
         if (empty($mailConfigs['receivers'])) {
-            $mailConfigs['receivers'][] = $this->systemConfigService->get('core.basicInformation.email', $context->getSalesChannel()->getId());
+            $mailConfigs['receivers'][] = $this->systemConfigService->get('core.basicInformation.email', $context->getSalesChannelId());
         }
 
         $recipientStructs = [];
@@ -76,9 +92,10 @@ class ContactFormRoute extends AbstractContactFormRoute
             $recipientStructs[$mail] = $mail;
         }
 
+        /** @var array<string, mixed> $recipientStructs */
         $event = new ContactFormEvent(
             $context->getContext(),
-            $context->getSalesChannel()->getId(),
+            $context->getSalesChannelId(),
             new MailRecipientStruct($recipientStructs),
             $data
         );
@@ -158,9 +175,15 @@ class ContactFormRoute extends AbstractContactFormRoute
         }
 
         $criteria = new Criteria([$slotId]);
-        $slot = $this->cmsSlotRepository->search($criteria, $context->getContext());
-        $mailConfigs['receivers'] = $slot->getEntities()->first()->getTranslated()['config']['mailReceiver']['value'];
-        $mailConfigs['message'] = $slot->getEntities()->first()->getTranslated()['config']['confirmationText']['value'];
+
+        $slot = $this->cmsSlotRepository->search($criteria, $context->getContext())->getEntities()->first();
+
+        if (!$slot) {
+            return $mailConfigs;
+        }
+
+        $mailConfigs['receivers'] = $slot->getTranslated()['config']['mailReceiver']['value'];
+        $mailConfigs['message'] = $slot->getTranslated()['config']['confirmationText']['value'];
 
         return $mailConfigs;
     }

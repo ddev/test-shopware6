@@ -1,16 +1,24 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-date-filter.html.twig';
 import './sw-date-filter.scss';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
  * @private
  */
-Component.register('sw-date-filter', {
+export default {
     template,
 
     inject: ['feature'],
+
+    emits: [
+        'filter-reset',
+        'filter-update',
+    ],
 
     props: {
         filter: {
@@ -63,7 +71,14 @@ Component.register('sw-date-filter', {
 
     computed: {
         dateType() {
-            if (['time', 'date', 'datetime', 'datetime-local'].includes(this.filter.dateType)) {
+            if (
+                [
+                    'time',
+                    'date',
+                    'datetime',
+                    'datetime-local',
+                ].includes(this.filter.dateType)
+            ) {
                 return this.filter.dateType;
             }
 
@@ -117,6 +132,12 @@ Component.register('sw-date-filter', {
                 return;
             }
 
+            if (this.dateValue.to) {
+                const to = new Date(this.dateValue.to);
+                to.setHours(23, 59, 59);
+                this.dateValue.to = to.toISOString();
+            }
+
             this.$emit('filter-update', this.filter.name, params, this.dateValue);
         },
 
@@ -147,7 +168,9 @@ Component.register('sw-date-filter', {
                 lte: to.toISOString(),
             };
 
-            const filterCriteria = [Criteria.range(this.filter.property, params)];
+            const filterCriteria = [
+                Criteria.range(this.filter.property, params),
+            ];
 
             this.dateValue = {
                 from: params.gte,
@@ -169,17 +192,10 @@ Component.register('sw-date-filter', {
 
         getPreviousQuarterDates() {
             const date = new Date();
-            const quarter = Math.floor((date.getMonth() / 3));
+            const quarter = Math.floor(date.getMonth() / 3);
 
             const startDate = new Date(date.getFullYear(), quarter * 3 - 3, 1);
-            const endDate = new Date(
-                date.getFullYear(),
-                startDate.getMonth() + 3,
-                0,
-                23,
-                59,
-                59,
-            );
+            const endDate = new Date(date.getFullYear(), startDate.getMonth() + 3, 0, 23, 59, 59);
 
             return {
                 startDate: startDate,
@@ -187,4 +203,4 @@ Component.register('sw-date-filter', {
             };
         },
     },
-});
+};

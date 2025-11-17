@@ -1,16 +1,18 @@
+/**
+ * @sw-package after-sales
+ */
 import './acl';
 import defaultSearchConfiguration from './default-search-configuration';
-
-/**
- * @package buyers-experience
- */
 
 const { Module } = Shopware;
 
 /* eslint-disable max-len, sw-deprecation-rules/private-feature-declarations */
 Shopware.Component.register('sw-newsletter-recipient-list', () => import('./page/sw-newsletter-recipient-list/index'));
 Shopware.Component.register('sw-newsletter-recipient-detail', () => import('./page/sw-newsletter-recipient-detail/index'));
-Shopware.Component.register('sw-newsletter-recipient-filter-switch', () => import('./component/sw-newsletter-recipient-filter-switch'));
+Shopware.Component.register(
+    'sw-newsletter-recipient-filter-switch',
+    () => import('./component/sw-newsletter-recipient-filter-switch'),
+);
 /* eslint-enable max-len, sw-deprecation-rules/private-feature-declarations */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -22,8 +24,8 @@ Module.register('sw-newsletter-recipient', {
     version: '1.0.0',
     targetVersion: '1.0.0',
     color: '#FFD700',
-    icon: 'regular-megaphone',
-    favicon: 'regular-megaphone',
+    icon: 'solid-megaphone',
+    favicon: 'icon-module-marketing.png',
     entity: 'newsletter_recipient',
     entityDisplayProperty: 'email',
 
@@ -34,7 +36,6 @@ Module.register('sw-newsletter-recipient', {
             meta: {
                 privilege: 'newsletter_recipient.viewer',
             },
-
         },
 
         detail: {
@@ -47,15 +48,17 @@ Module.register('sw-newsletter-recipient', {
         },
     },
 
-    navigation: [{
-        id: 'sw-newsletter-recipient',
-        icon: 'regular-megaphone',
-        color: '#FFD700',
-        path: 'sw.newsletter.recipient.index',
-        privilege: 'newsletter_recipient.viewer',
-        label: 'sw-newsletter-recipient.general.mainMenuItemGeneral',
-        parent: 'sw-marketing',
-    }],
+    navigation: [
+        {
+            id: 'sw-newsletter-recipient',
+            icon: 'regular-megaphone',
+            color: '#FFD700',
+            path: 'sw.newsletter.recipient.index',
+            privilege: 'newsletter_recipient.viewer',
+            label: 'sw-newsletter-recipient.general.mainMenuItemGeneral',
+            parent: 'sw-marketing',
+        },
+    ],
 
     defaultSearchConfiguration,
 });

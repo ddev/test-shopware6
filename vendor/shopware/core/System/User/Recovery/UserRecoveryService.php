@@ -2,11 +2,13 @@
 
 namespace Shopware\Core\System\User\Recovery;
 
+use Shopware\Core\Defaults;
 use Shopware\Core\DevOps\Environment\EnvironmentHelper;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Random;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -24,7 +26,7 @@ use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
-#[Package('system-settings')]
+#[Package('fundamentals@framework')]
 class UserRecoveryService
 {
     /**
@@ -120,7 +122,7 @@ class UserRecoveryService
         return $recovery && $validDateTime < $recovery->getCreatedAt();
     }
 
-    public function updatePassword(string $hash, string $password, Context $context): bool
+    public function updatePassword(string $hash, #[\SensitiveParameter] string $password, Context $context): bool
     {
         if (!$this->checkHash($hash, $context)) {
             return false;
@@ -129,8 +131,8 @@ class UserRecoveryService
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('hash', $hash));
 
-        /** @var UserRecoveryEntity $recovery It can't be null as we checked the hash before */
         $recovery = $this->getUserRecovery($criteria, $context);
+        \assert($recovery instanceof UserRecoveryEntity); // It can't be null as we checked the hash before
 
         $updateData = [
             'id' => $recovery->getUserId(),
@@ -185,7 +187,11 @@ class UserRecoveryService
      */
     private function getSalesChannel(Context $context): SalesChannelEntity
     {
-        $salesChannel = $this->salesChannelRepository->search((new Criteria())->setLimit(1), $context)->first();
+        $criteria = new Criteria();
+        $criteria->setLimit(1);
+        $criteria->addFilter(new NotEqualsFilter('typeId', Defaults::SALES_CHANNEL_TYPE_PRODUCT_COMPARISON));
+
+        $salesChannel = $this->salesChannelRepository->search($criteria, $context)->first();
 
         if (!$salesChannel instanceof SalesChannelEntity) {
             throw UserException::salesChannelNotFound();

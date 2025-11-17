@@ -6,12 +6,15 @@ const { Criteria, EntityCollection } = Shopware.Data;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+        'feature',
+    ],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -50,7 +53,11 @@ export default {
         productSortingsCriteria() {
             const criteria = new Criteria(1, 25);
 
-            criteria.addFilter(Criteria.equalsAny('key', [...Object.keys(this.productSortingsConfigValue)]));
+            criteria.addFilter(
+                Criteria.equalsAny('id', [
+                    ...Object.keys(this.productSortingsConfigValue),
+                ]),
+            );
             criteria.addSorting(Criteria.sort('priority', 'desc'));
 
             return criteria;
@@ -79,10 +86,11 @@ export default {
             const criteria = new Criteria(1, 25);
 
             if (this.defaultSorting.id) {
-                criteria.addFilter(Criteria.not(
-                    'AND',
-                    [Criteria.equals('id', this.defaultSorting.id)],
-                ));
+                criteria.addFilter(
+                    Criteria.not('AND', [
+                        Criteria.equals('id', this.defaultSorting.id),
+                    ]),
+                );
             }
 
             criteria.addFilter(Criteria.equals('locked', false));
@@ -150,6 +158,7 @@ export default {
                     property: 'status',
                     label: 'sw-cms.elements.productListing.config.filter.gridHeaderStatus',
                     disabled: this.showFilterGrid,
+                    align: 'center',
                     width: '70px',
                 },
                 {
@@ -168,6 +177,61 @@ export default {
         assetFilter() {
             return Shopware.Filter.getByName('asset');
         },
+
+        boxLayoutOptions() {
+            return [
+                {
+                    id: 1,
+                    value: 'standard',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeStandard'),
+                },
+                {
+                    id: 2,
+                    value: 'image',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeImage'),
+                },
+                {
+                    id: 3,
+                    value: 'minimal',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeMinimal'),
+                },
+            ];
+        },
+
+        boxHeadlineLevel() {
+            return [
+                {
+                    id: 1,
+                    value: null,
+                    label: this.$tc('sw-cms.elements.productBox.config.label.headlineLevelEmptyOption'),
+                },
+                {
+                    id: 2,
+                    value: 2,
+                    label: this.$tc('sw-cms.elements.productBox.config.label.headlineLevelDefaultOption'),
+                },
+                {
+                    id: 3,
+                    value: 3,
+                    label: this.$tc('sw-cms.elements.productBox.config.label.headlineLevelOption', { level: 3 }),
+                },
+                {
+                    id: 4,
+                    value: 4,
+                    label: this.$tc('sw-cms.elements.productBox.config.label.headlineLevelOption', { level: 4 }),
+                },
+                {
+                    id: 5,
+                    value: 5,
+                    label: this.$tc('sw-cms.elements.productBox.config.label.headlineLevelOption', { level: 5 }),
+                },
+                {
+                    id: 6,
+                    value: 6,
+                    label: this.$tc('sw-cms.elements.productBox.config.label.headlineLevelOption', { level: 6 }),
+                },
+            ];
+        },
     },
 
     watch: {
@@ -182,7 +246,7 @@ export default {
             if (Object.keys(this.defaultSorting).length === 0) {
                 this.element.config.defaultSorting.value = '';
             } else {
-                this.element.config.defaultSorting.value = this.defaultSorting.key;
+                this.element.config.defaultSorting.value = this.defaultSorting.id;
             }
         },
     },
@@ -195,7 +259,7 @@ export default {
         createdComponent() {
             this.initElementConfig('product-listing');
 
-            if (Shopware.Utils.types.isEmpty(this.productSortingsConfigValue)) {
+            if (Object.keys(this.productSortingsConfigValue).length === 0) {
                 this.productSortings = new EntityCollection(
                     this.productSortingRepository.route,
                     this.productSortingRepository.schema.entity,
@@ -203,7 +267,7 @@ export default {
                     this.productSortingsCriteria,
                 );
             } else {
-                this.fetchProductSortings().then(productSortings => {
+                this.fetchProductSortings().then((productSortings) => {
                     this.productSortings = productSortings;
                 });
             }
@@ -214,20 +278,26 @@ export default {
         },
 
         fetchProductSortings() {
-            return this.productSortingRepository.search(this.productSortingsCriteria)
-                .then(productSortings => this.updateValuesFromConfig(productSortings));
+            return this.productSortingRepository
+                .search(this.productSortingsCriteria)
+                .then((productSortings) => this.updateValuesFromConfig(productSortings));
         },
 
         updateValuesFromConfig(productSortings) {
-            Object.entries(this.productSortingsConfigValue).forEach(([key, value]) => {
-                const matchingProductSorting = productSortings.find(productSorting => productSorting.key === key);
+            Object.entries(this.productSortingsConfigValue).forEach(
+                ([
+                    id,
+                    value,
+                ]) => {
+                    const matchingProductSorting = productSortings.find((productSorting) => productSorting.id === id);
 
-                if (!matchingProductSorting) {
-                    return;
-                }
+                    if (!matchingProductSorting) {
+                        return;
+                    }
 
-                matchingProductSorting.priority = value;
-            });
+                    matchingProductSorting.priority = value;
+                },
+            );
 
             return productSortings;
         },
@@ -237,40 +307,42 @@ export default {
          * e.g. 'Product sorting entity' => [{ 'test-sorting': 10 }]
          */
         transformProductSortings() {
+            if (this.productSortings.length === 0) {
+                return [];
+            }
+
             const object = {};
 
-            this.productSortings.forEach(currentProductSorting => {
-                object[currentProductSorting.key] = currentProductSorting.priority;
+            this.productSortings.forEach((currentProductSorting) => {
+                object[currentProductSorting.id] = currentProductSorting.priority;
             });
 
             return object;
         },
 
         initDefaultSorting() {
-            const defaultSortingKey = this.element.config.defaultSorting.value;
-            if (defaultSortingKey !== '') {
+            const defaultSortingId = this.element.config.defaultSorting.value;
+            if (defaultSortingId !== '') {
                 const criteria = new Criteria(1, 25);
 
-                criteria.addFilter(Criteria.equals('key', defaultSortingKey));
+                criteria.addFilter(Criteria.equals('id', defaultSortingId));
 
-                this.productSortingRepository.search(criteria)
-                    .then(response => {
-                        this.defaultSorting = response.first() || {};
-                    });
+                this.productSortingRepository.search(criteria).then((response) => {
+                    this.defaultSorting = response.first() || {};
+                });
             }
         },
 
         loadFilterableProperties() {
-            return this.propertyRepository.search(this.propertyCriteria)
-                .then(properties => {
-                    this.propertiesTotal = properties.total;
+            return this.propertyRepository.search(this.propertyCriteria).then((properties) => {
+                this.propertiesTotal = properties.total;
 
-                    this.properties = this.sortProperties(properties);
-                });
+                this.properties = this.sortProperties(properties);
+            });
         },
 
         sortProperties(properties) {
-            properties.forEach(property => {
+            properties.forEach((property) => {
                 if (!this.filterByProperties) {
                     property.active = true;
 
@@ -311,7 +383,7 @@ export default {
         },
 
         isDefaultSorting(productSorting) {
-            return this.defaultSorting.key === productSorting.key;
+            return this.defaultSorting.id === productSorting.id;
         },
 
         isActiveFilter(item) {
@@ -320,16 +392,21 @@ export default {
 
         updateFilters(item, active) {
             if (active) {
-                this.filters = [...this.filters, item];
+                this.filters = [
+                    ...this.filters,
+                    item,
+                ];
             } else {
-                this.filters = this.filters
-                    .reduce((acc, current) => {
-                        if (current === item) {
-                            return acc;
-                        }
+                this.filters = this.filters.reduce((acc, current) => {
+                    if (current === item) {
+                        return acc;
+                    }
 
-                        return [...acc, current];
-                    }, []);
+                    return [
+                        ...acc,
+                        current,
+                    ];
+                }, []);
             }
 
             this.element.config.filters.value = this.filters.join();
@@ -362,26 +439,31 @@ export default {
             return this.loadFilterableProperties();
         },
 
-        propertyStatusChanged(id) {
+        propertyStatusChanged(enable, id) {
             // eslint-disable-next-line inclusive-language/use-inclusive-words
             const allowlist = this.element.config.propertyWhitelist.value;
 
-            if (!allowlist.includes(id)) {
+            if (enable) {
                 // eslint-disable-next-line inclusive-language/use-inclusive-words
-                this.element.config.propertyWhitelist.value = [...allowlist, id];
+                this.element.config.propertyWhitelist.value = [
+                    ...allowlist,
+                    id,
+                ];
 
                 return;
             }
 
             // eslint-disable-next-line inclusive-language/use-inclusive-words
-            this.element.config.propertyWhitelist.value = allowlist
-                .reduce((acc, current) => {
-                    if (current === id) {
-                        return acc;
-                    }
+            this.element.config.propertyWhitelist.value = allowlist.reduce((acc, current) => {
+                if (current === id) {
+                    return acc;
+                }
 
-                    return [...acc, current];
-                }, []);
+                return [
+                    ...acc,
+                    current,
+                ];
+            }, []);
         },
     },
 };

@@ -14,7 +14,7 @@ use Shopware\Core\Framework\Plugin\Struct\PluginFromFileSystemStruct;
 use Symfony\Component\Finder\Exception\DirectoryNotFoundException;
 use Symfony\Component\Finder\Finder;
 
-#[Package('core')]
+#[Package('framework')]
 class PluginFinder
 {
     final public const COMPOSER_TYPE = 'shopware-platform-plugin';
@@ -119,6 +119,7 @@ class PluginFinder
         $composer = Factory::createComposer($projectDir, $composerIO);
 
         /** @var CompletePackageInterface[] $composerPackages */
+        // @phpstan-ignore varTag.type (getPackages always returns an array of CompletePackageInterface)
         $composerPackages = $composer
             ->getRepositoryManager()
             ->getLocalRepository()
@@ -156,7 +157,7 @@ class PluginFinder
             $pluginBaseClass = $this->getPluginNameFromPackage($root);
             $plugins[$pluginBaseClass] = (new PluginFromFileSystemStruct())->assign([
                 'baseClass' => $pluginBaseClass,
-                'path' => '.',
+                'path' => $projectDir,
                 'managedByComposer' => true,
                 'composerPackage' => $root,
             ]);
@@ -175,7 +176,7 @@ class PluginFinder
         $errors->add(new PluginComposerJsonInvalidException(
             $pluginPath . '/composer.json',
             [
-                sprintf(
+                \sprintf(
                     'Plugin composer.json has invalid "type" (must be "%s"), or invalid "extra/%s" value, or missing extra.label property',
                     self::COMPOSER_TYPE,
                     self::SHOPWARE_PLUGIN_CLASS_EXTRA_IDENTIFIER

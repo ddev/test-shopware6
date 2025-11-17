@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Framework\Adapter\Twig;
 
+use Shopware\Core\Framework\Adapter\AdapterException;
 use Shopware\Core\Framework\Log\Package;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
@@ -9,7 +10,7 @@ use Twig\TwigFilter;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class SecurityExtension extends AbstractExtension
 {
     /**
@@ -38,20 +39,24 @@ class SecurityExtension extends AbstractExtension
      *
      * @return array<mixed>
      */
-    public function map(iterable $array, string|callable|\Closure $function): array
+    public function map(?iterable $array, string|callable|\Closure $function): ?array
     {
-        if (\is_array($function)) {
-            $function = implode('::', $function);
+        if ($array === null || !\is_callable($function)) {
+            return null;
         }
 
         if (\is_string($function) && !\in_array($function, $this->allowedPHPFunctions, true)) {
-            throw new \RuntimeException(sprintf('Function "%s" is not allowed', $function));
+            throw AdapterException::securityFunctionNotAllowed($function);
         }
 
         $result = [];
         foreach ($array as $key => $value) {
-            // @phpstan-ignore-next-line
-            $result[$key] = $function($value);
+            if (\is_string($function)) {
+                // Custom functions
+                $result[$key] = $function($value);
+            } else {
+                $result[$key] = $function($value, $key);
+            }
         }
 
         return $result;
@@ -61,14 +66,18 @@ class SecurityExtension extends AbstractExtension
      * @param iterable<mixed> $array
      * @param string|callable(mixed): mixed|\Closure $function
      */
-    public function reduce(iterable $array, string|callable|\Closure $function, mixed $initial = null): mixed
+    public function reduce(?iterable $array, string|callable|\Closure $function, mixed $initial = null): mixed
     {
+        if ($array === null) {
+            return null;
+        }
+
         if (\is_array($function)) {
             $function = implode('::', $function);
         }
 
         if (\is_string($function) && !\in_array($function, $this->allowedPHPFunctions, true)) {
-            throw new \RuntimeException(sprintf('Function "%s" is not allowed', $function));
+            throw AdapterException::securityFunctionNotAllowed($function);
         }
 
         if (!\is_array($array)) {
@@ -85,14 +94,18 @@ class SecurityExtension extends AbstractExtension
      *
      * @return iterable<mixed>
      */
-    public function filter(iterable $array, string|callable|\Closure $arrow): iterable
+    public function filter(?iterable $array, string|callable|\Closure $arrow): ?iterable
     {
+        if ($array === null) {
+            return null;
+        }
+
         if (\is_array($arrow)) {
             $arrow = implode('::', $arrow);
         }
 
         if (\is_string($arrow) && !\in_array($arrow, $this->allowedPHPFunctions, true)) {
-            throw new \RuntimeException(sprintf('Function "%s" is not allowed', $arrow));
+            throw AdapterException::securityFunctionNotAllowed($arrow);
         }
 
         if (\is_array($array)) {
@@ -110,14 +123,18 @@ class SecurityExtension extends AbstractExtension
      *
      * @return array<mixed>
      */
-    public function sort(iterable $array, string|callable|\Closure|null $arrow = null): array
+    public function sort(?iterable $array, string|callable|\Closure|null $arrow = null): ?array
     {
+        if ($array === null) {
+            return null;
+        }
+
         if (\is_array($arrow)) {
             $arrow = implode('::', $arrow);
         }
 
         if (\is_string($arrow) && !\in_array($arrow, $this->allowedPHPFunctions, true)) {
-            throw new \RuntimeException(sprintf('Function "%s" is not allowed', $arrow));
+            throw AdapterException::securityFunctionNotAllowed($arrow);
         }
 
         if ($array instanceof \Traversable) {

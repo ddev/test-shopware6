@@ -1,19 +1,23 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-maintain-currencies-modal.html.twig';
 import './sw-maintain-currencies-modal.scss';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-maintain-currencies-modal', {
+export default {
     template,
     inject: ['repositoryFactory'],
+
+    emits: [
+        'update-prices',
+        'modal-close',
+    ],
 
     props: {
         currencies: {
@@ -39,7 +43,6 @@ Component.register('sw-maintain-currencies-modal', {
             required: true,
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         hideListPrices: {
             required: false,
@@ -77,7 +80,8 @@ Component.register('sw-maintain-currencies-modal', {
                     primary: true,
                     rawData: false,
                     width: '150px',
-                }, {
+                },
+                {
                     property: 'price',
                     label: 'sw-maintain-currencies-modal.columnPrice',
                     visible: true,
@@ -111,15 +115,18 @@ Component.register('sw-maintain-currencies-modal', {
         },
 
         loadCurrencies() {
-            this.repositoryFactory.create('currency').search(new Criteria(1, 25)).then(response => {
-                this.currencyCollection = response;
-                this.sortCurrencies();
-            });
+            this.repositoryFactory
+                .create('currency')
+                .search(new Criteria(1, 25))
+                .then((response) => {
+                    this.currencyCollection = response;
+                    this.sortCurrencies();
+                });
         },
 
         updateCurrencyCollectionFromCurrencies() {
             if (this.currencyCollection.length > 0) {
-                const isSame = this.currencies.every(c => this.currencyCollection.some(_c => c.id === _c.id));
+                const isSame = this.currencies.every((c) => this.currencyCollection.some((_c) => c.id === _c.id));
 
                 if (!isSame) {
                     this.currencyCollection = this.currencies;
@@ -170,7 +177,7 @@ Component.register('sw-maintain-currencies-modal', {
                 return price.currencyId === currencyId;
             });
 
-            this.$delete(this.prices, indexOfPrice);
+            this.$emit('update-prices', indexOfPrice);
 
             this.createdComponent();
         },
@@ -193,8 +200,8 @@ Component.register('sw-maintain-currencies-modal', {
                 };
             }
 
-            // create new entry for currency in prices
-            this.$set(this.prices, this.prices.length, price);
+            // eslint-disable-next-line vue/no-mutating-props
+            this.prices[this.prices.length] = price;
 
             this.createdComponent();
         },
@@ -207,4 +214,4 @@ Component.register('sw-maintain-currencies-modal', {
             this.$emit('modal-close', this.prices);
         },
     },
-});
+};

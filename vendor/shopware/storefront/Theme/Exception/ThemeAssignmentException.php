@@ -2,11 +2,15 @@
 
 namespace Shopware\Storefront\Theme\Exception;
 
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('storefront')]
+/**
+ * @deprecated tag:v6.8.0 - Exception will be removed
+ */
+#[Package('framework')]
 class ThemeAssignmentException extends ShopwareHttpException
 {
     /**
@@ -39,11 +43,15 @@ class ThemeAssignmentException extends ShopwareHttpException
 
     public function getErrorCode(): string
     {
+        Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedClassMessage(self::class, 'v6.8.0.0', ThemeException::class));
+
         return 'THEME__THEME_ASSIGNMENT';
     }
 
     public function getStatusCode(): int
     {
+        Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedClassMessage(self::class, 'v6.8.0.0', ThemeException::class));
+
         return Response::HTTP_BAD_REQUEST;
     }
 
@@ -52,11 +60,13 @@ class ThemeAssignmentException extends ShopwareHttpException
      */
     public function getAssignedSalesChannels(): ?array
     {
+        Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedClassMessage(self::class, 'v6.8.0.0', ThemeException::class));
+
         return $this->assignedSalesChannels;
     }
 
     /**
-     * @param  array<string, array<int, string>> $assignmentMapping
+     * @param array<string, array<int, string>> $assignmentMapping
      */
     private function formatAssignments(array $assignmentMapping): string
     {
@@ -75,7 +85,7 @@ class ThemeAssignmentException extends ShopwareHttpException
                 $salesChannelNames[] = $salesChannel;
             }
 
-            $output[] = sprintf('"%s" => "%s"', $themeName, implode(', ', $salesChannelNames));
+            $output[] = \sprintf('"%s" => "%s"', $themeName, implode(', ', $salesChannelNames));
         }
 
         return implode(', ', $output);

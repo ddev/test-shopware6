@@ -14,7 +14,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1616076922AppPaymentMethod extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -76,7 +76,7 @@ class Migration1616076922AppPaymentMethod extends MigrationStep
         $defaultFolderId = Uuid::randomBytes();
         $configurationId = Uuid::randomBytes();
 
-        $connection->executeQuery(
+        $connection->executeStatement(
             'REPLACE INTO `media_default_folder` SET
                 id = :id,
                 entity = :entity,

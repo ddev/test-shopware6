@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_bulk_edit_product %}
 <sw-page
     :class="{
@@ -6,14 +5,12 @@
         'is--variant': isChild,
     }"
 >
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_bulk_edit_product_search_bar %}
     <template #search-bar>
         <sw-search-bar />
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_bulk_edit_product_smart_bar_back %}
     <template #smart-bar-back>
         <router-link
@@ -22,47 +19,42 @@
             :to="{ name: 'sw.product.detail.variants', params: { id: $route.params.parentId } }"
             :style="{ 'color': $route.meta.$module?.color }"
         >
-            <sw-icon
+            <mt-icon
                 name="regular-chevron-left"
-                small
+                size="16px"
             />
         </router-link>
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_bulk_edit_product_smart_bar_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_bulk_edit_product_smart_bar_header_title %}
         <h2>
             {{ isChild
-            ? $tc('sw-bulk-edit.variant.textTitle', selectedIds.length, { variantTotal: selectedIds.length })
-            : $tc('sw-bulk-edit.product.textTitle', selectedIds.length, { productTotal: selectedIds.length })
+            ? $tc('sw-bulk-edit.variant.textTitle', { variantTotal: selectedIds.length }, selectedIds.length)
+            : $tc('sw-bulk-edit.product.textTitle', { productTotal: selectedIds.length }, selectedIds.length)
             }}
         </h2>
         {% endblock %}
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_bulk_edit_product_content_language_switch %}
     <template #language-switch>
         <sw-language-switch @on-change="onChangeLanguage" />
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_bulk_edit_product_content_smart_bar_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_bulk_edit_product_actions_save %}
         <sw-button-process
             class="sw-bulk-edit-product__save-action"
             variant="primary"
             :is-loading="isLoading"
             :process-success="isSaveSuccessful"
-            :disabled="isLoading || !hasSelectedChanges"
+            :disabled="isLoading || !hasSelectedChanges || undefined"
             @click="openModal"
         >
             {{ $tc('sw-bulk-edit.applyChanges') }}
@@ -71,45 +63,30 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_bulk_edit_product_content %}
     <template #content>
         <sw-card-view v-if="selectedIds.length > 0 && isLoadedData">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_inheritance_card %}
-            <sw-card
+            <mt-card
                 v-if="isChild"
                 class="sw-bulk-edit-product__inheritance"
                 position-identifier="sw-bulk-edit-product-inheritance"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_inheritance_alert %}
-                <sw-alert variant="info">
-                    <template #customIcon>
-                        <div class="sw-bulk-edit-product__inheritance-icon">
-                            <sw-icon
-                                name="regular-link"
-                                color="#7363e5"
-                                size="16"
-                            />
-                        </div>
-                    </template>
-                    <template #default>
-                        {{ $tc('sw-bulk-edit.product.alertInheritance.message') }}
-                    </template>
-                </sw-alert>
+                <mt-banner variant="inherited">
+                    {{ $tc('sw-bulk-edit.product.alertInheritance.message') }}
+                </mt-banner>
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
-
-            <sw-card
+            <mt-card
                 v-if="restrictedFields.length"
                 class="sw-bulk-edit-product__restricted-fields"
                 position-identifier="sw-bulk-edit-product-restricted-fields"
             >
-                <sw-alert
+                <mt-banner
                     :title="$tc('sw-bulk-edit.product.alertRestrictedFields.title')"
-                    variant="warning"
+                    variant="attention"
                 >
                     <span v-html="$tc('sw-bulk-edit.product.alertRestrictedFields.message')"></span>
                     <ul>
@@ -120,17 +97,15 @@
                             {{ $tc(`sw-bulk-edit.product.alertRestrictedFields.${restrictedField}`) }}
                         </li>
                     </ul>
-                </sw-alert>
-            </sw-card>
+                </mt-banner>
+            </mt-card>
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_gereral_information_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__info"
                 position-identifier="sw-bulk-edit-product-info"
                 :title="$tc('sw-bulk-edit.product.generalInformation.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_gereral_information %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="generalFormFields"
@@ -140,17 +115,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_prices_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__prices"
                 position-identifier="sw-bulk-edit-product-prices"
                 :title="$tc('sw-bulk-edit.product.prices.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_prices %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="pricesFormFields"
@@ -161,17 +134,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_advanced_prices_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__advanced-prices"
                 position-identifier="sw-bulk-edit-product-advanced-prices"
                 :title="$tc('sw-bulk-edit.product.advancedPrices.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_advanced_prices %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="advancedPricesFormFields"
@@ -189,20 +160,19 @@
                         <a
                             v-if="['add', 'overwrite'].includes(bulkEditProduct[formField.name].type)"
                             :class="{ 'is--disabled': !!bulkEditProduct[formField.name].isInherited }"
-                            class="sw-card__quick-link"
+                            class="quick-link"
                             role="link"
                             tabindex="0"
                             @click="displayAdvancePricesModal = true"
                             @keydown.enter="displayAdvancePricesModal = true"
                         >
-                            {{ $tc('sw-bulk-edit.product.advancedPrices.newAdvancedPrices', 0, { count: entity[formField.name] ? Object.keys(priceRuleGroups).length : 0 }) }}
-                            <sw-icon
+                            {{ $tc('sw-bulk-edit.product.advancedPrices.newAdvancedPrices', { count: entity[formField.name] ? Object.keys(priceRuleGroups).length : 0 }, 0) }}
+                            <mt-icon
                                 name="regular-long-arrow-right"
-                                small
+                                size="16px"
                             />
                         </a>
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_bulk_edit_product_content_advanced_prices_rule_selection %}
                         <sw-entity-multi-select
                             v-else-if="bulkEditProduct[formField.name].type === 'remove'"
@@ -211,12 +181,8 @@
                             :criteria="ruleCriteria"
                             entity-name="rule"
                             :entity-collection="!!bulkEditProduct[formField.name].isInherited ? [] : entity[formField.name]"
-                            :disabled="!!bulkEditProduct[formField.name].isInherited"
-                            {% if VUE3 %}
+                            :disabled="!!bulkEditProduct[formField.name].isInherited || undefined"
                             @update:entity-collection="onRuleChange"
-                            {% else %}
-                            @change="onRuleChange"
-                            {% endif %}
                         >
                             <template #selection-label-property="{ item }">
                                 {{ item.ruleName }}
@@ -225,7 +191,7 @@
                             <template #result-item="{ item, index, labelProperty, isSelected, addItem, getKey }">
                                 <sw-select-result
                                     :selected="isSelected(item)"
-                                    :disabled="!!priceRuleGroups[item.id]"
+                                    :disabled="!!priceRuleGroups[item.id] || undefined"
                                     v-bind="{ item, index }"
                                     @item-select="addItem"
                                 >
@@ -238,7 +204,6 @@
                 </sw-bulk-edit-change-type-field-renderer>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_advanced_prices_modal %}
                 <sw-modal
                     v-if="displayAdvancePricesModal"
@@ -252,32 +217,30 @@
                         :can-set-loading-rules="false"
                     />
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_bulk_edit_product_content_advanced_prices_modal_footer %}
                     <template #modal-footer>
                         <slot name="sw-bulk-edit-modal-cancel">
-                            <sw-button
+                            <mt-button
                                 size="small"
+                                variant="secondary"
                                 @click="displayAdvancePricesModal = false"
                             >
                                 {{ $tc('global.default.close') }}
-                            </sw-button>
+                            </mt-button>
                         </slot>
                     </template>
                     {% endblock %}
                 </sw-modal>
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_property_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__property"
                 position-identifier="sw-bulk-edit-product-property"
                 :title="$tc('sw-bulk-edit.product.property.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_property %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="propertyFormFields"
@@ -287,17 +250,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_deliverability_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__deliverability"
                 position-identifier="sw-bulk-edit-product-deliverability"
                 :title="$tc('sw-bulk-edit.product.deliverability.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_deliverability %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="deliverabilityFormFields"
@@ -307,17 +268,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_assignments_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__assignment"
                 position-identifier="sw-bulk-edit-product-assignment"
                 :title="$tc('sw-bulk-edit.product.assignment.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_assignments %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="assignmentFormFields"
@@ -327,17 +286,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_media_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__media"
                 position-identifier="sw-bulk-edit-product-media"
                 :title="$tc('sw-bulk-edit.product.media.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block media %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="mediaFormFields"
@@ -347,17 +304,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_labelling_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__labelling"
                 position-identifier="sw-bulk-edit-product-labelling"
                 :title="$tc('sw-bulk-edit.product.labelling.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_labelling %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="labellingFormFields"
@@ -367,17 +322,15 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_seo_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base__seo"
                 position-identifier="sw-bulk-edit-product-seo"
                 :title="$tc('sw-bulk-edit.product.seo.cardTitle')"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_bulk_edit_product_content_seo %}
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="seoFormFields"
@@ -387,29 +340,48 @@
                     @inheritance-remove="onInheritanceRemove"
                 />
                 {% endblock %}
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+            {# @deprecated tag:v6.8.0 - Block will be removed. #}
             {% block sw_bulk_edit_product_content_meansures_packaging_card %}
-            <sw-card
+            {% endblock %}
+
+            {% block sw_bulk_edit_product_content_measurement_card %}
+            <mt-card
                 class="sw-bulk-edit-product-base__measures"
                 position-identifier="sw-bulk-edit-product-measures"
-                :title="$tc('sw-bulk-edit.product.measuresAndPackaging.cardTitle')"
+                :title="$tc('sw-bulk-edit.product.measurements.cardTitle')"
             >
                 <sw-bulk-edit-change-type-field-renderer
                     :form-fields="measuresPackagingFields"
                     :bulk-edit-data="bulkEditProduct"
                     :entity="product"
+                    @update:default-unit="onUpdateDefaultUnit"
                     @inheritance-restore="onInheritanceRestore"
                     @inheritance-remove="onInheritanceRemove"
                 />
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+            {% block sw_bulk_edit_product_content_selling_packaging_card %}
+            <mt-card
+                class="sw-bulk-edit-product-base__selling-packaging"
+                position-identifier="sw-bulk-edit-product-selling-packaging"
+                :title="$tc('sw-bulk-edit.product.sellingPackaging.cardTitle')"
+            >
+                <sw-bulk-edit-change-type-field-renderer
+                    :form-fields="sellingPackagingFields"
+                    :bulk-edit-data="bulkEditProduct"
+                    :entity="product"
+                    @inheritance-restore="onInheritanceRestore"
+                    @inheritance-remove="onInheritanceRemove"
+                />
+            </mt-card>
+            {% endblock %}
+
             {% block sw_bulk_edit_product_content_essential_card %}
-            <sw-card
+            <mt-card
                 class="sw-bulk-edit-product-base___essential"
                 position-identifier="sw-bulk-edit-product-essential"
                 :title="$tc('sw-bulk-edit.product.featureSets.cardTitle')"
@@ -421,12 +393,11 @@
                     @inheritance-restore="onInheritanceRestore"
                     @inheritance-remove="onInheritanceRemove"
                 />
-            </sw-card>
+            </mt-card>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_bulk_edit_product_content_meansures_custom_field_card %}
-            <sw-card
+            <mt-card
                 v-if="customFieldSets.length > 0"
                 class="sw-bulk-edit-product-base__custom_fields"
                 position-identifier="sw-bulk-edit-product-custom-fields"
@@ -439,18 +410,17 @@
                     :parent-entity="parentProduct"
                     @change="onCustomFieldsChange"
                 />
-            </sw-card>
+            </mt-card>
             {% endblock %}
         </sw-card-view>
-        <sw-empty-state
+        <mt-empty-state
             v-if="!isLoading && selectedIds.length == 0"
-            :title="$tc('sw-bulk-edit.product.messageEmptyTitle')"
-            :subline="$tc('sw-bulk-edit.product.messageEmptySubline')"
+            :icon="$route.meta.$module.icon"
+            :headline="$tc('sw-bulk-edit.product.messageEmptyTitle')"
+            :description="$tc('sw-bulk-edit.product.messageEmptySubline')"
         />
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_bulk_edit_product_save_modal %}
-        {% if VUE3 %}
         <router-view
             v-slot="{ Component }"
         >
@@ -463,15 +433,6 @@
                 @bulk-save="onSave"
             />
         </router-view>
-        {% else %}
-        <router-view
-            :item-total="selectedIds.length"
-            :is-loading="isLoading"
-            :process-status="processStatus"
-            @modal-close="closeModal"
-            @bulk-save="onSave"
-        />
-        {% endif %}
         {% endblock %}
     </template>
     {% endblock %}

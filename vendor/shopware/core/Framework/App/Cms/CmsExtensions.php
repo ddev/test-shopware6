@@ -2,15 +2,15 @@
 
 namespace Shopware\Core\Framework\App\Cms;
 
+use Shopware\Core\Framework\App\AppException;
 use Shopware\Core\Framework\App\Cms\Xml\Blocks;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SystemConfig\Exception\XmlParsingException;
 use Symfony\Component\Config\Util\XmlUtils;
 
 /**
  * @internal
  */
-#[Package('content')]
+#[Package('discovery')]
 class CmsExtensions
 {
     private const XSD_FILE = __DIR__ . '/Schema/cms-1.0.xsd';
@@ -26,7 +26,7 @@ class CmsExtensions
         try {
             $doc = XmlUtils::loadFile($xmlFile, self::XSD_FILE);
         } catch (\Exception $e) {
-            throw new XmlParsingException($xmlFile, $e->getMessage());
+            throw AppException::xmlParsingException($xmlFile, $e->getMessage());
         }
 
         $blocks = $doc->getElementsByTagName('blocks')->item(0);

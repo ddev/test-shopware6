@@ -10,10 +10,10 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @internal
  */
 #[AsMessageHandler]
-#[Package('core')]
-final class CleanupOldCacheFoldersHandler
+#[Package('framework')]
+final readonly class CleanupOldCacheFoldersHandler
 {
-    public function __construct(private readonly CacheClearer $cacheClearer)
+    public function __construct(private CacheClearer $cacheClearer)
     {
     }
 

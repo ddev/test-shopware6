@@ -3,19 +3,21 @@
 namespace Shopware\Core\Framework\Api\Controller;
 
 use League\OAuth2\Server\AuthorizationServer;
-use Shopware\Core\Framework\Api\Controller\Exception\AuthThrottledException;
+use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
+use Shopware\Core\PlatformRequest;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('system-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('fundamentals@framework')]
 class AuthController extends AbstractController
 {
     /**
@@ -24,13 +26,8 @@ class AuthController extends AbstractController
     public function __construct(
         private readonly AuthorizationServer $authorizationServer,
         private readonly PsrHttpFactory $psrHttpFactory,
-        private readonly RateLimiter $rateLimiter
+        private readonly RateLimiter $rateLimiter,
     ) {
-    }
-
-    #[Route(path: '/api/oauth/authorize', name: 'api.oauth.authorize', defaults: ['auth_required' => false], methods: ['POST'])]
-    public function authorize(Request $request): void
-    {
     }
 
     #[Route(path: '/api/oauth/token', name: 'api.oauth.token', defaults: ['auth_required' => false], methods: ['POST'])]
@@ -43,7 +40,7 @@ class AuthController extends AbstractController
 
             $this->rateLimiter->ensureAccepted(RateLimiter::OAUTH, $cacheKey);
         } catch (RateLimitExceededException $exception) {
-            throw new AuthThrottledException($exception->getWaitTime(), $exception);
+            throw ApiException::notificationThrottled($exception->getWaitTime(), $exception);
         }
 
         $psr7Request = $this->psrHttpFactory->createRequest($request);

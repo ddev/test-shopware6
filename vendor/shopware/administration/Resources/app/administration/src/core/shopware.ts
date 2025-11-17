@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * Shopware End Developer API
  * @module Shopware
@@ -31,6 +31,7 @@ import FlatTreeHelper from 'src/core/helper/flattree.helper';
 import SanitizerHelper from 'src/core/helper/sanitizer.helper';
 import DeviceHelper from 'src/core/helper/device.helper';
 import MiddlewareHelper from 'src/core/helper/middleware.helper';
+import { DiscountScopes, DiscountTypes, PromotionPermissions } from 'src/module/sw-promotion-v2/helper/promotion.helper';
 import data from 'src/core/data/index';
 import ApplicationBootstrapper from 'src/core/application';
 
@@ -42,7 +43,18 @@ import AppContextFactory from 'src/core/factory/app-context.factory';
 import RouterFactory from 'src/core/factory/router.factory';
 import ApiServices from 'src/core/service/api';
 import ModuleFilterFactory from 'src/core/data/filter-factory.data';
+import Store from 'src/app/store';
+import { createExtendableSetup, overrideComponentSetup } from 'src/app/adapter/composition-extension-system';
+import * as Vue from 'vue';
+import type { DefineComponent, Ref } from 'vue';
+import CMS from '../module/sw-cms/constant/sw-cms.constant';
+import CUSTOMER from '../module/sw-customer/constant/sw-customer.constant';
+import FLOW from '../module/sw-flow/constant/flow.constant';
+import InAppPurchase from './in-app-purchase';
 import ExtensionApi from './extension-api';
+import Telemetry from './telemetry';
+import { LineItemType } from '../module/sw-order/order.types';
+import useContext from '../app/composables/use-context';
 
 /** Initialize feature flags at the beginning */
 if (window.hasOwnProperty('_features_')) {
@@ -102,7 +114,12 @@ application
         return WorkerNotificationFactory;
     });
 
-class ShopwareClass {
+class ShopwareClass implements CustomShopwareProperties {
+    /**
+     * @private
+     */
+    static #overrideComponents: Ref<Array<DefineComponent<unknown, unknown, unknown>>> = Vue.ref([]);
+
     public Module = {
         register: ModuleFactory.registerModule,
         getModuleRegistry: ModuleFactory.getModuleRegistry,
@@ -122,6 +139,21 @@ class ShopwareClass {
         registerComponentHelper: AsyncComponentFactory.registerComponentHelper,
         markComponentAsSync: AsyncComponentFactory.markComponentAsSync,
         isSyncComponent: AsyncComponentFactory.isSyncComponent,
+        createExtendableSetup: createExtendableSetup,
+        overrideComponentSetup: overrideComponentSetup,
+
+        /**
+         * @experimental stableVersion:v6.8.0 feature:ADMIN_COMPOSITION_API_EXTENSION_SYSTEM
+         */
+        registerOverrideComponent: (component: DefineComponent<unknown, unknown, unknown>) => {
+            ShopwareClass.#overrideComponents.value.push(component);
+        },
+        /**
+         * @experimental stableVersion:v6.8.0 feature:ADMIN_COMPOSITION_API_EXTENSION_SYSTEM
+         */
+        getOverrideComponents: () => {
+            return ShopwareClass.#overrideComponents.value;
+        },
     };
 
     public Template = {
@@ -131,7 +163,12 @@ class ShopwareClass {
         getRenderedTemplate: TemplateFactory.getRenderedTemplate,
     };
 
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed, use Store instead.
+     */
     public State = StateFactory();
+
+    public Store = Store.instance;
 
     public Mixin = {
         register: MixinFactory.register,
@@ -175,6 +212,10 @@ class ShopwareClass {
     public Application = application;
 
     public Feature = Feature;
+
+    public InAppPurchase = InAppPurchase;
+
+    public Vue = Vue;
 
     public ApiService = {
         register: ApiServiceFactory.register,
@@ -220,14 +261,12 @@ class ShopwareClass {
     public Data = data;
 
     public get Snippet() {
-        if (Shopware.Service('feature').isActive('VUE3')) {
+        return {
             // @ts-expect-error - type is currently not available
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
-            return Shopware.Application.view.i18n.global;
-        }
-
-        // @ts-expect-error - type is currently not available
-        return Shopware.Application.view.i18n;
+            ...Shopware.Application.view.i18n.global,
+            // @ts-expect-error - type is currently not available
+            tc: Shopware.Application.view.i18n.global.t,
+        };
     }
 
     public Classes = {
@@ -243,29 +282,43 @@ class ShopwareClass {
         },
     };
 
+    public Constants: CustomShopwareConstants = {
+        CMS: CMS,
+        CUSTOMER: CUSTOMER,
+        FLOW: FLOW,
+    } as CustomShopwareConstants;
+
     public Helper = {
         FlatTreeHelper: FlatTreeHelper,
         MiddlewareHelper: MiddlewareHelper,
         RefreshTokenHelper: RefreshTokenHelper,
         SanitizerHelper: SanitizerHelper,
         DeviceHelper: DeviceHelper,
+        PromotionHelper: {
+            DiscountScopes,
+            DiscountTypes,
+            PromotionPermissions,
+        },
+        OrderHelper: {
+            LineItemType,
+        },
     };
 
-    public get Context(): VuexRootState['context'] {
-        return this.State.get('context');
+    public get Context() {
+        return useContext();
     }
 
     public _private = {
         ApiServices: ApiServices,
     };
+
+    public Telemetry = Telemetry;
 }
 
 const ShopwareInstance = new ShopwareClass();
 
-window.Shopware = ShopwareInstance;
+// Freeze InAppPurchase to prevent modifications
+Object.defineProperty(ShopwareInstance, 'InAppPurchase', { configurable: false, writable: false });
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-export default ShopwareInstance;
-
-// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-export { ShopwareClass };
+export { ShopwareClass, ShopwareInstance };

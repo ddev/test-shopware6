@@ -10,57 +10,36 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class ReviewStruct extends StoreStruct
 {
     final public const MAX_RATING = 5;
     final public const MIN_RATING = 1;
 
-    /**
-     * @var int
-     */
-    protected $extensionId;
+    protected int $extensionId;
+
+    protected string $headline;
+
+    protected string $authorName;
+
+    protected int $rating;
+
+    protected ?string $text = null;
+
+    protected \DateTimeImmutable $lastChangeDate;
+
+    protected string $version;
+
+    protected bool $acceptGuidelines;
 
     /**
-     * @var string
+     * @var list<array{text: string, creationDate: \DateTimeImmutable}>
      */
-    protected $headline;
+    protected array $replies = [];
 
     /**
-     * @var string
+     * @return ReviewStruct
      */
-    protected $authorName;
-
-    /**
-     * @var int
-     */
-    protected $rating;
-
-    /**
-     * @var string|null
-     */
-    protected $text;
-
-    /**
-     * @var \DateTimeImmutable
-     */
-    protected $lastChangeDate;
-
-    /**
-     * @var string
-     */
-    protected $version;
-
-    /**
-     * @var bool
-     */
-    protected $acceptGuidelines;
-
-    /**
-     * @var array
-     */
-    protected $replies = [];
-
     public static function fromArray(array $data): StoreStruct
     {
         $review = new self();
@@ -176,11 +155,17 @@ class ReviewStruct extends StoreStruct
         $this->version = $version;
     }
 
+    /**
+     * @return list<array{text: string, creationDate: \DateTimeImmutable}>
+     */
     public function getReplies(): array
     {
         return $this->replies;
     }
 
+    /**
+     * @param list<array{text: string, creationDate: \DateTimeImmutable}> $replies
+     */
     public function setReplies(array $replies): void
     {
         $this->replies = $replies;

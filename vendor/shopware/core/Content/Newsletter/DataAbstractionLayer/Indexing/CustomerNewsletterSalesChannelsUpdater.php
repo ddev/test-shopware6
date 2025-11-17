@@ -9,7 +9,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('buyers-experience')]
+#[Package('after-sales')]
 class CustomerNewsletterSalesChannelsUpdater
 {
     /**
@@ -151,10 +151,11 @@ SQL;
                 continue;
             }
 
+            $newsletterIds = array_keys(json_decode((string) $customer['newsletter_sales_channel_ids'], true, 512, \JSON_THROW_ON_ERROR));
+            $newsletterIds = array_map('\strval', $newsletterIds);
+
             $parameters[] = [
-                'newsletter_ids' => array_keys(
-                    json_decode((string) $customer['newsletter_sales_channel_ids'], true, 512, \JSON_THROW_ON_ERROR)
-                ),
+                'newsletter_ids' => $newsletterIds,
                 'email' => $customer['email'],
                 'first_name' => $customer['first_name'],
                 'last_name' => $customer['last_name'],

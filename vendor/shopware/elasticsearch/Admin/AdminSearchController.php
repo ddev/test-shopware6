@@ -9,36 +9,38 @@ use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Package('system-settings')]
-final class AdminSearchController
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => ['administration']])]
+#[Package('inventory')]
+final readonly class AdminSearchController
 {
     public function __construct(
-        private readonly AdminSearcher $searcher,
-        private readonly DefinitionInstanceRegistry $definitionRegistry,
-        private readonly JsonEntityEncoder $entityEncoder,
-        private readonly AdminElasticsearchHelper $adminEsHelper
+        private AdminSearcher $searcher,
+        private DefinitionInstanceRegistry $definitionRegistry,
+        private JsonEntityEncoder $entityEncoder,
+        private AdminElasticsearchHelper $adminEsHelper
     ) {
     }
 
-    #[Route(path: '/api/_admin/es-search', name: 'api.admin.es-search', methods: ['POST'], defaults: ['_routeScope' => ['administration']])]
+    #[Route(path: '/api/_admin/es-search', name: 'api.admin.es-search', methods: ['POST'])]
     public function elastic(Request $request, Context $context): Response
     {
         if ($this->adminEsHelper->getEnabled() === false) {
             throw ElasticsearchAdminException::esNotEnabled();
         }
 
-        $term = trim((string) $request->get('term', ''));
+        $term = trim($request->request->getString('term'));
         $entities = $request->request->all('entities');
 
-        if (empty($term)) {
+        if ($term === '') {
             throw ElasticsearchAdminException::missingTermParameter();
         }
 

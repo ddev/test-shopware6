@@ -4,7 +4,7 @@ namespace Shopware\Core\Framework\Event\EventData;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('business-ops')]
+#[Package('fundamentals@after-sales')]
 class ScalarValueType implements EventDataType
 {
     final public const TYPE_STRING = 'string';
@@ -24,7 +24,7 @@ class ScalarValueType implements EventDataType
     public function __construct(string $type)
     {
         if (!\in_array($type, self::VALID_TYPES, true)) {
-            throw new \InvalidArgumentException(sprintf('Invalid type "%s" provided, valid ones are: %s', $type, implode(', ', self::VALID_TYPES)));
+            throw new \InvalidArgumentException(\sprintf('Invalid type "%s" provided, valid ones are: %s', $type, implode(', ', self::VALID_TYPES)));
         }
 
         $this->type = $type;

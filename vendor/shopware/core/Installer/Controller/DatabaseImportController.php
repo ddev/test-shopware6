@@ -11,12 +11,12 @@ use Shopware\Core\Maintenance\System\Struct\DatabaseConnectionInformation;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class DatabaseImportController extends InstallerController
 {
     public function __construct(

@@ -20,16 +20,16 @@ use Symfony\Component\VarDumper\Cloner\Data;
  * @phpstan-import-type Backtrace from BacktraceDebugDataHolder
  * @phpstan-import-type QueryInfo from BacktraceDebugDataHolder
  *
- * @phpstan-type SanitizedQueryInfo array{sql: string, executionMS: float, types: array<(int | string), int>, params: Data, runnable: bool, explainable: bool, backtrace?: Backtrace}
- * @phpstan-type SanitizedQueryInfoGroup array{sql: string, executionMS: float, types: array<(int | string), int>, params: Data, runnable: bool, explainable: bool, backtrace?: Backtrace, count: int, index: int, executionPercent?: float}
+ * @phpstan-type SanitizedQueryInfo array{sql: string, executionMS: float, types: array<(int | string), \Doctrine\DBAL\ParameterType|int>, params: Data, runnable: bool, explainable: bool, backtrace?: Backtrace}
+ * @phpstan-type SanitizedQueryInfoGroup array{sql: string, executionMS: float, types: array<(int | string), \Doctrine\DBAL\ParameterType|int>, params: Data, runnable: bool, explainable: bool, backtrace?: Backtrace, count: int, index: int, executionPercent?: float}
  */
-#[Package('core')]
+#[Package('framework')]
 class ConnectionProfiler extends DataCollector implements LateDataCollectorInterface
 {
     private ?BacktraceDebugDataHolder $dataHolder = null;
 
     /**
-     * @var ?array<string, array<string, SanitizedQueryInfoGroup>>
+     * @var ?array<string, array<int, SanitizedQueryInfoGroup>>
      */
     private ?array $groupedQueries = null;
 
@@ -127,7 +127,7 @@ class ConnectionProfiler extends DataCollector implements LateDataCollectorInter
     }
 
     /**
-     * @return array<string, array<string, SanitizedQueryInfoGroup>>
+     * @return array<string, array<int, SanitizedQueryInfoGroup>>
      */
     public function getGroupedQueries(): array
     {
@@ -153,14 +153,13 @@ class ConnectionProfiler extends DataCollector implements LateDataCollectorInter
                 $totalExecutionMS += $query['executionMS'];
             }
 
-            usort($connectionGroupedQueries, static fn ($a, $b) => $b['executionMS'] <=> $a['executionMS']);
+            usort($connectionGroupedQueries, static fn (array $a, array $b): int => $b['executionMS'] <=> $a['executionMS']);
             $this->groupedQueries[$connection] = $connectionGroupedQueries;
         }
 
         foreach ($this->groupedQueries as $connection => $queries) {
             foreach ($queries as $i => $query) {
-                $this->groupedQueries[$connection][$i]['executionPercent']
-                    = $this->executionTimePercentage($query['executionMS'], $totalExecutionMS);
+                $this->groupedQueries[$connection][$i]['executionPercent'] = $this->executionTimePercentage($query['executionMS'], $totalExecutionMS);
             }
         }
 
@@ -234,8 +233,7 @@ class ConnectionProfiler extends DataCollector implements LateDataCollectorInter
 
                     try {
                         $param = $type->convertToDatabaseValue($param, $this->connection->getDatabasePlatform());
-                    } catch (\TypeError $e) { // @phpstan-ignore-line
-                    } catch (ConversionException $e) {
+                    } catch (\TypeError|ConversionException) {
                     }
                 }
             }
@@ -287,7 +285,7 @@ class ConnectionProfiler extends DataCollector implements LateDataCollectorInter
         }
 
         if (\is_resource($var)) {
-            return [sprintf('/* Resource(%s) */', get_resource_type($var)), false, false];
+            return [\sprintf('/* Resource(%s) */', get_resource_type($var)), false, false];
         }
 
         return [$var, true, true];

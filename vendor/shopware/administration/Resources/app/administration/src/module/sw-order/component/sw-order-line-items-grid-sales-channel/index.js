@@ -3,17 +3,20 @@ import { LineItemType } from '../../order.types';
 import './sw-order-line-items-grid-sales-channel.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
-const { Utils, State, Service } = Shopware;
+const { Utils, Store, Service } = Shopware;
 const { get, format } = Utils;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['feature'],
+    emits: [
+        'on-save-item',
+        'on-remove-items',
+    ],
 
     props: {
         salesChannelId: {
@@ -41,6 +44,18 @@ export default {
             type: Boolean,
             default: false,
         },
+
+        title: {
+            type: String,
+            required: false,
+            default: '',
+        },
+
+        positionIdentifier: {
+            type: String,
+            required: false,
+            default: 'sw-order-line-items-grid-sales-channel',
+        },
     },
 
     data() {
@@ -61,13 +76,13 @@ export default {
             }
 
             // Filter based on the product label is not blank and contains the search term or not
-            const keyWords = this.searchTerm.split(/[\W_]+/ig);
-            return this.cart.lineItems.filter(item => {
+            const keyWords = this.searchTerm.split(/[\W_]+/gi);
+            return this.cart.lineItems.filter((item) => {
                 if (!item.label) {
                     return false;
                 }
 
-                return keyWords.every(key => item.label.toLowerCase().includes(key.toLowerCase()));
+                return keyWords.every((key) => item.label.toLowerCase().includes(key.toLowerCase()));
             });
         },
 
@@ -76,7 +91,7 @@ export default {
         },
 
         isCartTokenAvailable() {
-            return State.getters['swOrder/isCartTokenAvailable'];
+            return Store.get('swOrder').isCartTokenAvailable;
         },
 
         isAddNewItemButtonDisabled() {
@@ -100,31 +115,35 @@ export default {
         },
 
         getLineItemColumns() {
-            const columnDefinitions = [{
-                property: 'quantity',
-                dataIndex: 'quantity',
-                label: this.$tc('sw-order.createBase.columnQuantity'),
-                allowResize: false,
-                align: 'right',
-                inlineEdit: true,
-                width: '80px',
-            }, {
-                property: 'label',
-                dataIndex: 'label',
-                label: this.$tc('sw-order.createBase.columnProductName'),
-                allowResize: false,
-                primary: true,
-                inlineEdit: true,
-                multiLine: true,
-            }, {
-                property: 'unitPrice',
-                dataIndex: 'unitPrice',
-                label: this.unitPriceLabel,
-                allowResize: false,
-                align: 'right',
-                inlineEdit: true,
-                width: '120px',
-            }];
+            const columnDefinitions = [
+                {
+                    property: 'quantity',
+                    dataIndex: 'quantity',
+                    label: this.$tc('sw-order.createBase.columnQuantity'),
+                    allowResize: false,
+                    align: 'right',
+                    inlineEdit: true,
+                    width: '80px',
+                },
+                {
+                    property: 'label',
+                    dataIndex: 'label',
+                    label: this.$tc('sw-order.createBase.columnProductName'),
+                    allowResize: false,
+                    primary: true,
+                    inlineEdit: true,
+                    multiLine: true,
+                },
+                {
+                    property: 'unitPrice',
+                    dataIndex: 'unitPrice',
+                    label: this.unitPriceLabel,
+                    allowResize: false,
+                    align: 'right',
+                    inlineEdit: true,
+                    width: '120px',
+                },
+            ];
 
             if (this.taxStatus !== 'tax-free') {
                 columnDefinitions.push({
@@ -137,16 +156,20 @@ export default {
                 });
             }
 
-            return [...columnDefinitions, {
-                property: 'totalPrice',
-                dataIndex: 'totalPrice',
-                label: this.taxStatus === 'gross' ?
-                    this.$tc('sw-order.createBase.columnTotalPriceGross') :
-                    this.$tc('sw-order.createBase.columnTotalPriceNet'),
-                allowResize: false,
-                align: 'right',
-                width: '80px',
-            }];
+            return [
+                ...columnDefinitions,
+                {
+                    property: 'totalPrice',
+                    dataIndex: 'totalPrice',
+                    label:
+                        this.taxStatus === 'gross'
+                            ? this.$tc('sw-order.createBase.columnTotalPriceGross')
+                            : this.$tc('sw-order.createBase.columnTotalPriceNet'),
+                    allowResize: false,
+                    align: 'right',
+                    width: '80px',
+                },
+            ];
         },
 
         assetFilter() {
@@ -213,7 +236,7 @@ export default {
             const item = this.createNewOrderLineItem();
             item.type = this.lineItemTypes.PRODUCT;
             this.cartLineItems.unshift(item);
-            State.commit('swOrder/setCartLineItems', this.cartLineItems);
+            Store.get('swOrder').setCartLineItems(this.cartLineItems);
         },
 
         onInsertBlankItem() {
@@ -221,7 +244,7 @@ export default {
             item.description = 'custom line item';
             item.type = this.lineItemTypes.CUSTOM;
             this.cartLineItems.unshift(item);
-            State.commit('swOrder/setCartLineItems', this.cartLineItems);
+            Store.get('swOrder').setCartLineItems(this.cartLineItems);
         },
 
         onInsertCreditItem() {
@@ -229,7 +252,7 @@ export default {
             item.description = 'credit line item';
             item.type = this.lineItemTypes.CREDIT;
             this.cartLineItems.unshift(item);
-            State.commit('swOrder/setCartLineItems', this.cartLineItems);
+            Store.get('swOrder').setCartLineItems(this.cartLineItems);
         },
 
         onSelectionChanged(selection) {
@@ -239,9 +262,9 @@ export default {
         onDeleteSelectedItems() {
             const selectedIds = [];
 
-            Object.keys(this.selectedItems).forEach(key => {
+            Object.keys(this.selectedItems).forEach((key) => {
                 if (this.selectedItems[key].label === '') {
-                    State.commit('swOrder/removeEmptyLineItem', key);
+                    Store.get('swOrder').removeEmptyLineItem(key);
                 } else {
                     selectedIds.push(key);
                 }
@@ -252,6 +275,14 @@ export default {
             }
 
             this.$refs.dataGrid.resetSelection();
+        },
+
+        onDeleteItem(item) {
+            if (item.label === '') {
+                Store.get('swOrder').removeEmptyLineItem(item.id);
+            } else {
+                this.$emit('on-remove-items', [item.id]);
+            }
         },
 
         itemCreatedFromProduct(item) {
@@ -286,7 +317,7 @@ export default {
         },
 
         showTaxValue(item) {
-            return (this.isCreditItem(item) || this.isPromotionItem(item)) && (item.price.taxRules.length > 1)
+            return (this.isCreditItem(item) || this.isPromotionItem(item)) && item.price.taxRules.length > 1
                 ? this.$tc('sw-order.createBase.textCreditTax')
                 : `${item.price.taxRules[0].taxRate} %`;
         },
@@ -306,10 +337,14 @@ export default {
             });
 
             const decorateTaxes = sortTaxes.map((taxItem) => {
-                return this.$tc('sw-order.createBase.taxDetail', 0, {
-                    taxRate: taxItem.taxRate,
-                    tax: format.currency(taxItem.tax, this.currency.shortName),
-                });
+                return this.$tc(
+                    'sw-order.createBase.taxDetail',
+                    {
+                        taxRate: taxItem.taxRate,
+                        tax: format.currency(taxItem.tax, this.currency.isoCode),
+                    },
+                    0,
+                );
             });
 
             return {

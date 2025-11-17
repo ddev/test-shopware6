@@ -6,14 +6,15 @@ use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('content')]
+#[Package('discovery')]
 class UrlParams extends Struct
 {
     public function __construct(
         public readonly string $id,
         public readonly UrlParamsSource $source,
         public readonly string $path,
-        public readonly ?\DateTimeInterface $updatedAt = null
+        public readonly ?\DateTimeInterface $updatedAt = null,
+        public readonly ?string $mimeType = null,
     ) {
     }
 
@@ -23,7 +24,8 @@ class UrlParams extends Struct
             id: $entity->getUniqueIdentifier(),
             source: UrlParamsSource::MEDIA,
             path: $entity->get('path'),
-            updatedAt: $entity->get('updatedAt') ?? $entity->get('createdAt')
+            updatedAt: $entity->get('updatedAt') ?? $entity->get('createdAt'),
+            mimeType: $entity->get('mimeType')
         );
     }
 

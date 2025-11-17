@@ -1,12 +1,13 @@
-import type { Entity } from '@shopware-ag/admin-extension-sdk/es/data/_internals/Entity';
-
-const { Context, Data, Service, State } = Shopware;
+/**
+ * @sw-package framework
+ */
+const { Context, Data, Service } = Shopware;
 const { Criteria } = Data;
 
 enum USER_CONFIG_PERMISSIONS {
     READ = 'user_config:read',
     CREATE = 'user_config:create',
-    UPDATE = 'user_config:update'
+    UPDATE = 'user_config:update',
 }
 
 abstract class UserConfigClass {
@@ -89,7 +90,7 @@ abstract class UserConfigClass {
         return userConfig;
     }
 
-    private getCriteria(configKey : string): InstanceType<typeof Criteria> {
+    private getCriteria(configKey: string): InstanceType<typeof Criteria> {
         const criteria = new Criteria(1, 25);
 
         criteria.addFilter(Criteria.equals('key', configKey));
@@ -99,7 +100,7 @@ abstract class UserConfigClass {
     }
 
     private getCurrentUserId(): string {
-        return State.get('session').currentUser.id;
+        return Shopware.Store.get('session').currentUser?.id ?? '';
     }
 }
 

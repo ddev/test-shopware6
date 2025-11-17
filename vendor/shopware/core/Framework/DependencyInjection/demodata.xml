@@ -15,7 +15,7 @@
         </service>
 
         <service id="Shopware\Core\Framework\Demodata\DemodataService">
-            <argument type="tagged" tag="shopware.demodata_generator" />
+            <argument type="tagged_iterator" tag="shopware.demodata_generator" />
             <argument>%kernel.project_dir%</argument>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
         </service>
@@ -83,12 +83,14 @@
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Indexing\InheritanceUpdater"/>
             <argument type="service" id="Shopware\Core\Content\Product\DataAbstractionLayer\StatesUpdater"/>
+
             <tag name="shopware.demodata_generator" option-name="products" option-default="1000"/>
         </service>
 
         <service id="Shopware\Core\Framework\Demodata\Generator\PromotionGenerator">
             <argument type="service" id="Doctrine\DBAL\Connection" />
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+
             <tag name="shopware.demodata_generator" option-name="promotions" option-default="50"/>
         </service>
 
@@ -151,6 +153,12 @@
             <argument type="service" id="Shopware\Core\Content\MailTemplate\Aggregate\MailHeaderFooter\MailHeaderFooterDefinition" />
 
             <tag name="shopware.demodata_generator" option-name="mail-header-footer" option-default="3" option-description="Mail header/footer count"/>
+        </service>
+
+        <service id="Shopware\Core\Framework\Demodata\Generator\SalesChannelDomainGenerator">
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry" />
+
+            <tag name="shopware.demodata_generator" option-name="sales-channel-domain" option-default="1"/>
         </service>
 
         <service id="Shopware\Core\Framework\Demodata\Generator\UserGenerator">

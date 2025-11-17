@@ -1,15 +1,12 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_promotion_v2_conditions %}
 <div class="sw-promotion-v2-conditions">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_promotion_v2_conditions_pre_conditions_card %}
-    <sw-card
+    <mt-card
         :title="$tc('sw-promotion-v2.detail.conditions.preConditions.cardTitlePreConditions')"
         position-identifier="sw-promotion-conditions-pre-conditions"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_promotion_v2_conditions_pre_conditions_sales_channel_selection %}
         <sw-promotion-v2-sales-channel-select
             class="sw-promotion-v2-conditions__sales-channel-selection"
@@ -21,22 +18,17 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_promotion_v2_conditions_pre_conditions_prevent_combination %}
-        <sw-switch-field
-            {% if VUE3 %}
-            v-model:value="promotion.preventCombination"
-            {% else %}
+
+        <mt-switch
             v-model="promotion.preventCombination"
-            {% endif %}
             class="sw-promotion-v2-conditions__prevent-combination"
             :disabled="!acl.can('promotion.editor')"
             :label="$tc('sw-promotion-v2.detail.conditions.preConditions.labelPreventCombination')"
-            :text="$tc('sw-promotion-v2.detail.conditions.preConditions.helpTextPreventCombination')"
+            :help-text="$tc('sw-promotion-v2.detail.conditions.preConditions.helpTextPreventCombination')"
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_promotion_v2_conditions_pre_conditions_exclusions %}
         <sw-entity-multi-select
             class="sw-promotion-v2-conditions__rules-exclusion-selection"
@@ -45,36 +37,26 @@
             :criteria="exclusionCriteria"
             :entity-collection="excludedPromotions"
             :disabled="!acl.can('promotion.editor') || promotion.preventCombination"
-            {% if VUE3 %}
             @update:entity-collection="onChangeExclusions"
-            {% else %}
-            @change="onChangeExclusions"
-            {% endif %}
         />
         {% endblock %}
 
-    </sw-card>
+    </mt-card>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_promotion_v2_rule_conditions_card %}
-    <sw-card
+    <mt-card
         :title="$tc('sw-promotion-v2.detail.conditions.preConditions.cardTitleRuleConditions')"
         position-identifier="sw-promotion-conditions-rules"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_promotion_v2_rule_conditions_rule_select_customer %}
-        <sw-promotion-v2-rule-select
+        <sw-select-rule-create
             v-if="promotion"
-            {% if VUE3 %}
-            v-model:collection="promotion.personaRules"
-            {% else %}
-            v-model="promotion.personaRules"
-            {% endif %}
+            v-model:rules="promotion.personaRules"
             class="sw-promotion-v2-conditions__rule-select-customer"
             :local-mode="promotion.isNew()"
-            :criteria="personaRuleFilter"
+            :rule-filter="personaRuleFilter"
             :label="$tc('sw-promotion-v2.detail.conditions.preConditions.labelCustomerSelect')"
             :placeholder="$tc('sw-promotion-v2.detail.conditions.preConditions.placeholderCustomerSelect')"
             :rule-scope="['checkout']"
@@ -83,7 +65,6 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_promotion_v2_rule_conditions_rule_select_cart_conditions %}
         <sw-promotion-v2-cart-condition-form
             :promotion="promotion"
@@ -91,26 +72,22 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_promotion_v2_rule_conditions_rule_select_order_conditions %}
-        <sw-promotion-v2-rule-select
+        <sw-select-rule-create
             v-if="promotion"
-            {% if VUE3 %}
-            v-model:collection="promotion.orderRules"
-            {% else %}
-            v-model="promotion.orderRules"
-            {% endif %}
+            v-model:rules="promotion.orderRules"
             class="sw-promotion-v2-conditions__rule-select-order-conditions"
+            :local-mode="promotion.isNew()"
             :label="$tc('sw-promotion-v2.detail.conditions.preConditions.labelOrderConditionSelect')"
             :placeholder="$tc('sw-promotion-v2.detail.conditions.preConditions.placeholderOrderConditionSelect')"
-            :criteria="orderConditionsFilter"
+            :rule-filter="orderConditionsFilter"
             :rule-scope="['checkout']"
             :disabled="!acl.can('promotion.editor')"
             rule-aware-group-key="orderPromotions"
         />
         {% endblock %}
 
-    </sw-card>
+    </mt-card>
     {% endblock %}
 
 </div>

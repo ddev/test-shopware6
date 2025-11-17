@@ -6,7 +6,10 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+/**
+ * @deprecated tag:v6.8.0 - reason:remove-exception - Will be removed. Use \Shopware\Core\Framework\Plugin\PluginException::pluginComposerRemove instead
+ */
+#[Package('framework')]
 class PluginComposerRemoveException extends ShopwareHttpException
 {
     public function __construct(
@@ -15,7 +18,7 @@ class PluginComposerRemoveException extends ShopwareHttpException
         string $output
     ) {
         parent::__construct(
-            sprintf('Could not execute "composer remove" for plugin "{{ pluginName }} ({{ pluginComposerName }}). Output:%s{{ output }}', \PHP_EOL),
+            \sprintf('Could not execute "composer remove" for plugin "{{ pluginName }} ({{ pluginComposerName }}). Output:%s{{ output }}', \PHP_EOL),
             [
                 'pluginName' => $pluginName,
                 'pluginComposerName' => $pluginComposerName,

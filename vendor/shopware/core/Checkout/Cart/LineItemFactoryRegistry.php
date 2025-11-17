@@ -18,7 +18,7 @@ use Symfony\Component\Validator\Constraints\Type;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
- * @final tag:v6.6.0
+ * @final
  */
 #[Package('checkout')]
 class LineItemFactoryRegistry
@@ -85,9 +85,13 @@ class LineItemFactoryRegistry
         $handler = $this->getHandler($data['type'] ?? '');
 
         if (isset($data['quantity'])) {
+            $beforeUpdateQuantity = $lineItem->getQuantity();
+
             $lineItem->setQuantity($data['quantity']);
 
-            $this->eventDispatcher->dispatch(new BeforeLineItemQuantityChangedEvent($lineItem, $cart, $context));
+            $event = new BeforeLineItemQuantityChangedEvent($lineItem, $cart, $context, $beforeUpdateQuantity);
+
+            $this->eventDispatcher->dispatch($event);
         }
 
         $lineItem->markModified();
@@ -125,7 +129,7 @@ class LineItemFactoryRegistry
             ->add('removable', new Type('bool'))
             ->add('label', new Type('string'))
             ->add('referencedId', new Type('string'))
-            ->add('coverId', new Type('string'), new EntityExists(['entity' => MediaDefinition::ENTITY_NAME, 'context' => Context::createDefaultContext()]))
+            ->add('coverId', new Type('string'), new EntityExists(entity: MediaDefinition::ENTITY_NAME, context: Context::createDefaultContext()))
             ->addSub(
                 'priceDefinition',
                 (new DataValidationDefinition())

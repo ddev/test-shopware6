@@ -1,7 +1,7 @@
 import Plugin from 'src/plugin-system/plugin.class';
 
 /**
- * @package content
+ * @package framework
  */
 export default class FormAddHistoryPlugin extends Plugin {
 
@@ -15,7 +15,7 @@ export default class FormAddHistoryPlugin extends Plugin {
 
     pushHistoryEntries() {
         this.options.entries.forEach(({ state = {}, title, url = undefined }) => {
-            history.pushState(state, title, url )
-        })
+            history.pushState(state, title, url );
+        });
     }
 }

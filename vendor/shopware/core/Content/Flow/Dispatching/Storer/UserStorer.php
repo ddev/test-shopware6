@@ -9,17 +9,19 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Event\FlowEventAware;
 use Shopware\Core\Framework\Event\UserAware;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\System\User\Aggregate\UserRecovery\UserRecoveryCollection;
 use Shopware\Core\System\User\Aggregate\UserRecovery\UserRecoveryDefinition;
 use Shopware\Core\System\User\Aggregate\UserRecovery\UserRecoveryEntity;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('services-settings')]
+#[Package('after-sales')]
 class UserStorer extends FlowStorer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<UserRecoveryCollection> $userRecoveryRepository
      */
     public function __construct(
         private readonly EntityRepository $userRecoveryRepository,
@@ -50,25 +52,6 @@ class UserStorer extends FlowStorer
         );
     }
 
-    /**
-     * @param array<int, mixed> $args
-     *
-     * @deprecated tag:v6.6.0 - Will be removed in v6.6.0.0
-     */
-    public function load(array $args): ?UserRecoveryEntity
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6_6_0_0',
-            Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0.0')
-        );
-
-        [$id, $context] = $args;
-
-        $criteria = new Criteria([$id]);
-
-        return $this->loadUserRecovery($criteria, $context, $id);
-    }
-
     private function lazyLoad(StorableFlow $storableFlow): ?UserRecoveryEntity
     {
         $id = $storableFlow->getStore(UserAware::USER_RECOVERY_ID);
@@ -93,10 +76,9 @@ class UserStorer extends FlowStorer
 
         $this->dispatcher->dispatch($event, $event->getName());
 
-        $user = $this->userRecoveryRepository->search($criteria, $context)->get($id);
+        $user = $this->userRecoveryRepository->search($criteria, $context)->getEntities()->get($id);
 
         if ($user) {
-            /** @var UserRecoveryEntity $user */
             return $user;
         }
 

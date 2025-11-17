@@ -2,7 +2,7 @@ import template from './sw-order-details-state-card.html.twig';
 import './sw-order-details-state-card.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Criteria } = Shopware.Data;
@@ -17,6 +17,12 @@ export default {
         'orderStateMachineService',
         'stateMachineService',
         'stateStyleDataProviderService',
+        'swOrderDetailAskAndSaveEdits',
+    ],
+
+    emits: [
+        'show-status-history',
+        'save-edits',
     ],
 
     mixins: [
@@ -52,6 +58,11 @@ export default {
             required: false,
             default: false,
         },
+        position: {
+            type: String,
+            required: false,
+            default: '',
+        },
     },
 
     data() {
@@ -79,10 +90,7 @@ export default {
             criteria.addSorting({ field: 'name', order: 'ASC' });
             criteria.addAssociation('stateMachine');
             criteria.addFilter(
-                Criteria.equals(
-                    'state_machine_state.stateMachine.technicalName',
-                    `${this.entityName}.state`,
-                ),
+                Criteria.equals('state_machine_state.stateMachine.technicalName', `${this.entityName}.state`),
             );
 
             return criteria;
@@ -91,9 +99,10 @@ export default {
         stateMachineHistoryCriteria() {
             const criteria = new Criteria(1, 1);
 
-            criteria.addFilter(Criteria.equals('entityId.id', this.entity.id));
+            criteria.addFilter(Criteria.equals('referencedId', this.entity.id));
             criteria.addFilter(Criteria.equals('entityName', this.entityName));
             criteria.addAssociation('user');
+            criteria.addAssociation('integration');
             criteria.addSorting({ field: 'createdAt', order: 'DESC' });
 
             return criteria;
@@ -110,10 +119,8 @@ export default {
         stateSelectBackgroundStyle() {
             const technicalName = this.entity.stateMachineState.technicalName;
 
-            return this.stateStyleDataProviderService.getStyle(
-                `${this.entityName}.state`,
-                technicalName,
-            ).selectBackgroundStyle;
+            return this.stateStyleDataProviderService.getStyle(`${this.entityName}.state`, technicalName)
+                .selectBackgroundStyle;
         },
 
         stateTransitionMethod() {
@@ -127,6 +134,26 @@ export default {
                 default:
                     return null;
             }
+        },
+
+        cardPosition() {
+            if (!this.position) {
+                return 'sw-order-details-state';
+            }
+
+            return `sw-order-details-state-${this.position}`;
+        },
+
+        lastChangeAuthorLabel() {
+            if (this.lastStateChange?.user) {
+                return `${this.lastStateChange.user.firstName} ${this.lastStateChange.user.lastName}`;
+            }
+            if (this.lastStateChange?.integration) {
+                const integrationLabel = this.lastStateChange.integration.label;
+                return `${integrationLabel} (${this.$t('sw-order.stateCard.labelIntegration')})`;
+            }
+
+            return this.$t('sw-order.stateCard.labelSystemUser');
         },
     },
 
@@ -151,10 +178,7 @@ export default {
                 this.stateMachineStateRepository.search(this.stateMachineStateCriteria),
                 this.stateMachineService.getState(this.entityName, this.entity.id),
             ]).then((data) => {
-                this.stateOptions = this.buildTransitionOptions(
-                    data[0],
-                    data[1].data.transitions,
-                );
+                this.stateOptions = this.buildTransitionOptions(data[0], data[1].data.transitions);
 
                 this.statesLoading = false;
                 return Promise.resolve();
@@ -185,9 +209,14 @@ export default {
             return options;
         },
 
-        onStateSelected(stateType, actionName) {
+        async onStateSelected(stateType, actionName) {
             if (!stateType || !actionName) {
                 this.createStateChangeErrorNotification(this.$tc('sw-order.stateCard.labelErrorNoAction'));
+                return;
+            }
+
+            const proceed = await this.swOrderDetailAskAndSaveEdits();
+            if (!proceed) {
                 return;
             }
 
@@ -210,19 +239,21 @@ export default {
         onLeaveModalConfirm(docIds, sendMail = true) {
             this.showStateChangeModal = false;
 
-            this.stateTransitionMethod(
-                this.entity.id,
-                this.currentActionName,
-                { documentIds: docIds, sendMail },
-            ).then(() => {
-                this.getLastChange();
-
-                return this.getTransitionOptions();
-            }).then(() => {
-                this.$emit('save-edits');
-            }).catch((error) => {
-                this.createStateChangeErrorNotification(error);
+            this.stateTransitionMethod(this.entity.id, this.currentActionName, {
+                documentIds: docIds,
+                sendMail,
             })
+                .then(() => {
+                    this.getLastChange();
+
+                    return this.getTransitionOptions();
+                })
+                .then(() => {
+                    this.$emit('save-edits');
+                })
+                .catch((error) => {
+                    this.createStateChangeErrorNotification(error);
+                })
                 .finally(() => {
                     this.stateChangeModalConfirmed = false;
                     this.currentActionName = null;
@@ -242,5 +273,4 @@ export default {
             });
         },
     },
-
 };

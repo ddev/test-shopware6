@@ -10,13 +10,14 @@ use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
-use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\InheritanceUpdater;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Demodata\DemodataContext;
+use Shopware\Core\Framework\Demodata\DemodataException;
 use Shopware\Core\Framework\Demodata\DemodataGeneratorInterface;
+use Shopware\Core\Framework\Demodata\DemodataService;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Random;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -68,7 +69,7 @@ class ProductGenerator implements DemodataGeneratorInterface
         $taxes = $this->getTaxes($context);
 
         if ($taxes->count() === 0) {
-            throw new \RuntimeException('This demo data command should be executed after the original demo data was executed at least one time');
+            throw DemodataException::wrongExecutionOrder();
         }
 
         $properties = $this->getProperties();
@@ -192,7 +193,7 @@ class ProductGenerator implements DemodataGeneratorInterface
             $id = Uuid::randomHex();
             $variants[] = [
                 'id' => $id,
-                'productNumber' => $id,
+                'productNumber' => 'SW_' . $id,
                 'price' => [['currencyId' => Defaults::CURRENCY, 'gross' => $price, 'net' => $price / $taxRate, 'linked' => true]],
                 'active' => true,
                 'stock' => $this->faker->numberBetween(1, 50),
@@ -210,9 +211,9 @@ class ProductGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @param string[][]|string[] $downloadMediaIds
+     * @param list<string>|list<array<string, string>> $downloadMediaIds
      *
-     * @return array<string, mixed>
+     * @return array{downloads: list<array{id: string, mediaId: string, position: int}>, maxPurchase: 1, deliveryTimeId: string|null}
      */
     private function buildDownloads(array $downloadMediaIds, ?string $instantDeliveryId): array
     {
@@ -259,15 +260,17 @@ class ProductGenerator implements DemodataGeneratorInterface
 
     private function getTaxes(Context $context): TaxCollection
     {
-        /** @var EntityRepository<TaxCollection> $taxRepository */
         $taxRepository = $this->registry->getRepository('tax');
 
-        return $taxRepository->search(new Criteria(), $context)->getEntities();
+        $taxCollection = $taxRepository->search(new Criteria(), $context)->getEntities();
+        \assert($taxCollection instanceof TaxCollection);
+
+        return $taxCollection;
     }
 
     /**
-     * @param list<string> $manufacturer
-     * @param list<string> $tags
+     * @param array<string> $manufacturer
+     * @param array<string> $tags
      *
      * @return array<string, mixed>
      */
@@ -284,7 +287,7 @@ class ProductGenerator implements DemodataGeneratorInterface
 
         return [
             'id' => Uuid::randomHex(),
-            'productNumber' => Uuid::randomHex(),
+            'productNumber' => 'SW_' . Uuid::randomHex(),
             'price' => [['currencyId' => Defaults::CURRENCY, 'gross' => $price, 'net' => $price / $taxRate, 'linked' => true]],
             'purchasePrices' => [['currencyId' => Defaults::CURRENCY, 'gross' => $purchasePrice, 'net' => $purchasePrice / $taxRate, 'linked' => true]],
             'name' => $this->faker->format('productName'),
@@ -297,11 +300,12 @@ class ProductGenerator implements DemodataGeneratorInterface
             'categories' => $this->getCategoryIds(),
             'tags' => $this->getTags($tags),
             'stock' => $this->faker->numberBetween(1, 50),
+            'customFields' => [DemodataService::DEMODATA_CUSTOM_FIELDS_KEY => true],
         ];
     }
 
     /**
-     * @param list<string> $rules
+     * @param array<string> $rules
      *
      * @return list<array<string, mixed>>
      */
@@ -345,7 +349,7 @@ class ProductGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @param list<string> $tags
+     * @param array<string> $tags
      *
      * @return array<array{id: string}>
      */
@@ -383,7 +387,7 @@ class ProductGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array<array{salesChannelId: string, visibility: ProductVisibilityDefinition::VISIBILITY_ALL}>
      */
     private function buildVisibilities(): array
     {
@@ -393,7 +397,7 @@ class ProductGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @return list<string>
+     * @return list<string>|list<array<string, string>>
      */
     private function getMediaIds(string $entity = 'product'): array
     {
@@ -403,10 +407,7 @@ class ProductGenerator implements DemodataGeneratorInterface
         $criteria->addFilter(new EqualsFilter('mediaFolder.defaultFolder.entity', $entity));
         $criteria->setLimit(500);
 
-        /** @var list<string> $ids */
-        $ids = $repository->searchIds($criteria, Context::createDefaultContext())->getIds();
-
-        return $ids;
+        return $repository->searchIds($criteria, Context::createDefaultContext())->getIds();
     }
 
     /**

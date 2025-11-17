@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Framework\Struct;
 
+use Shopware\Core\Framework\FrameworkException;
 use Shopware\Core\Framework\Log\Package;
 
 /**
@@ -9,16 +10,16 @@ use Shopware\Core\Framework\Log\Package;
  *
  * @implements \IteratorAggregate<array-key, TElement>
  */
-#[Package('core')]
+#[Package('framework')]
 abstract class Collection extends Struct implements \IteratorAggregate, \Countable
 {
     /**
      * @var array<array-key, TElement>
      */
-    protected $elements = [];
+    protected array $elements = [];
 
     /**
-     * @param array<TElement> $elements
+     * @param iterable<TElement> $elements
      */
     public function __construct(iterable $elements = [])
     {
@@ -71,6 +72,9 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
         $this->elements = [];
     }
 
+    /**
+     * @phpstan-impure
+     */
     public function count(): int
     {
         return \count($this->elements);
@@ -93,7 +97,7 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
     }
 
     /**
-     * @return list<mixed>
+     * @return array<array-key, mixed>
      */
     public function map(\Closure $closure): array
     {
@@ -101,7 +105,7 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
     }
 
     /**
-     * @param  mixed|null        $initial
+     * @param mixed|null $initial
      *
      * @return mixed|null
      */
@@ -125,37 +129,20 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
 
     /**
      * @param class-string $class
-     *
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
-     * @return static
      */
-    #[\ReturnTypeWillChange]
-    public function filterInstance(string $class)
+    public function filterInstance(string $class): static
     {
         return $this->filter(static function ($item) use ($class) {
             return $item instanceof $class;
         });
     }
 
-    /**
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
-     * @return static
-     */
-    #[\ReturnTypeWillChange]
-    public function filter(\Closure $closure)
+    public function filter(\Closure $closure): static
     {
         return $this->createNew(array_filter($this->elements, $closure));
     }
 
-    /**
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
-     * @return static
-     */
-    #[\ReturnTypeWillChange]
-    public function slice(int $offset, ?int $length = null)
+    public function slice(int $offset, ?int $length = null): static
     {
         return $this->createNew(\array_slice($this->elements, $offset, $length, true));
     }
@@ -168,9 +155,6 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
         return $this->elements;
     }
 
-    /**
-     * @return list<TElement>
-     */
     public function jsonSerialize(): array
     {
         return array_values($this->elements);
@@ -181,7 +165,21 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
      */
     public function first()
     {
-        return array_values($this->elements)[0] ?? null;
+        return $this->elements[array_key_first($this->elements)] ?? null;
+    }
+
+    /**
+     * @return TElement|null
+     */
+    public function firstWhere(\Closure $closure)
+    {
+        foreach ($this->elements as $element) {
+            if ($closure($element)) {
+                return $element;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -197,7 +195,7 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
      */
     public function last()
     {
-        return array_values($this->elements)[\count($this->elements) - 1] ?? null;
+        return $this->elements[array_key_last($this->elements)] ?? null;
     }
 
     /**
@@ -209,7 +207,7 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
     }
 
     /**
-     * @return \Generator<TElement>
+     * @return \Traversable<TElement>
      */
     public function getIterator(): \Traversable
     {
@@ -226,13 +224,8 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
 
     /**
      * @param iterable<TElement> $elements
-     *
-     * tag v6.6.0 Return type will be natively typed to `static`
-     *
-     * @return static
      */
-    #[\ReturnTypeWillChange]
-    protected function createNew(iterable $elements = [])
+    protected function createNew(iterable $elements = []): static
     {
         return new static($elements);
     }
@@ -248,11 +241,7 @@ abstract class Collection extends Struct implements \IteratorAggregate, \Countab
         }
 
         if (!$element instanceof $expectedClass) {
-            $elementClass = $element::class;
-
-            throw new \InvalidArgumentException(
-                sprintf('Expected collection element of type %s got %s', $expectedClass, $elementClass)
-            );
+            throw FrameworkException::collectionElementInvalidType($expectedClass, $element::class);
         }
     }
 }

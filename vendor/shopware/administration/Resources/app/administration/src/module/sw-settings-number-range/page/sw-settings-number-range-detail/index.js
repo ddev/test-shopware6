@@ -1,10 +1,14 @@
 /**
- * @package inventory
+ * @sw-package inventory
  */
 import template from './sw-settings-number-range-detail.html.twig';
 import './sw-settings-number-range-detail.scss';
 
-const { Component, Mixin, Data: { Criteria } } = Shopware;
+const {
+    Component,
+    Mixin,
+    Data: { Criteria },
+} = Shopware;
 const { mapPropertyErrors } = Component.getComponentHelper();
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -57,14 +61,14 @@ export default {
         },
 
         disableNumberRangeTypeSelect() {
-            return this.numberRange.type.global ||
-              this.numberRange.global ||
-              (
-                  this.numberRange.type !== null &&
-                  this.numberRange.numberRangeSalesChannels &&
-                  this.numberRange.numberRangeSalesChannels.length > 0
-              ) ||
-              !this.acl.can('number_ranges.editor');
+            return (
+                this.numberRange.type.global ||
+                this.numberRange.global ||
+                (this.numberRange.type !== null &&
+                    this.numberRange.numberRangeSalesChannels &&
+                    this.numberRange.numberRangeSalesChannels.length > 0) ||
+                !this.acl.can('number_ranges.editor')
+            );
         },
 
         numberRangeRepository() {
@@ -87,13 +91,9 @@ export default {
         numberRangeTypeCriteria() {
             const criteria = new Criteria(1, 25);
 
-            criteria.addFilter(
-                Criteria.equals('global', false),
-            );
+            criteria.addFilter(Criteria.equals('global', false));
 
-            criteria.addSorting(
-                Criteria.sort('typeName', 'ASC'),
-            );
+            criteria.addSorting(Criteria.sort('typeName', 'ASC'));
 
             return criteria;
         },
@@ -101,13 +101,9 @@ export default {
         numberRangeTypeCriteriaGlobal() {
             const criteria = new Criteria(1, 25);
 
-            criteria.addFilter(
-                Criteria.equals('global', true),
-            );
+            criteria.addFilter(Criteria.equals('global', true));
 
-            criteria.addSorting(
-                Criteria.sort('typeName', 'ASC'),
-            );
+            criteria.addSorting(Criteria.sort('typeName', 'ASC'));
 
             return criteria;
         },
@@ -116,18 +112,12 @@ export default {
             const criteria = new Criteria(1, 25);
 
             criteria.addFilter(
-                Criteria.multi(
-                    'OR',
-                    [
-                        Criteria.equals('numberRangeSalesChannels.numberRange.id', this.numberRange.id),
-                        Criteria.not(
-                            'OR',
-                            [
-                                Criteria.equals('numberRangeSalesChannels.numberRangeTypeId', this.numberRange.typeId),
-                            ],
-                        ),
-                    ],
-                ),
+                Criteria.multi('OR', [
+                    Criteria.equals('numberRangeSalesChannels.numberRange.id', this.numberRange.id),
+                    Criteria.not('OR', [
+                        Criteria.equals('numberRangeSalesChannels.numberRangeTypeId', this.numberRange.typeId),
+                    ]),
+                ]),
             );
 
             criteria.addAssociation('numberRangeSalesChannels');
@@ -181,7 +171,30 @@ export default {
             return this.customFieldSets && this.customFieldSets.length > 0;
         },
 
-        ...mapPropertyErrors('numberRange', ['name', 'typeId']),
+        ...mapPropertyErrors('numberRange', [
+            'name',
+            'typeId',
+        ]),
+
+        stateInput: {
+            get() {
+                return String(this.state);
+            },
+
+            set(value) {
+                this.state = Number(value);
+            },
+        },
+
+        previewInput: {
+            get() {
+                return String(this.preview);
+            },
+
+            set(value) {
+                this.preview = Number(value);
+            },
+        },
     },
 
     watch: {
@@ -202,8 +215,11 @@ export default {
             this.isLoading = true;
 
             if (this.$route.params.id && this.numberRange.isLoading !== true) {
-                this.numberRangeId = this.$route.params.id;
-                await Promise.all([this.loadEntityData(), this.loadCustomFieldSets()]);
+                this.numberRangeId = this.$route.params.id.toLowerCase();
+                await Promise.all([
+                    this.loadEntityData(),
+                    this.loadCustomFieldSets(),
+                ]);
             }
 
             this.isLoading = false;
@@ -215,6 +231,7 @@ export default {
                 Shopware.Context.api,
                 this.numberRangeCriteria,
             );
+
             this.getState();
             this.splitPattern();
             await this.loadSalesChannels();
@@ -230,17 +247,17 @@ export default {
             if (this.numberRange.pattern === '') {
                 return;
             }
-            const regex = /([^{}]*)({[^{}]*?})([^{}]*)/ig;
+            const regex = /([^{}]*)({[^{}]*?})([^{}]*)/gi;
             const patternCheck = regex.exec(this.numberRange.pattern);
             if (
-                patternCheck
-                && patternCheck.length === 4
-                && patternCheck[2] === '{n}'
-                && this.numberRange.pattern.match(regex).length === 1
+                patternCheck &&
+                patternCheck.length === 4 &&
+                patternCheck[2] === '{n}' &&
+                this.numberRange.pattern.match(regex).length === 1
             ) {
                 // valid for simpleFormat
-                this.prefix = (patternCheck[1] ? patternCheck[1] : '');
-                this.suffix = (patternCheck[3] ? patternCheck[3] : '');
+                this.prefix = patternCheck[1] ? patternCheck[1] : '';
+                this.suffix = patternCheck[3] ? patternCheck[3] : '';
                 this.simplePossible = true;
             } else {
                 this.advanced = true;
@@ -249,21 +266,23 @@ export default {
         },
 
         getPreview() {
-            return this.numberRangeService.previewPattern(
-                this.numberRange.type.technicalName,
-                this.numberRange.pattern,
-                this.numberRange.start,
-            ).then((response) => {
-                this.preview = response.number;
-            });
+            if (!this.numberRange.type.technicalName) {
+                return Promise.resolve();
+            }
+
+            return this.numberRangeService
+                .previewPattern(this.numberRange.type.technicalName, this.numberRange.pattern, this.numberRange.start)
+                .then((response) => {
+                    this.preview = response.number;
+                });
         },
 
         getState() {
-            return this.numberRangeService.previewPattern(
-                this.numberRange.type.technicalName,
-                '{n}',
-                0,
-            ).then((response) => {
+            if (!this.numberRange.type.technicalName) {
+                return Promise.resolve();
+            }
+
+            return this.numberRangeService.previewPattern(this.numberRange.type.technicalName, '{n}', 0).then((response) => {
                 if (response.number > 1) {
                     this.state = response.number - 1;
                     return Promise.resolve();
@@ -275,10 +294,9 @@ export default {
         },
 
         loadSalesChannels() {
-            return this.salesChannelRepository.search(this.salesChannelCriteria)
-                .then((salesChannel) => {
-                    this.salesChannels = salesChannel;
-                });
+            return this.salesChannelRepository.search(this.salesChannelCriteria).then((salesChannel) => {
+                this.salesChannels = salesChannel;
+            });
         },
 
         onSave() {
@@ -293,31 +311,29 @@ export default {
             this.onChangePattern();
 
             if (!this.numberRange.pattern) {
-                this.createNotificationError(
-                    {
-                        message: this.$tc('sw-settings-number-range.detail.errorPatternNeededMessage'),
-                    },
-                );
+                this.createNotificationError({
+                    message: this.$tc('sw-settings-number-range.detail.errorPatternNeededMessage'),
+                });
                 return false;
             }
 
             if (this.state > 1 && this.state >= this.numberRange.start) {
-                this.createNotificationInfo(
-                    {
-                        message: this.$tc('sw-settings-number-range.detail.infoStartDecrementMessage'),
-                    },
-                );
+                this.createNotificationInfo({
+                    message: this.$tc('sw-settings-number-range.detail.infoStartDecrementMessage'),
+                });
             }
 
             this.isLoading = true;
 
-            return this.numberRangeRepository.save(this.numberRange).then(() => {
-                this.isSaveSuccessful = true;
-            })
+            return this.numberRangeRepository
+                .save(this.numberRange)
+                .then(() => {
+                    this.isSaveSuccessful = true;
+                })
                 .catch((exception) => {
                     this.isLoading = false;
                     this.createNotificationError({
-                        message: this.$tc('sw-settings-number-range.detail.messageSaveError', 0, { name: numberRangeName }),
+                        message: this.$tc('sw-settings-number-range.detail.messageSaveError', { name: numberRangeName }, 0),
                     });
                     throw exception;
                 })
@@ -399,17 +415,9 @@ export default {
 
         noSalesChannelSelected() {
             return (
-                (
-                    this.numberRange.global === false &&
-                    (
-                        this.numberRange.type.global === false ||
-                        this.numberRange.type.global === null
-                    )
-                ) &&
-                (
-                    !this.numberRange.numberRangeSalesChannels ||
-                    this.numberRange.numberRangeSalesChannels.length === 0
-                )
+                this.numberRange.global === false &&
+                (this.numberRange.type.global === false || this.numberRange.type.global === null) &&
+                (!this.numberRange.numberRangeSalesChannels || this.numberRange.numberRangeSalesChannels.length === 0)
             );
         },
     },

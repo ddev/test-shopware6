@@ -13,7 +13,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class ProductNumberFkResolver extends AbstractFkResolver
 {
     public function __construct(private readonly Connection $connection)
@@ -47,7 +47,9 @@ class ProductNumberFkResolver extends AbstractFkResolver
         );
 
         foreach ($map as $reference) {
-            $reference->resolved = $hash[$reference->value];
+            if (isset($hash[$reference->value])) {
+                $reference->resolved = $hash[$reference->value];
+            }
         }
 
         return $map;

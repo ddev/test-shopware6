@@ -3,6 +3,7 @@
 namespace Shopware\Core\Migration\V6_4;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Framework\DataAbstractionLayer\Util\StatementHelper;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Migration\MigrationStep;
 
@@ -11,7 +12,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1614765170UpdateAppModulesWithNavigationInformation extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -46,7 +47,7 @@ class Migration1614765170UpdateAppModulesWithNavigationInformation extends Migra
                 return $app;
             }
 
-            $modules = json_decode((string) $app['modules'], true, 512, \JSON_THROW_ON_ERROR);
+            $modules = json_decode($app['modules'], true, 512, \JSON_THROW_ON_ERROR);
 
             if (!\is_array($modules)) {
                 return $app;
@@ -75,7 +76,7 @@ class Migration1614765170UpdateAppModulesWithNavigationInformation extends Migra
 
         try {
             foreach ($preparedModules as $prepared) {
-                $statement->executeStatement([
+                StatementHelper::executeStatement($statement, [
                     'id' => $prepared['id'],
                     'modules' => $prepared['modules'],
                 ]);

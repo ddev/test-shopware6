@@ -12,7 +12,10 @@ use Shopware\Core\Framework\Rule\RuleConfig;
 use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class LineItemDimensionVolumeRule extends Rule
 {
     final public const RULE_NAME = 'cartLineItemDimensionVolume';
@@ -72,6 +75,6 @@ class LineItemDimensionVolumeRule extends Rule
             return RuleComparison::isNegativeOperator($this->operator);
         }
 
-        return RuleComparison::numeric($deliveryInformation->getVolume(), $this->amount, $this->operator);
+        return RuleComparison::numeric($deliveryInformation->getVolume(), (float) $this->amount * self::VOLUME_FACTOR, $this->operator);
     }
 }

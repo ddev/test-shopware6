@@ -11,6 +11,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry;
 use Shopware\Core\Framework\Demodata\DemodataContext;
 use Shopware\Core\Framework\Demodata\DemodataGeneratorInterface;
+use Shopware\Core\Framework\Demodata\DemodataService;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -18,7 +19,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class PromotionGenerator implements DemodataGeneratorInterface
 {
     private SymfonyStyle $io;
@@ -86,7 +87,7 @@ class PromotionGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @param list<array<string, string|int>> $salesChannels
+     * @param array<array{salesChannelId: string, priority: 1}> $salesChannels
      *
      * @return array<string, mixed>
      */
@@ -101,6 +102,7 @@ class PromotionGenerator implements DemodataGeneratorInterface
             'code' => $this->faker->unique()->format('promotionCode'),
             'useCodes' => true,
             'discounts' => $this->createDiscounts(),
+            'customFields' => [DemodataService::DEMODATA_CUSTOM_FIELDS_KEY => true],
         ];
     }
 
@@ -132,7 +134,7 @@ class PromotionGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @return list<array<string, string|int>>
+     * @return array<array{salesChannelId: string, priority: 1}>
      */
     private function getSalesChannels(): array
     {

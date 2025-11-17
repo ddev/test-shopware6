@@ -8,11 +8,11 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @extends EntityCollection<MediaTranslationEntity>
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class MediaTranslationCollection extends EntityCollection
 {
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getMediaIds(): array
     {
@@ -25,7 +25,7 @@ class MediaTranslationCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getLanguageIds(): array
     {

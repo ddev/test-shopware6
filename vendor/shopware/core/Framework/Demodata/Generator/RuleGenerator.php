@@ -6,6 +6,9 @@ use Faker\Generator;
 use Shopware\Core\Checkout\Cart\Rule\GoodsPriceRule;
 use Shopware\Core\Checkout\Customer\Rule\CustomerGroupRule;
 use Shopware\Core\Checkout\Customer\Rule\DaysSinceFirstLoginRule;
+use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
+use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
+use Shopware\Core\Content\Rule\RuleCollection;
 use Shopware\Core\Content\Rule\RuleDefinition;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -16,6 +19,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Write\EntityWriterInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteContext;
 use Shopware\Core\Framework\Demodata\DemodataContext;
 use Shopware\Core\Framework\Demodata\DemodataGeneratorInterface;
+use Shopware\Core\Framework\Demodata\DemodataService;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Rule\Container\AndRule;
 use Shopware\Core\Framework\Rule\Container\Container;
@@ -30,13 +34,17 @@ use Shopware\Core\Test\TestDefaults;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class RuleGenerator implements DemodataGeneratorInterface
 {
     private Generator $faker;
 
     /**
      * @internal
+     *
+     * @param EntityRepository<RuleCollection> $ruleRepository
+     * @param EntityRepository<PaymentMethodCollection> $paymentMethodRepository
+     * @param EntityRepository<ShippingMethodCollection> $shippingMethodRepository
      */
     public function __construct(
         private readonly EntityRepository $ruleRepository,
@@ -112,6 +120,7 @@ class RuleGenerator implements DemodataGeneratorInterface
                 'priority' => $i,
                 'name' => implode(' + ', $names),
                 'description' => $context->getFaker()->text(),
+                'customFields' => [DemodataService::DEMODATA_CUSTOM_FIELDS_KEY => true],
             ];
 
             $ruleData['conditions'][] = $this->buildChildRule(null, (new OrRule())->assign(['rules' => $classes]));

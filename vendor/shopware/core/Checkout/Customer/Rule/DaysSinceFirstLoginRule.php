@@ -7,18 +7,17 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Rule\Container\DaysSinceRule;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class DaysSinceFirstLoginRule extends DaysSinceRule
 {
     final public const RULE_NAME = 'customerDaysSinceFirstLogin';
 
     protected function getDate(RuleScope $scope): ?\DateTimeInterface
     {
-        if (!$customer = $scope->getSalesChannelContext()->getCustomer()) {
-            return null;
-        }
-
-        return $customer->getFirstLogin();
+        return $scope->getSalesChannelContext()->getCustomer()?->getFirstLogin();
     }
 
     protected function supportsScope(RuleScope $scope): bool

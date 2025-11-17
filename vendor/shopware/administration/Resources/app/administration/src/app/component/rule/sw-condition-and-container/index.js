@@ -1,11 +1,11 @@
 import template from './sw-condition-and-container.html.twig';
 import './sw-condition-and-container.scss';
 
-const { Component, Mixin } = Shopware;
+const { Mixin } = Shopware;
 
 /**
  * @private
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Contains some sw-base-conditions / sw-condition-and-container connected by and.
  * This component must be a child of sw-condition-tree
  * @status prototype
@@ -13,7 +13,7 @@ const { Component, Mixin } = Shopware;
  * @component-example
  * <sw-condition-and-container :condition="condition" :level="0"></sw-condition-and-container>
  */
-Component.register('sw-condition-and-container', {
+export default {
     template,
 
     inject: ['acl'],
@@ -54,8 +54,10 @@ Component.register('sw-condition-and-container', {
             this.insertNodeIntoTree(this.condition, orContainer);
 
             // "replace" first child if it is a placeholder
-            if (this.condition[this.childAssociationField].length === 2 &&
-                this.condition[this.childAssociationField][0].type === null) {
+            if (
+                this.condition[this.childAssociationField].length === 2 &&
+                this.condition[this.childAssociationField][0].type === null
+            ) {
                 this.removeNodeFromTree(this.condition, this.condition[this.childAssociationField][0]);
             }
         },
@@ -74,4 +76,4 @@ Component.register('sw-condition-and-container', {
             };
         },
     },
-});
+};

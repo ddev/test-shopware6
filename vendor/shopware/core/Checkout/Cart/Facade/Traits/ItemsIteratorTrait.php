@@ -10,9 +10,6 @@ use Shopware\Core\Checkout\Cart\LineItem\LineItemCollection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-/**
- * @implements \IteratorAggregate<array-key, LineItem>
- */
 #[Package('checkout')]
 trait ItemsIteratorTrait
 {
@@ -24,6 +21,8 @@ trait ItemsIteratorTrait
 
     /**
      * @internal should not be used directly, loop over an ItemsFacade directly inside twig instead
+     *
+     * @return \ArrayIterator<array-key, ItemFacade|ContainerFacade>
      */
     public function getIterator(): \ArrayIterator
     {
@@ -35,11 +34,12 @@ trait ItemsIteratorTrait
             };
         }
 
+        /**
+         * We need to force the type here, as `ContainerFacade` extends `ItemFacade`, so `ItemFacade|ContainerFacade` is normalized to `ItemFacade`.
+         * See https://github.com/phpstan/phpstan/discussions/12727
+         *
+         * @var \ArrayIterator<array-key, ItemFacade>
+         */
         return new \ArrayIterator($items);
-    }
-
-    private function getItems(): LineItemCollection
-    {
-        return $this->items;
     }
 }

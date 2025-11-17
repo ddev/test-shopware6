@@ -2,27 +2,26 @@
 
 namespace Shopware\Core\Framework\Increment;
 
+use Shopware\Core\Framework\Adapter\Cache\RedisConnectionFactory;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
 /**
- * @deprecated tag:v6.6.0 - reason:becomes-internal - Type hint to AbstractIncrementer, implementations are internal and should not be used for type hints
+ * @internal
+ *
+ * @phpstan-import-type RedisTypeHint from RedisConnectionFactory
  */
-#[Package('core')]
+#[Package('framework')]
 class RedisIncrementer extends AbstractIncrementer
 {
     /**
      * @internal
      *
-     * @param \Redis|\RedisArray|\RedisCluster|\Predis\ClientInterface|\Relay\Relay $redis
+     * @param RedisTypeHint $redis
      */
-    public function __construct(private $redis)
-    {
-    }
-
-    public function getDecorated(): AbstractIncrementer
-    {
-        throw new DecorationPatternException(self::class);
+    public function __construct(
+        /** @phpstan-ignore shopware.propertyNativeType (Cannot type natively, as Symfony might change the implementation in the future) */
+        private $redis
+    ) {
     }
 
     public function increment(string $cluster, string $key): void
@@ -47,18 +46,16 @@ class RedisIncrementer extends AbstractIncrementer
             return;
         }
 
-        $keys = $this->redis->keys($this->getKey($cluster));
-        \assert(\is_array($keys));
+        $clusterKeys = $this->getKeys($cluster);
 
-        foreach ($keys as $key) {
-            $this->redis->del($key);
+        foreach ($clusterKeys as $clusterKey) {
+            $this->redis->del($clusterKey);
         }
     }
 
     public function list(string $cluster, int $limit = 5, int $offset = 0): array
     {
-        $keys = $this->redis->keys($this->getKey($cluster));
-        \assert(\is_array($keys));
+        $keys = $this->getKeys($cluster);
 
         if (empty($keys)) {
             return [];
@@ -92,12 +89,48 @@ class RedisIncrementer extends AbstractIncrementer
         return $result;
     }
 
+    public function delete(string $cluster, array $keys = []): void
+    {
+        $keysToDelete = $this->getKeys($cluster);
+
+        if (!empty($keys)) {
+            $keysToDelete = array_map(fn (string $keySuffix) => $this->getKey($cluster, $keySuffix), $keys);
+        }
+
+        if (empty($keysToDelete)) {
+            return;
+        }
+
+        $this->redis->del($keysToDelete);
+    }
+
     private function getKey(string $cluster, ?string $key = null): string
     {
         if ($key === null) {
-            return sprintf('%s:%s:*', $this->poolName, $cluster);
+            return \sprintf('%s:%s:*', $this->poolName, $cluster);
         }
 
-        return sprintf('%s:%s:%s', $this->poolName, $cluster, $key);
+        return \sprintf('%s:%s:%s', $this->poolName, $cluster, $key);
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getKeys(string $cluster): array
+    {
+        $keys = $this->redis->keys($this->getKey($cluster));
+        \assert(\is_array($keys));
+
+        if (empty($keys) || !\method_exists($this->redis, 'getOption')) {
+            return [];
+        }
+
+        $prefix = $this->redis->getOption(\Redis::OPT_PREFIX);
+        if (\is_string($prefix)) {
+            $prefixLength = \strlen($prefix);
+            $keys = \array_map(fn ($key) => \str_starts_with($key, $prefix) ? \substr($key, $prefixLength) : $key, $keys);
+        }
+
+        return $keys;
     }
 }

@@ -7,12 +7,20 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class FkReference
 {
     public ?string $resolved = null;
 
-    public function __construct(public mixed $value)
-    {
+    /**
+     * @internal
+     */
+    public function __construct(
+        public readonly string $pointer,
+        public readonly string $entityName,
+        public readonly string $fieldName,
+        public mixed $value,
+        public readonly bool $nullOnMissing
+    ) {
     }
 }

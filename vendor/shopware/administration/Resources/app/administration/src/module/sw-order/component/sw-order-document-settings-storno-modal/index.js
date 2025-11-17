@@ -1,14 +1,16 @@
-import template from './sw-order-document-settings-storno-modal.html.twig';
-
 /**
- * @package checkout
+ * @sw-package after-sales
  */
+import template from './sw-order-document-settings-storno-modal.html.twig';
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['feature'],
+    emits: [
+        'loading-document',
+        'loading-preview',
+    ],
 
     props: {
         order: {
@@ -28,7 +30,7 @@ export default {
                     stornoNumber: '',
                     invoiceNumber: '',
                 },
-                documentNumber: 0,
+                documentNumber: '',
                 documentComment: '',
                 documentDate: '',
             },
@@ -42,7 +44,30 @@ export default {
 
         invoices() {
             return this.order.documents.filter((document) => {
-                return document.documentType.technicalName === 'invoice';
+                return (
+                    document.documentType.technicalName === 'invoice' ||
+                    document.documentType.technicalName === 'zugferd_invoice' ||
+                    document.documentType.technicalName === 'zugferd_embedded_invoice'
+                );
+            });
+        },
+
+        documentNumber: {
+            get() {
+                return String(this.documentConfig.documentNumber);
+            },
+            set(value) {
+                this.documentConfig.documentNumber = value;
+            },
+        },
+
+        invoiceOptions() {
+            return this.invoices.map((item, index) => {
+                return {
+                    id: index,
+                    value: item.config.custom.invoiceNumber,
+                    label: `${item.config.custom.invoiceNumber}`,
+                };
             });
         },
     },
@@ -53,15 +78,13 @@ export default {
 
     methods: {
         createdComponent() {
-            this.numberRangeService.reserve(
-                `document_${this.currentDocumentType.technicalName}`,
-                this.order.salesChannelId,
-                true,
-            ).then((response) => {
-                this.documentConfig.documentNumber = response.number;
-                this.documentNumberPreview = this.documentConfig.documentNumber;
-                this.documentConfig.documentDate = (new Date()).toISOString();
-            });
+            this.numberRangeService
+                .reserve(`document_${this.currentDocumentType.technicalName}`, this.order.salesChannelId, true)
+                .then((response) => {
+                    this.documentConfig.documentNumber = response.number;
+                    this.documentNumberPreview = this.documentConfig.documentNumber;
+                    this.documentConfig.documentDate = new Date().toISOString();
+                });
         },
 
         onCreateDocument(additionalAction = false) {
@@ -72,30 +95,28 @@ export default {
             })[0];
 
             if (this.documentNumberPreview === this.documentConfig.documentNumber) {
-                this.numberRangeService.reserve(
-                    `document_${this.currentDocumentType.technicalName}`,
-                    this.order.salesChannelId,
-                    false,
-                ).then((response) => {
-                    this.documentConfig.custom.stornoNumber = response.number;
-                    if (response.number !== this.documentConfig.documentNumber) {
-                        this.createNotificationInfo({
-                            message: this.$tc('sw-order.documentCard.info.DOCUMENT__NUMBER_WAS_CHANGED'),
-                        });
-                    }
-                    this.documentConfig.documentNumber = response.number;
-                    this.callDocumentCreate(additionalAction, selectedInvoice.id);
-                });
+                this.numberRangeService
+                    .reserve(`document_${this.currentDocumentType.technicalName}`, this.order.salesChannelId, false)
+                    .then((response) => {
+                        this.documentConfig.custom.stornoNumber = response.number;
+                        if (response.number !== this.documentConfig.documentNumber) {
+                            this.createNotificationInfo({
+                                message: this.$tc('sw-order.documentCard.info.DOCUMENT__NUMBER_WAS_CHANGED'),
+                            });
+                        }
+                        this.documentConfig.documentNumber = response.number;
+                        this.callDocumentCreate(additionalAction, selectedInvoice.id);
+                    });
             } else {
                 this.documentConfig.custom.stornoNumber = this.documentConfig.documentNumber;
                 this.callDocumentCreate(additionalAction, selectedInvoice.id);
             }
         },
 
-        onPreview() {
+        onPreview(fileType = 'pdf') {
             this.$emit('loading-preview');
             this.documentConfig.custom.stornoNumber = this.documentConfig.documentNumber;
-            this.$super('onPreview');
+            this.$super('onPreview', fileType);
         },
     },
 };

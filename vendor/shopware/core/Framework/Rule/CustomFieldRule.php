@@ -2,8 +2,10 @@
 
 namespace Shopware\Core\Framework\Rule;
 
+use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFieldTypes\MultiEntitySelectField;
+use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFieldTypes\MultiSelectField;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Rule\Exception\UnsupportedOperatorException;
+use Shopware\Core\Framework\Util\ArrayComparator;
 use Shopware\Core\Framework\Util\FloatComparator;
 use Shopware\Core\System\CustomField\CustomFieldTypes;
 use Symfony\Component\Validator\Constraint;
@@ -14,11 +16,11 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  * @internal
  * The helper to provider static methods for custom fields rule.
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class CustomFieldRule
 {
     /**
-     * @param array<string, string> $renderedField
+     * @param array<string, string|array<string, string>> $renderedField
      *
      * @return array<string, array<int, mixed>>
      */
@@ -46,11 +48,11 @@ class CustomFieldRule
     }
 
     /**
-     * @param array<string, string> $renderedField
+     * @param array<string, string|array<string, string>> $renderedField
      * @param array<string, mixed> $customFields
-     * @param array<string>|string|int|bool|float|null $renderedFieldValue
+     * @param array<string|int|bool|float>|string|int|bool|float|null $renderedFieldValue
      */
-    public static function match(array $renderedField, array|string|int|bool|null|float $renderedFieldValue, string $operator, array $customFields): bool
+    public static function match(array $renderedField, array|string|int|bool|float|null $renderedFieldValue, string $operator, array $customFields): bool
     {
         $actual = self::getValue($customFields, $renderedField);
         $expected = self::getExpectedValue($renderedFieldValue, $renderedField);
@@ -64,7 +66,11 @@ class CustomFieldRule
         }
 
         if (self::isFloat($renderedField)) {
-            return self::floatMatch($operator, (float) $actual, (float) $expected);
+            return FloatComparator::compare((float) $actual, (float) $expected, $operator);
+        }
+
+        if (self::isArray($renderedField)) {
+            return ArrayComparator::compare((array) $actual, (array) $expected, $operator);
         }
 
         return match ($operator) {
@@ -74,25 +80,90 @@ class CustomFieldRule
             Rule::OPERATOR_EQ => $actual === $expected,
             Rule::OPERATOR_GT => $actual > $expected,
             Rule::OPERATOR_LT => $actual < $expected,
-            default => throw new UnsupportedOperatorException($operator, self::class),
-        };
-    }
-
-    private static function floatMatch(string $operator, float $actual, float $expected): bool
-    {
-        return match ($operator) {
-            Rule::OPERATOR_NEQ => FloatComparator::notEquals($actual, $expected),
-            Rule::OPERATOR_GTE => FloatComparator::greaterThanOrEquals($actual, $expected),
-            Rule::OPERATOR_LTE => FloatComparator::lessThanOrEquals($actual, $expected),
-            Rule::OPERATOR_EQ => FloatComparator::equals($actual, $expected),
-            Rule::OPERATOR_GT => FloatComparator::greaterThan($actual, $expected),
-            Rule::OPERATOR_LT => FloatComparator::lessThan($actual, $expected),
-            default => throw new UnsupportedOperatorException($operator, self::class),
+            default => throw RuleException::unsupportedOperator($operator, self::class),
         };
     }
 
     /**
-     * @param array<string, string> $renderedField
+     * @param array<string, mixed> $customFields
+     * @param array<string, string|array<string, string>> $renderedField
+     *
+     * @return array<string>|float|bool|int|string|null
+     */
+    public static function getValue(array $customFields, array $renderedField): array|float|bool|int|string|null
+    {
+        if (!empty($customFields) && \is_string($renderedField['name']) && \array_key_exists($renderedField['name'], $customFields)) {
+            return $customFields[$renderedField['name']];
+        }
+
+        if (self::isSwitchOrBoolField($renderedField)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string|int|bool|float>|float|bool|int|string|null $renderedFieldValue
+     * @param array<string, string|array<string, string>> $renderedField
+     *
+     * @return array<string|int|bool|float>|float|bool|int|string|null
+     */
+    public static function getExpectedValue(array|float|bool|int|string|null $renderedFieldValue, array $renderedField): array|float|bool|int|string|null
+    {
+        if (self::isSwitchOrBoolField($renderedField) && \is_string($renderedFieldValue)) {
+            return filter_var($renderedFieldValue, \FILTER_VALIDATE_BOOLEAN);
+        }
+
+        if (self::isSwitchOrBoolField($renderedField)) {
+            return $renderedFieldValue ?? false; // those fields are initialized with null in the rule builder
+        }
+
+        if (self::isDatetimeOrDateField($renderedField) && \is_string($renderedFieldValue)) {
+            return (new \DateTimeImmutable($renderedFieldValue))->format(\DATE_ATOM);
+        }
+
+        return $renderedFieldValue;
+    }
+
+    /**
+     * @param array<string, string|array<string, string>> $renderedField
+     */
+    public static function isFloat(array $renderedField): bool
+    {
+        return $renderedField['type'] === CustomFieldTypes::FLOAT;
+    }
+
+    /**
+     * @param array<string, string|array<string, string>> $renderedField
+     */
+    public static function isArray(array $renderedField): bool
+    {
+        if ($renderedField['type'] !== CustomFieldTypes::SELECT) {
+            return false;
+        }
+
+        if (!\is_array($renderedField['config'])) {
+            return false;
+        }
+
+        if (!\array_key_exists('componentName', $renderedField['config'])) {
+            return false;
+        }
+
+        if ($renderedField['config']['componentName'] === MultiSelectField::COMPONENT_NAME) {
+            return true;
+        }
+
+        if ($renderedField['config']['componentName'] === MultiEntitySelectField::COMPONENT_NAME) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, string|array<string, string>> $renderedField
      *
      * @return Constraint[]
      */
@@ -112,56 +183,18 @@ class CustomFieldRule
     }
 
     /**
-     * @param array<string, mixed> $customFields
-     * @param array<string, string> $renderedField
-     *
-     * @return array<string>|float|bool|int|string|null
-     */
-    private static function getValue(array $customFields, array $renderedField): array|float|bool|int|string|null
-    {
-        if (!empty($customFields) && \array_key_exists($renderedField['name'], $customFields)) {
-            return $customFields[$renderedField['name']];
-        }
-
-        if (self::isSwitchOrBoolField($renderedField)) {
-            return false;
-        }
-
-        return null;
-    }
-
-    /**
-     * @param array<string>|float|bool|int|string|null $renderedFieldValue
-     * @param array<string, string> $renderedField
-     *
-     * @return array<string>|float|bool|int|string|null
-     */
-    private static function getExpectedValue(array|float|bool|int|string|null $renderedFieldValue, array $renderedField): array|float|bool|int|string|null
-    {
-        if (self::isSwitchOrBoolField($renderedField) && \is_string($renderedFieldValue)) {
-            return filter_var($renderedFieldValue, \FILTER_VALIDATE_BOOLEAN);
-        }
-
-        if (self::isSwitchOrBoolField($renderedField)) {
-            return $renderedFieldValue ?? false; // those fields are initialized with null in the rule builder
-        }
-
-        return $renderedFieldValue;
-    }
-
-    /**
-     * @param array<string, string> $renderedField
+     * @param array<string, string|array<string, string>> $renderedField
      */
     private static function isSwitchOrBoolField(array $renderedField): bool
     {
-        return \in_array($renderedField['type'], [CustomFieldTypes::BOOL, CustomFieldTypes::SWITCH], true);
+        return \in_array($renderedField['type'], [CustomFieldTypes::BOOL, CustomFieldTypes::SWITCH, CustomFieldTypes::CHECKBOX], true);
     }
 
     /**
-     * @param array<string, string> $renderedField
+     * @param array<string, string|array<string, string>> $renderedField
      */
-    private static function isFloat(array $renderedField): bool
+    private static function isDatetimeOrDateField(array $renderedField): bool
     {
-        return $renderedField['type'] === CustomFieldTypes::FLOAT;
+        return \in_array($renderedField['type'], [CustomFieldTypes::DATETIME, CustomFieldTypes::DATE], true);
     }
 }

@@ -2,11 +2,9 @@
 
 namespace Shopware\Core\Framework\DataAbstractionLayer\Write;
 
+use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
+use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\CanNotFindParentStorageFieldException;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidParentAssociationException;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\ParentFieldForeignKeyConstraintMissingException;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\ParentFieldNotFoundException;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\AssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\ChildrenAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CreatedByField;
@@ -28,6 +26,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\UpdatedByField;
 use Shopware\Core\Framework\DataAbstractionLayer\MappingEntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\InsertCommand;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\UpdateCommand;
+use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\WriteCommandQueue;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\DataStack;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\DataStack\KeyValuePair;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\FieldException\WriteFieldException;
@@ -43,14 +42,16 @@ use Symfony\Component\Validator\ConstraintViolationList;
  *
  * Contains recursive calls from extract->map->AssociationInterface->extract->map->....
  */
-#[Package('core')]
+#[Package('framework')]
 class WriteCommandExtractor
 {
     /**
      * @internal
      */
-    public function __construct(private readonly EntityWriteGatewayInterface $entityExistenceGateway)
-    {
+    public function __construct(
+        private readonly EntityWriteGatewayInterface $entityExistenceGateway,
+        private readonly DefinitionInstanceRegistry $registry
+    ) {
     }
 
     /**
@@ -191,8 +192,10 @@ class WriteCommandExtractor
 
         $pkData = $this->getPrimaryKey($rawData, $parameters);
 
-        /** @var Field&StorageAware $pkField */
         foreach ($definition->getPrimaryKeys() as $pkField) {
+            if (!$pkField instanceof StorageAware) {
+                continue;
+            }
             $parameters->getContext()->set(
                 $parameters->getDefinition()->getEntityName(),
                 $pkField->getPropertyName(),
@@ -266,24 +269,23 @@ class WriteCommandExtractor
             return null;
         }
 
-        /** @var ManyToOneAssociationField|null $parent */
         $parent = $definition->getFields()->get('parent');
 
         if (!$parent) {
-            throw new ParentFieldNotFoundException($definition);
+            throw DataAbstractionLayerException::parentFieldNotFound($definition);
         }
 
         if (!$parent instanceof ManyToOneAssociationField) {
-            throw new InvalidParentAssociationException($definition, $parent);
+            throw DataAbstractionLayerException::invalidParentAssociation($definition, $parent);
         }
 
         $fk = $definition->getFields()->getByStorageName($parent->getStorageName());
 
         if (!$fk) {
-            throw new CanNotFindParentStorageFieldException($definition);
+            throw DataAbstractionLayerException::cannotFindParentStorageField($definition);
         }
         if (!$fk instanceof FkField) {
-            throw new ParentFieldForeignKeyConstraintMissingException($definition, $fk);
+            throw DataAbstractionLayerException::parentFieldForeignKeyConstraintMissing($definition, $fk);
         }
 
         return $fk;
@@ -349,7 +351,7 @@ class WriteCommandExtractor
         }
 
         if ($field instanceof ReferenceVersionField && $field->is(Required::class)) {
-            return new KeyValuePair($field->getPropertyName(), null, true);
+            return new KeyValuePair($field->getPropertyName(), null, true, true);
         }
 
         if ($this->skipField($field, $existence)) {
@@ -413,12 +415,18 @@ class WriteCommandExtractor
         $queue = $parameterBag->getCommandQueue();
 
         if ($existence->exists()) {
-            $queue->add($definition, new UpdateCommand($definition, $data, $pkData, $existence, $parameterBag->getPath()));
-
-            return;
+            $command = new UpdateCommand($definition, $data, $pkData, $existence, $parameterBag->getPath());
+        } else {
+            $command = new InsertCommand($definition, array_merge($pkData, $data), $pkData, $existence, $parameterBag->getPath());
         }
 
-        $queue->add($definition, new InsertCommand($definition, array_merge($pkData, $data), $pkData, $existence, $parameterBag->getPath()));
+        $identifier = WriteCommandQueue::hashedPrimary($this->registry, $command);
+
+        $queue->add(
+            $definition->getEntityName(),
+            $identifier,
+            $command
+        );
     }
 
     /**
@@ -441,8 +449,8 @@ class WriteCommandExtractor
         krsort($filtered, \SORT_NUMERIC);
 
         $sorted = [];
-        foreach ($filtered as $fields) {
-            foreach ($fields as $field) {
+        foreach ($filtered as $filteredFields) {
+            foreach ($filteredFields as $field) {
                 $sorted[] = $field;
             }
         }
@@ -460,11 +468,9 @@ class WriteCommandExtractor
         $pk = [];
 
         $pkFields = $parameters->getDefinition()->getPrimaryKeys();
-        /** @var StorageAware&Field $pkField */
         foreach ($pkFields as $pkField) {
             $id = $rawData[$pkField->getPropertyName()] ?? null;
 
-            /** @var array<string, string> $values */
             $values = $pkField->getSerializer()->encode(
                 $pkField,
                 EntityExistence::createForEntity($parameters->getDefinition()->getEntityName(), []),
@@ -535,7 +541,7 @@ class WriteCommandExtractor
         $violationList = new ConstraintViolationList();
         $violationList->add(
             new ConstraintViolation(
-                sprintf(
+                \sprintf(
                     $message,
                     $parameters->getContext()->getContext()->getScope(),
                     $allowedOrigins

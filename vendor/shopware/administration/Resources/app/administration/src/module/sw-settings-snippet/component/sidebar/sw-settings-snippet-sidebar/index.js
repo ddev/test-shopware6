@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package discovery
  */
 import template from './sw-settings-snippet-sidebar.html.twig';
 import './sw-settings-snippet-sidebar.scss';
@@ -7,6 +7,14 @@ import './sw-settings-snippet-sidebar.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'sw-sidebar-close',
+        'sw-sidebar-open',
+        'change',
+        'sw-sidebar-collaps-refresh-grid',
+        'sidebar-reset-all',
+    ],
 
     props: {
         filterItems: {
@@ -69,7 +77,7 @@ export default {
                 return;
             }
 
-            this.$refs.filterSideBar.openContent();
+            this.$refs.filterSideBar?.openContent?.();
             this.filterSidebarIsOpen = true;
 
             this.$emit('sw-sidebar-open');

@@ -4,7 +4,7 @@ namespace Shopware\Core\System\Snippet\Filter;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('system-settings')]
+#[Package('discovery')]
 class NamespaceFilter extends AbstractFilter implements SnippetFilterInterface
 {
     /**
@@ -28,9 +28,11 @@ class NamespaceFilter extends AbstractFilter implements SnippetFilterInterface
         foreach ($requestFilterValue as $term) {
             foreach ($snippets as $setId => $set) {
                 foreach ($set['snippets'] as $translationKey => $snippet) {
-                    if (!fnmatch(sprintf('%s*', (string) $term), $snippet['translationKey'], \FNM_CASEFOLD)) {
+                    $keyMatch = mb_stripos($snippet['translationKey'], $term);
+                    if ($keyMatch === false) {
                         continue;
                     }
+
                     $result[$setId]['snippets'][$translationKey] = $snippet;
                 }
             }

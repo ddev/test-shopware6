@@ -1,6 +1,9 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-advanced-selection-product.html.twig';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
@@ -10,11 +13,16 @@ const { Criteria } = Shopware.Data;
  * to `sw-entity-...-select` components.
  * @status prototype
  */
-Component.register('sw-advanced-selection-product', {
+export default {
     template,
 
     inject: [
         'repositoryFactory',
+    ],
+
+    emits: [
+        'selection-submit',
+        'modal-close',
     ],
 
     data() {
@@ -33,21 +41,23 @@ Component.register('sw-advanced-selection-product', {
         },
 
         currenciesColumns() {
-            return [...this.currencies].sort((a, b) => {
-                return b.isSystemDefault ? 1 : -1;
-            }).map(item => {
-                return {
-                    property: `price-${item.isoCode}`,
-                    dataIndex: `price.${item.id}`,
-                    label: `${item.name}`,
-                    routerLink: 'sw.product.detail',
-                    allowResize: true,
-                    currencyId: item.id,
-                    visible: item.isSystemDefault,
-                    align: 'right',
-                    useCustomSort: true,
-                };
-            });
+            return [...this.currencies]
+                .sort((a, b) => {
+                    return b.isSystemDefault ? 1 : -1;
+                })
+                .map((item) => {
+                    return {
+                        property: `price-${item.isoCode}`,
+                        dataIndex: `price.${item.id}`,
+                        label: `${item.name}`,
+                        routerLink: 'sw.product.detail',
+                        allowResize: true,
+                        currencyId: item.id,
+                        visible: item.isSystemDefault,
+                        align: 'right',
+                        useCustomSort: true,
+                    };
+                });
         },
 
         productColumns() {
@@ -237,7 +247,7 @@ Component.register('sw-advanced-selection-product', {
         },
 
         getCurrencyPriceByCurrencyId(currencyId, prices) {
-            const priceForProduct = prices.find(price => price.currencyId === currencyId);
+            const priceForProduct = prices.find((price) => price.currencyId === currencyId);
 
             if (priceForProduct) {
                 return priceForProduct;
@@ -258,4 +268,4 @@ Component.register('sw-advanced-selection-product', {
             return item.translated.name || item.name;
         },
     },
-});
+};

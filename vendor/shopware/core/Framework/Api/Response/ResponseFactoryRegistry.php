@@ -9,7 +9,7 @@ use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\UnsupportedMediaTypeHttpException;
 
-#[Package('core')]
+#[Package('framework')]
 class ResponseFactoryRegistry
 {
     private const DEFAULT_RESPONSE_TYPE = 'application/vnd.api+json';
@@ -48,6 +48,6 @@ class ResponseFactoryRegistry
             }
         }
 
-        throw new UnsupportedMediaTypeHttpException(sprintf('All provided media types are unsupported. (%s)', implode(', ', $contentTypes)));
+        throw new UnsupportedMediaTypeHttpException(\sprintf('All provided media types are unsupported. (%s)', implode(', ', $contentTypes)));
     }
 }

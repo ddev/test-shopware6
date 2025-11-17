@@ -8,7 +8,10 @@ use Shopware\Core\Framework\Rule\RuleConfig;
 use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class OrderCreatedByAdminRule extends FlowRule
 {
     final public const RULE_NAME = 'orderCreatedByAdmin';
@@ -16,7 +19,7 @@ class OrderCreatedByAdminRule extends FlowRule
     /**
      * @internal
      */
-    public function __construct(private bool $shouldOrderBeCreatedByAdmin = true)
+    public function __construct(protected bool $shouldOrderBeCreatedByAdmin = true)
     {
         parent::__construct();
     }

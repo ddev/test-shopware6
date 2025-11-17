@@ -1,13 +1,12 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
-import baseComponents from 'src/app/component/components';
-import registerAsyncComponents from 'src/app/asyncComponent/asyncComponents';
+import registerComponents from 'src/app/component';
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-export default function initializeBaseComponents() {
-    registerAsyncComponents();
+export default async function initializeBaseComponents() {
+    registerComponents();
 
-    return baseComponents();
+    return Promise.resolve();
 }

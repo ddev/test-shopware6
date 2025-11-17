@@ -8,10 +8,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\PluginLifecycleService;
 use Shopware\Core\Framework\Update\Event\UpdatePostFinishEvent;
-use Shopware\Core\System\SalesChannel\SalesChannelEntity;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Storefront\Theme\Exception\ThemeCompileException;
 use Shopware\Storefront\Theme\ThemeCollection;
-use Shopware\Storefront\Theme\ThemeEntity;
 use Shopware\Storefront\Theme\ThemeLifecycleService;
 use Shopware\Storefront\Theme\ThemeService;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -19,11 +18,13 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('storefront')]
+#[Package('framework')]
 class UpdateSubscriber implements EventSubscriberInterface
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<SalesChannelCollection> $salesChannelRepository
      */
     public function __construct(
         private readonly ThemeService $themeService,
@@ -48,11 +49,12 @@ class UpdateSubscriber implements EventSubscriberInterface
     public function updateFinished(UpdatePostFinishEvent $event): void
     {
         $context = $event->getContext();
-        $this->themeLifecycleService->refreshThemes($context);
 
         if ($context->hasState(PluginLifecycleService::STATE_SKIP_ASSET_BUILDING)) {
             return;
         }
+
+        $this->themeLifecycleService->refreshThemes($context);
 
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('active', true));
@@ -60,19 +62,19 @@ class UpdateSubscriber implements EventSubscriberInterface
             ->addFilter(new EqualsFilter('active', true));
 
         $alreadyCompiled = [];
-        /** @var SalesChannelEntity $salesChannel */
-        foreach ($this->salesChannelRepository->search($criteria, $context) as $salesChannel) {
-            $themes = $salesChannel->getExtension('themes');
-            if (!$themes instanceof ThemeCollection) {
+
+        $salesChannels = $this->salesChannelRepository->search($criteria, $context)->getEntities();
+
+        foreach ($salesChannels as $salesChannel) {
+            $themes = $salesChannel->getExtensionOfType('themes', ThemeCollection::class);
+            if (!$themes) {
                 continue;
             }
 
             $failedThemes = [];
 
-            /** @var ThemeEntity $theme */
             foreach ($themes as $theme) {
-                // NEXT-21735 - his is covered randomly
-                // @codeCoverageIgnoreStart
+                // @codeCoverageIgnoreStart -this is covered randomly
                 if (\in_array($theme->getId(), $alreadyCompiled, true) !== false) {
                     continue;
                 }
@@ -80,7 +82,7 @@ class UpdateSubscriber implements EventSubscriberInterface
 
                 try {
                     $alreadyCompiled += $this->themeService->compileThemeById($theme->getId(), $context);
-                } catch (ThemeCompileException $e) {
+                } catch (ThemeCompileException) {
                     $failedThemes[] = $theme->getName();
                     $alreadyCompiled[] = $theme->getId();
                 }

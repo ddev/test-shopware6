@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-settings-mode.html.twig';
@@ -8,6 +8,11 @@ import './sw-product-settings-mode.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'settings-change',
+        'settings-item-change',
+    ],
 
     props: {
         modeSettings: {
@@ -18,7 +23,6 @@ export default {
         isLoading: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },

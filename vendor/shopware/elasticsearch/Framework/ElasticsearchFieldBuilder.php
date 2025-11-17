@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\Language\LanguageLoaderInterface;
 use Shopware\Elasticsearch\Product\CustomFieldUpdater;
 
-#[Package('buyers-experience')]
+#[Package('inventory')]
 class ElasticsearchFieldBuilder
 {
     /**
@@ -35,7 +35,8 @@ class ElasticsearchFieldBuilder
 
         $languageFields = [];
 
-        foreach ($languages as $languageId => ['code' => $code]) {
+        foreach ($languages as $languageId => $language) {
+            $code = $language['code'] ?? $language['parentCode'];
             $parts = explode('-', $code);
             $locale = $parts[0];
 
@@ -78,7 +79,7 @@ class ElasticsearchFieldBuilder
     {
         return array_merge([
             'type' => 'date',
-            'format' => 'yyyy-MM-dd HH:mm:ss.000||strict_date_optional_time||epoch_millis',
+            'format' => 'yyyy-MM-dd HH:mm:ss.SSS||strict_date_optional_time||epoch_millis',
             'ignore_malformed' => true,
         ], $override);
     }
@@ -115,10 +116,13 @@ class ElasticsearchFieldBuilder
         ];
 
         foreach ($fieldMapping as $name => $type) {
-            /** @var array<mixed> $esType */
             $esType = CustomFieldUpdater::getTypeFromCustomFieldType($type);
 
             $mapping['properties'][$name] = $esType;
+        }
+
+        if ($mapping['properties'] === []) {
+            unset($mapping['properties']);
         }
 
         return $mapping;

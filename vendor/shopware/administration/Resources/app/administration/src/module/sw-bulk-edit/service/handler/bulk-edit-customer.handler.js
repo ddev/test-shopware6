@@ -1,11 +1,12 @@
 import BulkEditBaseHandler from './bulk-edit-base.handler';
+import RetryHelper from '../../../../core/helper/retry.helper';
 
 const types = Shopware.Utils.types;
 
 /**
  * @class
  * @extends BulkEditBaseHandler
- * @package system-settings
+ * @sw-package checkout
  */
 class BulkEditCustomerHandler extends BulkEditBaseHandler {
     constructor() {
@@ -26,15 +27,21 @@ class BulkEditCustomerHandler extends BulkEditBaseHandler {
             return Promise.resolve({ success: true });
         }
 
-        return this.syncService.sync(syncPayload, {}, {
-            'single-operation': 1,
-            'sw-language-id': Shopware.Context.api.languageId,
+        return RetryHelper.retry(() => {
+            return this.syncService.sync(
+                syncPayload,
+                {},
+                {
+                    'single-operation': 1,
+                    'sw-language-id': Shopware.Context.api.languageId,
+                },
+            );
         });
     }
 
     async bulkEditRequestedGroup(entityIds, payload) {
         const promises = [];
-        const shouldTriggerFlows = Shopware.State.get('swBulkEdit').isFlowTriggered;
+        const shouldTriggerFlows = Shopware.Store.get('swBulkEdit').isFlowTriggered;
 
         payload.forEach((change) => {
             if (!change.value) {
@@ -43,28 +50,36 @@ class BulkEditCustomerHandler extends BulkEditBaseHandler {
 
             switch (change.value) {
                 case 'decline':
-                    promises.push(this.customerGroupRegistrationService.decline(
-                        entityIds,
-                        {},
-                        {
-                            'sw-skip-trigger-flow': !shouldTriggerFlows,
-                        },
-                        {
-                            silentError: true,
-                        },
-                    ));
+                    promises.push(
+                        RetryHelper.retry(() => {
+                            this.customerGroupRegistrationService.decline(
+                                entityIds,
+                                {},
+                                {
+                                    'sw-skip-trigger-flow': !shouldTriggerFlows,
+                                },
+                                {
+                                    silentError: true,
+                                },
+                            );
+                        }),
+                    );
                     break;
                 case 'accept':
-                    promises.push(this.customerGroupRegistrationService.accept(
-                        entityIds,
-                        {},
-                        {
-                            'sw-skip-trigger-flow': !shouldTriggerFlows,
-                        },
-                        {
-                            silentError: true,
-                        },
-                    ));
+                    promises.push(
+                        RetryHelper.retry(() => {
+                            this.customerGroupRegistrationService.accept(
+                                entityIds,
+                                {},
+                                {
+                                    'sw-skip-trigger-flow': !shouldTriggerFlows,
+                                },
+                                {
+                                    silentError: true,
+                                },
+                            );
+                        }),
+                    );
                     break;
                 default:
                     throw new Error();

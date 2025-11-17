@@ -2,8 +2,11 @@
 
 namespace Shopware\Core\Test;
 
-use Shopware\Core\Framework\Test\IdsCollection;
+use Shopware\Core\Test\Stub\Framework\IdsCollection;
 
+/**
+ * @internal
+ */
 trait TestBuilderTrait
 {
     protected IdsCollection $ids;

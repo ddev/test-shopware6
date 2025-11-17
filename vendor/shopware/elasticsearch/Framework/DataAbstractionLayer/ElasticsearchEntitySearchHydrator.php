@@ -9,7 +9,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
-#[Package('core')]
+#[Package('framework')]
 class ElasticsearchEntitySearchHydrator extends AbstractElasticsearchSearchHydrator
 {
     public function getDecorated(): AbstractElasticsearchSearchHydrator
@@ -17,6 +17,9 @@ class ElasticsearchEntitySearchHydrator extends AbstractElasticsearchSearchHydra
         throw new DecorationPatternException(self::class);
     }
 
+    /**
+     * @param array{ hits?: array{ hits: array<int, array{_id?: string, _score?: float, _source?: array<mixed>, inner_hits?: array{ inner?: array<mixed>}}>}, aggregations?: array<string, array<string, mixed>>} $result
+     */
     public function hydrate(EntityDefinition $definition, Criteria $criteria, Context $context, array $result): IdSearchResult
     {
         if (!isset($result['hits'])) {
@@ -39,7 +42,6 @@ class ElasticsearchEntitySearchHydrator extends AbstractElasticsearchSearchHydra
         }
 
         $total = $this->getTotalValue($criteria, $result);
-
         if ($criteria->useIdSorting()) {
             $data = $this->sortByIdArray($criteria->getIds(), $data);
         }
@@ -47,40 +49,62 @@ class ElasticsearchEntitySearchHydrator extends AbstractElasticsearchSearchHydra
         return new IdSearchResult($total, $data, $criteria, $context);
     }
 
+    /**
+     * @param array{ hits: array{ hits: array<int, array{ inner_hits?: array{ inner?: array<mixed>}}>}} $result
+     *
+     * @return array<mixed>
+     */
     private function extractHits(array $result): array
     {
         $records = [];
         $hits = $result['hits']['hits'];
 
         foreach ($hits as $hit) {
-            if (!isset($hit['inner_hits'])) {
+            if (!isset($hit['inner_hits']['inner'])) {
                 $records[] = $hit;
 
                 continue;
             }
 
-            $nested = $this->extractHits($hit['inner_hits']['inner']);
-            foreach ($nested as $inner) {
-                $records[] = $inner;
+            /** @var array{ hits: array{ hits: array<int, array<mixed>>}} $inner */
+            $inner = $hit['inner_hits']['inner'];
+
+            $innerHits = $this->extractHits($inner);
+
+            foreach ($innerHits as $innerHit) {
+                $records[] = $innerHit;
             }
         }
 
         return $records;
     }
 
+    /**
+     * @param array{ hits: array{ hits: array<mixed>, total?: array{ value: int } }, aggregations?: array<string, array<string, mixed>>} $result
+     */
     private function getTotalValue(Criteria $criteria, array $result): int
     {
+        if ($criteria->getTotalCountMode() !== Criteria::TOTAL_COUNT_MODE_EXACT) {
+            return empty($result['hits']['hits']) ? 0 : \count($result['hits']['hits']);
+        }
+
         if (!$criteria->getGroupFields()) {
-            return (int) $result['hits']['total']['value'];
+            return (int) ($result['hits']['total']['value'] ?? 0);
         }
 
         if (!$criteria->getPostFilters()) {
-            return (int) $result['aggregations']['total-count']['value'];
+            return empty($result['aggregations']['total-count']['value']) ? 0 : (int) $result['aggregations']['total-count']['value'];
         }
 
-        return (int) $result['aggregations']['total-filtered-count']['total-count']['value'];
+        return empty($result['aggregations']['total-filtered-count']['total-count']['value']) ? 0 : (int) $result['aggregations']['total-filtered-count']['total-count']['value'];
     }
 
+    /**
+     * @param array<string|array<string>> $ids
+     * @param array<int|string, array<string, mixed>> $data
+     *
+     * @return array<string, array<mixed>>
+     */
     private function sortByIdArray(array $ids, array $data): array
     {
         $sorted = [];

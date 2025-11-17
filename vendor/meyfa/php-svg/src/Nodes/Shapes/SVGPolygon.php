@@ -11,12 +11,12 @@ use SVG\Rasterization\Transform\TransformParser;
  */
 class SVGPolygon extends SVGPolygonalShape
 {
-    const TAG_NAME = 'polygon';
+    public const TAG_NAME = 'polygon';
 
     /**
      * @param array[] $points Array of points (float 2-tuples).
      */
-    public function __construct($points = [])
+    public function __construct(array $points = [])
     {
         parent::__construct($points);
     }
@@ -24,7 +24,7 @@ class SVGPolygon extends SVGPolygonalShape
     /**
      * @inheritdoc
      */
-    public function rasterize(SVGRasterizer $rasterizer)
+    public function rasterize(SVGRasterizer $rasterizer): void
     {
         if ($this->getComputedStyle('display') === 'none') {
             return;

@@ -1,77 +1,94 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_settings_mailer_smtp %}
 <div class="sw-settings-mailer-smtp">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_host %}
-    <sw-text-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.host']"
-        {% else %}
+
+    <mt-text-field
         v-model="mailerSettings['core.mailerSettings.host']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.host')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.host-placeholder')"
         :error="hostError"
         required
-        @change="$emit('host-changed')"
+        @update:model-value="$emit('host-changed')"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_port %}
-    <sw-number-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.port']"
-        {% else %}
+    <mt-number-field
         v-model="mailerSettings['core.mailerSettings.port']"
-        {% endif %}
         :max="65536"
         :label="$tc('sw-settings-mailer.card-smtp.port')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.port-placeholder')"
         :error="portError"
         required
-        {% if VUE3 %}
-        @update:value="$emit('port-changed')"
-        {% else %}
-        @change="$emit('port-changed')"
-        {% endif %}
+        @update:model-value="$emit('port-changed')"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_username %}
-    <sw-text-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.username']"
-        {% else %}
+
+    <mt-text-field
+        v-if="!isOauth"
         v-model="mailerSettings['core.mailerSettings.username']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.username')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.username-placeholder')"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_password %}
-    <sw-password-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.password']"
-        {% else %}
+    <mt-password-field
+        v-if="!isOauth"
         v-model="mailerSettings['core.mailerSettings.password']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.password')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.password-placeholder')"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+    {% block sw_settings_mailer_smtp_oauth_url %}
+
+    <mt-text-field
+        v-if="isOauth"
+        v-model="mailerSettings['core.mailerSettings.oauthUrl']"
+        :label="$tc('sw-settings-mailer.card-smtp.oauth-url')"
+        :placeholder="$tc('sw-settings-mailer.card-smtp.oauth-url-placeholder')"
+        required
+    />
+    {% endblock %}
+
+    {% block sw_settings_mailer_smtp_oauth_scope %}
+
+    <mt-text-field
+        v-if="isOauth"
+        v-model="mailerSettings['core.mailerSettings.oauthScope']"
+        :label="$tc('sw-settings-mailer.card-smtp.oauth-scope')"
+        :placeholder="$tc('sw-settings-mailer.card-smtp.oauth-scope-placeholder')"
+        required
+    />
+    {% endblock %}
+
+    {% block sw_settings_mailer_smtp_client_id %}
+
+    <mt-text-field
+        v-if="isOauth"
+        v-model="mailerSettings['core.mailerSettings.clientId']"
+        :label="$tc('sw-settings-mailer.card-smtp.oauth-client-id')"
+        :placeholder="$tc('sw-settings-mailer.card-smtp.oauth-client-id-placeholder')"
+        required
+    />
+    {% endblock %}
+
+    {% block sw_settings_mailer_smtp_client_secret %}
+    <mt-password-field
+        v-if="isOauth"
+        v-model="mailerSettings['core.mailerSettings.clientSecret']"
+        :label="$tc('sw-settings-mailer.card-smtp.oauth-client-secret')"
+        :placeholder="$tc('sw-settings-mailer.card-smtp.oauth-client-secret-placeholder')"
+        required
+    />
+    {% endblock %}
+
     {% block sw_settings_mailer_smtp_encryption %}
     <sw-single-select
-        {% if VUE3 %}
         v-model:value="mailerSettings['core.mailerSettings.encryption']"
-        {% else %}
-        v-model="mailerSettings['core.mailerSettings.encryption']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.encryption')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.encryption-placeholder')"
         :options="encryptionOptions"
@@ -79,28 +96,20 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_sender_address %}
-    <sw-text-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.senderAddress']"
-        {% else %}
+
+    <mt-text-field
         v-model="mailerSettings['core.mailerSettings.senderAddress']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.sender-address')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.sender-address-placeholder')"
         validation="email"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_delivery_address %}
-    <sw-text-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.deliveryAddress']"
-        {% else %}
+
+    <mt-text-field
         v-model="mailerSettings['core.mailerSettings.deliveryAddress']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.delivery-address')"
         :placeholder="$tc('sw-settings-mailer.card-smtp.delivery-address-placeholder')"
         :help-text="$tc('sw-settings-mailer.card-smtp.delivery-address-helptext')"
@@ -108,14 +117,10 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_settings_mailer_smtp_disable_delivery %}
-    <sw-switch-field
-        {% if VUE3 %}
-        v-model:value="mailerSettings['core.mailerSettings.disableDelivery']"
-        {% else %}
+
+    <mt-switch
         v-model="mailerSettings['core.mailerSettings.disableDelivery']"
-        {% endif %}
         :label="$tc('sw-settings-mailer.card-smtp.disable-delivery')"
     />
     {% endblock %}

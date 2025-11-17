@@ -14,12 +14,13 @@ class ProductSearchConfigFieldExceptionHandler implements ExceptionHandlerInterf
         return ExceptionHandlerInterface::PRIORITY_DEFAULT;
     }
 
-    public function matchException(\Exception $e): ?\Exception
+    public function matchException(\Throwable $e): ?\Throwable
     {
         if (preg_match('/SQLSTATE\[23000\]:.*1062 Duplicate.*uniq.search_config_field.field__config_id\'/', $e->getMessage())) {
             $field = [];
             preg_match('/Duplicate entry \'(.*)\' for key/', $e->getMessage(), $field);
-            $field = substr($field[1], 0, (int) strpos($field[1], '-'));
+            $fieldNameMatch = $field[1] ?? '';
+            $field = substr($fieldNameMatch, 0, (int) strpos($fieldNameMatch, '-'));
 
             return new DuplicateProductSearchConfigFieldException($field, $e);
         }

@@ -1,15 +1,23 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-multi-select-filter.html.twig';
 
-const { Component } = Shopware;
 const { Criteria, EntityCollection } = Shopware.Data;
 
 /**
  * @private
  */
-Component.register('sw-multi-select-filter', {
+export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: [
+        'filter-update',
+        'filter-reset',
+    ],
 
     props: {
         filter: {
@@ -36,11 +44,7 @@ Component.register('sw-multi-select-filter', {
                 return this.filter.value || [];
             }
 
-            const entities = new EntityCollection(
-                '',
-                this.filter.schema.entity,
-                Shopware.Context.api,
-            );
+            const entities = new EntityCollection('', this.filter.schema.entity, Shopware.Context.api);
 
             if (Array.isArray(this.filter.value)) {
                 this.filter.value.forEach((value) => {
@@ -72,34 +76,40 @@ Component.register('sw-multi-select-filter', {
             if (this.filter.existingType) {
                 const multiFilter = [];
                 newValues.forEach((value) => {
-                    multiFilter.push(Criteria.not('and', [Criteria.equals(`${value}.id`, null)]));
+                    multiFilter.push(
+                        Criteria.not('and', [
+                            Criteria.equals(`${value}.id`, null),
+                        ]),
+                    );
                 });
                 filterCriteria.push(Criteria.multi('or', multiFilter));
             } else {
                 filterCriteria = [
                     this.filter.schema
                         ? Criteria.equalsAny(
-                            `${this.filter.property}.${this.filter.schema.referenceField}`,
-                            newValues.map(newValue => newValue[this.filter.schema.referenceField]),
-                        )
+                              `${this.filter.property}.${this.filter.schema.referenceField}`,
+                              newValues.map((newValue) => newValue[this.filter.schema.referenceField]),
+                          )
                         : Criteria.equalsAny(this.filter.property, newValues),
                 ];
             }
 
-            const values = !this.isEntityMultiSelect ? newValues : newValues.map((value) => {
-                if (!this.filter.displayVariants) {
-                    return {
-                        id: value.id,
-                        [this.labelProperty]: value?.[this.labelProperty],
-                    };
-                }
+            const values = !this.isEntityMultiSelect
+                ? newValues
+                : newValues.map((value) => {
+                      if (!this.filter.displayVariants) {
+                          return {
+                              id: value.id,
+                              [this.labelProperty]: value?.translated?.[this.labelProperty] || value?.[this.labelProperty],
+                          };
+                      }
 
-                return {
-                    id: value.id,
-                    variation: value.variation,
-                    [this.labelProperty]: value?.translated?.[this.labelProperty] || value?.[this.labelProperty],
-                };
-            });
+                      return {
+                          id: value.id,
+                          variation: value.variation,
+                          [this.labelProperty]: value?.translated?.[this.labelProperty] || value?.[this.labelProperty],
+                      };
+                  });
 
             this.$emit('filter-update', this.filter.name, filterCriteria, values);
         },
@@ -108,4 +118,4 @@ Component.register('sw-multi-select-filter', {
             this.$emit('filter-reset', this.filter.name);
         },
     },
-});
+};

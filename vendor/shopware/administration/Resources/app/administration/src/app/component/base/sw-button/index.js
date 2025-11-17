@@ -1,104 +1,44 @@
-import './sw-button.scss';
 import template from './sw-button.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * @status ready
- * @description The <u>sw-button</u> component replaces the standard html button or anchor element with a custom button
- * and a multitude of options.
- * @example-type dynamic
- * @component-example
- * <sw-button>
- *     Button
- * </sw-button>
+ * @description Wrapper component for sw-button and mt-button. Autoswitches between the two components.
+ *
+ * @deprecated tag:v6.8.0 - Will be removed, use mt-button instead
  */
-Component.register('sw-button', {
+export default {
     template,
 
     props: {
-        disabled: {
-            type: Boolean,
-            required: false,
-            default: false,
-        },
-        variant: {
-            type: String,
-            required: false,
-            default: '',
-            validValues: ['primary', 'ghost', 'danger', 'ghost-danger', 'contrast', 'context'],
-            validator(value) {
-                if (!value.length) {
-                    return true;
-                }
-                return ['primary', 'ghost', 'danger', 'ghost-danger', 'contrast', 'context'].includes(value);
-            },
-        },
-        size: {
-            type: String,
-            required: false,
-            default: '',
-            /**
-             * @deprecated tag:v6.6.0 - "large" value will be removed
-             */
-            validValues: ['x-small', 'small', 'large'],
-            validator(value) {
-                if (!value.length) {
-                    return true;
-                }
-
-                /**
-                 * @deprecated tag:v6.6.0 - "large" value will be removed
-                 */
-                return ['x-small', 'small', 'large'].includes(value);
-            },
-        },
-        square: {
-            type: Boolean,
-            required: false,
-            default: false,
-        },
-        block: {
-            type: Boolean,
-            required: false,
-            default: false,
-        },
-        // FIXME: add required flag
-        // eslint-disable-next-line vue/require-default-prop
         routerLink: {
-            type: Object,
-            required: false,
-        },
-        link: {
-            type: String,
-            required: false,
+            type: [
+                String,
+                Object,
+            ],
             default: null,
-        },
-        isLoading: {
-            type: Boolean,
-            default: false,
             required: false,
         },
-    },
 
-    computed: {
-        buttonClasses() {
-            return {
-                [`sw-button--${this.variant}`]: this.variant,
-                [`sw-button--${this.size}`]: this.size,
-                'sw-button--block': this.block,
-                'sw-button--disabled': this.disabled,
-                'sw-button--square': this.square,
-            };
-        },
-
-        contentVisibilityClass() {
-            return {
-                'is--hidden': this.isLoading,
-            };
+        deprecated: {
+            type: Boolean,
+            required: false,
+            default: false,
         },
     },
-});
+
+    methods: {
+        onClick(event) {
+            event.stopImmediatePropagation();
+            // Important: Do not emit the click event again, it is already emitted by the button
+
+            // Check if deprecated routerLink is used
+            if (this.routerLink) {
+                // Use router push to navigate to the new page
+                this.$router.push(this.routerLink);
+            }
+        },
+    },
+};

@@ -5,21 +5,23 @@ namespace Shopware\Core\Content\Flow\Dispatching\Storer;
 use Shopware\Core\Content\Flow\Dispatching\Aware\NewsletterRecipientAware;
 use Shopware\Core\Content\Flow\Dispatching\StorableFlow;
 use Shopware\Core\Content\Flow\Events\BeforeLoadStorableFlowDataEvent;
+use Shopware\Core\Content\Newsletter\Aggregate\NewsletterRecipient\NewsletterRecipientCollection;
 use Shopware\Core\Content\Newsletter\Aggregate\NewsletterRecipient\NewsletterRecipientDefinition;
 use Shopware\Core\Content\Newsletter\Aggregate\NewsletterRecipient\NewsletterRecipientEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Event\FlowEventAware;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('services-settings')]
+#[Package('after-sales')]
 class NewsletterRecipientStorer extends FlowStorer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<NewsletterRecipientCollection> $newsletterRecipientRepository
      */
     public function __construct(
         private readonly EntityRepository $newsletterRecipientRepository,
@@ -55,24 +57,6 @@ class NewsletterRecipientStorer extends FlowStorer
         );
     }
 
-    /**
-     * @param array<int, mixed> $args
-     *
-     * @deprecated tag:v6.6.0 - Will be removed in v6.6.0.0
-     */
-    public function load(array $args): ?NewsletterRecipientEntity
-    {
-        Feature::triggerDeprecationOrThrow(
-            'v6_6_0_0',
-            Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0.0')
-        );
-
-        [$id, $context] = $args;
-        $criteria = new Criteria([$id]);
-
-        return $this->loadNewsletterRecipient($criteria, $context, $id);
-    }
-
     private function lazyLoad(StorableFlow $storableFlow): ?NewsletterRecipientEntity
     {
         $id = $storableFlow->getStore(NewsletterRecipientAware::NEWSLETTER_RECIPIENT_ID);
@@ -95,10 +79,9 @@ class NewsletterRecipientStorer extends FlowStorer
 
         $this->dispatcher->dispatch($event, $event->getName());
 
-        $newsletterRecipient = $this->newsletterRecipientRepository->search($criteria, $context)->get($id);
+        $newsletterRecipient = $this->newsletterRecipientRepository->search($criteria, $context)->getEntities()->get($id);
 
         if ($newsletterRecipient) {
-            /** @var NewsletterRecipientEntity $newsletterRecipient */
             return $newsletterRecipient;
         }
 

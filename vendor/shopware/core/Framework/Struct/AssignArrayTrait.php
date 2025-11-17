@@ -4,11 +4,11 @@ namespace Shopware\Core\Framework\Struct;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 trait AssignArrayTrait
 {
     /**
-     * @param array<mixed> $options
+     * @param array<array-key, mixed> $options
      *
      * @return $this
      */
@@ -22,8 +22,9 @@ trait AssignArrayTrait
             }
 
             try {
-                $this->$key = $value; /* @phpstan-ignore-line */
-            } catch (\Error|\Exception $error) {
+                // @phpstan-ignore property.dynamicName (We allow dynamic assignment of all properties)
+                $this->$key = $value;
+            } catch (\Error|\Exception) {
                 // nth
             }
         }

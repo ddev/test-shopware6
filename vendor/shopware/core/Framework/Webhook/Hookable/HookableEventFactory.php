@@ -10,9 +10,9 @@ use Shopware\Core\Framework\Webhook\BusinessEventEncoder;
 use Shopware\Core\Framework\Webhook\Hookable;
 
 /**
- * @deprecated tag:v6.6.0 - Will be internal - reason:visibility-change
+ * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class HookableEventFactory
 {
     /**
@@ -20,8 +20,14 @@ class HookableEventFactory
      */
     public function __construct(
         private readonly BusinessEventEncoder $eventEncoder,
-        private readonly WriteResultMerger $writeResultMerger
+        private readonly WriteResultMerger $writeResultMerger,
+        private readonly HookableEventCollector $hookableEventCollector
     ) {
+    }
+
+    public static function isHookable(object $event): bool
+    {
+        return $event instanceof Hookable || $event instanceof FlowEventAware || $event instanceof EntityWrittenContainerEvent;
     }
 
     /**
@@ -58,7 +64,7 @@ class HookableEventFactory
     private function wrapEntityWrittenEvent(EntityWrittenContainerEvent $event): array
     {
         $hookables = [];
-        foreach (HookableEventCollector::HOOKABLE_ENTITIES as $entity) {
+        foreach ($this->hookableEventCollector->getHookableEntities() as $entity) {
             $writtenEvent = $event->getEventByEntityName($entity);
 
             if (!$writtenEvent) {

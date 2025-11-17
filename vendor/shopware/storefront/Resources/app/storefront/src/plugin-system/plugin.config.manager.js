@@ -1,7 +1,7 @@
 import PluginConfigRegistry from 'src/plugin-system/plugin.config.registry';
 
 /**
- * @package storefront
+ * @sw-package framework
  */
 class PluginConfigManagerSingleton {
 
@@ -54,7 +54,7 @@ class PluginConfigManagerSingleton {
      * @returns {Map<any, any>}
      */
     getRegistry() {
-        return this._registry
+        return this._registry;
     }
 
 }

@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  *
- * Elasticsearch PHP client
+ * OpenSearch PHP client
  *
- * @link      https://github.com/elastic/elasticsearch-php/
+ * @link      https://github.com/opensearch-project/opensearch-php/
  * @copyright Copyright (c) Elasticsearch B.V (https://www.elastic.co)
  * @license   http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license   https://www.gnu.org/licenses/lgpl-2.1.html GNU Lesser General Public License, Version 2.1
@@ -90,7 +90,7 @@ class Transport
      *
      * @param string     $method  HTTP method to use
      * @param string     $uri     HTTP URI to send request to
-     * @param array      $params  Optional query parameters
+     * @param array<string, mixed> $params  Optional query parameters
      * @param mixed|null $body    Optional query body
      * @param array      $options
      *
@@ -122,7 +122,7 @@ class Transport
             //onSuccess
             function ($response) {
                 $this->retryAttempts = 0;
-            // Note, this could be a 4xx or 5xx error
+                // Note, this could be a 4xx or 5xx error
             },
             //onFailure
             function ($response) {

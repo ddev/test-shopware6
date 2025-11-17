@@ -5,24 +5,17 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <parameters>
-        <parameter key="env(SHOPWARE_DBAL_TIMEZONE_SUPPORT_ENABLED)">0</parameter>
+        <parameter key="env(SHOPWARE_DBAL_TIMEZONE_SUPPORT_ENABLED)" type="string">0</parameter>
         <parameter key="shopware.dbal.time_zone_support_enabled">%env(bool:SHOPWARE_DBAL_TIMEZONE_SUPPORT_ENABLED)%</parameter>
 
-        <parameter key="env(SHOPWARE_DBAL_TOKEN_MINIMUM_LENGTH)">3</parameter>
+        <!-- @deprecated tag:v6.8.0 Will be removed -->
+        <parameter key="env(SHOPWARE_DBAL_TOKEN_MINIMUM_LENGTH)" type="string">3</parameter>
+        <!-- @deprecated tag:v6.8.0 Will be removed -->
         <parameter key="shopware.dbal.token_minimum_length">%env(int:SHOPWARE_DBAL_TOKEN_MINIMUM_LENGTH)%</parameter>
     </parameters>
 
     <services>
-        <service id="Shopware\Core\Framework\DataAbstractionLayer\SchemaGenerator"/>
         <service id="Shopware\Core\Framework\DataAbstractionLayer\EntityGenerator"/>
-
-        <service id="Shopware\Core\Framework\DataAbstractionLayer\Command\CreateSchemaCommand">
-            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\SchemaGenerator"/>
-            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
-            <argument>%kernel.project_dir%</argument>
-
-            <tag name="console.command"/>
-        </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Command\CreateEntitiesCommand">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\EntityGenerator"/>
@@ -32,14 +25,39 @@
             <tag name="console.command"/>
         </service>
 
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\Command\CreateMigrationCommand">
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\MigrationQueryGenerator"/>
+            <argument type="service" id="kernel"/>
+            <argument type="service" id="Symfony\Component\Filesystem\Filesystem"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\MigrationFileRenderer"/>
+            <argument>%kernel.shopware_core_dir%</argument>
+            <argument>%kernel.shopware_version%</argument>
+
+            <tag name="console.command"/>
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\Dbal\SchemaBuilder">
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\MigrationFileRenderer">
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\MigrationQueryGenerator">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Dbal\SchemaBuilder"/>
+        </service>
+
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Event\EntityLoadedEventFactory" public="true">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Command\CreateHydratorCommand">
-            <tag name="console.command"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+            <argument type="service" id="Symfony\Component\Filesystem\Filesystem"/>
             <argument>%kernel.project_dir%</argument>
+
+            <tag name="console.command"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator" public="true" />
@@ -60,10 +78,12 @@
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\Term\Tokenizer">
             <argument>%shopware.dbal.token_minimum_length%</argument>
+            <argument>%shopware.search.preserved_chars%</argument>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\Term\SearchTermInterpreter">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\Term\Tokenizer"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\Term\EntityScoreQueryBuilder"/>
@@ -73,6 +93,12 @@
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\Term\Tokenizer"/>
             <argument type="service" id="logger"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\Term\Filter\TokenFilter"/>
+            <argument type="service" id="Shopware\Core\Content\Product\SearchKeyword\KeywordLoader"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader"/>
+        </service>
+
+        <service id="Shopware\Core\Content\Product\SearchKeyword\KeywordLoader">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
         </service>
 
         <service id="api.request_criteria_builder" class="Shopware\Core\Framework\DataAbstractionLayer\Search\RequestCriteriaBuilder">
@@ -80,6 +106,15 @@
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\ApiCriteriaValidator"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\CriteriaArrayConverter"/>
             <argument>%shopware.api.max_limit%</argument>
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\CachedSearchConfigLoader" decorates="Shopware\Core\Framework\DataAbstractionLayer\Search\SearchConfigLoader" decoration-priority="-1000">
+            <argument type="service" id=".inner"/>
+            <argument type="service" id="cache.object"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\CriteriaArrayConverter">
@@ -99,25 +134,17 @@
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Search\Parser\AggregationParser"/>
 
-        <service id="Shopware\Core\Framework\DataAbstractionLayer\ExtensionRegistry" public="true">
-            <argument type="tagged" tag="shopware.entity.extension"/>
-        </service>
-
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Facade\RepositoryFacadeHookFactory" public="true">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
-            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Facade\AppContextCreator"/>
+            <argument type="service" id="Shopware\Core\Framework\Script\AppContextCreator"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Search\RequestCriteriaBuilder"/>
             <argument type="service" id="Shopware\Core\Framework\Api\Acl\AclCriteriaValidator"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Facade\RepositoryWriterFacadeHookFactory" public="true">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
-            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Facade\AppContextCreator"/>
+            <argument type="service" id="Shopware\Core\Framework\Script\AppContextCreator"/>
             <argument type="service" id="Shopware\Core\Framework\Api\Sync\SyncService"/>
-        </service>
-
-        <service id="Shopware\Core\Framework\DataAbstractionLayer\Facade\AppContextCreator">
-            <argument type="service" id="Doctrine\DBAL\Connection"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Facade\SalesChannelRepositoryFacadeHookFactory" public="true">
@@ -185,6 +212,7 @@
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Write\WriteCommandExtractor">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Write\EntityWriteGatewayInterface"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
         </service>
 
         <service class="Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityWriteGateway" id="Shopware\Core\Framework\DataAbstractionLayer\Write\EntityWriteGatewayInterface" public="true">
@@ -273,6 +301,8 @@
             <argument type="service" id="event_dispatcher"/>
             <tag name="kernel.event_subscriber"/>
             <tag name="console.command"/>
+            <argument type="service" id="messenger.default_bus"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Indexing\Subscriber\RegisteredIndexerSubscriber">
@@ -367,6 +397,13 @@
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer\EmailFieldSerializer">
+            <argument type="service" id="validator"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+
+            <tag name="shopware.field_serializer"/>
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer\EnumFieldSerializer">
             <argument type="service" id="validator"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
 
@@ -612,6 +649,13 @@
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Write\Validation\LockValidator">
             <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\Write\Validation\ParentRelationValidator">
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
 
             <tag name="kernel.event_subscriber"/>
         </service>
@@ -627,11 +671,11 @@
 
         <service id="Shopware\Core\Framework\Api\Sync\SyncFkResolver">
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
-            <argument type="tagged" tag="shopware.sync.fk_resolver"/>
+            <argument type="tagged_iterator" tag="shopware.sync.fk_resolver"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Dbal\ExceptionHandlerRegistry">
-            <argument type="tagged" tag="shopware.dal.exception_handler"/>
+            <argument type="tagged_iterator" tag="shopware.dal.exception_handler"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\TechnicalNameExceptionHandler">
@@ -639,12 +683,13 @@
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\EntityProtectionValidator">
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry" public="true">
-            <argument type="tagged" tag="shopware.entity_indexer"/>
-            <argument type="service" id="messenger.bus.shopware"/>
+            <argument type="tagged_iterator" tag="shopware.entity_indexer"/>
+            <argument type="service" id="messenger.default_bus"/>
             <argument type="service" id="event_dispatcher"/>
             <tag name="messenger.message_handler" />
         </service>
@@ -674,10 +719,17 @@
         </service>
 
         <service id="Shopware\Core\Framework\DataAbstractionLayer\Version\Cleanup\CleanupVersionTaskHandler">
-            <tag name="messenger.message_handler"/>
             <argument type="service" id="scheduled_task.repository"/>
+            <argument type="service" id="logger"/>
             <argument type="service" id="Doctrine\DBAL\Connection"/>
             <argument>%shopware.dal.versioning.expire_days%</argument>
+            <tag name="messenger.message_handler"/>
+        </service>
+
+        <service id="Shopware\Core\Framework\DataAbstractionLayer\Telemetry\EntityTelemetrySubscriber">
+            <argument type="service" id="Shopware\Core\Framework\Telemetry\Metrics\Meter"/>
+
+            <tag name="kernel.event_subscriber"/>
         </service>
     </services>
 </container>

@@ -2,14 +2,21 @@ import template from './sw-first-run-wizard-finish.html.twig';
 import './sw-first-run-wizard-finish.scss';
 
 /**
- * @package services-settings
- * @deprecated tag:v6.6.0 - Will be private
+ * @sw-package fundamentals@after-sales
+ *
+ * @private
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
     inject: ['firstRunWizardService'],
+
+    emits: [
+        'frw-set-title',
+        'buttons-update',
+        'frw-finish',
+    ],
 
     data() {
         return {
@@ -41,13 +48,17 @@ export default {
         },
 
         buttonConfig() {
+            const disabledExtensionManagement =
+                Shopware.Store.get('context').app.config.settings?.disableExtensionManagement;
+            const prevRoute = disabledExtensionManagement ? 'shopware.account' : 'store';
+
             return [
                 {
                     key: 'back',
                     label: this.$tc('sw-first-run-wizard.general.buttonBack'),
                     position: 'left',
-                    variant: null,
-                    action: 'sw.first.run.wizard.index.store',
+                    variant: 'secondary',
+                    action: `sw.first.run.wizard.index.${prevRoute}`,
                     disabled: false,
                 },
                 {
@@ -80,18 +91,21 @@ export default {
         createdComponent() {
             this.updateButtons();
 
-            this.firstRunWizardService.getLicenseDomains().then((response) => {
-                const { items } = response;
+            this.firstRunWizardService
+                .getLicenseDomains()
+                .then((response) => {
+                    const { items } = response;
 
-                if (!items || items.length < 1) {
-                    return;
-                }
+                    if (!items || items.length < 1) {
+                        return;
+                    }
 
-                this.licenceDomains = items;
-                this.licensed = true;
-            }).catch(() => {
-                this.licensed = false;
-            });
+                    this.licenceDomains = items;
+                    this.licensed = true;
+                })
+                .catch(() => {
+                    this.licensed = false;
+                });
         },
 
         setTitle() {

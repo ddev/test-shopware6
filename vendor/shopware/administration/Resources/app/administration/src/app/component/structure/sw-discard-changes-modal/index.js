@@ -1,12 +1,9 @@
 import template from './sw-discard-changes-modal.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * A modal that prompts the user if he wants to leave a detail page with unsaved changes.
  * @status ready
@@ -16,8 +13,13 @@ const { Component } = Shopware;
  *  <sw-discard-changes-modal v-if="showDiscardChangesModal" @keep-editing="keepEditing" @discard-changes="discardChanges">
  *  </sw-discard-changes-modal>
  */
-Component.register('sw-discard-changes-modal', {
+export default {
     template,
+
+    emits: [
+        'keep-editing',
+        'discard-changes',
+    ],
 
     methods: {
         keepEditing() {
@@ -28,4 +30,4 @@ Component.register('sw-discard-changes-modal', {
             this.$emit('discard-changes');
         },
     },
-});
+};

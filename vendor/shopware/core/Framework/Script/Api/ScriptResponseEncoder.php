@@ -9,7 +9,7 @@ use Shopware\Core\System\SalesChannel\Api\StructEncoder;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class ScriptResponseEncoder
 {
     /**
@@ -28,6 +28,6 @@ class ScriptResponseEncoder
 
         $data = $this->structEncoder->encode(new ArrayStruct($scriptResponse->getBody()->all(), $apiAlias), $responseFields);
 
-        return new JsonResponse($data, $scriptResponse->getCode());
+        return new JsonResponse($data, $scriptResponse->getCode(), $scriptResponse->getHeaders());
     }
 }

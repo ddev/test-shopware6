@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'plugin:refresh',
     description: 'Refreshes the plugin list',
 )]
-#[Package('core')]
+#[Package('framework')]
 class PluginRefreshCommand extends Command
 {
     /**
@@ -46,7 +46,7 @@ class PluginRefreshCommand extends Command
     {
         $io = new ShopwareStyle($input, $output);
         $io->title('Shopware Plugin Service');
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
 
         $composerInput = clone $input;
         $composerInput->setInteractive(false);

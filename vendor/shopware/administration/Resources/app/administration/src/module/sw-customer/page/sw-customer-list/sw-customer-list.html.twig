@@ -1,8 +1,6 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_customer_list %}
 <sw-page class="sw-customer-list">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_customer_list_search_bar %}
     <template #search-bar>
         <sw-search-bar
@@ -13,18 +11,14 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_customer_list_smart_bar_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_customer_list_smart_bar_header_title %}
         <h2>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_customer_list_smart_bar_header_title_text %}
             {{ $tc('sw-customer.list.textCustomers') }}
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_customer_list_smart_bar_header_amount %}
             <span
                 v-if="!isLoading"
@@ -38,12 +32,10 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_customer_list_smart_bar_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_customer_list_smart_bar_actions_add %}
-        <sw-button
+        <mt-button
             v-tooltip="{
                 message: $tc('sw-privileges.tooltip.warning'),
                 disabled: acl.can('customer.creator'),
@@ -51,11 +43,12 @@
             }"
             class="sw-customer-list__button-create"
             variant="primary"
-            :disabled="!acl.can('customer.creator')"
-            :router-link="{ name: 'sw.customer.create' }"
+            :disabled="!acl.can('customer.creator') || undefined"
+            size="default"
+            @click="$router.push({ name: 'sw.customer.create' })"
         >
             {{ $tc('sw-customer.list.buttonAddCustomer') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
     </template>
     {% endblock %}
@@ -65,13 +58,24 @@
     </template>
 
     <template #content>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_customer_list_content %}
         <div class="sw-customer-list__content">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+
+            {% block sw_customer_list_empty_state %}
+            <mt-empty-state
+                v-if="!isLoading && !total"
+                class="mt-empty-state--center"
+                :icon="$route.meta.$module.icon"
+                :headline="filterCriteria.length || isValidTerm(term) ? $t('sw-empty-state.messageNoResultTitle') : $t('sw-customer.list.messageEmpty')"
+                :description="filterCriteria.length || isValidTerm(term) ? $t('sw-empty-state.messageNoResultSubline') : $t($route.meta.$module.description)"
+                :link-text="filterCriteria.length || isValidTerm(term) ? $t('sw-empty-state.messageNoResultLink') : ''"
+                :link-href="filterCriteria.length || isValidTerm(term) ? $router.resolve({ name: 'sw.profile.index.searchPreferences' }).href : ''"
+            />
+            {% endblock %}
+
             {% block sw_customer_list_grid %}
             <sw-entity-listing
-                v-if="isLoading || (customers && entitySearchable)"
+                v-else-if="isLoading || (customers && entitySearchable)"
                 ref="swCustomerGrid"
                 class="sw-customer-list-grid"
                 identifier="sw-customer-list"
@@ -82,7 +86,7 @@
                 :sort-direction="sortDirection"
                 detail-route="sw.customer.detail"
                 :show-selection="acl.can('customer.deleter')"
-                :allow-inline-edit="acl.can('customer.editor')"
+                :allow-inline-edit="acl.can('customer.editor') || undefined"
                 :allow-bulk-edit="acl.can('customer.editor')"
                 :is-loading="isLoading"
                 :disable-data-fetching="true"
@@ -93,10 +97,8 @@
                 @bulk-edit-modal-open="onBulkEditModalOpen"
             >
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_customer_list_grid_columns %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_list_grid_columns_name_preview %}
                 <template #preview-firstName="{ item, compact }">
                     <sw-avatar
@@ -108,34 +110,26 @@
                 </template>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_customer_list_grid_columns_name %}
                 <template #column-firstName="{ item, compact, isInlineEdit }">
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_inline_edit_name %}
                     <template v-if="isInlineEdit">
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_customer_list_grid_inline_edit_first_name %}
-                        <sw-text-field
-                            {% if VUE3 %}
-                            v-model:value="item.firstName"
-                            {% else %}
+
+                        <mt-text-field
                             v-model="item.firstName"
-                            {% endif %}
+                            name="sw-field--item-firstName"
                             class="sw-customer-list__inline-edit-first-name"
                             :size="compact ? 'small' : 'default'"
                         />
                         {% endblock %}
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_customer_list_grid_inline_edit_last_name %}
-                        <sw-text-field
-                            {% if VUE3 %}
-                            v-model:value="item.lastName"
-                            {% else %}
+
+                        <mt-text-field
                             v-model="item.lastName"
-                            {% endif %}
+                            name="sw-field--item-lastName"
                             class="sw-customer-list__inline-edit-last-name"
                             :size="compact ? 'small' : 'default'"
                         />
@@ -143,7 +137,6 @@
                     </template>
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_name_link %}
                     <router-link
                         v-else
@@ -153,7 +146,6 @@
                     </router-link>
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_name_guest_label %}
                     <sw-label
                         v-if="!isInlineEdit && item.guest"
@@ -177,7 +169,6 @@
                 {% endblock %}
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_customer_list_grid_columns_group %}
                 <template #column-group="{ item, compact, isInlineEdit }">
                     <sw-label
@@ -198,42 +189,41 @@
                 </template>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
-                {% block sw_customer_list_grid_columns_boundSalesChannel %}
-                <template #column-boundSalesChannelId="{ item }">
-                    {{ item.boundSalesChannelId ? item.salesChannel.translated.name : $tc('sw-customer.list.emptyBoundSalesChannel') }}
+                {% block sw_product_list_grid_columns_email_preview %}
+                <template #column-email="{ item }">
+                    {{ emailIdnFilter(item.email) }}
                 </template>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+                {% block sw_customer_list_grid_columns_boundSalesChannel %}
+                <template #column-boundSalesChannelId="{ item }">
+                    {{ item.boundSalesChannelId ? item.boundSalesChannel.translated.name : $tc('sw-customer.list.emptyBoundSalesChannel') }}
+                </template>
+                {% endblock %}
+
                 {% block sw_customer_list_grid_columns_active %}
                 <template #column-active="{ item, isInlineEdit }">
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_active_inline_edit %}
                     <template v-if="isInlineEdit">
-                        <sw-checkbox-field
-                            {% if VUE3 %}
-                            v-model:value="item.active"
-                            {% else %}
-                            v-model="item.active"
-                            {% endif %}
+                        <mt-checkbox
+                            v-model:checked="item.active"
+                            name="sw-field--item-active"
                         />
                     </template>
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_active_content %}
                     <template v-else>
-                        <sw-icon
+                        <mt-icon
                             v-if="item.active"
                             name="regular-checkmark-xs"
-                            small
+                            size="16px"
                             class="is--active"
                         />
-                        <sw-icon
+                        <mt-icon
                             v-else
                             name="regular-times-s"
-                            small
+                            size="16px"
                             class="is--inactive"
                         />
                     </template>
@@ -241,10 +231,14 @@
                 </template>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+                {% block sw_customer_list_grid_columns_createdAt %}
+                <template #column-createdAt="{ item }">
+                    <sw-time-ago :date="item.createdAt" />
+                </template>
+                {% endblock %}
+
                 {% block sw_customer_list_grid_columns_actions %}
                 <template #actions="{ item }">
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_actions_view %}
                     <sw-context-menu-item
                         class="sw-customer-list__view-action"
@@ -254,23 +248,21 @@
                     </sw-context-menu-item>
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_actions_edit %}
                     <sw-context-menu-item
                         class="sw-customer-list__edit-action"
-                        :disabled="!acl.can('customer.editor')"
+                        :disabled="!acl.can('customer.editor') || undefined"
                         :router-link="{ name: 'sw.customer.detail.base', params: { id: item.id }, query: { edit: true } }"
                     >
                         {{ $tc('sw-customer.list.contextMenuEdit') }}
                     </sw-context-menu-item>
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_grid_columns_actions_delete %}
                     <sw-context-menu-item
                         class="sw-customer-list__delete-action"
                         variant="danger"
-                        :disabled="!acl.can('customer.deleter')"
+                        :disabled="!acl.can('customer.deleter') || undefined"
                         @click="onDelete(item.id)"
                     >
                         {{ $tc('sw-customer.list.contextMenuDelete') }}
@@ -279,11 +271,9 @@
                 </template>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_customer_list_grid_action_modals %}
                 <template #action-modals="{ item }">
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_customer_list_delete_modal %}
                     <sw-modal
                         v-if="showDeleteModal === item.id"
@@ -292,36 +282,33 @@
                         @modal-close="onCloseDeleteModal"
                     >
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_customer_list_delete_modal_confirm_delete_text %}
                         <p class="sw-customer-list__confirm-delete-text">
-                            {{ $tc('sw-customer.list.textDeleteConfirm', 0, { name: `${item.firstName} ${item.lastName}` }) }}
+                            {{ $tc('sw-customer.list.textDeleteConfirm', { name: `${item.firstName} ${item.lastName}` }, 0) }}
                         </p>
                         {% endblock %}
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_customer_list_delete_modal_footer %}
                         <template #modal-footer>
 
-                            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                             {% block sw_customer_list_delete_modal_cancel %}
-                            <sw-button
+                            <mt-button
                                 size="small"
+                                variant="secondary"
                                 @click="onCloseDeleteModal"
                             >
-                                {{ $tc('sw-customer.list.buttonCancel') }}
-                            </sw-button>
+                                {{ $tc('global.default.cancel') }}
+                            </mt-button>
                             {% endblock %}
 
-                            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                             {% block sw_customer_list_delete_modal_confirm %}
-                            <sw-button
-                                variant="danger"
+                            <mt-button
+                                variant="critical"
                                 size="small"
                                 @click="onConfirmDelete(item.id)"
                             >
                                 {{ $tc('sw-customer.list.buttonDelete') }}
-                            </sw-button>
+                            </mt-button>
                             {% endblock %}
                         </template>
                         {% endblock %}
@@ -331,7 +318,6 @@
                 {% endblock %}
 
                 <template #pagination>
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_order_list_grid_pagination %}
                     <sw-pagination
                         :page="page"
@@ -343,7 +329,6 @@
                     {% endblock %}
                 </template>
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_customer_list_bulk_edit_modal %}
                 <template
                     #bulk-edit-modal="{ selection }"
@@ -357,7 +342,6 @@
                         @edit-items="onBulkEditItems"
                         @modal-close="onBulkEditModalClose"
                     >
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_customer_list_bulk_edit_grid_columns_name %}
                         <template #column-firstName="{ item }">
                             <router-link
@@ -370,7 +354,6 @@
                         </template>
                         {% endblock %}
 
-                        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                         {% block sw_customer_list_bulk_edit_grid_columns_group %}
                         <template #column-group="{ item }">
                             <sw-label
@@ -395,54 +378,13 @@
                 {% endblock %}
             </sw-entity-listing>
             {% endblock %}
-
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
-            {% block sw_customer_list_empty_state %}
-            <template v-if="!isLoading && !total">
-                <sw-empty-state
-                    v-if="filterCriteria.length || isValidTerm(term)"
-                    :title="$tc('sw-empty-state.messageNoResultTitle')"
-                >
-                    <template #icon>
-                        <img
-                            :src="assetFilter('/administration/static/img/empty-states/customer-empty-state.svg')"
-                            :alt="$tc('sw-empty-state.messageNoResultTitle')"
-                        >
-                    </template>
-
-                    <template #default>
-                        {{ $tc('sw-empty-state.messageNoResultSublineBefore') }}
-                        <router-link
-                            class="sw-empty-state__description-link"
-                            :to="{ name: 'sw.profile.index.searchPreferences' }"
-                        >
-                            {{ $tc('sw-empty-state.messageNoResultSublineLink') }}
-                        </router-link>
-                        {{ $tc('sw-empty-state.messageNoResultSublineAfter') }}
-                    </template>
-                </sw-empty-state>
-                <sw-empty-state
-                    v-else
-                    :title="$tc('sw-customer.list.messageEmpty')"
-                >
-                    <template #icon>
-                        <img
-                            :src="assetFilter('/administration/static/img/empty-states/customer-empty-state.svg')"
-                            :alt="$tc('sw-customer.list.messageEmpty')"
-                        >
-                    </template>
-                </sw-empty-state>
-            </template>
-            {% endblock %}
         </div>
         {% endblock %}
     </template>
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_customer_list_sidebar %}
     <template #sidebar>
         <sw-sidebar class="sw-customer-list__sidebar">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_customer_list_sidebar_refresh %}
             <sw-sidebar-item
                 icon="regular-undo"
@@ -451,7 +393,6 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_customer_list_sidebar_filter %}
             <sw-sidebar-filter-panel
                 entity="customer"

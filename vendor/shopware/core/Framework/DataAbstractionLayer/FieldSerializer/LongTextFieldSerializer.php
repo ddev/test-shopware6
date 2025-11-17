@@ -22,7 +22,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class LongTextFieldSerializer extends AbstractFieldSerializer
 {
     /**
@@ -52,7 +52,13 @@ class LongTextFieldSerializer extends AbstractFieldSerializer
 
         $this->validateIfNeeded($field, $existence, $data, $parameters);
 
-        $data->setValue($this->sanitize($this->sanitizer, $data, $field, $existence));
+        $sanitizedValue = $this->sanitize($this->sanitizer, $data, $field, $existence);
+
+        if ($sanitizedValue === '' && !$field->is(AllowEmptyString::class)) {
+            $data->setValue(null);
+        } else {
+            $data->setValue($sanitizedValue);
+        }
 
         $this->validateIfNeeded($field, $existence, $data, $parameters);
 
@@ -63,6 +69,10 @@ class LongTextFieldSerializer extends AbstractFieldSerializer
     {
         if ($value === null) {
             return $value;
+        }
+
+        if (\is_array($value)) {
+            throw DataAbstractionLayerException::invalidArraySerialization($field, $value);
         }
 
         return (string) $value;

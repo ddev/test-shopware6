@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'plugin:install',
     description: 'Installs a plugin',
 )]
-#[Package('core')]
+#[Package('framework')]
 class PluginInstallCommand extends AbstractPluginLifecycleCommand
 {
     private const LIFECYCLE_METHOD = 'install';
@@ -35,7 +35,7 @@ class PluginInstallCommand extends AbstractPluginLifecycleCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new ShopwareStyle($input, $output);
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
         $plugins = $this->prepareExecution(self::LIFECYCLE_METHOD, $io, $input, $context);
 
         if ($plugins === null) {
@@ -51,14 +51,14 @@ class PluginInstallCommand extends AbstractPluginLifecycleCommand
             }
 
             if ($activatePlugins && $plugin->getInstalledAt() && $plugin->getActive() === false) {
-                $io->note(sprintf('Plugin "%s" is already installed. Activating.', $plugin->getName()));
+                $io->note(\sprintf('Plugin "%s" is already installed. Activating.', $plugin->getName()));
                 $this->pluginLifecycleService->activatePlugin($plugin, $context);
 
                 continue;
             }
 
             if ($plugin->getInstalledAt()) {
-                $io->note(sprintf('Plugin "%s" is already installed. Skipping.', $plugin->getName()));
+                $io->note(\sprintf('Plugin "%s" is already installed. Skipping.', $plugin->getName()));
 
                 continue;
             }
@@ -78,11 +78,11 @@ class PluginInstallCommand extends AbstractPluginLifecycleCommand
                 }
             }
 
-            $io->text(sprintf($message, $plugin->getName(), $activationSuffix));
+            $io->text(\sprintf($message, $plugin->getName(), $activationSuffix));
         }
 
         if ($installedPluginCount !== 0) {
-            $io->success(sprintf('Installed %d plugin(s).', $installedPluginCount));
+            $io->success(\sprintf('Installed %d plugin(s).', $installedPluginCount));
         }
 
         if ($activatePlugins) {

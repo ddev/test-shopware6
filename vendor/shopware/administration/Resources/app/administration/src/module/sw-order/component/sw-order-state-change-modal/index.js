@@ -2,12 +2,17 @@ import template from './sw-order-state-change-modal.html.twig';
 import './sw-order-state-change-modal.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'page-leave',
+        'page-leave-confirm',
+    ],
 
     props: {
         order: {

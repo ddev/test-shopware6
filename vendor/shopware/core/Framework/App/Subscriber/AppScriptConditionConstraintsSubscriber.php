@@ -10,7 +10,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class AppScriptConditionConstraintsSubscriber implements EventSubscriberInterface
 {
     public static function getSubscribedEvents(): array
@@ -20,9 +20,11 @@ class AppScriptConditionConstraintsSubscriber implements EventSubscriberInterfac
         ];
     }
 
+    /**
+     * @param EntityLoadedEvent<AppScriptConditionEntity> $event
+     */
     public function unserialize(EntityLoadedEvent $event): void
     {
-        /** @var AppScriptConditionEntity $entity */
         foreach ($event->getEntities() as $entity) {
             $constraints = $entity->getConstraints();
             if ($constraints === null || !\is_string($constraints)) {

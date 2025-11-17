@@ -9,13 +9,13 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 /**
  * @phpstan-type ErrorData array{status: string, code: string, title: string, detail: string, meta: array{parameters: array<string, mixed>}, trace?: array<int, mixed>}
  */
-#[Package('core')]
+#[Package('framework')]
 abstract class ShopwareHttpException extends HttpException implements ShopwareException
 {
     /**
      * @var array<string, mixed>
      */
-    protected $parameters = [];
+    protected array $parameters = [];
 
     /**
      * @param array<string, mixed> $parameters
@@ -92,7 +92,7 @@ abstract class ShopwareHttpException extends HttpException implements ShopwareEx
             }
 
             $formattedKey = preg_replace('/[^a-z]/i', '', $key);
-            $regex[sprintf('/\{\{(\s+)?(%s)(\s+)?\}\}/', $formattedKey)] = $value;
+            $regex[\sprintf('/\{\{(\s+)?(%s)(\s+)?\}\}/', $formattedKey)] = $value;
         }
 
         return (string) preg_replace(array_keys($regex), array_values($regex), $message);

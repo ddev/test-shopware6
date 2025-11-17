@@ -1,9 +1,19 @@
-<span
-    class="sw-icon sw-icon--fill"
-    :class="classes"
-    :style="styles"
-    :aria-hidden="decorative"
-    :data-testid="'sw-icon__' + name"
-    v-on="$listeners"
-    v-html="iconSvgData"
-></span>
+{% block sw_icon %}
+<mt-icon
+    v-if="!deprecated"
+    size="24px"
+    v-bind="$attrs"
+    :name="name"
+>
+    <slot></slot>
+</mt-icon>
+{% endblock %}
+
+{# Deprecated component #}
+<sw-icon-deprecated
+    v-else
+    v-bind="$attrs"
+    :name="name"
+>
+    <slot></slot>
+</sw-icon-deprecated>

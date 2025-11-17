@@ -1,5 +1,4 @@
 import template from './sw-cms-detail.html.twig';
-import CMS from '../../constant/sw-cms.constant';
 import './sw-cms-detail.scss';
 
 const { Component, Mixin, Utils } = Shopware;
@@ -7,13 +6,15 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 const { ShopwareError } = Shopware.Classes;
 const { debounce } = Shopware.Utils;
 const { cloneDeep, getObjectDiff } = Shopware.Utils.object;
+const { isEmpty } = Shopware.Utils.types;
 const { warn } = Shopware.Utils.debug;
 const { Criteria } = Shopware.Data;
+const { CMS } = Shopware.Constants;
 const debounceTimeout = 800;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -187,6 +188,11 @@ export default {
                 marginLeft: null,
                 marginRight: null,
                 sizingMode: 'boxed',
+                visibility: {
+                    desktop: true,
+                    tablet: true,
+                    mobile: true,
+                },
             };
         },
 
@@ -233,12 +239,8 @@ export default {
                 .addAssociation('backgroundMedia')
                 .addAssociation('slots');
 
-            criteria
-                .getAssociation('categories')
-                .setLimit(25);
-            criteria
-                .getAssociation('landingPages')
-                .setLimit(25);
+            criteria.getAssociation('categories').setPage(1).setLimit(25);
+            criteria.getAssociation('landingPages').setLimit(25);
 
             criteria.getAssociation('products').setLimit(25);
             criteria.getAssociation('products.manufacturer').setLimit(25);
@@ -251,6 +253,7 @@ export default {
             criteria.addAssociation('media');
             criteria.addAssociation('deliveryTime');
             criteria.addAssociation('manufacturer.media');
+            criteria.addAssociation('cover');
 
             return criteria;
         },
@@ -264,17 +267,17 @@ export default {
         },
 
         requiredFieldErrors() {
-            return [this.pageNameError].filter(error => !!error);
+            return [this.pageNameError].filter((error) => !!error);
         },
 
         pageErrors() {
             return [
-                this.requiredFieldErrors.find(error => !!error),
+                this.requiredFieldErrors.find((error) => !!error),
                 this.pageSectionsError,
                 this.pageBlocksError,
                 this.pageSlotsError,
                 this.pageSlotConfigError,
-            ].filter(error => !!error);
+            ].filter((error) => !!error);
         },
 
         hasPageErrors() {
@@ -283,6 +286,10 @@ export default {
 
         pageType() {
             this.cmsPageTypeService.getType(this.page.type);
+        },
+
+        layoutVersionContext() {
+            return Shopware.Context.api;
         },
 
         ...mapPropertyErrors('page', [
@@ -298,7 +305,11 @@ export default {
         this.createdComponent();
     },
 
-    beforeDestroy() {
+    beforeRouteLeave() {
+        Shopware.Store.get('shopwareApps').selectedIds = [];
+    },
+
+    beforeUnmount() {
         this.beforeDestroyedComponent();
     },
 
@@ -309,24 +320,23 @@ export default {
                 path: 'page',
                 scope: this,
             });
-            Shopware.State.commit('adminMenu/collapseSidebar');
+            Shopware.Store.get('adminMenu').collapseSidebar();
+            this.resetRelatedStores();
 
-            const isSystemDefaultLanguage = Shopware.State.getters['context/isSystemDefaultLanguage'];
-            this.$store.commit('cmsPageState/setIsSystemDefaultLanguage', isSystemDefaultLanguage);
-
-            this.resetCmsPageState();
+            const isSystemDefaultLanguage = Shopware.Store.get('context').isSystemDefaultLanguage;
+            this.cmsPageState.setIsSystemDefaultLanguage(isSystemDefaultLanguage);
 
             if (this.$route.params.id) {
-                this.pageId = this.$route.params.id;
+                this.pageId = this.$route.params.id.toLowerCase();
                 this.isLoading = true;
                 const defaultStorefrontId = '8A243080F92E4C719546314B577CF82B';
 
-                Shopware.State.commit('shopwareApps/setSelectedIds', [this.pageId]);
+                Shopware.Store.get('shopwareApps').selectedIds = [
+                    this.pageId,
+                ];
 
                 const criteria = new Criteria(1, 25);
-                criteria.addFilter(
-                    Criteria.equals('typeId', defaultStorefrontId),
-                );
+                criteria.addFilter(Criteria.equals('typeId', defaultStorefrontId));
 
                 this.salesChannelRepository.search(criteria).then((response) => {
                     this.salesChannels = response;
@@ -338,21 +348,24 @@ export default {
                 });
             }
 
-            if (this.acl.can('system_config.read')) {
-                this.getDefaultLayouts();
-            }
-
             this.setPageContext();
+        },
+
+        beforeDestroyedComponent() {
+            this.resetRelatedStores();
         },
 
         setPageContext() {
             this.getDefaultFolderId().then((folderId) => {
-                Shopware.State.commit('cmsPageState/setDefaultMediaFolderId', folderId);
+                this.cmsPageState.setDefaultMediaFolderId(folderId);
             });
         },
 
+        /**
+         * @deprecated: tag:v6.8.0 - Replaced by "resetRelatedStores" method
+         */
         resetCmsPageState() {
-            Shopware.State.dispatch('cmsPageState/resetCmsPageState');
+            this.cmsPageState.resetCmsPageState();
         },
 
         getDefaultFolderId() {
@@ -370,66 +383,71 @@ export default {
             });
         },
 
-        beforeDestroyedComponent() {
-            Shopware.State.commit('cmsPageState/removeCurrentPage');
-            Shopware.State.commit('cmsPageState/removeSelectedBlock');
-            Shopware.State.commit('cmsPageState/removeSelectedSection');
-        },
-
-        loadPage(pageId) {
+        async loadPage(pageId) {
             this.isLoading = true;
 
-            return this.pageRepository.get(pageId, Shopware.Context.api, this.loadPageCriteria).then((page) => {
-                this.page = { sections: [] };
-                this.page = page;
+            try {
+                this.page = await this.pageRepository.get(pageId, Shopware.Context.api, this.loadPageCriteria);
+                this.cmsPageState.setCurrentPageType(this.page.type);
 
-                Shopware.State.commit('cmsPageState/setCurrentPageType', page.type);
+                if (this.acl.can('system_config:read')) {
+                    await this.setDefaultLayout();
+                }
 
-                this.cmsDataResolverService.resolve(this.page).then(() => {
-                    this.updateSectionAndBlockPositions();
-                    Shopware.State.commit('cmsPageState/setCurrentPage', this.page);
-
-                    this.updateDataMapping();
-                    this.pageOrigin = cloneDeep(this.page);
-
-                    if (this.selectedBlock) {
-                        const blockId = this.selectedBlock.id;
-                        const blockSectionId = this.selectedBlock.sectionId;
-                        this.page.sections.forEach((section) => {
-                            if (section.id === blockSectionId) {
-                                section.blocks.forEach((block) => {
-                                    if (block.id === blockId) {
-                                        this.setSelectedBlock(blockSectionId, block);
-                                    }
-                                });
-                            }
-                        });
-                    }
-
-                    Shopware.ExtensionAPI.publishData({
-                        id: 'sw-cms-detail__page',
-                        path: 'page',
-                        scope: this,
-                    });
-
-                    this.isLoading = false;
-                }).catch((exception) => {
-                    this.isLoading = false;
-                    this.createNotificationError({
-                        title: exception.message,
-                        message: exception.response,
-                    });
-
-                    warn(this._name, exception.message, exception.response);
-                });
-            }).catch((exception) => {
-                this.isLoading = false;
+                await this.hydratePage();
+            } catch (exception) {
                 this.createNotificationError({
                     title: exception.message,
                     message: exception.response.statusText,
                 });
 
                 warn(this._name, exception.message, exception.response);
+            } finally {
+                this.cmsPageState.setCurrentPage(this.page);
+                this.pageOrigin = cloneDeep(this.page);
+                this.restoreActiveBlock();
+                this.isLoading = false;
+            }
+        },
+
+        async hydratePage() {
+            try {
+                await this.cmsDataResolverService.resolve(this.page);
+
+                this.updateSectionAndBlockPositions();
+                this.updateDataMapping();
+
+                Shopware.ExtensionAPI.publishData({
+                    id: 'sw-cms-detail__page',
+                    path: 'page',
+                    scope: this,
+                });
+            } catch (exception) {
+                this.createNotificationError({
+                    title: exception.message,
+                    message: exception.response,
+                });
+
+                warn(this._name, exception.message, exception.response);
+            }
+        },
+
+        restoreActiveBlock() {
+            if (!this.selectedBlock) {
+                return;
+            }
+
+            const blockId = this.selectedBlock.id;
+            const blockSectionId = this.selectedBlock.sectionId;
+
+            this.page.sections.forEach((section) => {
+                if (section.id === blockSectionId) {
+                    section.blocks.forEach((block) => {
+                        if (block.id === blockId) {
+                            this.setSelectedBlock(blockSectionId, block);
+                        }
+                    });
+                }
             });
         },
 
@@ -437,10 +455,10 @@ export default {
             const mappingEntity = this.cmsPageTypeSettings.entity;
 
             if (!mappingEntity) {
-                Shopware.State.commit('cmsPageState/removeCurrentMappingEntity');
-                Shopware.State.commit('cmsPageState/removeCurrentMappingTypes');
-                Shopware.State.commit('cmsPageState/removeCurrentDemoEntity');
-                Shopware.State.commit('cmsPageState/removeCurrentDemoProducts');
+                this.cmsPageState.removeCurrentMappingEntity();
+                this.cmsPageState.removeCurrentMappingTypes();
+                this.cmsPageState.removeCurrentDemoEntity();
+                this.cmsPageState.removeCurrentDemoProducts();
 
                 this.currentMappingEntity = null;
                 this.currentMappingEntityRepo = null;
@@ -449,16 +467,13 @@ export default {
             }
 
             if (this.cmsPageState.currentMappingEntity !== mappingEntity) {
-                Shopware.State.commit('cmsPageState/setCurrentMappingEntity', mappingEntity);
-                Shopware.State.commit(
-                    'cmsPageState/setCurrentMappingTypes',
-                    this.cmsService.getEntityMappingTypes(mappingEntity),
-                );
+                this.cmsPageState.setCurrentMappingEntity(mappingEntity);
+                this.cmsPageState.setCurrentMappingTypes(this.cmsService.getEntityMappingTypes(mappingEntity));
 
                 this.currentMappingEntity = mappingEntity;
                 this.currentMappingEntityRepo = this.repositoryFactory.create(mappingEntity);
 
-                this.loadFirstDemoEntity();
+                this.onDemoEntityChange();
             }
         },
 
@@ -467,7 +482,7 @@ export default {
                 return;
             }
 
-            Shopware.State.commit('cmsPageState/setCurrentCmsDeviceView', view);
+            this.cmsPageState.setCurrentCmsDeviceView(view);
 
             if (view === 'form') {
                 this.setSelectedBlock(null, null);
@@ -476,7 +491,7 @@ export default {
 
         setSelectedBlock(sectionId, block = null) {
             this.selectedBlockSectionId = sectionId;
-            this.$store.dispatch('cmsPageState/setBlock', block);
+            this.cmsPageState.setBlock(block);
         },
 
         onChangeLanguage() {
@@ -484,14 +499,55 @@ export default {
 
             return this.salesChannelRepository.search(new Criteria(1, 25)).then((response) => {
                 this.salesChannels = response;
-                const isSystemDefaultLanguage = Shopware.State.getters['context/isSystemDefaultLanguage'];
-                this.$store.commit('cmsPageState/setIsSystemDefaultLanguage', isSystemDefaultLanguage);
+                const isSystemDefaultLanguage = Shopware.Store.get('context').isSystemDefaultLanguage;
+                this.cmsPageState.setIsSystemDefaultLanguage(isSystemDefaultLanguage);
                 return this.loadPage(this.pageId);
             });
         },
 
         abortOnLanguageChange() {
-            return Object.keys(getObjectDiff(this.page, this.pageOrigin)).length > 0;
+            return this.hasUnsavedChanges();
+        },
+
+        /**
+         * This check is not perfect, since some components (like sw-cms-section) change values at runtime,
+         * which should not be considered as unsaved changes.
+         *
+         * Further improvement should focus on removing these runtime changes,
+         * so a single "getObjectDiff" on the page is sufficient.
+         */
+        hasUnsavedChanges() {
+            if (this.page._isDirty) {
+                return true;
+            }
+
+            for (let i = 0; i < this.page.sections.length; i += 1) {
+                const section = this.page.sections[i];
+
+                if (section._isDirty) {
+                    return true;
+                }
+
+                for (let j = 0; j < section.blocks.length; j += 1) {
+                    const block = section.blocks[j];
+
+                    if (block._isDirty) {
+                        return true;
+                    }
+
+                    for (let k = 0; k < block.slots.length; k += 1) {
+                        const slot = block.slots[k];
+                        const originSlot = this.pageOrigin.sections.get(section.id).blocks.get(block.id).slots.get(slot.id);
+                        const slotDiff = getObjectDiff(originSlot, slot);
+
+                        if (slot._isDirty || !isEmpty(slotDiff)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         },
 
         saveOnLanguageChange() {
@@ -509,11 +565,12 @@ export default {
             const context = { ...Shopware.Context.api, inheritance: true };
 
             const response = await this.productRepository.search(criteria, context);
-            Shopware.State.commit('cmsPageState/setCurrentDemoEntity', response[0]);
+            this.cmsPageState.setCurrentDemoEntity(response[0]);
         },
 
         async loadDemoCategory(entityId) {
             const criteria = new Criteria(1, 1);
+            criteria.addAssociation('media');
 
             if (entityId) {
                 criteria.setIds([entityId]);
@@ -523,48 +580,28 @@ export default {
             const category = response[0];
 
             this.demoEntityId = category.id;
-            Shopware.State.commit('cmsPageState/setCurrentDemoEntity', category);
+            this.cmsPageState.setCurrentDemoEntity(category);
 
             this.loadDemoCategoryProducts(category);
-
-            if (category.mediaId) {
-                this.loadDemoCategoryMedia(category);
-            }
         },
 
         async loadDemoCategoryProducts(entity) {
             const productCriteria = Criteria.fromCriteria(this.demoProductCriteria);
-
             productCriteria.setLimit(8);
+            productCriteria.addFilter(Criteria.equals('categoriesRo.id', entity.id));
+            productCriteria.addFilter(Criteria.equals('parentId', null));
 
-            const products = await this.repositoryFactory.create(
-                entity.products.entity,
-                entity.products.source,
-            ).search(productCriteria);
+            const products = await this.productRepository.search(productCriteria);
 
-            Shopware.State.commit('cmsPageState/setCurrentDemoProducts', products);
-        },
-
-        async loadDemoCategoryMedia(entity) {
-            const media = await this.repositoryFactory.create('media').get(entity.mediaId);
-
-            entity.media = media;
-            Shopware.State.commit('cmsPageState/setCurrentDemoEntity', entity);
-        },
-
-        loadFirstDemoEntity() {
-            const demoMappingType = this.cmsPageTypeSettings?.entity;
-
-            if (demoMappingType === 'category') {
-                this.loadDemoCategory();
-            }
+            this.cmsPageState.setCurrentDemoProducts(products);
         },
 
         onDemoEntityChange(demoEntityId) {
             const demoMappingType = this.cmsPageTypeSettings?.entity;
+            const store = this.cmsPageState;
 
-            Shopware.State.commit('cmsPageState/removeCurrentDemoEntity');
-            Shopware.State.commit('cmsPageState/removeCurrentDemoProducts');
+            store.removeCurrentDemoEntity();
+            store.removeCurrentDemoProducts();
 
             if (demoMappingType === 'product') {
                 if (demoEntityId) {
@@ -578,16 +615,7 @@ export default {
             }
         },
 
-        addFirstSection(type, index) {
-            this.onAddSection(type, index);
-        },
-
-        addAdditionalSection(type, index) {
-            this.onAddSection(type, index);
-            this.onSave();
-        },
-
-        onAddSection(type, index) {
+        onAddSection(type, index, persist = false) {
             if (!type || index === 'undefined') {
                 return;
             }
@@ -606,10 +634,14 @@ export default {
 
             this.page.sections.splice(index, 0, section);
             this.updateSectionAndBlockPositions();
+
+            if (persist) {
+                this.onSave();
+            }
         },
 
         onCloseBlockConfig() {
-            this.$store.commit('cmsPageState/removeSelectedItem');
+            this.cmsPageState.removeSelectedItem();
         },
 
         pageConfigOpen(mode = null) {
@@ -669,28 +701,26 @@ export default {
             this.isLoading = true;
             this.deleteEntityAndRequiredConfigKey(this.page.sections);
 
-            return this.pageRepository.save(this.page, Shopware.Context.api, false).then(() => {
-                this.isLoading = false;
-                this.isSaveSuccessful = true;
+            return this.pageRepository
+                .save(this.page, Shopware.Context.api, false)
+                .then(() => {
+                    this.isLoading = false;
+                    this.isSaveSuccessful = true;
 
-                return this.loadPage(this.page.id);
-            }).catch((exception) => {
-                this.isLoading = false;
+                    return this.loadPage(this.page.id);
+                })
+                .catch((exception) => {
+                    this.isLoading = false;
 
-                this.createNotificationError({
-                    message: exception.message,
+                    this.createNotificationError({
+                        message: exception.message,
+                    });
+
+                    return Promise.reject(exception);
                 });
-
-                return Promise.reject(exception);
-            });
         },
 
-        addError({
-            property = null,
-            payload = {},
-            code = CMS.REQUIRED_FIELD_ERROR_CODE,
-            message = '',
-        } = {}) {
+        addError({ property = null, payload = {}, code = CMS.REQUIRED_FIELD_ERROR_CODE, message = '' } = {}) {
             const expression = `cms_page.${this.page.id}.${property}`;
             const error = new ShopwareError({
                 code,
@@ -698,11 +728,11 @@ export default {
                 meta: { parameters: payload },
             });
 
-            Shopware.State.commit('error/addApiError', { expression, error });
+            Shopware.Store.get('error').addApiError({ expression, error });
         },
 
         getError(property) {
-            return Shopware.State.getters['error/getApiError'](this.page, property);
+            return Shopware.Store.get('error').getApiError(this.page, property);
         },
 
         getSlotValidations() {
@@ -749,14 +779,14 @@ export default {
             }
 
             this.validationWarnings = [];
-            Shopware.State.dispatch('error/resetApiErrors');
+            Shopware.Store.get('error').resetApiErrors();
 
             const valid = [
                 this.missingFieldsValidation(),
                 this.listingPageValidation(),
                 this.pageSectionCountValidation(),
                 this.slotValidation(),
-            ].every(validation => validation);
+            ].every((validation) => validation);
 
             if (!this.cmsMissingElementDontRemind && valid && this.validationWarnings.length > 0) {
                 this.showMissingElementModal = true;
@@ -829,7 +859,9 @@ export default {
                 CMS.UNIQUE_SLOTS.forEach((index) => {
                     if (uniqueSlotCount?.[index]?.count > 1) {
                         uniqueSlotCount[index].label = this.$tc(`sw-cms.elements.${index}.label`);
-                        affectedErrorElements.push({ ...uniqueSlotCount[index] });
+                        affectedErrorElements.push({
+                            ...uniqueSlotCount[index],
+                        });
 
                         valid = false;
                     } else if (!uniqueSlotCount?.[index]) {
@@ -838,12 +870,16 @@ export default {
                 });
 
                 if (affectedErrorElements.length > 0) {
-                    const uniqueSlotString = CMS.UNIQUE_SLOTS
-                        .map(slot => this.$tc(`sw-cms.elements.${slot}.label`))
-                        .join(', ');
-                    const message = this.$tc('sw-cms.detail.notification.messageRedundantElements', 0, {
-                        names: uniqueSlotString,
-                    });
+                    const uniqueSlotString = CMS.UNIQUE_SLOTS.map((slot) => this.$tc(`sw-cms.elements.${slot}.label`)).join(
+                        ', ',
+                    );
+                    const message = this.$tc(
+                        'sw-cms.detail.notification.messageRedundantElements',
+                        {
+                            names: uniqueSlotString,
+                        },
+                        0,
+                    );
 
                     this.addError({
                         property: 'slots',
@@ -896,10 +932,7 @@ export default {
         checkRequiredSlotConfigField(slot, block) {
             return Object.keys(slot.config).reduce((accumulator, index) => {
                 const slotConfig = { ...slot.config[index] };
-                if (
-                    !!slotConfig.required &&
-                    (slotConfig.value === null || slotConfig.value.length < 1)
-                ) {
+                if (!!slotConfig.required && (slotConfig.value === null || slotConfig.value.length < 1)) {
                     slotConfig.name = `${slot.type}.${index}`;
                     slotConfig.blockId = block.id;
 
@@ -913,6 +946,7 @@ export default {
         updateSectionAndBlockPositions() {
             this.page.sections.forEach((section, index) => {
                 section.position = index;
+
                 this.updateBlockPositions(section);
             });
         },
@@ -936,8 +970,8 @@ export default {
                 cloneChildren: true,
             };
 
-            const { id: clonedBlockID } = await this.blockRepository.clone(block.id, Shopware.Context.api, behavior);
-            const clonedBlock = await this.blockRepository.get(clonedBlockID);
+            const { id: clonedBlockID } = await this.blockRepository.clone(block.id, behavior, this.layoutVersionContext);
+            const clonedBlock = await this.blockRepository.get(clonedBlockID, this.layoutVersionContext);
 
             const section = this.page.sections[sectionPosition];
 
@@ -955,9 +989,12 @@ export default {
                 cloneChildren: true,
             };
 
-            const { id: clonedSectionID } = await this.sectionRepository.clone(section.id, Shopware.Context.api, behavior);
-            const clonedSection = await this.sectionRepository.get(clonedSectionID);
-
+            const { id: clonedSectionID } = await this.sectionRepository.clone(
+                section.id,
+                behavior,
+                this.layoutVersionContext,
+            );
+            const clonedSection = await this.sectionRepository.get(clonedSectionID, this.layoutVersionContext);
 
             this.page.sections.splice(clonedSection.position, 0, clonedSection);
             this.updateSectionAndBlockPositions(section);
@@ -968,7 +1005,7 @@ export default {
         onPageTypeChange(pageType) {
             // if pageType wasn't passed along just assume the page was directly mutated
             if (typeof pageType === 'string') {
-                Shopware.State.commit('cmsPageState/setCurrentPageType', pageType);
+                this.cmsPageState.setCurrentPageType(pageType);
                 this.page.type = pageType;
             }
 
@@ -1008,10 +1045,12 @@ export default {
         },
 
         processProductDetailType() {
-            this.productDetailBlocks.forEach(block => {
+            this.productDetailBlocks.forEach((block) => {
                 const newBlock = this.blockRepository.create();
 
-                block.elements.forEach(el => { el.blockId = newBlock.id; });
+                block.elements.forEach((el) => {
+                    el.blockId = newBlock.id;
+                });
 
                 this.processBlock(newBlock, block.type);
                 this.processElements(newBlock, block.elements);
@@ -1027,10 +1066,9 @@ export default {
                     ...defaultConfig,
                     marginLeft: '0',
                     marginRight: '0',
-                    marginTop: (blockType === 'gallery-buybox' || blockType === 'product-description-reviews')
-                        ? '20px' : '0',
-                    marginBottom: (blockType === 'product-heading' || blockType === 'product-description-reviews')
-                        ? '20px' : '0',
+                    marginTop: blockType === 'gallery-buybox' || blockType === 'product-description-reviews' ? '20px' : '0',
+                    marginBottom:
+                        blockType === 'product-heading' || blockType === 'product-description-reviews' ? '20px' : '0',
                 };
             }
 
@@ -1040,11 +1078,7 @@ export default {
             block.sectionId = this.page.sections[0].id;
             block.sectionPosition = 'main';
 
-            Object.assign(
-                block,
-                cloneDeep(this.blockConfigDefaults),
-                cloneDeep(defaultConfig || {}),
-            );
+            Object.assign(block, cloneDeep(this.blockConfigDefaults), cloneDeep(defaultConfig || {}));
         },
 
         processElements(block, elements) {
@@ -1124,12 +1158,19 @@ export default {
             this.showLayoutSetAsDefaultModal = false;
         },
 
-        async getDefaultLayouts() {
+        async setDefaultLayout() {
             const response = await this.systemConfigApiService.getValues('core.cms');
             const productDetailId = response['core.cms.default_category_cms_page'];
             const productListId = response['core.cms.default_product_cms_page'];
+            const isLiveVersion = this.page.versionId === Shopware.Context.api.liveVersionId;
 
-            if ([productDetailId, productListId].includes(this.pageId)) {
+            if (
+                isLiveVersion &&
+                [
+                    productDetailId,
+                    productListId,
+                ].includes(this.pageId)
+            ) {
                 this.isDefaultLayout = true;
             }
         },
@@ -1165,6 +1206,22 @@ export default {
             } else {
                 await this.$router.push({ name: 'sw.cms.index' });
             }
+        },
+
+        resetRelatedStores() {
+            const stores = [
+                'cmsPage',
+                'swCategoryDetail',
+                'swProductDetail',
+            ];
+
+            stores.forEach((name) => {
+                try {
+                    Shopware.Store.get(name).$reset();
+                } catch {
+                    // Not all stores are always registered. We can safely ignore errors here.
+                }
+            });
         },
     },
 };

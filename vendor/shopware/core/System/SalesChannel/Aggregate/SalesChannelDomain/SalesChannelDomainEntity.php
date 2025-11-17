@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain;
 
+use Shopware\Core\Content\MeasurementSystem\MeasurementUnits;
 use Shopware\Core\Content\ProductExport\ProductExportCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
@@ -12,71 +13,37 @@ use Shopware\Core\System\Language\LanguageEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Shopware\Core\System\Snippet\Aggregate\SnippetSet\SnippetSetEntity;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class SalesChannelDomainEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $url;
+    protected string $url;
 
-    /**
-     * @var string|null
-     */
-    protected $currencyId;
+    protected ?string $currencyId = null;
 
-    /**
-     * @var CurrencyEntity|null
-     */
-    protected $currency;
+    protected ?CurrencyEntity $currency = null;
 
-    /**
-     * @var string|null
-     */
-    protected $snippetSetId;
+    protected ?string $snippetSetId = null;
 
-    /**
-     * @var SnippetSetEntity|null
-     */
-    protected $snippetSet;
+    protected ?SnippetSetEntity $snippetSet = null;
 
-    /**
-     * @var string
-     */
-    protected $salesChannelId;
+    protected string $salesChannelId;
 
-    /**
-     * @var SalesChannelEntity|null
-     */
-    protected $salesChannel;
+    protected ?SalesChannelEntity $salesChannel = null;
 
-    /**
-     * @var string
-     */
-    protected $languageId;
+    protected string $languageId;
 
-    /**
-     * @var LanguageEntity|null
-     */
-    protected $language;
+    protected ?LanguageEntity $language = null;
 
-    /**
-     * @var ProductExportCollection|null
-     */
-    protected $productExports;
+    protected MeasurementUnits $measurementUnits;
 
-    /**
-     * @var SalesChannelEntity|null
-     */
-    protected $salesChannelDefaultHreflang;
+    protected ?ProductExportCollection $productExports = null;
 
-    /**
-     * @var bool
-     */
-    protected $hreflangUseOnlyLocale;
+    protected ?SalesChannelEntity $salesChannelDefaultHreflang = null;
+
+    protected bool $hreflangUseOnlyLocale;
 
     public function getUrl(): string
     {
@@ -196,5 +163,15 @@ class SalesChannelDomainEntity extends Entity
     public function setSalesChannelDefaultHreflang(?SalesChannelEntity $salesChannelDefaultHreflang): void
     {
         $this->salesChannelDefaultHreflang = $salesChannelDefaultHreflang;
+    }
+
+    public function getMeasurementUnits(): MeasurementUnits
+    {
+        return $this->measurementUnits;
+    }
+
+    public function setMeasurementUnits(MeasurementUnits $measurementUnits): void
+    {
+        $this->measurementUnits = $measurementUnits;
     }
 }

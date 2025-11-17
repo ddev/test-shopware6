@@ -103,10 +103,12 @@ describe('NativeEventEmitter tests', () => {
         });
 
         test('namespaced events', (done) => {
-            const noop = jest.mock();
+            const noop = jest.fn();
             const eventName = 'foo';
 
-            emitter.subscribe(`${eventName}.test`, (event) => {
+            // sort will order uppercase characters before lowercase
+            // this tests if the sort isn't changing the splitEventName
+            emitter.subscribe(`${eventName}.Test`, (event) => {
                 expect(event.type).toBe(eventName);
                 done();
             });
@@ -114,7 +116,7 @@ describe('NativeEventEmitter tests', () => {
             emitter.publish(eventName);
 
             expect(emitter.listeners.length).toBe(2);
-            emitter.unsubscribe(`${eventName}.test`);
+            emitter.unsubscribe(`${eventName}.Test`);
             expect(emitter.listeners.length).toBe(1);
         });
     });

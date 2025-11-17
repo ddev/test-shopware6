@@ -2,8 +2,8 @@
 
 namespace Shopware\Core\Framework\DataAbstractionLayer\Search\Parser;
 
+use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
-use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidAggregationQueryException;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InvalidFilterQueryException;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\SearchRequestException;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Aggregation;
@@ -25,7 +25,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class AggregationParser
 {
     /**
@@ -34,7 +34,7 @@ class AggregationParser
     public function buildAggregations(EntityDefinition $definition, array $payload, Criteria $criteria, SearchRequestException $searchRequestException): void
     {
         if (!\is_array($payload['aggregations'])) {
-            throw new InvalidAggregationQueryException('The aggregations parameter has to be a list of aggregations.');
+            throw DataAbstractionLayerException::invalidAggregationQuery('The aggregations parameter has to be a list of aggregations.');
         }
 
         foreach ($payload['aggregations'] as $index => $aggregation) {
@@ -183,7 +183,7 @@ class AggregationParser
             return $data;
         }
 
-        throw new InvalidAggregationQueryException(sprintf('The aggregation of type "%s" is not supported.', $aggregation::class));
+        throw DataAbstractionLayerException::invalidAggregationQuery(\sprintf('The aggregation of type "%s" is not supported.', $aggregation::class));
     }
 
     /**
@@ -194,7 +194,13 @@ class AggregationParser
         $name = \array_key_exists('name', $aggregation) ? (string) $aggregation['name'] : null;
 
         if (empty($name) || is_numeric($name)) {
-            $exceptions->add(new InvalidAggregationQueryException('The aggregation name should be a non-empty string.'), '/aggregations/' . $index);
+            $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation name should be a non-empty string.'), '/aggregations/' . $index);
+
+            return null;
+        }
+
+        if (str_contains($name, '?') || str_contains($name, ':')) {
+            $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation name should not contain a question mark or colon.'), '/aggregations/' . $index);
 
             return null;
         }
@@ -202,13 +208,13 @@ class AggregationParser
         $type = $aggregation['type'] ?? null;
 
         if (!\is_string($type) || empty($type) || is_numeric($type)) {
-            $exceptions->add(new InvalidAggregationQueryException('The aggregations of "%s" should be a non-empty string.'), '/aggregations/' . $index);
+            $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregations of "%s" should be a non-empty string.'), '/aggregations/' . $index);
 
             return null;
         }
 
         if (empty($aggregation['field']) && $type !== 'filter') {
-            $exceptions->add(new InvalidAggregationQueryException('The aggregation should contain a "field".'), '/aggregations/' . $index . '/' . $type . '/field');
+            $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation should contain a "field".'), '/aggregations/' . $index . '/' . $type . '/field');
 
             return null;
         }
@@ -232,7 +238,7 @@ class AggregationParser
                 return new CountAggregation($name, $field);
             case 'range':
                 if (!isset($aggregation['ranges'])) {
-                    $exceptions->add(new InvalidAggregationQueryException('The aggregation should contain "ranges".'), '/aggregations/' . $index . '/' . $type . '/field');
+                    $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation should contain "ranges".'), '/aggregations/' . $index . '/' . $type . '/field');
 
                     return null;
                 }
@@ -240,7 +246,7 @@ class AggregationParser
                 return new RangeAggregation($name, $field, $aggregation['ranges']);
             case 'entity':
                 if (!isset($aggregation['definition'])) {
-                    $exceptions->add(new InvalidAggregationQueryException('The aggregation should contain a "definition".'), '/aggregations/' . $index . '/' . $type . '/field');
+                    $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation should contain a "definition".'), '/aggregations/' . $index . '/' . $type . '/field');
 
                     return null;
                 }
@@ -249,12 +255,12 @@ class AggregationParser
 
             case 'filter':
                 if (empty($aggregation['filter'])) {
-                    $exceptions->add(new InvalidAggregationQueryException('The aggregation should contain an array of filters in property "filter".'), '/aggregations/' . $index . '/' . $type . '/field');
+                    $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation should contain an array of filters in property "filter".'), '/aggregations/' . $index . '/' . $type . '/field');
 
                     return null;
                 }
                 if (empty($aggregation['aggregation'])) {
-                    $exceptions->add(new InvalidAggregationQueryException('The aggregation should contain an array of filters in property "filter".'), '/aggregations/' . $index . '/' . $type . '/field');
+                    $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation should contain an array of filters in property "filter".'), '/aggregations/' . $index . '/' . $type . '/field');
 
                     return null;
                 }
@@ -264,7 +270,7 @@ class AggregationParser
                     try {
                         $filters[] = QueryStringParser::fromArray($definition, $query, $exceptions, '/filter/' . $filterIndex);
                     } catch (InvalidFilterQueryException $ex) {
-                        $exceptions->add($ex, $ex->getPath());
+                        $exceptions->add($ex, $ex->getParameters()['path']);
                     }
                 }
 
@@ -280,7 +286,7 @@ class AggregationParser
                 $sorting = null;
 
                 if (!isset($aggregation['interval'])) {
-                    $exceptions->add(new InvalidAggregationQueryException('The aggregation should contain an date interval.'), '/aggregations/' . $index . '/' . $type . '/interval');
+                    $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery('The aggregation should contain an date interval.'), '/aggregations/' . $index . '/' . $type . '/interval');
 
                     return null;
                 }
@@ -337,7 +343,7 @@ class AggregationParser
                 return new TermsAggregation($name, $field, $limit, $sorting, $nested);
 
             default:
-                $exceptions->add(new InvalidAggregationQueryException(sprintf('The aggregation type "%s" used as key does not exist.', $type)), '/aggregations/' . $index);
+                $exceptions->add(DataAbstractionLayerException::invalidAggregationQuery(\sprintf('The aggregation type "%s" used as key does not exist.', $type)), '/aggregations/' . $index);
 
                 return null;
         }

@@ -12,50 +12,26 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class AppPaymentMethodEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $appId;
+    protected ?string $appId = null;
 
-    /**
-     * @var AppEntity|null
-     */
-    protected $app;
+    protected ?AppEntity $app = null;
 
-    /**
-     * @var string
-     */
-    protected $paymentMethodId;
+    protected string $paymentMethodId;
 
-    /**
-     * @var PaymentMethodEntity|null
-     */
-    protected $paymentMethod;
+    protected ?PaymentMethodEntity $paymentMethod = null;
 
-    /**
-     * @var string
-     */
-    protected $appName;
+    protected string $appName;
 
-    /**
-     * @var string
-     */
-    protected $identifier;
+    protected string $identifier;
 
-    /**
-     * @var string|null
-     */
-    protected $payUrl;
+    protected ?string $payUrl = null;
 
-    /**
-     * @var string|null
-     */
-    protected $finalizeUrl;
+    protected ?string $finalizeUrl = null;
 
     protected ?string $validateUrl = null;
 
@@ -65,17 +41,11 @@ class AppPaymentMethodEntity extends Entity
 
     protected ?string $recurringUrl = null;
 
-    /**
-     * @var string|null
-     */
-    protected $originalMediaId;
+    protected ?string $originalMediaId = null;
 
-    /**
-     * @var MediaEntity|null
-     */
-    protected $originalMedia;
+    protected ?MediaEntity $originalMedia = null;
 
-    public function getAppId(): string
+    public function getAppId(): ?string
     {
         return $this->appId;
     }

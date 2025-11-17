@@ -4,66 +4,40 @@ namespace Shopware\Core\Content\Rule\Aggregate\RuleCondition;
 
 use Shopware\Core\Content\Rule\RuleEntity;
 use Shopware\Core\Framework\App\Aggregate\AppScriptCondition\AppScriptConditionEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\Contract\IdAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('services-settings')]
-class RuleConditionEntity extends Entity
+#[Package('fundamentals@after-sales')]
+class RuleConditionEntity extends Entity implements IdAware
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $type;
+    protected string $type;
+
+    protected string $ruleId;
+
+    protected ?string $scriptId = null;
+
+    protected ?string $parentId = null;
 
     /**
-     * @var string
+     * @var array<string, mixed>|null
      */
-    protected $ruleId;
+    protected ?array $value = null;
 
-    /**
-     * @var string|null
-     */
-    protected $scriptId;
+    protected ?RuleEntity $rule = null;
 
-    /**
-     * @var string|null
-     */
-    protected $parentId;
+    protected ?AppScriptConditionEntity $appScriptCondition = null;
 
-    /**
-     * @var array|null
-     */
-    protected $value;
+    protected ?RuleConditionCollection $children = null;
 
-    /**
-     * @var RuleEntity|null
-     */
-    protected $rule;
+    protected ?RuleConditionEntity $parent = null;
 
-    /**
-     * @var AppScriptConditionEntity|null
-     */
-    protected $appScriptCondition;
-
-    /**
-     * @var RuleConditionCollection|null
-     */
-    protected $children;
-
-    /**
-     * @var RuleConditionEntity|null
-     */
-    protected $parent;
-
-    /**
-     * @var int
-     */
-    protected $position;
+    protected int $position;
 
     public function getType(): string
     {
@@ -105,11 +79,17 @@ class RuleConditionEntity extends Entity
         $this->parentId = $parentId;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getValue(): ?array
     {
         return $this->value;
     }
 
+    /**
+     * @param array<string, mixed>|null $value
+     */
     public function setValue(?array $value): void
     {
         $this->value = $value;

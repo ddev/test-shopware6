@@ -4,6 +4,7 @@ namespace Shopware\Core\Content\Cms\Aggregate\CmsSlot;
 
 use Shopware\Core\Content\Cms\Aggregate\CmsBlock\CmsBlockEntity;
 use Shopware\Core\Content\Cms\Aggregate\CmsSlotTranslation\CmsSlotTranslationEntity;
+use Shopware\Core\Content\Cms\CmsException;
 use Shopware\Core\Content\Cms\DataResolver\FieldConfig;
 use Shopware\Core\Content\Cms\DataResolver\FieldConfigCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
@@ -13,63 +14,37 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class CmsSlotEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $type;
+    protected string $type;
+
+    protected string $slot;
+
+    protected ?CmsBlockEntity $block = null;
+
+    protected string $blockId;
 
     /**
-     * @var string
+     * @var array<mixed>|null
      */
-    protected $slot;
+    protected ?array $config = null;
 
-    /**
-     * @var CmsBlockEntity|null
-     */
-    protected $block;
-
-    /**
-     * @var string
-     */
-    protected $blockId;
-
-    /**
-     * @var array|null
-     */
-    protected $config;
-
-    /**
-     * @var FieldConfigCollection|null
-     *
-     * @internal
-     */
-    protected $fieldConfig;
+    protected ?FieldConfigCollection $fieldConfig = null;
 
     /**
      * @var EntityCollection<CmsSlotTranslationEntity>|null
      */
-    protected $translations;
+    protected ?EntityCollection $translations = null;
 
-    /**
-     * @var Struct|null
-     */
-    protected $data;
+    protected ?Struct $data = null;
 
-    /**
-     * @var bool
-     */
-    protected $locked;
+    protected bool $locked;
 
-    /**
-     * @var string|null
-     */
-    protected $cmsBlockVersionId;
+    protected ?string $cmsBlockVersionId = null;
 
     public function getType(): string
     {
@@ -111,11 +86,17 @@ class CmsSlotEntity extends Entity
         $this->blockId = $blockId;
     }
 
+    /**
+     * @return array<mixed>|null
+     */
     public function getConfig(): ?array
     {
         return $this->config;
     }
 
+    /**
+     * @param array<mixed> $config
+     */
     public function setConfig(array $config): void
     {
         $this->config = $config;
@@ -167,9 +148,16 @@ class CmsSlotEntity extends Entity
         $collection = new FieldConfigCollection();
         $config = $this->getTranslation('config') ?? [];
 
-        foreach ($config as $key => $value) {
+        foreach ($config as $key => $data) {
+            $source = $data['source'] ?? null;
+            $value = $data['value'] ?? null;
+
+            if (!\is_string($source)) {
+                throw CmsException::invalidFieldConfigSource($key);
+            }
+
             $collection->add(
-                new FieldConfig($key, $value['source'], $value['value'])
+                new FieldConfig($key, $source, $value)
             );
         }
 

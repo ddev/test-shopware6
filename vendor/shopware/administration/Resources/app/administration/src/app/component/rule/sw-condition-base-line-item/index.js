@@ -1,19 +1,19 @@
 import template from './sw-condition-base-line-item.html.twig';
 import './sw-condition-base-line-item.scss';
 
-const { Component } = Shopware;
 const { EntityCollection } = Shopware.Data;
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Base line item condition for the condition-tree. This component must be a child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-base-line-item :condition="condition"></sw-condition-base-line-item>
  */
-Component.extend('sw-condition-base-line-item', 'sw-condition-base', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     inject: [
@@ -116,4 +116,4 @@ Component.extend('sw-condition-base-line-item', 'sw-condition-base', {
             return entity;
         },
     },
-});
+};

@@ -1,3 +1,7 @@
+/**
+ * @sw-package framework
+ */
+
 import './sw-settings-logging-mail-sent-info.scss';
 import template from './sw-settings-logging-mail-sent-info.html.twig';
 

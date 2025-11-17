@@ -8,18 +8,22 @@ use Shopware\Core\Framework\Parameter\AdditionalBundleParameters;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Exception\KernelPluginLoaderException;
 use Shopware\Core\Framework\Plugin\KernelPluginCollection;
+use Shopware\Core\Framework\Plugin\PluginException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
-#[Package('core')]
+/**
+ * @phpstan-type PluginInfo array{ baseClass: string, name: string, active: bool, path: string, version: string|null, autoload: array<string, string[]>, managedByComposer: bool, composerName: string }
+ */
+#[Package('framework')]
 abstract class KernelPluginLoader extends Bundle
 {
     /**
-     * @var array<int, mixed>
+     * @var array<int, PluginInfo>
      */
-    protected $pluginInfos = [];
+    protected array $pluginInfos = [];
 
     private readonly KernelPluginCollection $pluginInstances;
 
@@ -49,8 +53,9 @@ abstract class KernelPluginLoader extends Bundle
     }
 
     /**
-     * @return array<int, mixed>
      * Basic information required for instantiating the plugins
+     *
+     * @return array<int, PluginInfo>
      */
     final public function getPluginInfos(): array
     {
@@ -166,7 +171,7 @@ abstract class KernelPluginLoader extends Bundle
     abstract protected function loadPluginInfos(): void;
 
     /**
-     * @throws KernelPluginLoaderException
+     * @throws PluginException
      */
     private function registerPluginNamespaces(string $projectDir): void
     {
@@ -180,24 +185,24 @@ abstract class KernelPluginLoader extends Bundle
             }
 
             if (!isset($plugin['autoload'])) {
-                $reason = sprintf(
+                $reason = \sprintf(
                     'Unable to register plugin "%s" in autoload. Required property `autoload` missing.',
                     $plugin['baseClass']
                 );
 
-                throw new KernelPluginLoaderException($pluginName, $reason);
+                throw PluginException::kernelPluginLoaderError($pluginName, $reason);
             }
 
             $psr4 = $plugin['autoload']['psr-4'] ?? [];
             $psr0 = $plugin['autoload']['psr-0'] ?? [];
 
             if (empty($psr4) && empty($psr0)) {
-                $reason = sprintf(
+                $reason = \sprintf(
                     'Unable to register plugin "%s" in autoload. Required property `psr-4` or `psr-0` missing in property autoload.',
                     $plugin['baseClass']
                 );
 
-                throw new KernelPluginLoaderException($pluginName, $reason);
+                throw PluginException::kernelPluginLoaderError($pluginName, $reason);
             }
 
             foreach ($psr4 as $namespace => $paths) {
@@ -228,7 +233,7 @@ abstract class KernelPluginLoader extends Bundle
     /**
      * @param array<string> $psr
      *
-     * @throws KernelPluginLoaderException
+     * @throws PluginException
      *
      * @return list<string>
      */
@@ -239,9 +244,9 @@ abstract class KernelPluginLoader extends Bundle
         $absolutePluginRootPath = $this->getAbsolutePluginRootPath($projectDir, $pluginRootPath);
 
         if (mb_strpos($absolutePluginRootPath, $projectDir) !== 0) {
-            throw new KernelPluginLoaderException(
+            throw throw PluginException::kernelPluginLoaderError(
                 $plugin,
-                sprintf('Plugin dir %s needs to be a sub-directory of the project dir %s', $pluginRootPath, $projectDir)
+                \sprintf('Plugin dir %s needs to be a sub-directory of the project dir %s', $pluginRootPath, $projectDir)
             );
         }
 
@@ -263,15 +268,14 @@ abstract class KernelPluginLoader extends Bundle
     }
 
     /**
-     * @throws KernelPluginLoaderException
+     * @throws PluginException
      */
     private function instantiatePlugins(string $projectDir): void
     {
         foreach ($this->pluginInfos as $pluginData) {
             $className = $pluginData['baseClass'];
 
-            $pluginClassFilePath = $this->classLoader->findFile($className);
-            if (!class_exists($className) || !$pluginClassFilePath || !file_exists($pluginClassFilePath)) {
+            if (!class_exists($className)) {
                 continue;
             }
 
@@ -279,9 +283,9 @@ abstract class KernelPluginLoader extends Bundle
             $plugin = new $className((bool) $pluginData['active'], $pluginData['path'], $projectDir);
 
             if (!$plugin instanceof Plugin) {
-                $reason = sprintf('Plugin class "%s" must extend "%s"', $plugin::class, Plugin::class);
+                $reason = \sprintf('Plugin class "%s" must extend "%s"', $plugin::class, Plugin::class);
 
-                throw new KernelPluginLoaderException($pluginData['name'], $reason);
+                throw throw PluginException::kernelPluginLoaderError($pluginData['name'], $reason);
             }
 
             $this->pluginInstances->add($plugin);

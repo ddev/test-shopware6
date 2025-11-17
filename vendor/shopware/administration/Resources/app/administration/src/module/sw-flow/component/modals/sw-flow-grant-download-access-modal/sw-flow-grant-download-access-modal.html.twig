@@ -1,3 +1,4 @@
+{% block sw_flow_grant_download_access_modal %}
 <sw-modal
     class="sw-flow-grant-download-access-modal"
     :title="$tc('sw-flow.modals.downloadAccess.titleSetDownloadAccess')"
@@ -6,11 +7,8 @@
 >
     <div class="sw-flow-grant-download-access-modal__content">
         <sw-single-select
-            {% if VUE3 %}
             v-model:value="value"
-            {% else %}
-            v-model="value"
-            {% endif %}
+            name="sw-field--value"
             class="sw-flow-grant-download-access-modal__value-field"
             required
             :label="$tc('sw-flow.modals.downloadAccess.labelValueField')"
@@ -21,21 +19,23 @@
     </div>
 
     <template #modal-footer>
-        <sw-button
+        <mt-button
             class="sw-flow-grant-download-access-modal__cancel-button"
             size="small"
+            variant="secondary"
             @click="onClose"
         >
             {{ $tc('global.default.cancel') }}
-        </sw-button>
+        </mt-button>
 
-        <sw-button
+        <mt-button
             class="sw-flow-grant-download-access-modal__save-button"
             variant="primary"
             size="small"
             @click="onSave"
         >
             {{ $tc('sw-flow.modals.buttonSaveAction') }}
-        </sw-button>
+        </mt-button>
     </template>
 </sw-modal>
+{% endblock %}

@@ -4,7 +4,9 @@ namespace Shopware\Core\Content\Product\DataAbstractionLayer;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Content\Product\Events\InvalidateProductCache;
 use Shopware\Core\Content\Product\Events\ProductIndexerEvent;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\Stock\AbstractStockStorage;
 use Shopware\Core\Defaults;
@@ -19,7 +21,6 @@ use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexingMessage;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\InheritanceUpdater;
 use Shopware\Core\Framework\DataAbstractionLayer\Indexing\ManyToManyIdFieldUpdater;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -27,7 +28,7 @@ use Shopware\Core\Profiling\Profiler;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('core')]
+#[Package('framework')]
 class ProductIndexer extends EntityIndexer
 {
     final public const INHERITANCE_UPDATER = 'product.inheritance';
@@ -41,9 +42,12 @@ class ProductIndexer extends EntityIndexer
     final public const STREAM_UPDATER = 'product.stream';
     final public const SEARCH_KEYWORD_UPDATER = 'product.search-keyword';
     final public const STATES_UPDATER = 'product.states';
+    private const UPDATE_IDS_CHUNK_SIZE = 50;
 
     /**
      * @internal
+     *
+     * @param EntityRepository<ProductCollection> $repository
      */
     public function __construct(
         private readonly IteratorFactory $iteratorFactory,
@@ -57,10 +61,9 @@ class ProductIndexer extends EntityIndexer
         private readonly ChildCountUpdater $childCountUpdater,
         private readonly ManyToManyIdFieldUpdater $manyToManyIdFieldUpdater,
         private readonly AbstractStockStorage $stockStorage,
-        private readonly StockUpdater $stockUpdater,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly CheapestPriceUpdater $cheapestPriceUpdater,
-        private readonly ProductStreamUpdater $streamUpdater,
+        private readonly AbstractProductStreamUpdater $streamUpdater,
         private readonly StatesUpdater $statesUpdater,
         private readonly MessageBusInterface $messageBus
     ) {
@@ -71,9 +74,6 @@ class ProductIndexer extends EntityIndexer
         return 'product.indexer';
     }
 
-    /**
-     * @param array{offset: int|null}|null $offset
-     */
     public function iterate(?array $offset): ?EntityIndexingMessage
     {
         $iterator = $this->getIterator($offset);
@@ -89,39 +89,50 @@ class ProductIndexer extends EntityIndexer
 
     public function update(EntityWrittenContainerEvent $event): ?EntityIndexingMessage
     {
-        $updates = $event->getPrimaryKeys(ProductDefinition::ENTITY_NAME);
+        $ids = $event->getPrimaryKeys(ProductDefinition::ENTITY_NAME);
 
-        if (empty($updates)) {
+        if (empty($ids)) {
             return null;
         }
 
-        Profiler::trace('product:indexer:inheritance', function () use ($updates, $event): void {
-            $this->inheritanceUpdater->update(ProductDefinition::ENTITY_NAME, $updates, $event->getContext());
+        Profiler::trace('product:indexer:inheritance', function () use ($ids, $event): void {
+            $this->inheritanceUpdater->update(ProductDefinition::ENTITY_NAME, $ids, $event->getContext());
         });
 
         $stocks = $event->getPrimaryKeysWithPropertyChange(ProductDefinition::ENTITY_NAME, ['stock', 'isCloseout', 'minPurchase']);
         Profiler::trace('product:indexer:stock', function () use ($stocks, $event): void {
-            if (Feature::isActive('STOCK_HANDLING')) {
-                $this->stockStorage->index(array_values($stocks), $event->getContext());
-            } else {
-                $this->stockUpdater->update(array_values($stocks), $event->getContext());
-            }
+            $this->stockStorage->index(array_values($stocks), $event->getContext());
         });
 
-        $message = new ProductIndexingMessage(array_values($updates), null, $event->getContext());
-        $message->addSkip(self::INHERITANCE_UPDATER, self::STOCK_UPDATER);
-
-        $delayed = \array_unique(\array_filter(\array_merge(
-            $this->getParentIds($updates),
-            $this->getChildrenIds($updates)
+        $parentAndChildIdsToBeChunked = \array_unique(\array_filter(\array_merge(
+            $this->getParentIds($ids),
+            $this->getChildrenIds($ids)
         )));
 
-        foreach (\array_chunk($delayed, 50) as $chunk) {
+        foreach (\array_chunk($parentAndChildIdsToBeChunked, self::UPDATE_IDS_CHUNK_SIZE) as $chunk) {
             $child = new ProductIndexingMessage($chunk, null, $event->getContext());
             $child->setIndexer($this->getName());
             EntityIndexerRegistry::addSkips($child, $event->getContext());
 
             $this->messageBus->dispatch($child);
+        }
+
+        $idsToBeChunked = \array_chunk($ids, self::UPDATE_IDS_CHUNK_SIZE);
+        $idsForReturnedMessage = \array_shift($idsToBeChunked);
+
+        foreach ($idsToBeChunked as $chunk) {
+            $message = new ProductIndexingMessage($chunk, null, $event->getContext());
+            $message->setIndexer($this->getName());
+            $message->addSkip(self::INHERITANCE_UPDATER, self::STOCK_UPDATER);
+
+            $this->messageBus->dispatch($message);
+        }
+
+        $message = new ProductIndexingMessage($idsForReturnedMessage, null, $event->getContext());
+        $message->addSkip(self::INHERITANCE_UPDATER, self::STOCK_UPDATER);
+
+        if ($event->isCloned()) {
+            $message->addSkip(self::CHILD_COUNT_UPDATER);
         }
 
         return $message;
@@ -139,8 +150,12 @@ class ProductIndexer extends EntityIndexer
 
     public function handle(EntityIndexingMessage $message): void
     {
-        $ids = array_values(array_unique(array_filter($message->getData())));
+        $ids = $message->getData();
+        if (!\is_array($ids)) {
+            return;
+        }
 
+        $ids = array_values(array_unique(array_filter($ids)));
         if (empty($ids)) {
             return;
         }
@@ -157,11 +172,7 @@ class ProductIndexer extends EntityIndexer
 
         if ($message->allow(self::STOCK_UPDATER)) {
             Profiler::trace('product:indexer:stock', function () use ($ids, $context): void {
-                if (!Feature::isActive('STOCK_HANDLING')) {
-                    $this->stockUpdater->update($ids, $context);
-                } else {
-                    $this->stockStorage->index($ids, $context);
-                }
+                $this->stockStorage->index($ids, $context);
             });
         }
 
@@ -174,18 +185,6 @@ class ProductIndexer extends EntityIndexer
         if ($message->allow(self::CHILD_COUNT_UPDATER)) {
             Profiler::trace('product:indexer:child-count', function () use ($parentIds, $context): void {
                 $this->childCountUpdater->update(ProductDefinition::ENTITY_NAME, $parentIds, $context);
-            });
-        }
-
-        if ($message->allow(self::STREAM_UPDATER)) {
-            Profiler::trace('product:indexer:streams', function () use ($ids, $context): void {
-                $this->streamUpdater->updateProducts($ids, $context);
-            });
-        }
-
-        if ($message->allow(self::MANY_TO_MANY_ID_FIELD_UPDATER)) {
-            Profiler::trace('product:indexer:many-to-many', function () use ($ids, $context): void {
-                $this->manyToManyIdFieldUpdater->update(ProductDefinition::ENTITY_NAME, $ids, $context);
             });
         }
 
@@ -219,6 +218,20 @@ class ProductIndexer extends EntityIndexer
             });
         }
 
+        // STREAM_UPDATER should be ran after other fields updater like categoriesRo or cheapestPriceUpdater so it could use the correct latest value
+        if ($message->allow(self::STREAM_UPDATER)) {
+            Profiler::trace('product:indexer:streams', function () use ($ids, $context): void {
+                $this->streamUpdater->updateProducts($ids, $context);
+            });
+        }
+
+        // manyToManyIdFieldUpdater should be run last so it can get the correct streamIds, categoryIds etc
+        if ($message->allow(self::MANY_TO_MANY_ID_FIELD_UPDATER)) {
+            Profiler::trace('product:indexer:many-to-many', function () use ($ids, $context): void {
+                $this->manyToManyIdFieldUpdater->update(ProductDefinition::ENTITY_NAME, $ids, $context);
+            });
+        }
+
         RetryableQuery::retryable($this->connection, function () use ($ids): void {
             $this->connection->executeStatement(
                 'UPDATE product SET updated_at = :now WHERE id IN (:ids)',
@@ -230,11 +243,10 @@ class ProductIndexer extends EntityIndexer
         Profiler::trace('product:indexer:event', function () use ($ids, $context, $message): void {
             $this->eventDispatcher->dispatch(new ProductIndexerEvent($ids, $context, $message->getSkip()));
         });
+
+        $this->eventDispatcher->dispatch(new InvalidateProductCache($ids, false));
     }
 
-    /**
-     * @return string[]
-     */
     public function getOptions(): array
     {
         return [
@@ -270,7 +282,7 @@ class ProductIndexer extends EntityIndexer
     /**
      * @param array<string> $ids
      *
-     * @return string[]
+     * @return array<string>
      */
     private function getParentIds(array $ids): array
     {
@@ -286,7 +298,7 @@ class ProductIndexer extends EntityIndexer
     /**
      * @param array<string> $ids
      *
-     * @return array|mixed[]
+     * @return array<string>
      */
     private function filterVariants(array $ids): array
     {

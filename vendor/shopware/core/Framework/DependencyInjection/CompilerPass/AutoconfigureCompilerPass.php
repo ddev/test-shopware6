@@ -12,7 +12,7 @@ use Shopware\Core\Checkout\Cart\LineItemFactoryHandler\LineItemFactoryInterface;
 use Shopware\Core\Checkout\Cart\TaxProvider\AbstractTaxProvider;
 use Shopware\Core\Checkout\Customer\Password\LegacyEncoder\LegacyEncoderInterface;
 use Shopware\Core\Checkout\Document\Renderer\AbstractDocumentRenderer;
-use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\SynchronousPaymentHandlerInterface;
+use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\AbstractPaymentHandler;
 use Shopware\Core\Checkout\Promotion\Cart\Discount\Filter\FilterPickerInterface;
 use Shopware\Core\Checkout\Promotion\Cart\Discount\Filter\FilterSorterInterface;
 use Shopware\Core\Content\Cms\DataResolver\Element\CmsElementResolverInterface;
@@ -23,6 +23,7 @@ use Shopware\Core\Content\Seo\SeoUrlRoute\SeoUrlRouteInterface;
 use Shopware\Core\Content\Sitemap\Provider\AbstractUrlProvider;
 use Shopware\Core\Framework\Adapter\Filesystem\Adapter\AdapterFactoryInterface;
 use Shopware\Core\Framework\Adapter\Twig\NamespaceHierarchy\TemplateNamespaceHierarchyBuilderInterface;
+use Shopware\Core\Framework\DataAbstractionLayer\BulkEntityExtension;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\ExceptionHandlerInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityExtension;
@@ -32,13 +33,14 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 use Shopware\Core\Framework\Routing\AbstractRouteScope;
 use Shopware\Core\Framework\Rule\Rule;
+use Shopware\Core\Framework\Webhook\Hookable\HookableEntityInterface;
 use Shopware\Core\System\NumberRange\ValueGenerator\Pattern\AbstractValueGenerator;
 use Shopware\Core\System\SalesChannel\SalesChannelDefinition;
 use Shopware\Core\System\Tax\TaxRuleType\TaxRuleTypeFilterInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-#[Package('core')]
+#[Package('framework')]
 class AutoconfigureCompilerPass implements CompilerPassInterface
 {
     public function process(ContainerBuilder $container): void
@@ -46,6 +48,10 @@ class AutoconfigureCompilerPass implements CompilerPassInterface
         $container
             ->registerForAutoconfiguration(EntityDefinition::class)
             ->addTag('shopware.entity.definition');
+
+        $container
+            ->registerForAutoconfiguration(HookableEntityInterface::class)
+            ->addTag('shopware.entity.hookable');
 
         $container
             ->registerForAutoconfiguration(SalesChannelDefinition::class)
@@ -58,6 +64,10 @@ class AutoconfigureCompilerPass implements CompilerPassInterface
         $container
             ->registerForAutoconfiguration(EntityExtension::class)
             ->addTag('shopware.entity.extension');
+
+        $container
+            ->registerForAutoconfiguration(BulkEntityExtension::class)
+            ->addTag('shopware.bulk.entity.extension');
 
         $container
             ->registerForAutoconfiguration(CartProcessorInterface::class)
@@ -104,8 +114,8 @@ class AutoconfigureCompilerPass implements CompilerPassInterface
             ->addTag('document.renderer');
 
         $container
-            ->registerForAutoconfiguration(SynchronousPaymentHandlerInterface::class)
-            ->addTag('shopware.payment.method.sync');
+            ->registerForAutoconfiguration(AbstractPaymentHandler::class)
+            ->addTag('shopware.payment.method');
 
         $container
             ->registerForAutoconfiguration(FilterSorterInterface::class)

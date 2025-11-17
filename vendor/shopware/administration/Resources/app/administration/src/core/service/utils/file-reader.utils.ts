@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module core/service/utils/file-reader
  */
@@ -9,18 +9,21 @@ function registerPromiseOnFileReader(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolve: (value?: any) => void,
     reject: (reason?: unknown) => void,
-):void {
-    fileReader.onerror = ():void => {
+): void {
+    fileReader.onerror = (): void => {
         fileReader.abort();
         reject(new DOMException('Problem parsing file.'));
     };
 
-    fileReader.onload = ():void => {
+    fileReader.onload = (): void => {
         resolve(fileReader.result);
     };
 }
 
-function splitFileNameAndExtension(completeFileName: string): {extension: string | undefined, fileName: string} {
+function splitFileNameAndExtension(completeFileName: string): {
+    extension: string | undefined;
+    fileName: string;
+} {
     const fileParts = completeFileName.split('.');
 
     // no dot in filename
@@ -75,11 +78,17 @@ function readFileAsText<FILE = unknown>(inputFile: Blob): Promise<FILE> {
     });
 }
 
-function getNameAndExtensionFromFile(fileHandle: File): {extension: string | undefined, fileName: string} {
+function getNameAndExtensionFromFile(fileHandle: File): {
+    extension: string | undefined;
+    fileName: string;
+} {
     return splitFileNameAndExtension(fileHandle.name);
 }
 
-function getNameAndExtensionFromUrl(urlObject: URL): {extension: string | undefined, fileName: string} {
+function getNameAndExtensionFromUrl(urlObject: URL): {
+    extension: string | undefined;
+    fileName: string;
+} {
     let ref = urlObject.href.split('/').pop();
 
     if (!ref) {
@@ -96,6 +105,17 @@ function getNameAndExtensionFromUrl(urlObject: URL): {extension: string | undefi
     return splitFileNameAndExtension(ref);
 }
 
+function getFilenameFromResponse(response: { headers?: { [key: string]: string } }): string | null {
+    const header = response.headers?.['content-disposition'];
+    if (!header) return null;
+
+    const filenameStarMatch = header.match(/filename\*=UTF-8''([^;]+)/);
+    if (filenameStarMatch) return filenameStarMatch[1];
+
+    const filenameMatch = header.match(/filename="?([^"]+)"?/);
+    return filenameMatch ? filenameMatch[1] : null;
+}
+
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     readFileAsArrayBuffer,
@@ -103,4 +123,5 @@ export default {
     readFileAsText,
     getNameAndExtensionFromFile,
     getNameAndExtensionFromUrl,
+    getFilenameFromResponse,
 };

@@ -1,15 +1,25 @@
 import template from './sw-text-editor-toolbar.html.twig';
 import './sw-text-editor-toolbar.scss';
 
-const { Component, Utils } = Shopware;
+const { Utils } = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
+ * @deprecated tag:v6.8.0 - Will be removed, use mt-text-editor instead.
  *
  * @private
  */
-Component.register('sw-text-editor-toolbar', {
+export default {
     template,
+
+    emits: [
+        'created-el',
+        'destroyed-el',
+        'remove-link',
+        'text-style-change',
+        'table-edit',
+        'on-set-link',
+    ],
 
     props: {
         parentIsActive: {
@@ -24,7 +34,6 @@ Component.register('sw-text-editor-toolbar', {
             default: false,
         },
 
-        // FIXME: add property type
         // eslint-disable-next-line vue/require-prop-types
         selection: {
             required: false,
@@ -47,7 +56,6 @@ Component.register('sw-text-editor-toolbar', {
             required: false,
             default: false,
         },
-
     },
 
     data() {
@@ -55,7 +63,7 @@ Component.register('sw-text-editor-toolbar', {
             position: {},
             range: null,
             arrowPosition: {
-                '--left': '49%;',
+                '--left': '49%',
             },
             activeTags: [],
             currentColor: null,
@@ -65,6 +73,7 @@ Component.register('sw-text-editor-toolbar', {
             rightButtons: [],
             tableEdit: false,
             scrollEventHandler: undefined,
+            preventReposition: false,
         };
     },
 
@@ -104,10 +113,6 @@ Component.register('sw-text-editor-toolbar', {
     },
 
     unmounted() {
-        this.beforeUnmountedComponent();
-    },
-
-    destroyed() {
         this.destroyedComponent();
     },
 
@@ -160,8 +165,8 @@ Component.register('sw-text-editor-toolbar', {
                 const arrowWidth = 8;
                 const selectionBoundary = this.range.getBoundingClientRect();
 
-                let left = selectionBoundary.right - (selectionBoundary.width / 2);
-                left -= (leftSidebarWidth + arrowWidth);
+                let left = selectionBoundary.right - selectionBoundary.width / 2;
+                left -= leftSidebarWidth + arrowWidth;
                 this.arrowPosition['--left'] = `${left}px`;
                 this.arrowPosition['--right'] = 'unset';
             }
@@ -170,7 +175,7 @@ Component.register('sw-text-editor-toolbar', {
         destroyedComponent() {
             this.closeExpandedMenu();
 
-            document.removeEventListener('scroll', this.scrollEventListener, true);
+            document.removeEventListener('scroll', this.scrollEventHandler, true);
             document.removeEventListener('mouseup', this.onMouseUp);
 
             if (this.$el?.parentElement?.contains(this.$el)) {
@@ -179,11 +184,6 @@ Component.register('sw-text-editor-toolbar', {
 
             this.$emit('destroyed-el');
         },
-
-        /*
-         * @deprecated tag:v6.6.0 - Will be removed
-         */
-        beforeUnmountedComponent() {},
 
         onMouseUp(event) {
             const path = [];
@@ -194,7 +194,11 @@ Component.register('sw-text-editor-toolbar', {
                 source = source.parentNode;
             }
 
-            if (path.some(element => element.classList?.contains('sw-popover__wrapper'))) {
+            if (path.some((element) => element.classList?.contains('sw-popover__wrapper'))) {
+                return;
+            }
+
+            if (path.some((element) => element.classList?.contains('mt-select-result-list-popover-wrapper'))) {
                 return;
             }
 
@@ -217,7 +221,7 @@ Component.register('sw-text-editor-toolbar', {
         },
 
         setToolbarPosition() {
-            if (!this.selection) {
+            if (!this.selection || this.preventReposition) {
                 return;
             }
 
@@ -227,14 +231,21 @@ Component.register('sw-text-editor-toolbar', {
             }
 
             this.setSelectionRange();
-            const boundary = this.range.getBoundingClientRect();
+            const boundary = this.range?.getBoundingClientRect?.();
+
+            const selectionLost =
+                !boundary || boundary.top <= 0 || boundary.left <= 0 || boundary.width <= 0 || boundary.height <= 0;
+
+            if (selectionLost) {
+                return;
+            }
 
             let offsetTop = window.pageYOffset;
             const arrowHeight = 8;
 
             offsetTop += boundary.top - (this.$el.clientHeight + arrowHeight);
 
-            const middleBoundary = (boundary.left + boundary.width / 2) + 4;
+            const middleBoundary = boundary.left + boundary.width / 2 + 4;
             const halfWidth = this.$el.clientWidth / 2;
             const offsetLeft = middleBoundary - halfWidth;
 
@@ -257,11 +268,11 @@ Component.register('sw-text-editor-toolbar', {
 
             if (button.children) {
                 if (typeof button.expanded === 'undefined') {
-                    this.$set(button, 'expanded', false);
+                    button.expanded = false;
                 }
 
                 button.children.forEach((child) => {
-                    this.$set(child, 'active', !!this.activeTags.includes(child.tag));
+                    child.active = !!this.activeTags.includes(child.tag);
                 });
             }
 
@@ -277,7 +288,7 @@ Component.register('sw-text-editor-toolbar', {
                 button.buttonVariant = this.currentLink?.buttonVariant ?? 'primary';
             }
 
-            this.$set(button, 'active', !!this.activeTags.includes(button.tag));
+            button.active = !!this.activeTags.includes(button.tag);
 
             return button;
         },
@@ -298,10 +309,10 @@ Component.register('sw-text-editor-toolbar', {
             this.keepSelection();
         },
 
-        /**
-         * @deprecated tag:v6.6.0 - Will emit hypernated `remove-link` event only.
-         */
         onButtonClick(button, parent = null) {
+            // Whenever a button is clicked, we can allow the toolbar to reposition because the link menu is closed
+            this.preventReposition = false;
+
             if (button.type === 'link') {
                 this.handleTextStyleChangeLink(button);
                 return;
@@ -309,7 +320,6 @@ Component.register('sw-text-editor-toolbar', {
 
             if (button.type === 'linkRemove') {
                 this.$emit('remove-link');
-                this.$emit('removeLink');
             }
 
             if (button.type === 'foreColor') {
@@ -429,13 +439,7 @@ Component.register('sw-text-editor-toolbar', {
                     return;
                 }
 
-                this.$emit(
-                    'on-set-link',
-                    button.value,
-                    target,
-                    button.displayAsButton,
-                    button.buttonVariant,
-                );
+                this.$emit('on-set-link', button.value, target, button.displayAsButton, button.buttonVariant);
                 this.range = document.getSelection().getRangeAt(0);
                 this.range.setStart(this.range.startContainer, 0);
                 button.expanded = false;
@@ -456,6 +460,14 @@ Component.register('sw-text-editor-toolbar', {
         },
 
         onToggleMenu(event, button) {
+            // Whenever the link menu is opened, we need to prevent the toolbar from repositioning
+            // The link menu has multiple problems:
+            // 1. It is a popover and not a dropdown
+            // 2. It is not a child of the toolbar, so the toolbar does not know when it is opened
+            // 3. Repositioning the the toolbar while the link menu is opened causes
+            // all popovers to close and the toolbar to disappear
+            this.preventReposition = button.type === 'link';
+
             this.keepSelection();
 
             this.buttonConfig.forEach((item) => {
@@ -470,4 +482,4 @@ Component.register('sw-text-editor-toolbar', {
             button.expanded = !button.expanded;
         },
     },
-});
+};

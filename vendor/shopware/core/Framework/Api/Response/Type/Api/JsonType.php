@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class JsonType extends JsonFactoryBase
 {
     /**
@@ -82,7 +82,8 @@ class JsonType extends JsonFactoryBase
         ];
 
         $fields = new ResponseFields(
-            $request->get('includes', [])
+            $request->get('includes', []),
+            $request->get('excludes', []),
         );
 
         $aggregations = [];

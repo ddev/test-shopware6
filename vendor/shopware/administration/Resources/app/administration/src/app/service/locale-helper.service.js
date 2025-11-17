@@ -1,7 +1,7 @@
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * @memberOf module:core/service/locale
  * @constructor
  * @method createShortcutService
@@ -31,7 +31,6 @@ export default class LocaleHelperService {
 
     async setLocaleWithCode(localeCode) {
         await this._snippetService.getSnippets(this._localeFactory, localeCode);
-        await this._Shopware.State.dispatch('setAdminLocale', localeCode);
+        await this._Shopware.Store.get('session').setAdminLocale(localeCode);
     }
 }
-

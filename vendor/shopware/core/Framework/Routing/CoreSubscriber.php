@@ -2,7 +2,10 @@
 
 namespace Shopware\Core\Framework\Routing;
 
+use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Script\Api\ResponseHook;
+use Shopware\Core\Framework\Script\Execution\ScriptExecutor;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -12,17 +15,16 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * @internal
  */
-#[Package('core')]
-class CoreSubscriber implements EventSubscriberInterface
+#[Package('framework')]
+readonly class CoreSubscriber implements EventSubscriberInterface
 {
     /**
-     * @internal
-     *
      * @param array<string> $cspTemplates
+     *
+     * @internal
      */
-    public function __construct(private array $cspTemplates)
+    public function __construct(private array $cspTemplates, private readonly ScriptExecutor $scriptExecutor)
     {
-        $this->cspTemplates = $cspTemplates;
     }
 
     /**
@@ -52,7 +54,9 @@ class CoreSubscriber implements EventSubscriberInterface
         if ($event->getRequest()->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
-        $response->headers->set('X-Frame-Options', 'deny');
+        if (!$response->headers->has(PlatformRequest::HEADER_FRAME_OPTIONS)) {
+            $response->headers->set(PlatformRequest::HEADER_FRAME_OPTIONS, 'deny');
+        }
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
@@ -69,10 +73,19 @@ class CoreSubscriber implements EventSubscriberInterface
             $nonce = $event->getRequest()->attributes->get(PlatformRequest::ATTRIBUTE_CSP_NONCE);
 
             if (\is_string($nonce)) {
-                $csp = str_replace('%nonce%', $nonce, $cspTemplate);
-                $csp = str_replace(["\n", "\r"], ' ', $csp);
+                $csp = str_replace(['%nonce%', "\n", "\r"], [$nonce, ' ', ' '], $cspTemplate);
                 $response->headers->set('Content-Security-Policy', $csp);
             }
         }
+
+        $context = $event->getRequest()->attributes->get(PlatformRequest::ATTRIBUTE_CONTEXT_OBJECT) ?? Context::createDefaultContext();
+        \assert($context instanceof Context);
+
+        $this->scriptExecutor->execute(new ResponseHook(
+            $response,
+            $event->getRequest()->attributes->get('_route', ''),
+            $scopes,
+            $context
+        ));
     }
 }

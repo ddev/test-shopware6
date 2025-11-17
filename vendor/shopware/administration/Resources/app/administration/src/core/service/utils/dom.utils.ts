@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module core/service/utils/dom
  */
@@ -14,7 +14,7 @@ function getScrollbarHeight(element: HTMLElement): number {
         warn('DOM Utilities', 'The provided element needs to be an instance of "HTMLElement".', element);
         return 0;
     }
-    return (element.offsetHeight - element.clientHeight);
+    return element.offsetHeight - element.clientHeight;
 }
 
 /**
@@ -25,20 +25,7 @@ function getScrollbarWidth(element: HTMLElement): number {
         warn('DOM Utilities', 'The provided element needs to be an instance of "HTMLElement".', element);
         return 0;
     }
-    return (element.offsetWidth - element.clientWidth);
-}
-
-/**
- * uses the browser's copy function to copy a string
- * @deprecated tag:v6.6.0 - The document.execCommand() API is deprecated, use copyStringToClipBoard instead
- */
-function copyToClipboard(stringToCopy: string): void {
-    const tempTextArea = document.createElement('textarea');
-    tempTextArea.value = stringToCopy;
-    document.body.appendChild(tempTextArea);
-    tempTextArea.select();
-    document.execCommand('copy');
-    document.body.removeChild(tempTextArea);
+    return element.offsetWidth - element.clientWidth;
 }
 
 async function copyStringToClipboard(stringToCopy: string): Promise<void> {
@@ -49,6 +36,5 @@ async function copyStringToClipboard(stringToCopy: string): Promise<void> {
 export default {
     getScrollbarHeight,
     getScrollbarWidth,
-    copyToClipboard,
     copyStringToClipboard,
 };

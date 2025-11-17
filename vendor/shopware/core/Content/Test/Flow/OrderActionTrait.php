@@ -9,6 +9,7 @@ use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
 use Shopware\Core\Checkout\Cart\Price\Struct\QuantityPriceDefinition;
 use Shopware\Core\Checkout\Cart\Tax\Struct\CalculatedTaxCollection;
 use Shopware\Core\Checkout\Cart\Tax\Struct\TaxRuleCollection;
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityDefinition;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
@@ -18,14 +19,18 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Test\TestCaseBase\CountryAddToSalesChannelTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;
-use Shopware\Core\Framework\Test\TestDataCollection;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\CustomField\CustomFieldTypes;
+use Shopware\Core\System\SystemConfig\SystemConfigService;
+use Shopware\Core\Test\Stub\Framework\IdsCollection;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
-#[Package('services-settings')]
+/**
+ * @internal
+ */
+#[Package('after-sales')]
 trait OrderActionTrait
 {
     use CountryAddToSalesChannelTestBehaviour;
@@ -34,8 +39,11 @@ trait OrderActionTrait
 
     private KernelBrowser $browser;
 
-    private TestDataCollection $ids;
+    private IdsCollection $ids;
 
+    /**
+     * @var ?EntityRepository<CustomerCollection>
+     */
     private ?EntityRepository $customerRepository = null;
 
     private function createCustomerAndLogin(): void
@@ -53,33 +61,32 @@ trait OrderActionTrait
     {
         static::assertNotNull($this->customerRepository);
 
-        $this->customerRepository->create([
-            array_merge([
-                'id' => $this->ids->create('customer'),
-                'salesChannelId' => $this->ids->get('sales-channel'),
-                'defaultShippingAddress' => [
-                    'id' => $this->ids->create('address'),
-                    'firstName' => 'Max',
-                    'lastName' => 'Mustermann',
-                    'street' => 'Musterstraße 1',
-                    'city' => 'Schöppingen',
-                    'zipcode' => '12345',
-                    'salutationId' => $this->getValidSalutationId(),
-                    'countryId' => $this->getValidCountryId($this->ids->get('sales-channel')),
-                ],
-                'defaultBillingAddressId' => $this->ids->get('address'),
-                'defaultPaymentMethodId' => $this->getValidPaymentMethodId(),
-                'groupId' => TestDefaults::FALLBACK_CUSTOMER_GROUP,
-                'email' => $email,
-                'password' => TestDefaults::HASHED_PASSWORD,
+        $customer = array_merge([
+            'id' => $this->ids->create('customer'),
+            'salesChannelId' => $this->ids->get('sales-channel'),
+            'defaultShippingAddress' => [
+                'id' => $this->ids->create('address'),
                 'firstName' => 'Max',
                 'lastName' => 'Mustermann',
+                'street' => 'Musterstraße 1',
+                'city' => 'Schöppingen',
+                'zipcode' => '12345',
                 'salutationId' => $this->getValidSalutationId(),
-                'customerNumber' => '12345',
-                'vatIds' => ['DE123456789'],
-                'company' => 'Test',
-            ], $additionalData),
-        ], Context::createDefaultContext());
+                'countryId' => $this->getValidCountryId($this->ids->get('sales-channel')),
+            ],
+            'defaultBillingAddressId' => $this->ids->get('address'),
+            'groupId' => TestDefaults::FALLBACK_CUSTOMER_GROUP,
+            'email' => $email,
+            'password' => TestDefaults::HASHED_PASSWORD,
+            'firstName' => 'Max',
+            'lastName' => 'Mustermann',
+            'salutationId' => $this->getValidSalutationId(),
+            'customerNumber' => '12345',
+            'vatIds' => ['DE123456789'],
+            'company' => 'Test',
+        ], $additionalData);
+
+        $this->customerRepository->create([$customer], Context::createDefaultContext());
     }
 
     private function login(?string $email = null, ?string $password = null): void
@@ -105,7 +112,7 @@ trait OrderActionTrait
 
     private function prepareProductTest(): void
     {
-        $this->getContainer()->get('product.repository')->create([
+        static::getContainer()->get('product.repository')->create([
             [
                 'id' => $this->ids->create('p1'),
                 'productNumber' => $this->ids->get('p1'),
@@ -151,6 +158,8 @@ trait OrderActionTrait
 
     private function cancelOrder(): void
     {
+        $this->getContainer()->get(SystemConfigService::class)->set('core.cart.enableOrderRefunds', true);
+
         $this->browser
             ->request(
                 'POST',
@@ -166,7 +175,7 @@ trait OrderActionTrait
      */
     private function createOrder(string $customerId, array $additionalData = []): void
     {
-        $this->getContainer()->get('order.repository')->create([
+        static::getContainer()->get('order.repository')->create([
             array_merge([
                 'id' => $this->ids->create('order'),
                 'itemRounding' => json_decode(json_encode(new CashRoundingConfig(2, 0.01, true), \JSON_THROW_ON_ERROR), true, 512, \JSON_THROW_ON_ERROR),
@@ -248,7 +257,7 @@ trait OrderActionTrait
 
     private function getStateId(string $state, string $machine): string
     {
-        return $this->getContainer()->get(Connection::class)
+        return static::getContainer()->get(Connection::class)
             ->fetchOne('
                 SELECT LOWER(HEX(state_machine_state.id))
                 FROM state_machine_state
@@ -283,7 +292,7 @@ trait OrderActionTrait
             ],
             'customFieldSet' => [
                 'id' => $customFieldSetId,
-                'name' => 'Custom Field Set',
+                'name' => 'Custom_Field_Set',
                 'relations' => [[
                     'id' => Uuid::randomHex(),
                     'customFieldSetId' => $customFieldSetId,
@@ -292,7 +301,7 @@ trait OrderActionTrait
             ],
         ];
 
-        $this->getContainer()->get('custom_field.repository')
+        static::getContainer()->get('custom_field.repository')
             ->create([$data], Context::createDefaultContext());
 
         return $customFieldId;

@@ -21,7 +21,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('merchant-services')]
+#[Package('data-services')]
 class EntityDeleteSubscriber implements EventSubscriberInterface
 {
     public const DELETIONS_TABLE_NAME = 'usage_data_entity_deletion';
@@ -30,7 +30,8 @@ class EntityDeleteSubscriber implements EventSubscriberInterface
         private readonly EntityDefinitionService $entityDefinitionService,
         private readonly Connection $connection,
         private readonly ClockInterface $clock,
-        private readonly ConsentService $consentService
+        private readonly ConsentService $consentService,
+        private readonly bool $collectionEnabled,
     ) {
     }
 
@@ -43,6 +44,10 @@ class EntityDeleteSubscriber implements EventSubscriberInterface
 
     public function handleEntityDeleteEvent(EntityDeleteEvent $event): void
     {
+        if (!$this->collectionEnabled) {
+            return;
+        }
+
         if (!$this->consentService->isConsentAccepted()) {
             return;
         }

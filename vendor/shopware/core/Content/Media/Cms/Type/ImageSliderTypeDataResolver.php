@@ -14,12 +14,11 @@ use Shopware\Core\Content\Media\Cms\AbstractDefaultMediaResolver;
 use Shopware\Core\Content\Media\MediaDefinition;
 use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Content\Product\Aggregate\ProductMedia\ProductMediaCollection;
-use Shopware\Core\Content\Product\Aggregate\ProductMedia\ProductMediaEntity;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class ImageSliderTypeDataResolver extends AbstractCmsElementResolver
 {
     /**
@@ -63,6 +62,8 @@ class ImageSliderTypeDataResolver extends AbstractCmsElementResolver
             $imageSlider->setNavigation($navigation->getArrayValue());
         }
 
+        $imageSlider->setUseFetchPriorityOnFirstItem((bool) $config->get('useFetchPriorityOnFirstItem'));
+
         $sliderItemsConfig = $config->get('sliderItems');
         if ($sliderItemsConfig === null) {
             return;
@@ -83,10 +84,9 @@ class ImageSliderTypeDataResolver extends AbstractCmsElementResolver
         if ($sliderItemsConfig->isMapped() && $resolverContext instanceof EntityResolverContext) {
             $sliderItems = $this->resolveEntityValue($resolverContext->getEntity(), $sliderItemsConfig->getStringValue());
 
-            if ($sliderItems === null || (is_countable($sliderItems) ? \count($sliderItems) : 0) < 1) {
+            if (!$sliderItems instanceof ProductMediaCollection || $sliderItems->count() < 1) {
                 return;
             }
-            $this->sortItemsByPosition($sliderItems);
 
             if ($sliderItemsConfig->getStringValue() === 'product.media') {
                 /** @var ProductEntity $productEntity */
@@ -109,17 +109,8 @@ class ImageSliderTypeDataResolver extends AbstractCmsElementResolver
         }
     }
 
-    protected function sortItemsByPosition(ProductMediaCollection $sliderItems): void
-    {
-        if (!$sliderItems->first() || !$sliderItems->first()->has('position')) {
-            return;
-        }
-
-        $sliderItems->sort(static fn (ProductMediaEntity $a, ProductMediaEntity $b) => $a->get('position') - $b->get('position'));
-    }
-
     /**
-     * @param array{url?: string, newTab?: bool, mediaId: string} $config
+     * @param array{url?: string, ariaLabel?: string, newTab?: bool, mediaId: string} $config
      */
     private function addMedia(CmsSlotEntity $slot, ImageSliderStruct $imageSlider, ElementDataCollection $result, array $config): void
     {
@@ -127,6 +118,7 @@ class ImageSliderTypeDataResolver extends AbstractCmsElementResolver
 
         if (!empty($config['url'])) {
             $imageSliderItem->setUrl($config['url']);
+            $imageSliderItem->setAriaLabel($config['ariaLabel'] ?? null);
             $imageSliderItem->setNewTab($config['newTab'] ?? false);
         }
 

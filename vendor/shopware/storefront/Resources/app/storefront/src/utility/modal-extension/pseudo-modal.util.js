@@ -1,13 +1,13 @@
-import DomAccess from 'src/helper/dom-access.helper';
 import { REMOVE_BACKDROP_DELAY } from 'src/utility/backdrop/backdrop.util';
 
 const PSEUDO_MODAL_CLASS = 'js-pseudo-modal';
 const PSEUDO_MODAL_TEMPLATE_CLASS = 'js-pseudo-modal-template';
 const PSEUDO_MODAL_TEMPLATE_CONTENT_CLASS = 'js-pseudo-modal-template-content-element';
 const PSEUDO_MODAL_TEMPLATE_TITLE_CLASS = 'js-pseudo-modal-template-title-element';
+const PSEUDO_MODAL_TEMPLATE_ROOT_CLASS = 'js-pseudo-modal-template-root-element';
 
 /**
- * @package storefront
+ * @sw-package framework
  */
 export default class PseudoModalUtil {
     constructor(
@@ -28,10 +28,12 @@ export default class PseudoModalUtil {
      * opens the modal
      *
      * @param {function} cb
+     * @param {Number} delay
      */
-    open(cb) {
+    open(cb, delay = REMOVE_BACKDROP_DELAY) {
+        this._hideExistingModal();
         this._create();
-        setTimeout(this._open.bind(this, cb), REMOVE_BACKDROP_DELAY);
+        setTimeout(this._open.bind(this, cb), delay);
     }
 
     /**
@@ -81,6 +83,30 @@ export default class PseudoModalUtil {
     }
 
     /**
+     * Before opening a new pseudo modal, check if there is any existing pseudo modal already.
+     * Hide an existing pseudo modal first to avoid multiple modals or backdrops.
+     *
+     * @private
+     */
+    _hideExistingModal() {
+        try {
+            const existingModalEl = document.querySelector(`.${PSEUDO_MODAL_CLASS} .modal`);
+            if (!existingModalEl) {
+                return;
+            }
+
+            const existingModalInstance = bootstrap.Modal.getInstance(existingModalEl);
+            if (!existingModalInstance) {
+                return;
+            }
+
+            existingModalInstance.hide();
+        } catch (err) {
+            console.warn(`[PseudoModalUtil] Unable to hide existing pseudo modal before opening pseudo modal: ${err.message}`);
+        }
+    }
+
+    /**
      * @param {function} cb
      * @private
      */
@@ -89,6 +115,18 @@ export default class PseudoModalUtil {
 
         this._modal.addEventListener('hidden.bs.modal', this._modalWrapper.remove);
         this._modal.addEventListener('shown.bs.modal', cb);
+
+        /**
+         * Fix bootstrap modal accessibility errors.
+         *
+         * The bootstrap modal adds the `aria-hidden` attribute on the modal element when closed.
+         * This leads to console errors in some browsers, if an element within the modal still has focus.
+         */
+        this._modal.addEventListener('hide.bs.modal', () => {
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        });
 
         this._modalInstance.show();
     }
@@ -102,7 +140,7 @@ export default class PseudoModalUtil {
      * @private
      */
     _create() {
-        this._modalMarkupEl = DomAccess.querySelector(document, this._templateSelector);
+        this._modalMarkupEl = document.querySelector(this._templateSelector);
         this._createModalWrapper();
         this._modalWrapper.innerHTML = this._content;
         this._modal = this._createModalMarkup();
@@ -120,7 +158,7 @@ export default class PseudoModalUtil {
      * @private
      */
     _createModalWrapper() {
-        this._modalWrapper = DomAccess.querySelector(document, `.${PSEUDO_MODAL_CLASS}`, false);
+        this._modalWrapper = document.querySelector(`.${PSEUDO_MODAL_CLASS}`);
 
         if (!this._modalWrapper) {
             this._modalWrapper = document.createElement('div');
@@ -137,7 +175,7 @@ export default class PseudoModalUtil {
      * @private
      */
     _createModalMarkup() {
-        const modal = DomAccess.querySelector(this._modalWrapper, '.modal', false);
+        const modal = this._modalWrapper.querySelector('.modal');
 
         if (modal) {
             return modal;
@@ -148,7 +186,7 @@ export default class PseudoModalUtil {
 
         this._setModalContent(content);
 
-        return DomAccess.querySelector(this._modalWrapper, '.modal');
+        return this._modalWrapper.querySelector('.modal');
     }
 
     /**
@@ -159,7 +197,7 @@ export default class PseudoModalUtil {
      */
     _setModalTitle(title = '') {
         try {
-            const titleElement = DomAccess.querySelector(this._modalWrapper, this._templateTitleSelector);
+            const titleElement = this._modalWrapper.querySelector(this._templateTitleSelector);
             titleElement.innerHTML = title;
         } catch (err) {
             // do nothing
@@ -172,14 +210,21 @@ export default class PseudoModalUtil {
      * @private
      */
     _setModalContent(content) {
-        const contentElement = DomAccess.querySelector(this._modalWrapper, this._templateContentSelector);
+        const contentElement = this._modalWrapper.querySelector(this._templateContentSelector);
         contentElement.innerHTML = content;
 
+        const rootElement = contentElement.querySelector(`.${PSEUDO_MODAL_TEMPLATE_ROOT_CLASS}`);
+
+        if (rootElement) {
+            this._modalWrapper.querySelector(`.${PSEUDO_MODAL_TEMPLATE_ROOT_CLASS}`).replaceChildren(rootElement);
+            return;
+        }
+
         try {
-            const titleElement = DomAccess.querySelector(contentElement, this._templateTitleSelector);
+            const titleElement = contentElement.querySelector(this._templateTitleSelector);
             if (titleElement) {
                 this._setModalTitle(titleElement.innerHTML);
-                titleElement.parentNode.removeChild(titleElement)
+                titleElement.parentNode.removeChild(titleElement);
             }
         } catch (err) {
             // do nothing

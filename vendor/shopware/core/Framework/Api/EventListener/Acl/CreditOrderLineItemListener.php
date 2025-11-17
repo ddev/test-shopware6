@@ -12,7 +12,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CreditOrderLineItemListener implements EventSubscriberInterface
 {
     final public const ACL_ORDER_CREATE_DISCOUNT_PRIVILEGE = 'order:create:discount';
@@ -28,7 +28,7 @@ class CreditOrderLineItemListener implements EventSubscriberInterface
     public function validate(CommandAclValidationEvent $event): void
     {
         $command = $event->getCommand();
-        $resource = $command->getDefinition()->getEntityName();
+        $resource = $command->getEntityName();
         $privilege = $command->getPrivilege();
 
         if ($privilege !== AclRoleDefinition::PRIVILEGE_CREATE || $resource !== OrderLineItemDefinition::ENTITY_NAME) {

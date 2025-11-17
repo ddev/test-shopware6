@@ -3,8 +3,12 @@
 namespace Shopware\Core\System\Snippet\Filter;
 
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\System\Snippet\SnippetService;
 
-#[Package('system-settings')]
+/**
+ * @phpstan-import-type SnippetArray from SnippetService
+ */
+#[Package('discovery')]
 abstract class AbstractFilter
 {
     abstract public function getName(): string;
@@ -14,6 +18,12 @@ abstract class AbstractFilter
         return $this->getName() === $name;
     }
 
+    /**
+     * @param SnippetArray $result
+     * @param SnippetArray $snippetSets
+     *
+     * @return SnippetArray
+     */
     public function readjust(array $result, array $snippetSets): array
     {
         foreach ($snippetSets as $setId => $_snippets) {
@@ -27,6 +37,7 @@ abstract class AbstractFilter
                         $result[$setId]['snippets'][$translationKey] = [
                             'value' => '',
                             'origin' => '',
+                            'resetTo' => '',
                             'translationKey' => $translationKey,
                             'author' => '',
                             'id' => null,

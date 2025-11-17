@@ -13,7 +13,7 @@ use Shopware\Core\Framework\Struct\Struct;
  *
  * @final
  */
-#[Package('content')]
+#[Package('discovery')]
 class ThumbnailLocationStruct extends Struct
 {
     public function __construct(

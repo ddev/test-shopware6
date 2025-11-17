@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 use Twig\Token;
 use Twig\TokenParser\AbstractTokenParser;
 
-#[Package('core')]
+#[Package('framework')]
 class FeatureFlagCallTokenParser extends AbstractTokenParser
 {
     public function parse(Token $token): FeatureCallSilentToken
@@ -27,7 +27,7 @@ class FeatureFlagCallTokenParser extends AbstractTokenParser
         // We read until the string of the end of the block. But we need to parse the end tag as well, so the parser is on clean state again.
         $stream->next();
 
-        return new FeatureCallSilentToken($flagName, $body, $flagToken->getLine(), $this->getTag());
+        return new FeatureCallSilentToken($flagName, $body, $flagToken->getLine());
     }
 
     public function getTag(): string

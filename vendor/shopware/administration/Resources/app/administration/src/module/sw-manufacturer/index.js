@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import './acl';
@@ -21,7 +21,7 @@ Module.register('sw-manufacturer', {
     version: '1.0.0',
     targetVersion: '1.0.0',
     color: '#57D9A3',
-    icon: 'regular-products',
+    icon: 'solid-products',
     favicon: 'icon-module-products.png',
     entity: 'product_manufacturer',
 
@@ -53,22 +53,24 @@ Module.register('sw-manufacturer', {
             props: {
                 default(route) {
                     return {
-                        manufacturerId: route.params.id,
+                        manufacturerId: route.params.id.toLowerCase(),
                     };
                 },
             },
         },
     },
 
-    navigation: [{
-        path: 'sw.manufacturer.index',
-        privilege: 'product_manufacturer.viewer',
-        label: 'sw-manufacturer.general.mainMenuItemList',
-        id: 'sw-manufacturer',
-        parent: 'sw-catalogue',
-        color: '#57D9A3',
-        position: 50,
-    }],
+    navigation: [
+        {
+            path: 'sw.manufacturer.index',
+            privilege: 'product_manufacturer.viewer',
+            label: 'sw-manufacturer.general.mainMenuItemList',
+            id: 'sw-manufacturer',
+            parent: 'sw-catalogue',
+            color: '#57D9A3',
+            position: 50,
+        },
+    ],
 
     defaultSearchConfiguration,
 });

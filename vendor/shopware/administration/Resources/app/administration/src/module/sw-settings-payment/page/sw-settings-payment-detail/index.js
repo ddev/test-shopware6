@@ -7,7 +7,7 @@ const { warn } = Shopware.Utils.debug;
 const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -17,7 +17,6 @@ export default {
         'repositoryFactory',
         'acl',
         'customFieldDataProviderService',
-        'feature',
     ],
 
     mixins: [
@@ -43,6 +42,8 @@ export default {
             isLoading: false,
             isSaveSuccessful: false,
             customFieldSets: null,
+            showDeleteModal: false,
+            deletionInProcess: false,
         };
     },
 
@@ -53,6 +54,10 @@ export default {
     },
 
     computed: {
+        isNewPaymentMethod() {
+            return this.paymentMethod._isNew;
+        },
+
         identifier() {
             return this.placeholder(this.paymentMethod, 'name');
         },
@@ -94,16 +99,14 @@ export default {
 
         ruleFilter() {
             const criteria = new Criteria(1, 25);
-            criteria.addFilter(Criteria.multi(
-                'OR',
-                [
+            criteria.addFilter(
+                Criteria.multi('OR', [
                     Criteria.contains('rule.moduleTypes.types', 'payment'),
                     Criteria.equals('rule.moduleTypes', null),
-                ],
-            ));
+                ]),
+            );
 
-            criteria.addAssociation('conditions')
-                .addSorting(Criteria.sort('name', 'ASC', false));
+            criteria.addAssociation('conditions').addSorting(Criteria.sort('name', 'ASC', false));
 
             return criteria;
         },
@@ -112,7 +115,37 @@ export default {
             return this.paymentMethod && this.customFieldSets && this.customFieldSets.length > 0;
         },
 
-        ...mapPropertyErrors('paymentMethod', ['name', 'technicalName']),
+        paymentMethodCriteria() {
+            const criteria = new Criteria();
+            criteria.setIds([this.paymentMethodId]);
+
+            if (this.acl.can('payment.deleter')) {
+                criteria.getAssociation('customers').setLimit(1);
+                criteria.getAssociation('salesChannels').setLimit(1);
+                criteria.getAssociation('salesChannelDefaultAssignments').setLimit(1);
+                criteria.getAssociation('orderTransactions').setLimit(1);
+            }
+
+            return criteria;
+        },
+
+        forbidDelete() {
+            return (
+                this.paymentMethod.orderTransactions?.length !== 0 ||
+                this.paymentMethod.salesChannels?.length !== 0 ||
+                this.paymentMethod.customers?.length !== 0 ||
+                this.paymentMethod.salesChannelDefaultAssignments?.length !== 0
+            );
+        },
+
+        technicalNameIsProvided() {
+            return !!this.paymentMethod?.pluginId || !!this.paymentMethod?.appPaymentMethod?.id;
+        },
+
+        ...mapPropertyErrors('paymentMethod', [
+            'name',
+            'technicalName',
+        ]),
     },
 
     watch: {
@@ -129,11 +162,9 @@ export default {
 
     methods: {
         createdComponent() {
-            if (this.$route.params.id) {
-                this.paymentMethodId = this.$route.params.id;
-                this.loadEntityData();
-                this.loadCustomFieldSets();
-            }
+            this.paymentMethodId = this.$route.params.id.toLowerCase();
+            this.loadEntityData();
+            this.loadCustomFieldSets();
         },
 
         onSaveRule(ruleId) {
@@ -159,7 +190,9 @@ export default {
         loadEntityData() {
             this.isLoading = true;
 
-            this.paymentMethodRepository.get(this.paymentMethodId)
+            this.paymentMethodRepository
+                .search(this.paymentMethodCriteria)
+                .then((response) => response.first())
                 .then((paymentMethod) => {
                     this.paymentMethod = paymentMethod;
 
@@ -186,26 +219,10 @@ export default {
 
         onSave() {
             this.isSaveSuccessful = false;
-
-            /**
-             * @deprecated tag:v6.7.0 - Can be removed: technical names are now required
-             */
-            if (!this.paymentMethod.technicalName) {
-                Shopware.State.dispatch('error/addApiError', {
-                    expression: `payment_method.${this.paymentMethod.id}.technicalName`,
-                    error: new Shopware.Classes.ShopwareError(
-                        {
-                            code: 'c1051bb4-d103-4f74-8988-acbcafc7fdc3',
-                        },
-                    ),
-                });
-
-                return Promise.reject();
-            }
-
             this.isLoading = true;
 
-            return this.paymentMethodRepository.save(this.paymentMethod)
+            return this.paymentMethodRepository
+                .save(this.paymentMethod)
                 .then(() => {
                     this.isSaveSuccessful = true;
                     this.$refs.mediaSidebarItem.getList();
@@ -233,7 +250,7 @@ export default {
             this.createNotificationError({
                 title: this.$tc('global.default.error'),
                 // eslint-disable-next-line max-len
-                message: `${this.$tc('sw-settings-payment.detail.messageSaveError', 0, { name: this.paymentMethod.name })} ${errorDetails}`,
+                message: `${this.$tc('sw-settings-payment.detail.messageSaveError', { name: this.paymentMethod.name }, 0)} ${errorDetails}`,
             });
         },
 
@@ -242,11 +259,10 @@ export default {
         },
 
         setMediaItem({ targetId }) {
-            this.mediaRepository.get(targetId)
-                .then((updatedMedia) => {
-                    this.mediaItem = updatedMedia;
-                    this.paymentMethod.mediaId = targetId;
-                });
+            this.mediaRepository.get(targetId).then((updatedMedia) => {
+                this.mediaItem = updatedMedia;
+                this.paymentMethod.mediaId = targetId;
+            });
         },
 
         setMediaFromSidebar(mediaEntity) {
@@ -265,6 +281,17 @@ export default {
 
         openMediaSidebar() {
             this.$refs.mediaSidebarItem.openContent();
+        },
+
+        async deletePaymentMethod() {
+            if (!this.acl.can('payment.deleter')) return;
+
+            this.deletionInProcess = true;
+
+            await this.paymentMethodRepository.delete(this.paymentMethod.id);
+            await this.$router.replace({
+                name: 'sw.settings.payment.overview',
+            });
         },
     },
 };

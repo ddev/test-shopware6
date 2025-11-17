@@ -8,12 +8,17 @@ use Shopware\Core\Framework\Script\Facade\ArrayFacade;
 use Shopware\Core\Framework\Script\ScriptException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class ScriptResponse
 {
     private ArrayFacade $body;
 
     private readonly ResponseCacheConfiguration $cache;
+
+    /**
+     * @var array<string, string>
+     */
+    private array $headers = [];
 
     /**
      * @internal
@@ -24,6 +29,26 @@ class ScriptResponse
     ) {
         $this->body = new ArrayFacade([]);
         $this->cache = new ResponseCacheConfiguration();
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getHeaders(): array
+    {
+        return $this->headers;
+    }
+
+    public function setHeader(string $name, string $value): void
+    {
+        $this->inner?->headers->set($name, $value);
+        $this->headers[$name] = $value;
+    }
+
+    public function removeHeader(string $name): void
+    {
+        $this->inner?->headers->remove($name);
+        unset($this->headers[$name]);
     }
 
     public function getCode(): int

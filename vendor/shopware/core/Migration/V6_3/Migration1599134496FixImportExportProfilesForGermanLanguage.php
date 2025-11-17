@@ -3,6 +3,7 @@
 namespace Shopware\Core\Migration\V6_3;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Framework\DataAbstractionLayer\Util\StatementHelper;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Migration\MigrationStep;
 
@@ -11,7 +12,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1599134496FixImportExportProfilesForGermanLanguage extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -66,10 +67,10 @@ SQL;
                 continue;
             }
 
-            $stmt->executeStatement([
+            StatementHelper::executeStatement($stmt, [
                 'import_export_profile_id' => $data['import_export_profile_id'],
                 'language_id' => $germanLanguageId,
-                'label' => $germanTranslations[$data['name']],
+                'label' => $germanTranslations[$data['label']],
                 'created_at' => $data['created_at'],
             ]);
         }
@@ -96,7 +97,7 @@ SQL;
 
     /**
      * @param array<string, mixed> $englishRow
-     * @param list<array<string, mixed>> $germanData
+     * @param array<array<string, mixed>> $germanData
      */
     private function checkIfInGermanData(array $englishRow, array $germanData): bool
     {

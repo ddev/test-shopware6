@@ -13,7 +13,7 @@ use Symfony\Component\HttpKernel\Bundle\BundleInterface;
  *
  * @method void configureContainer(ContainerBuilder $container, LoaderInterface $loader)
  */
-#[Package('core')]
+#[Package('framework')]
 class TestKernel extends Kernel
 {
     /**
@@ -24,5 +24,15 @@ class TestKernel extends Kernel
         yield from parent::registerBundles();
 
         yield new TestBundle();
+    }
+
+    protected function build(ContainerBuilder $container): void
+    {
+        foreach ($container->getDefinitions() as $definition) {
+            if ($definition->isAbstract()) {
+                continue;
+            }
+            $definition->setPublic(true);
+        }
     }
 }

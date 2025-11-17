@@ -7,18 +7,12 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class EqualsFilterStruct extends FilterStruct
 {
-    /**
-     * @var string
-     */
-    protected $field;
+    protected string $field;
 
-    /**
-     * @var string
-     */
-    protected $value;
+    protected string $value;
 
     public static function fromArray(array $data): FilterStruct
     {

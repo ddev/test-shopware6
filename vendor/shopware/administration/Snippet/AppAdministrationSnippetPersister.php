@@ -11,18 +11,22 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
-use Shopware\Core\System\Locale\LocaleException;
+use Shopware\Core\System\Locale\LocaleCollection;
 
 /**
  * @internal
  */
-#[Package('administration')]
-class AppAdministrationSnippetPersister
+#[Package('discovery')]
+readonly class AppAdministrationSnippetPersister
 {
+    /**
+     * @param EntityRepository<AppAdministrationSnippetCollection> $appAdministrationSnippetRepository
+     * @param EntityRepository<LocaleCollection> $localeRepository
+     */
     public function __construct(
-        private readonly EntityRepository $appAdministrationSnippetRepository,
-        private readonly EntityRepository $localeRepository,
-        private readonly CacheInvalidator $cacheInvalidator
+        private EntityRepository $appAdministrationSnippetRepository,
+        private EntityRepository $localeRepository,
+        private CacheInvalidator $cacheInvalidator
     ) {
     }
 
@@ -32,7 +36,7 @@ class AppAdministrationSnippetPersister
     public function updateSnippets(AppEntity $app, array $snippets, Context $context): void
     {
         $newOrUpdatedSnippets = [];
-        $existingSnippets = $this->getExistingSnippets($app->getId(), $context);
+        $existingAppSnippets = $this->getExistingAppSnippets($app->getId(), $context);
         $coreSnippets = $this->getCoreAdministrationSnippets();
 
         $firstLevelSnippetKeys = [];
@@ -50,22 +54,20 @@ class AppAdministrationSnippetPersister
             throw SnippetException::defaultLanguageNotGiven('en-GB');
         }
 
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsAnyFilter('code', array_keys($snippets)));
-        $localeIds = $this->localeRepository->search($criteria, $context)->getEntities()->getElements();
-        $localeIds = array_column($localeIds, 'id', 'code');
+        $localeCodeToIdMapping = $this->mapLocaleCodesToIds(array_keys($snippets), $context);
 
         $existingLocales = [];
-        foreach ($existingSnippets as $snippetEntity) {
+        foreach ($existingAppSnippets as $snippetEntity) {
             $existingLocales[$snippetEntity->getLocaleId()] = $snippetEntity->getId();
         }
 
-        foreach ($snippets as $filename => $value) {
-            if (!\array_key_exists($filename, $localeIds)) {
-                throw LocaleException::localeDoesNotExists($filename);
+        foreach ($snippets as $snippetLocale => $snippet) {
+            if (!\array_key_exists($snippetLocale, $localeCodeToIdMapping)) {
+                // The locale for the given snippet does not exist.
+                continue;
             }
 
-            $localeId = $localeIds[$filename];
+            $localeId = $localeCodeToIdMapping[$snippetLocale];
             $id = Uuid::randomHex();
 
             if (\array_key_exists($localeId, $existingLocales)) {
@@ -75,9 +77,9 @@ class AppAdministrationSnippetPersister
 
             $newOrUpdatedSnippets[] = [
                 'id' => $id,
-                'value' => $value,
+                'value' => $snippet,
                 'appId' => $app->getId(),
-                'localeId' => $localeIds[$filename],
+                'localeId' => $localeCodeToIdMapping[$snippetLocale],
             ];
         }
 
@@ -87,18 +89,15 @@ class AppAdministrationSnippetPersister
         $deletedIds = array_values($existingLocales);
         $this->deleteSnippets($deletedIds, $context);
 
-        $this->cacheInvalidator->invalidate([CachedSnippetFinder::CACHE_TAG]);
+        $this->cacheInvalidator->invalidate([CachedSnippetFinder::CACHE_TAG], true);
     }
 
-    private function getExistingSnippets(string $appId, Context $context): AppAdministrationSnippetCollection
+    private function getExistingAppSnippets(string $appId, Context $context): AppAdministrationSnippetCollection
     {
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('appId', $appId));
 
-        /** @var AppAdministrationSnippetCollection $collection */
-        $collection = $this->appAdministrationSnippetRepository->search($criteria, $context)->getEntities();
-
-        return $collection;
+        return $this->appAdministrationSnippetRepository->search($criteria, $context)->getEntities();
     }
 
     /**
@@ -106,7 +105,7 @@ class AppAdministrationSnippetPersister
      */
     private function getCoreAdministrationSnippets(): array
     {
-        $path = __DIR__ . '/../Resources/app/administration/src/app/snippet/en-GB.json';
+        $path = __DIR__ . '/../Resources/app/administration/src/app/snippet/en.json';
         $snippets = file_get_contents($path);
 
         if (!$snippets) {
@@ -127,5 +126,21 @@ class AppAdministrationSnippetPersister
         }
 
         $this->appAdministrationSnippetRepository->delete($data, $context);
+    }
+
+    /**
+     * @param list<string> $localeCodes
+     *
+     * @return array<string, string>
+     */
+    private function mapLocaleCodesToIds(array $localeCodes, Context $context): array
+    {
+        $criteria = new Criteria();
+        $criteria->addFilter(new EqualsAnyFilter('code', $localeCodes));
+        $criteria->addFields(['id', 'code']);
+
+        $locales = $this->localeRepository->search($criteria, $context)->getEntities()->getElements();
+
+        return array_column($locales, 'id', 'code');
     }
 }

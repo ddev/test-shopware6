@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class BlueGreenDeploymentService
 {
     final public const ENV_NAME = 'BLUE_GREEN_DEPLOYMENT';
@@ -31,7 +31,7 @@ class BlueGreenDeploymentService
         } catch (Exception) {
             return false;
         } finally {
-            $connection->executeQuery('DROP TABLE IF EXISTS example');
+            $connection->executeStatement('DROP TABLE IF EXISTS example');
         }
 
         return true;

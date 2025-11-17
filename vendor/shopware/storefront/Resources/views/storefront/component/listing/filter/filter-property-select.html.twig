@@ -5,7 +5,9 @@
         name: name,
         propertyName: propertyName,
         snippets: {
-            disabledFilterText: 'listing.disabledFilterTooltip'|trans|sw_sanitize
+            disabledFilterText: 'listing.disabledFilterTooltip'|trans|sw_sanitize,
+            ariaLabel: ariaLabel,
+            ariaLabelCount: 'listing.filterCountAriaLabel'|trans|sw_sanitize
         }
     } %}
 {% endif %}
@@ -27,7 +29,6 @@
                       {% if displayType == 'media' and media %}
                       style="background-image: url('{{ media }}')"
                       {% endif %}>
-
                     {% block component_filter_property_select_checkox_input %}
                         <input type="checkbox"
                                class="filter-property-select-checkbox filter-multi-select-checkbox"
@@ -44,7 +45,7 @@
                     {% block component_filter_property_select_preview_checkmark %}
                         <span class="filter-property-select-preview-checkmark">
                             {% block component_filter_property_select_preview_checkmark_icon %}
-                                {% sw_icon 'checkmark' style {'pack': 'solid', 'size': 'xs'} %}
+                                {% sw_icon 'checkmark' style {pack: 'solid', size: 'xs'} %}
                             {% endblock %}
                         </span>
                     {% endblock %}

@@ -1,5 +1,5 @@
 /**
- * @package system-settings
+ * @sw-package fundamentals@framework
  */
 import template from './sw-profile-index-general.html.twig';
 
@@ -9,7 +9,30 @@ const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 export default {
     template,
 
-    inject: ['acl'],
+    inject: [
+        'acl',
+        'ssoSettingsService',
+    ],
+
+    emits: [
+        'new-password-change',
+        'new-password-confirm-change',
+        'media-upload',
+        'media-remove',
+        'media-open',
+    ],
+
+    created() {
+        this.ssoSettingsService.isSso().then((isSso) => {
+            this.showPasswordChangeCard = !isSso.isSso;
+        });
+    },
+
+    data() {
+        return {
+            showPasswordChangeCard: true,
+        };
+    },
 
     props: {
         user: {
@@ -79,6 +102,16 @@ export default {
             set(newPasswordConfirm) {
                 this.$emit('new-password-confirm-change', newPasswordConfirm);
             },
+        },
+
+        localeOptions() {
+            return this.languages.map((language) => {
+                return {
+                    id: language.locale.id,
+                    value: language.locale.id,
+                    label: language.customLabel,
+                };
+            });
         },
     },
 

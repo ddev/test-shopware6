@@ -5,7 +5,6 @@ namespace Shopware\Core\Checkout\Customer\Event;
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Content\Flow\Dispatching\Action\FlowMailVariables;
-use Shopware\Core\Content\Flow\Dispatching\Aware\ConfirmUrlAware;
 use Shopware\Core\Content\Flow\Dispatching\Aware\ScalarValuesAware;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Event\CustomerAware;
@@ -20,42 +19,18 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Contracts\EventDispatcher\Event;
 
-/**
- * @deprecated tag:v6.6.0 - reason:class-hierarchy-change - ConfirmUrlAware is deprecated and will be removed in v6.6.0
- */
 #[Package('checkout')]
-class DoubleOptInGuestOrderEvent extends Event implements SalesChannelAware, CustomerAware, MailAware, ConfirmUrlAware, ScalarValuesAware, FlowEventAware
+class DoubleOptInGuestOrderEvent extends Event implements SalesChannelAware, CustomerAware, MailAware, ScalarValuesAware, FlowEventAware
 {
     public const EVENT_NAME = 'checkout.customer.double_opt_in_guest_order';
 
-    /**
-     * @var CustomerEntity
-     */
-    private $customer;
-
-    /**
-     * @var SalesChannelContext
-     */
-    private $salesChannelContext;
-
-    /**
-     * @var string
-     */
-    private $confirmUrl;
-
-    /**
-     * @var MailRecipientStruct
-     */
-    private $mailRecipientStruct;
+    private ?MailRecipientStruct $mailRecipientStruct = null;
 
     public function __construct(
-        CustomerEntity $customer,
-        SalesChannelContext $salesChannelContext,
-        string $confirmUrl
+        private readonly CustomerEntity $customer,
+        private readonly SalesChannelContext $salesChannelContext,
+        private readonly string $confirmUrl,
     ) {
-        $this->customer = $customer;
-        $this->salesChannelContext = $salesChannelContext;
-        $this->confirmUrl = $confirmUrl;
     }
 
     public static function getAvailableData(): EventDataCollection
@@ -101,7 +76,7 @@ class DoubleOptInGuestOrderEvent extends Event implements SalesChannelAware, Cus
 
     public function getSalesChannelId(): string
     {
-        return $this->salesChannelContext->getSalesChannel()->getId();
+        return $this->salesChannelContext->getSalesChannelId();
     }
 
     public function getContext(): Context
@@ -111,6 +86,6 @@ class DoubleOptInGuestOrderEvent extends Event implements SalesChannelAware, Cus
 
     public function getCustomerId(): string
     {
-        return $this->getCustomer()->getId();
+        return $this->customer->getId();
     }
 }

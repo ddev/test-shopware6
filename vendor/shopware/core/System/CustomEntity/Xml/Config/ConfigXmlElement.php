@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('content')]
+#[Package('framework')]
 abstract class ConfigXmlElement extends XmlElement
 {
     /**

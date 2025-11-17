@@ -23,7 +23,7 @@ use Symfony\Component\Validator\ConstraintViolationList;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('fundamentals@discovery')]
 class LanguageValidator implements EventSubscriberInterface
 {
     final public const VIOLATION_PARENT_HAS_PARENT = 'parent_has_parent_violation';
@@ -73,7 +73,7 @@ class LanguageValidator implements EventSubscriberInterface
         foreach ($commands as $command) {
             $violations = new ConstraintViolationList();
 
-            if ($command instanceof CascadeDeleteCommand || $command->getDefinition()->getClass() !== LanguageDefinition::class) {
+            if ($command instanceof CascadeDeleteCommand || $command->getEntityName() !== LanguageDefinition::ENTITY_NAME) {
                 continue;
             }
 
@@ -189,7 +189,7 @@ class LanguageValidator implements EventSubscriberInterface
     {
         $ids = [];
         foreach ($commands as $command) {
-            if ($command->getDefinition()->getClass() !== LanguageDefinition::class) {
+            if ($command->getEntityName() !== LanguageDefinition::ENTITY_NAME) {
                 continue;
             }
             if ($command instanceof InsertCommand || $command instanceof UpdateCommand) {

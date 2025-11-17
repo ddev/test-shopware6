@@ -2,7 +2,7 @@ import template from './sw-order-list.html.twig';
 import './sw-order-list.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Mixin } = Shopware;
@@ -30,13 +30,15 @@ export default {
             sortBy: 'orderDateTime',
             sortDirection: 'DESC',
             isLoading: false,
+            /**
+             * @deprecated tag:v6.8.0 - will be removed without replacement
+             */
             filterLoading: false,
             showDeleteModal: false,
-            availableAffiliateCodes: [],
-            availableCampaignCodes: [],
-            availablePromotionCodes: [],
             filterCriteria: [],
             defaultFilters: [
+                'order-number-filter',
+                'customer-number-filter',
                 'affiliate-code-filter',
                 'campaign-code-filter',
                 'promotion-code-filter',
@@ -83,34 +85,50 @@ export default {
 
             criteria.setTerm(this.term);
 
-            this.sortBy.split(',').forEach(sortBy => {
+            this.sortBy.split(',').forEach((sortBy) => {
                 criteria.addSorting(Criteria.sort(sortBy, this.sortDirection));
             });
 
-            this.filterCriteria.forEach(filter => {
+            this.filterCriteria.forEach((filter) => {
                 criteria.addFilter(filter);
             });
 
-            criteria.addAssociation('addresses');
             criteria.addAssociation('billingAddress');
             criteria.addAssociation('salesChannel');
             criteria.addAssociation('orderCustomer');
             criteria.addAssociation('currency');
             criteria.addAssociation('documents');
-
             criteria.addAssociation('stateMachineState');
+            criteria.addAssociation('primaryOrderTransaction.stateMachineState');
+            criteria.addAssociation('primaryOrderDelivery.stateMachineState');
+            criteria.addAssociation('primaryOrderDelivery.shippingOrderAddress');
 
-            criteria.getAssociation('transactions')
-                .addAssociation('stateMachineState')
-                .addSorting(Criteria.sort('createdAt'));
+            if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                criteria.addAssociation('addresses');
 
-            criteria.getAssociation('deliveries')
-                .addAssociation('stateMachineState')
-                .addAssociation('shippingMethod');
+                criteria
+                    .getAssociation('transactions')
+                    .addAssociation('stateMachineState')
+                    .addSorting(Criteria.sort('createdAt'));
+
+                criteria
+                    .addAssociation('primaryOrderTransaction.paymentMethod')
+                    .addAssociation('primaryOrderDelivery.shippingMethod')
+                    .addAssociation('primaryOrderDelivery.shippingOrderAddress.country');
+
+                criteria
+                    .getAssociation('deliveries')
+                    .addAssociation('stateMachineState')
+                    .addAssociation('shippingOrderAddress')
+                    .addAssociation('shippingMethod');
+            }
 
             return criteria;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - will be removed without replacement
+         */
         filterSelectCriteria() {
             const criteria = new Criteria(1, 1);
 
@@ -123,6 +141,15 @@ export default {
 
         listFilterOptions() {
             return {
+                'order-number-filter': {
+                    property: 'orderNumber',
+                    type: 'string-filter',
+                    label: this.$tc('sw-order.filters.orderNumberFilter.label'),
+                    placeholder: this.$tc('sw-order.filters.orderNumberFilter.placeholder'),
+                    valueProperty: 'key',
+                    labelProperty: 'key',
+                    criteriaFilterType: 'equalsAny',
+                },
                 'sales-channel-filter': {
                     property: 'salesChannel',
                     label: this.$tc('sw-order.filters.salesChannelFilter.label'),
@@ -138,13 +165,13 @@ export default {
                     toPlaceholder: this.$tc('global.default.to'),
                 },
                 'payment-status-filter': {
-                    property: 'transactions.stateMachineState',
+                    property: 'primaryOrderTransaction.stateMachineState',
                     criteria: this.getStatusCriteria('order_transaction.state'),
                     label: this.$tc('sw-order.filters.paymentStatusFilter.label'),
                     placeholder: this.$tc('sw-order.filters.paymentStatusFilter.placeholder'),
                 },
                 'delivery-status-filter': {
-                    property: 'deliveries.stateMachineState',
+                    property: 'primaryOrderDelivery.stateMachineState',
                     criteria: this.getStatusCriteria('order_delivery.state'),
                     label: this.$tc('sw-order.filters.deliveryStatusFilter.label'),
                     placeholder: this.$tc('sw-order.filters.deliveryStatusFilter.placeholder'),
@@ -163,6 +190,15 @@ export default {
                     toFieldLabel: null,
                     showTimeframe: true,
                 },
+                'customer-number-filter': {
+                    property: 'orderCustomer.customer.customerNumber',
+                    type: 'string-filter',
+                    label: this.$tc('sw-order.filters.customerNumberFilter.label'),
+                    placeholder: this.$tc('sw-order.filters.customerNumberFilter.placeholder'),
+                    valueProperty: 'key',
+                    labelProperty: 'key',
+                    criteriaFilterType: 'equals',
+                },
                 'tag-filter': {
                     property: 'tags',
                     label: this.$tc('sw-order.filters.tagFilter.label'),
@@ -170,30 +206,27 @@ export default {
                 },
                 'affiliate-code-filter': {
                     property: 'affiliateCode',
-                    type: 'multi-select-filter',
+                    type: 'string-filter',
                     label: this.$tc('sw-order.filters.affiliateCodeFilter.label'),
                     placeholder: this.$tc('sw-order.filters.affiliateCodeFilter.placeholder'),
                     valueProperty: 'key',
                     labelProperty: 'key',
-                    options: this.availableAffiliateCodes,
                 },
                 'campaign-code-filter': {
                     property: 'campaignCode',
-                    type: 'multi-select-filter',
+                    type: 'string-filter',
                     label: this.$tc('sw-order.filters.campaignCodeFilter.label'),
                     placeholder: this.$tc('sw-order.filters.campaignCodeFilter.placeholder'),
                     valueProperty: 'key',
                     labelProperty: 'key',
-                    options: this.availableCampaignCodes,
                 },
                 'promotion-code-filter': {
                     property: 'lineItems.payload.code',
-                    type: 'multi-select-filter',
+                    type: 'string-filter',
                     label: this.$tc('sw-order.filters.promotionCodeFilter.label'),
                     placeholder: this.$tc('sw-order.filters.promotionCodeFilter.placeholder'),
                     valueProperty: 'key',
                     labelProperty: 'key',
-                    options: this.availablePromotionCodes,
                 },
                 'document-filter': {
                     property: 'documents',
@@ -203,12 +236,12 @@ export default {
                     optionNoCriteria: this.$tc('sw-order.filters.documentFilter.textNoCriteria'),
                 },
                 'payment-method-filter': {
-                    property: 'transactions.paymentMethod',
+                    property: 'primaryOrderTransaction.paymentMethod',
                     label: this.$tc('sw-order.filters.paymentMethodFilter.label'),
                     placeholder: this.$tc('sw-order.filters.paymentMethodFilter.placeholder'),
                 },
                 'shipping-method-filter': {
-                    property: 'deliveries.shippingMethod',
+                    property: 'primaryOrderDelivery.shippingMethod',
                     label: this.$tc('sw-order.filters.shippingMethodFilter.label'),
                     placeholder: this.$tc('sw-order.filters.shippingMethodFilter.placeholder'),
                 },
@@ -218,7 +251,7 @@ export default {
                     placeholder: this.$tc('sw-order.filters.billingCountryFilter.placeholder'),
                 },
                 'shipping-country-filter': {
-                    property: 'deliveries.shippingOrderAddress.country',
+                    property: 'primaryOrderDelivery.shippingOrderAddress.country',
                     label: this.$tc('sw-order.filters.shippingCountryFilter.label'),
                     placeholder: this.$tc('sw-order.filters.shippingCountryFilter.placeholder'),
                 },
@@ -252,6 +285,9 @@ export default {
             return Shopware.Filter.getByName('currency');
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -275,8 +311,19 @@ export default {
     },
 
     methods: {
-        createdComponent() {
-            this.loadFilterValues();
+        createdComponent() {},
+
+        /**
+         * @deprecated tag:v6.8.0 - will be removed, use order.primaryOrderDelivery instead
+         */
+        deliveryTooltip(deliveries) {
+            return deliveries
+                .map((delivery) => {
+                    return `${delivery.shippingOrderAddress.street},
+                        ${delivery.shippingOrderAddress.zipcode}
+                        ${delivery.shippingOrderAddress.city}`;
+                })
+                .join('<hr style="margin: 8px 0">');
         },
 
         onEdit(order) {
@@ -301,8 +348,7 @@ export default {
         async getList() {
             this.isLoading = true;
 
-            let criteria = await Shopware.Service('filterService')
-                .mergeWithStoredFilters(this.storeKey, this.orderCriteria);
+            let criteria = await Shopware.Service('filterService').mergeWithStoredFilters(this.storeKey, this.orderCriteria);
 
             criteria = await this.addQueryScores(this.term, criteria);
 
@@ -330,6 +376,9 @@ export default {
             }
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - will be removed, use order.billingAddress instead
+         */
         getBillingAddress(order) {
             return order.addresses.find((address) => {
                 return address.id === order.billingAddressId;
@@ -345,62 +394,85 @@ export default {
         },
 
         getOrderColumns() {
-            return [{
-                property: 'orderNumber',
-                label: 'sw-order.list.columnOrderNumber',
-                routerLink: 'sw.order.detail',
-                allowResize: true,
-                primary: true,
-            }, {
-                property: 'salesChannel.name',
-                label: 'sw-order.list.columnSalesChannel',
-                allowResize: true,
-            }, {
-                property: 'orderCustomer.firstName',
-                dataIndex: 'orderCustomer.lastName,orderCustomer.firstName',
-                label: 'sw-order.list.columnCustomerName',
-                allowResize: true,
-            }, {
-                property: 'billingAddressId',
-                dataIndex: 'billingAddress.street',
-                label: 'sw-order.list.columnBillingAddress',
-                allowResize: true,
-            }, {
-                property: 'amountTotal',
-                label: 'sw-order.list.columnAmount',
-                align: 'right',
-                allowResize: true,
-            }, {
-                property: 'stateMachineState.name',
-                label: 'sw-order.list.columnState',
-                allowResize: true,
-            }, {
-                property: 'transactions.last().stateMachineState.name',
-                dataIndex: 'transactions.stateMachineState.name',
-                label: 'sw-order.list.columnTransactionState',
-                allowResize: true,
-            }, {
-                property: 'deliveries[0].stateMachineState.name',
-                dataIndex: 'deliveries.stateMachineState.name',
-                label: 'sw-order.list.columnDeliveryState',
-                allowResize: true,
-            }, {
-                property: 'orderDateTime',
-                label: 'sw-order.list.orderDate',
-                allowResize: true,
-            }, {
-                property: 'affiliateCode',
-                inlineEdit: 'string',
-                label: 'sw-order.list.columnAffiliateCode',
-                allowResize: true,
-                visible: false,
-            }, {
-                property: 'campaignCode',
-                inlineEdit: 'string',
-                label: 'sw-order.list.columnCampaignCode',
-                allowResize: true,
-                visible: false,
-            }];
+            return [
+                {
+                    property: 'orderNumber',
+                    label: 'sw-order.list.columnOrderNumber',
+                    routerLink: 'sw.order.detail',
+                    allowResize: true,
+                    primary: true,
+                },
+                {
+                    property: 'salesChannel.name',
+                    label: 'sw-order.list.columnSalesChannel',
+                    allowResize: true,
+                    visible: false,
+                },
+                {
+                    property: 'orderCustomer.firstName',
+                    dataIndex: 'orderCustomer.lastName,orderCustomer.firstName',
+                    label: 'sw-order.list.columnCustomerName',
+                    allowResize: true,
+                },
+                {
+                    property: 'orderCustomer.company',
+                    label: 'sw-order.list.columnCustomerCompany',
+                    allowResize: true,
+                    visible: false,
+                },
+                {
+                    property: 'billingAddressId',
+                    dataIndex: 'billingAddress.street',
+                    label: 'sw-order.list.columnBillingAddress',
+                    allowResize: true,
+                    visible: false,
+                },
+                {
+                    property: 'primaryOrderDelivery.shippingOrderAddress.street',
+                    label: 'sw-order.list.columnDeliveryAddress',
+                    allowResize: true,
+                },
+                {
+                    property: 'amountTotal',
+                    label: 'sw-order.list.columnAmount',
+                    align: 'right',
+                    allowResize: true,
+                },
+                {
+                    property: 'stateMachineState.name',
+                    label: 'sw-order.list.columnState',
+                    allowResize: true,
+                },
+                {
+                    property: 'primaryOrderTransaction.stateMachineState.name',
+                    label: 'sw-order.list.columnTransactionState',
+                    allowResize: true,
+                },
+                {
+                    property: 'primaryOrderDelivery.stateMachineState.name',
+                    label: 'sw-order.list.columnDeliveryState',
+                    allowResize: true,
+                },
+                {
+                    property: 'orderDateTime',
+                    label: 'sw-order.list.orderDate',
+                    allowResize: true,
+                },
+                {
+                    property: 'affiliateCode',
+                    inlineEdit: 'string',
+                    label: 'sw-order.list.columnAffiliateCode',
+                    allowResize: true,
+                    visible: false,
+                },
+                {
+                    property: 'campaignCode',
+                    inlineEdit: 'string',
+                    label: 'sw-order.list.columnCampaignCode',
+                    allowResize: true,
+                    visible: false,
+                },
+            ];
         },
 
         getVariantFromOrderState(order) {
@@ -410,45 +482,36 @@ export default {
         },
 
         getVariantFromPaymentState(order) {
-            let technicalName = order.transactions.last().stateMachineState.technicalName;
-            // set the payment status to the first transaction that is not cancelled
-            for (let i = 0; i < order.transactions.length; i += 1) {
-                if (!['cancelled', 'failed'].includes(order.transactions[i].stateMachineState.technicalName)) {
-                    technicalName = order.transactions[i].stateMachineState.technicalName;
-                    break;
+            let technicalName = order.primaryOrderTransaction?.stateMachineState.technicalName;
+
+            if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                technicalName = order.transactions.last().stateMachineState.technicalName;
+
+                // set the payment status to the first transaction that is not cancelled
+                for (let i = 0; i < order.transactions.length; i += 1) {
+                    if (
+                        ![
+                            'cancelled',
+                            'failed',
+                        ].includes(order.transactions[i].stateMachineState.technicalName)
+                    ) {
+                        technicalName = order.transactions[i].stateMachineState.technicalName;
+                        break;
+                    }
                 }
             }
 
-            const style = this.stateStyleDataProviderService.getStyle('order_transaction.state', technicalName);
-
-            return style.colorCode;
+            return this.stateStyleDataProviderService.getStyle('order_transaction.state', technicalName).colorCode;
         },
 
         getVariantFromDeliveryState(order) {
-            const style = this.stateStyleDataProviderService.getStyle(
-                'order_delivery.state',
-                order.deliveries[0].stateMachineState.technicalName,
-            );
+            let technicalName = order.primaryOrderDelivery?.stateMachineState.technicalName;
 
-            return style.colorCode;
-        },
+            if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                technicalName = this.getDelivery(order).stateMachineState.technicalName;
+            }
 
-        loadFilterValues() {
-            this.filterLoading = true;
-
-            return this.orderRepository.search(this.filterSelectCriteria).then(({ aggregations }) => {
-                const { affiliateCodes, campaignCodes, promotionCodes } = aggregations;
-
-                this.availableAffiliateCodes = affiliateCodes?.buckets.filter(({ key }) => key.length > 0) ?? [];
-                this.availableCampaignCodes = campaignCodes?.buckets.filter(({ key }) => key.length > 0) ?? [];
-                this.availablePromotionCodes = promotionCodes?.buckets.filter(({ key }) => key.length > 0) ?? [];
-
-                this.filterLoading = false;
-
-                return aggregations;
-            }).catch(() => {
-                this.filterLoading = false;
-            });
+            return this.stateStyleDataProviderService.getStyle('order_delivery.state', technicalName).colorCode;
         },
 
         onDelete(id) {
@@ -486,9 +549,12 @@ export default {
             await this.$nextTick();
 
             const ordersExcludeDelivery = Object.values(this.$refs.orderGrid.selection).filter((order) => {
-                return !order.deliveries[0];
+                if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                    return !this.getDelivery(order);
+                }
+                return !order.primaryOrderDelivery;
             });
-            const excludeDelivery = (ordersExcludeDelivery.length > 0) ? '1' : '0';
+            const excludeDelivery = ordersExcludeDelivery.length > 0 ? '1' : '0';
 
             this.$router.push({
                 name: 'sw.bulk.edit.order',
@@ -498,14 +564,37 @@ export default {
             });
         },
 
-        transaction(item) {
-            for (let i = 0; i < item.transactions.length; i += 1) {
-                if (!['cancelled', 'failed'].includes(item.transactions[i].stateMachineState.technicalName)) {
-                    return item.transactions[i];
+        /**
+         * @deprecated tag:v6.8.0 - will be removed, use order.primaryOrderTransaction instead
+         */
+        transaction(order) {
+            if (Shopware.Feature.isActive('v6.8.0.0')) {
+                return order.primaryOrderTransaction;
+            }
+
+            for (let i = 0; i < order.transactions.length; i += 1) {
+                if (
+                    ![
+                        'cancelled',
+                        'failed',
+                    ].includes(order.transactions[i].stateMachineState.technicalName)
+                ) {
+                    return order.transactions[i];
                 }
             }
 
-            return item.transactions.last();
+            return order.transactions.last();
+        },
+
+        /**
+         * @deprecated tag:v6.8.0 - will be removed, use order.primaryOrderDelivery instead
+         */
+        getDelivery(order) {
+            if (!Shopware.Feature.isActive('v6.8.0.0')) {
+                return order.deliveries[0];
+            }
+
+            return order.primaryOrderDelivery;
         },
     },
 };

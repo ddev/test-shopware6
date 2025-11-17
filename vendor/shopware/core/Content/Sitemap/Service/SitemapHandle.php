@@ -3,14 +3,14 @@
 namespace Shopware\Core\Content\Sitemap\Service;
 
 use League\Flysystem\FilesystemOperator;
-use Shopware\Core\Content\ImportExport\Exception\FileNotReadableException;
 use Shopware\Core\Content\Sitemap\Event\SitemapFilterOpenTagEvent;
+use Shopware\Core\Content\Sitemap\SitemapException;
 use Shopware\Core\Content\Sitemap\Struct\Url;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-#[Package('sales-channel')]
+#[Package('discovery')]
 class SitemapHandle implements SitemapHandleInterface
 {
     private const MAX_URLS = 49999;
@@ -39,7 +39,8 @@ class SitemapHandle implements SitemapHandleInterface
         private readonly FilesystemOperator $filesystem,
         private readonly SalesChannelContext $context,
         private readonly EventDispatcherInterface $eventDispatcher,
-        ?string $domain = null
+        ?string $domain = null,
+        private ?string $domainId = null,
     ) {
         $this->setDomainName($domain);
 
@@ -88,7 +89,14 @@ class SitemapHandle implements SitemapHandleInterface
                 $this->filesystem->delete($sitemapPath);
             }
 
-            $this->filesystem->write($sitemapPath, (string) file_get_contents($tmpFile));
+            $fileContents = file_get_contents($tmpFile);
+
+            if ($fileContents === false) {
+                throw SitemapException::fileNotReadable($tmpFile);
+            }
+
+            $this->filesystem->write($sitemapPath, $fileContents);
+
             @unlink($tmpFile);
         }
     }
@@ -100,7 +108,7 @@ class SitemapHandle implements SitemapHandleInterface
 
     private function getPath(SalesChannelContext $salesChannelContext): string
     {
-        return 'sitemap/salesChannel-' . $salesChannelContext->getSalesChannel()->getId() . '-' . $salesChannelContext->getLanguageId() . '/';
+        return 'sitemap/salesChannel-' . $salesChannelContext->getSalesChannelId() . '-' . $salesChannelContext->getLanguageId() . '/';
     }
 
     private function getTmpFilePath(SalesChannelContext $salesChannelContext): string
@@ -111,10 +119,14 @@ class SitemapHandle implements SitemapHandleInterface
     private function getFileName(SalesChannelContext $salesChannelContext, ?int $index = null): string
     {
         if ($this->domainName === null) {
-            return sprintf($salesChannelContext->getSalesChannel()->getId() . '-' . self::SITEMAP_NAME_PATTERN, null, $index ?? $this->index);
+            return \sprintf($salesChannelContext->getSalesChannelId() . '-' . self::SITEMAP_NAME_PATTERN, null, $index ?? $this->index);
         }
 
-        return sprintf($salesChannelContext->getSalesChannel()->getId() . '-' . self::SITEMAP_NAME_PATTERN, '-' . $this->domainName, $index ?? $this->index);
+        if ($this->domainId === null) {
+            return \sprintf($salesChannelContext->getSalesChannelId() . '-' . self::SITEMAP_NAME_PATTERN, '-' . $this->domainName, $index ?? $this->index);
+        }
+
+        return \sprintf($salesChannelContext->getSalesChannelId() . '-' . $this->domainId . '-' . self::SITEMAP_NAME_PATTERN, '-' . $this->domainName, $index ?? $this->index);
     }
 
     private function printHeader(): void
@@ -137,7 +149,7 @@ class SitemapHandle implements SitemapHandleInterface
         try {
             $files = $this->filesystem->listContents($this->getPath($this->context));
         } catch (\Throwable) {
-            // Folder does not exists
+            // Folder does not exist
             return;
         }
 
@@ -169,7 +181,7 @@ class SitemapHandle implements SitemapHandleInterface
     {
         $handle = gzopen($filePath, 'ab');
         if ($handle === false) {
-            throw new FileNotReadableException($filePath);
+            throw SitemapException::fileNotReadable($filePath);
         }
 
         $this->handle = $handle;

@@ -10,11 +10,11 @@ use Symfony\Contracts\Service\ResetInterface;
 /**
  * @internal
  */
-#[Package('system-settings')]
+#[Package('framework')]
 final class MemoizedSystemConfigStore implements EventSubscriberInterface, ResetInterface
 {
     /**
-     * @var array[]
+     * @var array<string, array<mixed>>
      */
     private array $configs = [];
 
@@ -32,11 +32,17 @@ final class MemoizedSystemConfigStore implements EventSubscriberInterface, Reset
         $this->removeConfig($event->getSalesChannelId());
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function setConfig(?string $salesChannelId, array $config): void
     {
         $this->configs[$this->getKey($salesChannelId)] = $config;
     }
 
+    /**
+     * @return ?array<string, mixed>
+     */
     public function getConfig(?string $salesChannelId): ?array
     {
         return $this->configs[$this->getKey($salesChannelId)] ?? null;

@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1674200008UpdateOrderViewerRolePrivileges extends MigrationStep
 {
     final public const NEW_PRIVILEGES = [
@@ -26,10 +26,5 @@ class Migration1674200008UpdateOrderViewerRolePrivileges extends MigrationStep
     public function update(Connection $connection): void
     {
         $this->addAdditionalPrivileges($connection, self::NEW_PRIVILEGES);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

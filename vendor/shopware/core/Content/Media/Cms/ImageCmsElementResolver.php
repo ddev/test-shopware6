@@ -15,7 +15,7 @@ use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class ImageCmsElementResolver extends AbstractCmsElementResolver
 {
     final public const CMS_DEFAULT_ASSETS_PATH = '/bundles/storefront/assets/default/cms/';
@@ -70,6 +70,11 @@ class ImageCmsElementResolver extends AbstractCmsElementResolver
                 if ($url) {
                     $image->setUrl($url);
                 }
+            }
+
+            $ariaLabelConfig = $config->get('ariaLabel');
+            if ($ariaLabelConfig !== null) {
+                $image->setAriaLabel($ariaLabelConfig->getStringValue());
             }
 
             $newTabConfig = $config->get('newTab');

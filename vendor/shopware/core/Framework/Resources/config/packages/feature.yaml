@@ -4,27 +4,55 @@ shopware:
       - name: v6.5.0.0
         default: true
         major: true
+        toggleable: false
       - name: v6.6.0.0
-        default: false
+        default: true
         major: true
+        toggleable: false
       - name: v6.7.0.0
+        default: true
+        major: true
+        toggleable: false
+      - name: v6.8.0.0
         default: false
         major: true
-      - name: VUE3
-        default: false
+        toggleable: false
+      - name: DISABLE_VUE_COMPAT
+        default: true
         major: true
-      - name: media_path
-        default: false
+        toggleable: false
+      - name: ACCESSIBILITY_TWEAKS
+        default: true
         major: true
-        description: "Enables new media path behavior, which calls new services to generate media urls"
-      - name: ES_MULTILINGUAL_INDEX
-        default: false
-        major: true
-        description: "Change Elasticsearch mapping data to support multi languages in one index"
-      - name: STOCK_HANDLING
+        toggleable: true
+        description: "Accessibility tweaks (highly recommended)\nAccessibility improvements can alter the HTML and CSS structure of the template.\nThe accessibility improvements will be standard as of v6.7.0"
+      - name: TELEMETRY_METRICS
         default: false
         major: false
-      - name: ASYNC_THEME_COMPILATION
+        toggleable: true
+        description: "Experimental! Enable OpenTelemetry metrics"
+      - name: FLOW_EXECUTION_AFTER_BUSINESS_PROCESS
         default: false
-        major: true
-        description: "Asynchronous theme compilation via message queue - experimental stableVersion:v6.6.0 feature:ASYNC_THEME_COMPILATION"
+        major: false
+        toggleable: true
+        description: "Experimental! Execute flows after the main unit of work has concluded"
+      - name: PERFORMANCE_TWEAKS
+        default: false
+        major: false
+        toggleable: true
+        description: "Experimental! Contains Performance Tweaks for future changes"
+      - name: CACHE_CONTEXT_HASH_RULES_OPTIMIZATION
+        default: false
+        major: false
+        toggleable: true
+        description: "Only include rule ids which are relevant for different content in the HTTP cache context key."
+      - name: DEFERRED_CART_ERRORS
+        default: false
+        major: false
+        toggleable: true
+        description: "Defers cart errors that happen during SalesChannelContext creation\nThis feature will be standard as of v6.8.0"
+      - name: PRODUCT_ANALYTICS
+        default: false
+        major: false
+        toggleable: true
+        description: "Experimental! Enables Product Analytics which collects usage data in the Administration."

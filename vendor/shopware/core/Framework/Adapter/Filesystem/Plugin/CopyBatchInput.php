@@ -2,26 +2,32 @@
 
 namespace Shopware\Core\Framework\Adapter\Filesystem\Plugin;
 
+use League\Flysystem\Visibility;
+use Shopware\Core\Framework\Adapter\AdapterException;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+/**
+ * @final
+ */
+#[Package('framework')]
 class CopyBatchInput
 {
     /**
-     * @var string|resource
+     * @var resource|string
      */
     private $sourceFile;
 
     /**
-     * @param string|resource $sourceFile
-     * @param array<string>        $targetFiles
+     * @param resource|string $sourceFile Passing a path is recommended, resources should not be used for large files
+     * @param array<string> $targetFiles
      */
     public function __construct(
         $sourceFile,
-        private readonly array $targetFiles
+        private readonly array $targetFiles,
+        public readonly string $visibility = Visibility::PUBLIC,
     ) {
         if (!\is_resource($sourceFile) && !\is_string($sourceFile)) {
-            throw new \InvalidArgumentException(sprintf(
+            throw AdapterException::invalidArgument(\sprintf(
                 'CopyBatchInput expects first parameter to be either a resource or the filepath as a string, "%s" given.',
                 \gettype($sourceFile)
             ));

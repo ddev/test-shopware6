@@ -1,10 +1,12 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-step-item.html.twig';
 import './sw-step-item.scss';
 
-const { Component } = Shopware;
 /**
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Renders a step and must be used in the slot of the sw-step-display component.
  * @status ready
  * @example-type dynamic
@@ -14,8 +16,13 @@ const { Component } = Shopware;
  * </sw-step-item>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-step-item', {
+export default {
     template,
+
+    inject: [
+        'feature',
+        'addStep',
+    ],
 
     props: {
         disabledIcon: {
@@ -52,19 +59,38 @@ Component.register('sw-step-item', {
 
             return iconConfig[this.variant];
         },
+
+        stepDisplay() {
+            return this.$parent.$parent;
+        },
+    },
+
+    mounted() {
+        this.registerStep();
     },
 
     methods: {
+        registerStep() {
+            this.addStep(this);
+        },
+
         setActive(active) {
             this.active = active;
         },
 
         setVariant(variant) {
-            if (!['disabled', 'info', 'error', 'success'].includes(variant)) {
+            if (
+                ![
+                    'disabled',
+                    'info',
+                    'error',
+                    'success',
+                ].includes(variant)
+            ) {
                 return;
             }
 
             this.variant = variant;
         },
     },
-});
+};

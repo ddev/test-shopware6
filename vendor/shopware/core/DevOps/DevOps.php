@@ -11,7 +11,7 @@ use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class DevOps extends Bundle
 {
     /**
@@ -27,6 +27,10 @@ class DevOps extends Bundle
         $environment = $container->getParameter('kernel.environment');
         if ($environment === 'e2e') {
             $loader->load('services_e2e.xml');
+        }
+
+        if ($environment === 'dev') {
+            $loader->load('services_dev.xml');
         }
     }
 }

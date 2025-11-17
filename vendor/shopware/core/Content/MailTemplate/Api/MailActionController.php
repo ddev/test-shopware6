@@ -5,18 +5,21 @@ namespace Shopware\Core\Content\MailTemplate\Api;
 use Shopware\Core\Content\Mail\Service\AbstractMailService;
 use Shopware\Core\Content\Mail\Service\MailAttachmentsConfig;
 use Shopware\Core\Content\MailTemplate\MailTemplateEntity;
+use Shopware\Core\Content\MailTemplate\MailTemplateException;
 use Shopware\Core\Content\MailTemplate\Subscriber\MailSendSubscriberConfig;
 use Shopware\Core\Framework\Adapter\Twig\StringTemplateRenderer;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\PlatformRequest;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('sales-channel')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('after-sales')]
 class MailActionController extends AbstractController
 {
     /**
@@ -28,7 +31,12 @@ class MailActionController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/api/_action/mail-template/send', name: 'api.action.mail_template.send', methods: ['POST'])]
+    #[Route(
+        path: '/api/_action/mail-template/send',
+        name: 'api.action.mail_template.send',
+        methods: ['POST'],
+        defaults: ['_acl' => ['api_send_email']]
+    )]
     public function send(RequestDataBag $post, Context $context): JsonResponse
     {
         /** @var array{id: string} $data */
@@ -67,14 +75,18 @@ class MailActionController extends AbstractController
     #[Route(path: '/api/_action/mail-template/build', name: 'api.action.mail_template.build', methods: ['POST'])]
     public function build(RequestDataBag $post, Context $context): JsonResponse
     {
-        $contents = [];
         $data = $post->all();
-        $templateData = $data['mailTemplateType']['templateData'];
+        $templateData = $data['mailTemplateType']['templateData'] ?? [];
+        $template = $data['mailTemplate']['contentHtml'] ?? null;
+
+        if (!\is_string($template)) {
+            throw MailTemplateException::invalidMailTemplateContent();
+        }
 
         $this->templateRenderer->enableTestMode();
-        $contents['text/html'] = $this->templateRenderer->render($data['mailTemplate']['contentHtml'], $templateData, $context);
+        $renderedTemplate = $this->templateRenderer->render($template, $templateData, $context);
         $this->templateRenderer->disableTestMode();
 
-        return new JsonResponse($contents['text/html']);
+        return new JsonResponse($renderedTemplate);
     }
 }

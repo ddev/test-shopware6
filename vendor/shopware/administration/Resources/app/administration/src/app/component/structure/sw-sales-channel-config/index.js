@@ -1,15 +1,14 @@
 /**
- * @package sales-channel
+ * @sw-package discovery
  */
 import template from './sw-sales-channel-config.html.twig';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-sales-channel-config', {
+export default {
     template,
 
     inject: [
@@ -18,13 +17,17 @@ Component.register('sw-sales-channel-config', {
         'feature',
     ],
 
+    emits: [
+        'update:value',
+        'salesChannelChanged',
+    ],
+
     props: {
         domain: {
             type: String,
             required: false,
             default: '',
         },
-        // FIXME: add default value
         // eslint-disable-next-line vue/require-default-prop
         value: {
             type: Object,
@@ -72,13 +75,7 @@ Component.register('sw-sales-channel-config', {
                     return;
                 }
 
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:value', configData);
-
-                    return;
-                }
-
-                this.$emit('input', configData);
+                this.$emit('update:value', configData);
             },
             deep: true,
         },
@@ -91,7 +88,7 @@ Component.register('sw-sales-channel-config', {
     methods: {
         createdComponent() {
             if (!this.salesChannel.length) {
-                this.salesChannelRepository.search(this.criteria, Shopware.Context.api).then(res => {
+                this.salesChannelRepository.search(this.criteria, Shopware.Context.api).then((res) => {
                     res.add({
                         id: null,
                         translated: {
@@ -132,4 +129,4 @@ Component.register('sw-sales-channel-config', {
             return Promise.resolve(this.allConfigs);
         },
     },
-});
+};

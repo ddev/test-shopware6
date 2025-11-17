@@ -7,40 +7,16 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\User\UserEntity;
 
-#[Package('system-settings')]
+#[Package('fundamentals@framework')]
 class UserRecoveryEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $id;
+    protected string $userId;
 
-    /**
-     * @var string
-     */
-    protected $userId;
+    protected string $hash;
 
-    /**
-     * @var string
-     */
-    protected $hash;
-
-    /**
-     * @var UserEntity|null
-     */
-    protected $user;
-
-    public function getId(): string
-    {
-        return $this->id;
-    }
-
-    public function setId(string $id): void
-    {
-        $this->id = $id;
-    }
+    protected ?UserEntity $user = null;
 
     public function getUserId(): string
     {

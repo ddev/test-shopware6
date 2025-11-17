@@ -5,18 +5,15 @@ namespace Shopware\Core\Content\Media\MediaType;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 abstract class MediaType extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $name;
+    protected string $name;
 
     /**
      * @var array<string>
      */
-    protected $flags = [];
+    protected array $flags = [];
 
     public function getName(): string
     {
@@ -37,6 +34,9 @@ abstract class MediaType extends Struct
         return $this;
     }
 
+    /**
+     * @param array<string> $flags
+     */
     public function addFlags(array $flags): self
     {
         $this->flags = array_merge($this->flags, $flags);
@@ -46,15 +46,12 @@ abstract class MediaType extends Struct
 
     public function is(string $input): bool
     {
-        foreach ($this->flags as $flag) {
-            if ($flag === $input) {
-                return true;
-            }
-        }
-
-        return false;
+        return \in_array($input, $this->flags, true);
     }
 
+    /**
+     * @return array<string>
+     */
     public function getFlags(): array
     {
         return $this->flags;

@@ -14,15 +14,18 @@ use Shopware\Core\System\Country\Aggregate\CountryState\CountryStateDefinition;
 use Symfony\Component\Validator\Constraints\Choice;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class ShippingStateRule extends Rule
 {
     final public const RULE_NAME = 'customerShippingState';
 
     /**
-     * @internal
-     *
      * @param list<string>|null $stateIds
+     *
+     * @internal
      */
     public function __construct(
         protected string $operator = self::OPERATOR_EQ,
@@ -58,7 +61,7 @@ class ShippingStateRule extends Rule
         $constraints = [
             'operator' => [
                 new NotBlank(),
-                new Choice([self::OPERATOR_EQ, self::OPERATOR_NEQ, self::OPERATOR_EMPTY]),
+                new Choice(choices: [self::OPERATOR_EQ, self::OPERATOR_NEQ, self::OPERATOR_EMPTY]),
             ],
         ];
 

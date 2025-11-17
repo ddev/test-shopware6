@@ -6,6 +6,7 @@ use Doctrine\DBAL\Connection;
 use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityDefinitionQueryHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Field;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\PriceField;
 use Shopware\Core\Framework\Log\Package;
@@ -14,7 +15,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
 {
     /**
@@ -31,7 +32,7 @@ class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
         }
 
         $currencyId = $context->getCurrencyId();
-        $currencyFactor = sprintf('* %F', $context->getCurrencyFactor());
+        $currencyFactor = \sprintf('* %F', $context->getCurrencyFactor());
         $jsonAccessor = 'net';
         if ($context->getTaxState() === CartPrice::TAX_STATE_GROSS) {
             $jsonAccessor = 'gross';
@@ -57,11 +58,12 @@ class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
         }
 
         // is specific currency id provided? => overwrite currency id and currency factor
-        if (Uuid::isValid((string) end($parts))) {
-            $currencyId = end($parts);
-            $currencyFactor = sprintf(
+        $lastPart = (string) end($parts);
+        if (Uuid::isValid($lastPart)) {
+            $currencyId = $lastPart;
+            $currencyFactor = \sprintf(
                 '* (SELECT `factor` FROM `currency` WHERE `id` = %s)',
-                (string) $this->connection->quote($currencyId)
+                $this->connection->quote($currencyId)
             );
         }
 
@@ -74,11 +76,11 @@ class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
          * We can indirectly cast to float by adding 0.0
          */
 
-        $template = '(JSON_UNQUOTE(JSON_EXTRACT(`#root#`.`#field#`, "$.c#currencyId#.#property#")) #factor#)';
+        $template = '(JSON_UNQUOTE(JSON_EXTRACT(#root#.#field#, "$.c#currencyId#.#property#")) #factor#)';
 
         $variables = [
-            '#root#' => $root,
-            '#field#' => $field->getStorageName(),
+            '#root#' => EntityDefinitionQueryHelper::escape($root),
+            '#field#' => EntityDefinitionQueryHelper::escape($field->getStorageName()),
             '#currencyId#' => $currencyId,
             '#property#' => $jsonAccessor,
             '#factor#' => '+ 0.0',
@@ -88,8 +90,8 @@ class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
 
         if ($currencyId !== Defaults::CURRENCY) {
             $variables = [
-                '#root#' => $root,
-                '#field#' => $field->getStorageName(),
+                '#root#' => EntityDefinitionQueryHelper::escape($root),
+                '#field#' => EntityDefinitionQueryHelper::escape($field->getStorageName()),
                 '#currencyId#' => Defaults::CURRENCY,
                 '#property#' => $jsonAccessor,
                 '#factor#' => $currencyFactor,
@@ -102,7 +104,7 @@ class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
 
         $variables = [
             '#template#' => $template,
-            '#decimals#' => $context->getRounding()->getDecimals(),
+            '#decimals#' => (string) $context->getRounding()->getDecimals(),
         ];
 
         $template = str_replace(
@@ -116,13 +118,13 @@ class PriceFieldAccessorBuilder implements FieldAccessorBuilderInterface
 
             $variables = [
                 '#accessor#' => $template,
-                '#multiplier#' => $multiplier,
+                '#multiplier#' => (string) $multiplier,
             ];
 
             $template = str_replace(array_keys($variables), array_values($variables), '(ROUND(#accessor# * #multiplier#, 0) / #multiplier#)');
         }
 
-        return sprintf($template, implode(',', $select));
+        return \sprintf($template, implode(',', $select));
     }
 
     private function useCashRounding(Context $context): bool

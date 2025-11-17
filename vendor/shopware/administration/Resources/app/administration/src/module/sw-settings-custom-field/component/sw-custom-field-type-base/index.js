@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-custom-field-type-base.html.twig';
 
@@ -36,10 +36,10 @@ export default {
     computed: {
         locales() {
             if (this.set.config.hasOwnProperty('translated') && this.set.config.translated === true) {
-                return Object.keys(this.$root.$i18n.messages);
+                return Object.keys(this.$root.$i18n.messages.value);
             }
 
-            return [this.$root.$i18n.fallbackLocale];
+            return [this.$root.$i18n.fallbackLocale.value];
         },
     },
 };

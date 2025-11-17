@@ -6,20 +6,20 @@ use Shopware\Core\Checkout\Cart\Error\Error;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('buyers-experience')]
+#[Package('checkout')]
 class PromotionCartAddedInformationError extends Error
 {
     private const KEY = 'promotion-discount-added';
 
-    private string $name;
+    protected string $name;
 
-    private readonly string $discountLineItemId;
+    protected readonly string $discountLineItemId;
 
     public function __construct(LineItem $discountLineItem)
     {
-        $this->name = $discountLineItem->getLabel();
+        $this->name = $discountLineItem->getLabel() ?? '';
         $this->discountLineItemId = $discountLineItem->getId();
-        $this->message = sprintf(
+        $this->message = \sprintf(
             'Discount %s has been added',
             $this->name
         );
@@ -51,7 +51,7 @@ class PromotionCartAddedInformationError extends Error
 
     public function getId(): string
     {
-        return sprintf('%s-%s', self::KEY, $this->discountLineItemId);
+        return \sprintf('%s-%s', self::KEY, $this->discountLineItemId);
     }
 
     public function getLevel(): int

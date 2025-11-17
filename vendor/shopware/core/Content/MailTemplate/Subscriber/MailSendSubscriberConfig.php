@@ -2,41 +2,31 @@
 
 namespace Shopware\Core\Content\MailTemplate\Subscriber;
 
-use Shopware\Core\Content\MailTemplate\MailTemplateActions;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('sales-channel')]
+#[Package('after-sales')]
 class MailSendSubscriberConfig extends Struct
 {
-    final public const ACTION_NAME = MailTemplateActions::MAIL_TEMPLATE_MAIL_SEND_ACTION;
-    final public const MAIL_CONFIG_EXTENSION = 'mail-attachments';
-
     /**
-     * @var bool
+     * @var array<string>
      */
-    protected $skip;
+    protected array $documentIds = [];
 
     /**
      * @var array<string>
      */
-    protected $documentIds = [];
-
-    /**
-     * @var array<string>
-     */
-    protected $mediaIds = [];
+    protected array $mediaIds = [];
 
     /**
      * @param array<string> $documentIds
      * @param array<string> $mediaIds
      */
     public function __construct(
-        bool $skip,
+        protected bool $skip,
         array $documentIds = [],
         array $mediaIds = []
     ) {
-        $this->skip = $skip;
         $this->documentIds = $documentIds;
         $this->mediaIds = $mediaIds;
     }
@@ -51,11 +41,17 @@ class MailSendSubscriberConfig extends Struct
         $this->skip = $skip;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getDocumentIds(): array
     {
         return $this->documentIds;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getMediaIds(): array
     {
         return $this->mediaIds;

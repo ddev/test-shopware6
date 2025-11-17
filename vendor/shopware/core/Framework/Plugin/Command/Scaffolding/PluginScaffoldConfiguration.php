@@ -7,13 +7,13 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class PluginScaffoldConfiguration
 {
     public const ROUTE_XML_OPTION_NAME = 'create-route-xml';
 
     /**
-     * @param array<string, mixed>  $options
+     * @param array<string, mixed> $options
      */
     public function __construct(
         public readonly string $name,

@@ -2,38 +2,36 @@
 
 namespace Shopware\Storefront\Framework\Twig;
 
-use Composer\EventDispatcher\EventSubscriberInterface;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\PlatformRequest;
+use Shopware\Storefront\Framework\Routing\StorefrontRouteScope;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
-use Symfony\Component\HttpKernel\KernelEvents;
 use Twig\Extension\CoreExtension;
 
-#[Package('storefront')]
-class TwigDateRequestListener implements EventSubscriberInterface
+/**
+ * @internal
+ */
+#[Package('framework')]
+class TwigDateRequestListener
 {
     final public const TIMEZONE_COOKIE = 'timezone';
 
-    /**
-     * @internal
-     */
     public function __construct(private readonly ContainerInterface $container)
     {
     }
 
-    /**
-     * @return array<string, string|array{0: string, 1: int}|list<array{0: string, 1?: int}>>
-     */
-    public static function getSubscribedEvents()
+    public function __invoke(RequestEvent $event): void
     {
-        return [KernelEvents::REQUEST => 'onKernelRequest'];
-    }
+        $request = $event->getRequest();
 
-    public function onKernelRequest(RequestEvent $event): void
-    {
-        $timezone = (string) $event->getRequest()->cookies->get(self::TIMEZONE_COOKIE);
+        if (!\in_array(StorefrontRouteScope::ID, $request->attributes->get(PlatformRequest::ATTRIBUTE_ROUTE_SCOPE, []), true)) {
+            return;
+        }
 
-        if (!$timezone || !\in_array($timezone, timezone_identifiers_list(), true) || $timezone === 'UTC') {
+        $timezone = (string) $request->cookies->get(self::TIMEZONE_COOKIE);
+
+        if ($timezone === 'UTC' || !$timezone || !\in_array($timezone, timezone_identifiers_list(), true)) {
             // Default will be UTC @see https://symfony.com/doc/current/reference/configuration/twig.html#timezone
             return;
         }
@@ -44,7 +42,6 @@ class TwigDateRequestListener implements EventSubscriberInterface
             return;
         }
 
-        /** @var CoreExtension $coreExtension */
         $coreExtension = $twig->getExtension(CoreExtension::class);
         $coreExtension->setTimezone($timezone);
     }

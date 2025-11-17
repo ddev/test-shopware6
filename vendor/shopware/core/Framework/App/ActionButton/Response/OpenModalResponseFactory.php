@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class OpenModalResponseFactory implements ActionButtonResponseFactoryInterface
 {
     private const VALID_MODAL_SIZES = [
@@ -30,16 +30,13 @@ class OpenModalResponseFactory implements ActionButtonResponseFactoryInterface
         return $actionType === OpenModalResponse::ACTION_TYPE;
     }
 
-    /**
-     * @param array<mixed> $payload
-     */
     public function create(AppAction $action, array $payload, Context $context): ActionButtonResponse
     {
         $this->validate($payload, $action->getActionId());
 
-        $appSecret = $action->getAppSecret();
+        $appSecret = $action->getApp()->getAppSecret();
         if ($appSecret) {
-            $payload['iframeUrl'] = (string) $this->signer->signUri($payload['iframeUrl'], $appSecret, $context);
+            $payload['iframeUrl'] = (string) $this->signer->signUri($payload['iframeUrl'], $action->getApp(), $context);
         }
 
         $response = new OpenModalResponse();
@@ -49,11 +46,11 @@ class OpenModalResponseFactory implements ActionButtonResponseFactoryInterface
     }
 
     /**
-     * @param array<mixed> $payload
+     * @param array<string, mixed> $payload
      */
     private function validate(array $payload, string $actionId): void
     {
-        if (!isset($payload['iframeUrl']) || empty($payload['iframeUrl'])) {
+        if (empty($payload['iframeUrl'])) {
             throw AppException::actionButtonProcessException($actionId, 'The app provided an invalid iframeUrl');
         }
 

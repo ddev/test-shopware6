@@ -8,13 +8,16 @@ use Shopware\Core\Checkout\Customer\CustomerException;
 use Shopware\Core\Checkout\Customer\Exception\AddressNotFoundException;
 use Shopware\Core\Checkout\Customer\SalesChannel\AbstractListAddressRoute;
 use Shopware\Core\Content\Category\Exception\CategoryNotFoundException;
+use Shopware\Core\Framework\Adapter\Translation\AbstractTranslator;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InconsistentCriteriaIdsException;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Uuid\Exception\InvalidUuidException;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Framework\Uuid\UuidException;
 use Shopware\Core\System\Country\CountryCollection;
 use Shopware\Core\System\Country\SalesChannel\AbstractCountryRoute;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -28,7 +31,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Do not use direct or indirect repository calls in a PageLoader. Always use a store-api route to get or put data.
  */
-#[Package('storefront')]
+#[Package('framework')]
 class AddressDetailPageLoader
 {
     /**
@@ -41,6 +44,7 @@ class AddressDetailPageLoader
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AbstractListAddressRoute $listAddressRoute,
         private readonly AbstractSalutationsSorter $salutationsSorter,
+        private readonly AbstractTranslator $translator
     ) {
     }
 
@@ -56,10 +60,7 @@ class AddressDetailPageLoader
         $page = $this->genericLoader->load($request, $salesChannelContext);
 
         $page = AddressDetailPage::createFrom($page);
-
-        if ($page->getMetaInformation()) {
-            $page->getMetaInformation()->setRobots('noindex,follow');
-        }
+        $this->setMetaInformation($page, $request);
 
         $page->setSalutations($this->getSalutations($salesChannelContext));
 
@@ -72,6 +73,21 @@ class AddressDetailPageLoader
         );
 
         return $page;
+    }
+
+    protected function setMetaInformation(AddressDetailPage $page, Request $request): void
+    {
+        $page->getMetaInformation()?->setRobots('noindex,follow');
+
+        if ($request->attributes->get('_route') === 'frontend.account.address.create.page') {
+            $page->getMetaInformation()?->setMetaTitle(
+                $this->translator->trans('account.addressCreateMetaTitle') . ' | ' . $page->getMetaInformation()->getMetaTitle()
+            );
+        } elseif ($request->attributes->get('_route') === 'frontend.account.address.edit.page') {
+            $page->getMetaInformation()?->setMetaTitle(
+                $this->translator->trans('account.addressEditMetaTitle') . ' | ' . $page->getMetaInformation()->getMetaTitle()
+            );
+        }
     }
 
     /**
@@ -90,14 +106,14 @@ class AddressDetailPageLoader
     private function getCountries(SalesChannelContext $salesChannelContext): CountryCollection
     {
         $criteria = (new Criteria())
-            ->addFilter(new EqualsFilter('country.active', true))
-            ->addAssociation('states');
+            ->addSorting(new FieldSorting('position', FieldSorting::ASCENDING))
+            ->addSorting(new FieldSorting('name', FieldSorting::ASCENDING));
 
-        $countries = $this->countryRoute->load(new Request(), $criteria, $salesChannelContext)->getCountries();
+        $criteria->getAssociation('states')
+            ->addSorting(new FieldSorting('position', FieldSorting::ASCENDING))
+            ->addSorting(new FieldSorting('name', FieldSorting::ASCENDING));
 
-        $countries->sortCountryAndStates();
-
-        return $countries;
+        return $this->countryRoute->load(new Request(), $criteria, $salesChannelContext)->getCountries();
     }
 
     /**
@@ -112,7 +128,7 @@ class AddressDetailPageLoader
         $addressId = $request->get('addressId');
 
         if (!Uuid::isValid($addressId)) {
-            throw new InvalidUuidException($addressId);
+            throw UuidException::invalidUuid($addressId);
         }
 
         $criteria = new Criteria();

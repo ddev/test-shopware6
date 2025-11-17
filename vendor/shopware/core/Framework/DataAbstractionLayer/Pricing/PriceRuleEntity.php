@@ -2,24 +2,19 @@
 
 namespace Shopware\Core\Framework\DataAbstractionLayer\Pricing;
 
+use Shopware\Core\Framework\DataAbstractionLayer\Contract\IdAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
-class PriceRuleEntity extends Entity
+#[Package('framework')]
+class PriceRuleEntity extends Entity implements IdAware
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $ruleId;
+    protected string $ruleId;
 
-    /**
-     * @var PriceCollection
-     */
-    protected $price;
+    protected PriceCollection $price;
 
     public function getRuleId(): string
     {

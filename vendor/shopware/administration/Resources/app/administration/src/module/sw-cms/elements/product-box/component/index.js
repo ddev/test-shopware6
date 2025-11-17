@@ -5,7 +5,7 @@ const { Mixin, Filter } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -24,11 +24,11 @@ export default {
                     sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat,
                     sed diam voluptua.`,
                     price: [
-                        { gross: 19.90 },
+                        { gross: 19.9 },
                     ],
                     cover: {
                         media: {
-                            url: '/administration/static/img/cms/preview_glasses_large.jpg',
+                            url: '/administration/administration/static/img/cms/preview_glasses_large.jpg',
                             alt: 'Lorem Ipsum dolor',
                         },
                     },
@@ -51,7 +51,7 @@ export default {
                 return this.assetFilter(this.product.cover.media.url);
             }
 
-            return this.assetFilter('administration/static/img/cms/preview_glasses_large.jpg');
+            return this.assetFilter('administration/administration/static/img/cms/preview_glasses_large.jpg');
         },
 
         altTag() {

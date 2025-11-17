@@ -1,19 +1,21 @@
 import template from './sw-order-create-base.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
-const { Component, State, Utils, Data, Service, Mixin } = Shopware;
+const { Store, Utils, Data, Service, Mixin } = Shopware;
 const { Criteria } = Data;
 const { get, format, array } = Utils;
-const { mapGetters } = Component.getComponentHelper();
 
+/**
+ * @deprecated tag:v6.8.0 - will be removed, is not used anymore
+ */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['feature'],
+    emits: ['error'],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -36,9 +38,9 @@ export default {
     },
 
     computed: {
-        ...mapGetters('swOrder', [
-            'cartErrors',
-        ]),
+        cartErrors() {
+            return Store.get('swOrder').cartErrors;
+        },
 
         customerRepository() {
             return Service('repositoryFactory').create('customer');
@@ -69,7 +71,6 @@ export default {
                 .addAssociation('group')
                 .addAssociation('salutation')
                 .addAssociation('salesChannel')
-                .addAssociation('defaultPaymentMethod')
                 .addAssociation('lastPaymentMethod')
                 .addAssociation('defaultBillingAddress.country')
                 .addAssociation('defaultBillingAddress.countryState')
@@ -88,7 +89,7 @@ export default {
         },
 
         customer() {
-            return State.get('swOrder').customer;
+            return Store.get('swOrder').customer;
         },
 
         salesChannelId() {
@@ -96,11 +97,11 @@ export default {
         },
 
         isCustomerActive() {
-            return State.getters['swOrder/isCustomerActive'];
+            return Store.get('swOrder').isCustomerActive;
         },
 
         cart() {
-            return State.get('swOrder').cart;
+            return Store.get('swOrder').cart;
         },
 
         cartLineItems() {
@@ -108,7 +109,7 @@ export default {
         },
 
         cartAutomaticPromotionItems() {
-            return this.cartLineItems.filter(item => item.type === 'promotion' && item.payload.code === '');
+            return this.cartLineItems.filter((item) => item.type === 'promotion' && item.payload.code === '');
         },
 
         cartPrice() {
@@ -116,7 +117,7 @@ export default {
         },
 
         currency() {
-            return State.get('swOrder').context.currency;
+            return Store.get('swOrder').context.currency;
         },
 
         cartDelivery() {
@@ -125,11 +126,11 @@ export default {
 
         promotionCodeTags: {
             get() {
-                return State.get('swOrder').promotionCodes;
+                return Store.get('swOrder').promotionCodes;
             },
 
             set(promotionCodeTags) {
-                State.commit('swOrder/setPromotionCodes', promotionCodeTags);
+                Store.get('swOrder').setPromotionCodes(promotionCodeTags);
             },
         },
 
@@ -142,15 +143,15 @@ export default {
                 return [];
             }
 
-            return this.sortByTaxRate(this.cartPrice.calculatedTaxes).filter(price => price.tax !== 0);
+            return this.sortByTaxRate(this.cartPrice.calculatedTaxes).filter((price) => price.tax !== 0);
         },
 
         promotionCodeLineItems() {
-            return this.cartLineItems.filter(item => item.type === 'promotion' && get(item, 'payload.code'));
+            return this.cartLineItems.filter((item) => item.type === 'promotion' && get(item, 'payload.code'));
         },
 
         hasLineItem() {
-            return this.cartLineItems.filter(item => item.hasOwnProperty('id')).length > 0;
+            return this.cartLineItems.filter((item) => item.hasOwnProperty('id')).length > 0;
         },
 
         shippingCostsDetail() {
@@ -160,10 +161,14 @@ export default {
 
             const calcTaxes = this.sortByTaxRate(this.cartDelivery.shippingCosts.calculatedTaxes);
             const decorateCalcTaxes = calcTaxes.map((item) => {
-                return this.$tc('sw-order.createBase.shippingCostsTax', 0, {
-                    taxRate: item.taxRate,
-                    tax: format.currency(item.tax, this.currency.shortName),
-                });
+                return this.$tc(
+                    'sw-order.createBase.shippingCostsTax',
+                    {
+                        taxRate: item.taxRate,
+                        tax: format.currency(item.tax, this.currency.isoCode),
+                    },
+                    0,
+                );
             });
 
             return `${this.$tc('sw-order.createBase.tax')}<br>${decorateCalcTaxes.join('<br>')}`;
@@ -262,22 +267,24 @@ export default {
                 return;
             }
 
-            State.commit('swOrder/setCustomer', customer);
+            Store.get('swOrder').setCustomer(customer);
             this.onSelectExistingCustomer(customer.id);
         },
 
         async createCart(salesChannelId) {
-            await State.dispatch('swOrder/createCart', { salesChannelId });
+            await Store.get('swOrder').createCart({ salesChannelId });
         },
 
         async loadCart() {
             if (!this.cart.token || this.cart.lineItems.length === 0) return;
             this.updateLoading(true);
 
-            State.dispatch('swOrder/getCart', {
-                salesChannelId: this.customer.salesChannelId,
-                contextToken: this.cart.token,
-            }).finally(() => this.updateLoading(false));
+            Store.get('swOrder')
+                .getCart({
+                    salesChannelId: this.customer.salesChannelId,
+                    contextToken: this.cart.token,
+                })
+                .finally(() => this.updateLoading(false));
         },
 
         async onSelectExistingCustomer(customerId) {
@@ -304,7 +311,7 @@ export default {
         },
 
         async updateCustomerContext() {
-            await State.dispatch('swOrder/updateCustomerContext', {
+            await Store.get('swOrder').updateCustomerContext({
                 customerId: this.customer.id,
                 salesChannelId: this.customer.salesChannelId,
                 contextToken: this.cart.token,
@@ -312,12 +319,12 @@ export default {
         },
 
         setCustomer(customer) {
-            State.dispatch('swOrder/selectExistingCustomer', { customer });
+            Store.get('swOrder').selectExistingCustomer({ customer });
         },
 
         setCurrency(customer) {
             this.currencyRepository.get(customer.salesChannel.currencyId).then((currency) => {
-                State.commit('swOrder/setCurrency', currency);
+                Store.get('swOrder').setCurrency(currency);
             });
         },
 
@@ -325,13 +332,16 @@ export default {
             const contextId = 'billingAddressId';
             const contextDataKey = 'billingAddress';
             const contextDataDefaultId = 'defaultBillingAddressId';
-            const data = this.customer[contextDataKey]
-                ? this.customer[contextDataKey]
-                : this.customer.defaultBillingAddress;
+            const data = this.customer[contextDataKey] ? this.customer[contextDataKey] : this.customer.defaultBillingAddress;
 
             this.addAddressModalTitle = this.$tc('sw-order.addressSelection.modalTitleAddBillingAddress');
             this.editAddressModalTitle = this.$tc('sw-order.addressSelection.modalTitleEditBillingAddress');
-            this.address = { contextId, contextDataKey, contextDataDefaultId, data };
+            this.address = {
+                contextId,
+                contextDataKey,
+                contextDataDefaultId,
+                data,
+            };
             this.showAddressModal = true;
         },
 
@@ -345,7 +355,12 @@ export default {
 
             this.addAddressModalTitle = this.$tc('sw-order.addressSelection.modalTitleAddShippingAddress');
             this.editAddressModalTitle = this.$tc('sw-order.addressSelection.modalTitleEditShippingAddress');
-            this.address = { contextId, contextDataKey, contextDataDefaultId, data };
+            this.address = {
+                contextId,
+                contextDataKey,
+                contextDataDefaultId,
+                data,
+            };
             this.showAddressModal = true;
         },
 
@@ -373,7 +388,7 @@ export default {
             this.customerAddressRepository
                 .get(data.id, Shopware.Context.api, this.customerAddressCriteria)
                 .then((updatedAddress) => {
-                    availableCustomerAddresses.forEach(customerAddress => {
+                    availableCustomerAddresses.forEach((customerAddress) => {
                         if (customerAddress.id === data.id) {
                             this.customer[customerAddress.dataKey] = updatedAddress;
                         }
@@ -395,28 +410,30 @@ export default {
         onSaveItem(item) {
             this.updateLoading(true);
 
-            State.dispatch('swOrder/saveLineItem', {
-                salesChannelId: this.customer.salesChannelId,
-                contextToken: this.cart.token,
-                item,
-            })
+            Store.get('swOrder')
+                .saveLineItem({
+                    salesChannelId: this.customer.salesChannelId,
+                    contextToken: this.cart.token,
+                    item,
+                })
                 .finally(() => this.updateLoading(false));
         },
 
         onRemoveItems(lineItemKeys) {
             this.updateLoading(true);
 
-            State.dispatch('swOrder/removeLineItems', {
-                salesChannelId: this.customer.salesChannelId,
-                contextToken: this.cart.token,
-                lineItemKeys: lineItemKeys,
-            })
+            Store.get('swOrder')
+                .removeLineItems({
+                    salesChannelId: this.customer.salesChannelId,
+                    contextToken: this.cart.token,
+                    lineItemKeys: lineItemKeys,
+                })
                 .then(() => {
                     // Remove promotion code tag if corresponding line item removed
-                    lineItemKeys.forEach(key => {
-                        const removedTag = this.promotionCodeTags.find(tag => tag.discountId === key);
+                    lineItemKeys.forEach((key) => {
+                        const removedTag = this.promotionCodeTags.find((tag) => tag.discountId === key);
                         if (removedTag) {
-                            this.promotionCodeTags = this.promotionCodeTags.filter(item => {
+                            this.promotionCodeTags = this.promotionCodeTags.filter((item) => {
                                 return item.discountId !== removedTag.discountId;
                             });
                         }
@@ -438,17 +455,18 @@ export default {
         onSubmitCode(code) {
             this.updateLoading(true);
 
-            State.dispatch('swOrder/addPromotionCode', {
-                salesChannelId: this.customer.salesChannelId,
-                contextToken: this.cart.token,
-                code,
-            })
+            Store.get('swOrder')
+                .addPromotionCode({
+                    salesChannelId: this.customer.salesChannelId,
+                    contextToken: this.cart.token,
+                    code,
+                })
                 .finally(() => this.updateLoading(false));
         },
 
         onRemoveExistingCode(item) {
             if (item.isInvalid) {
-                this.promotionCodeTags = this.promotionCodeTags.filter(tag => tag.code !== item.code);
+                this.promotionCodeTags = this.promotionCodeTags.filter((tag) => tag.code !== item.code);
             } else {
                 this.onRemoveItems([item.discountId]);
             }
@@ -456,8 +474,8 @@ export default {
 
         updatePromotionList() {
             // Update data and isInvalid flag for each item in promotionCodeTags
-            this.promotionCodeTags = this.promotionCodeTags.map(tag => {
-                const matchedItem = this.promotionCodeLineItems.find(lineItem => lineItem.payload.code === tag.code);
+            this.promotionCodeTags = this.promotionCodeTags.map((tag) => {
+                const matchedItem = this.promotionCodeLineItems.find((lineItem) => lineItem.payload.code === tag.code);
 
                 if (matchedItem) {
                     return { ...matchedItem.payload, isInvalid: false };
@@ -467,11 +485,14 @@ export default {
             });
 
             // Add new items from promotionCodeLineItems which promotionCodeTags doesn't contain
-            this.promotionCodeLineItems.forEach(lineItem => {
-                const matchedItem = this.promotionCodeTags.find(tag => tag.code === lineItem.payload.code);
+            this.promotionCodeLineItems.forEach((lineItem) => {
+                const matchedItem = this.promotionCodeTags.find((tag) => tag.code === lineItem.payload.code);
 
                 if (!matchedItem) {
-                    this.promotionCodeTags = [...this.promotionCodeTags, { ...lineItem.payload, isInvalid: false }];
+                    this.promotionCodeTags = [
+                        ...this.promotionCodeTags,
+                        { ...lineItem.payload, isInvalid: false },
+                    ];
                 }
             });
         },
@@ -491,25 +512,27 @@ export default {
             }
 
             if (promotionCodeLength > 0 && latestTag.isInvalid) {
-                this.promotionError = { detail: this.$tc('sw-order.createBase.textInvalidPromotionCode') };
+                this.promotionError = {
+                    detail: this.$tc('sw-order.createBase.textInvalidPromotionCode'),
+                };
             }
         },
 
-        onShippingChargeEdited(amount) {
-            const positiveAmount = Math.abs(amount);
-            this.cartDelivery.shippingCosts.unitPrice = positiveAmount;
-            this.cartDelivery.shippingCosts.totalPrice = positiveAmount;
+        onShippingChargeEdited() {
             this.updateLoading(true);
 
-            State.dispatch('swOrder/modifyShippingCosts', {
-                salesChannelId: this.customer.salesChannelId,
-                contextToken: this.cart.token,
-                shippingCosts: this.cartDelivery.shippingCosts,
-            }).catch((error) => {
-                this.$emit('error', error);
-            }).finally(() => {
-                this.updateLoading(false);
-            });
+            Store.get('swOrder')
+                .modifyShippingCosts({
+                    salesChannelId: this.customer.salesChannelId,
+                    contextToken: this.cart.token,
+                    shippingCosts: this.cartDelivery.shippingCosts,
+                })
+                .catch((error) => {
+                    this.$emit('error', error);
+                })
+                .finally(() => {
+                    this.updateLoading(false);
+                });
         },
 
         switchAutomaticPromotions(visibility) {
@@ -522,10 +545,14 @@ export default {
 
         enableAutomaticPromotions() {
             this.updateLoading(true);
-            const additionalParams = { salesChannelId: this.customer.salesChannelId };
-            Service('cartStoreService').enableAutomaticPromotions(this.cart.token, additionalParams).then(() => {
-                this.loadCart();
-            });
+            const additionalParams = {
+                salesChannelId: this.customer.salesChannelId,
+            };
+            Service('cartStoreService')
+                .enableAutomaticPromotions(this.cart.token, additionalParams)
+                .then(() => {
+                    this.loadCart();
+                });
         },
 
         onClosePromotionModal() {
@@ -538,6 +565,12 @@ export default {
             this.disabledAutoPromotionChecked = true;
 
             this.loadCart();
+        },
+
+        onShippingChargeUpdated(amount) {
+            const positiveAmount = Math.abs(amount);
+            this.cartDelivery.shippingCosts.unitPrice = positiveAmount;
+            this.cartDelivery.shippingCosts.totalPrice = positiveAmount;
         },
     },
 };

@@ -3,7 +3,9 @@
 namespace Shopware\Core\Content\Media\DataAbstractionLayer;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailCollection;
 use Shopware\Core\Content\Media\Event\MediaIndexerEvent;
+use Shopware\Core\Content\Media\MediaCollection;
 use Shopware\Core\Content\Media\MediaDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IteratorFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
@@ -18,18 +20,22 @@ use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class MediaIndexer extends EntityIndexer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<MediaCollection> $repository
+     * @param EntityRepository<MediaThumbnailCollection> $thumbnailRepository
      */
     public function __construct(
         private readonly IteratorFactory $iteratorFactory,
         private readonly EntityRepository $repository,
         private readonly EntityRepository $thumbnailRepository,
         private readonly Connection $connection,
-        private readonly EventDispatcherInterface $eventDispatcher
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly bool $remoteThumbnailsEnabled
     ) {
     }
 
@@ -40,6 +46,10 @@ class MediaIndexer extends EntityIndexer
 
     public function iterate(?array $offset): ?EntityIndexingMessage
     {
+        if ($this->remoteThumbnailsEnabled) {
+            return null;
+        }
+
         $iterator = $this->iteratorFactory->createIterator($this->repository->getDefinition(), $offset);
 
         $ids = $iterator->fetch();
@@ -53,6 +63,10 @@ class MediaIndexer extends EntityIndexer
 
     public function update(EntityWrittenContainerEvent $event): ?EntityIndexingMessage
     {
+        if ($this->remoteThumbnailsEnabled) {
+            return null;
+        }
+
         $updates = $event->getPrimaryKeys(MediaDefinition::ENTITY_NAME);
 
         if (empty($updates)) {
@@ -64,7 +78,14 @@ class MediaIndexer extends EntityIndexer
 
     public function handle(EntityIndexingMessage $message): void
     {
+        if ($this->remoteThumbnailsEnabled) {
+            return;
+        }
+
         $ids = $message->getData();
+        if (!\is_array($ids)) {
+            return;
+        }
 
         $ids = array_unique(array_filter($ids));
         if (empty($ids)) {

@@ -14,11 +14,22 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\Entity\SalesChannelDefinitionInterface;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter;
 
-#[Package('core')]
+#[Package('framework')]
 class OpenApiPathBuilder
 {
     private const EXPERIMENTAL_ANNOTATION_NAME = 'experimental';
+
+    private readonly CamelCaseToSnakeCaseNameConverter $converter;
+
+    /**
+     * @internal
+     */
+    public function __construct()
+    {
+        $this->converter = new CamelCaseToSnakeCaseNameConverter(null, false);
+    }
 
     /**
      * @return PathItem[]
@@ -30,11 +41,19 @@ class OpenApiPathBuilder
             'path' => $path,
         ]);
         $paths[$path]->get = $this->getListingPath($definition, $path);
-
+        $paths['/search' . $path] = new PathItem([
+            'path' => '/search' . $path,
+        ]);
+        $paths['/search' . $path]->post = $this->getSearchPath($definition);
         $paths[$path . '/{id}'] = new PathItem([
             'path' => $path . '/{id}',
         ]);
         $paths[$path . '/{id}']->get = $this->getDetailPath($definition);
+
+        $paths['/aggregate' . $path] = new PathItem([
+            'path' => '/aggregate' . $path,
+        ]);
+        $paths['/aggregate' . $path]->post = $this->getAggregatePath($definition);
 
         if (is_subclass_of($definition, SalesChannelDefinitionInterface::class)) {
             return $paths;
@@ -183,21 +202,6 @@ class OpenApiPathBuilder
             ],
             'requestBody' => [
                 'content' => [
-                    'application/vnd.api+json' => [
-                        'schema' => [
-                            'type' => 'object',
-                            'properties' => [
-                                'data' => [
-                                    '$ref' => '#/components/schemas/' . $schemaName,
-                                ],
-                                'included' => [
-                                    'type' => 'array',
-                                    'items' => ['$ref' => '#/components/schemas/resource'],
-                                    'uniqueItems' => true,
-                                ],
-                            ],
-                        ],
-                    ],
                     'application/json' => [
                         'schema' => [
                             '$ref' => '#/components/schemas/' . $schemaName,
@@ -232,21 +236,6 @@ class OpenApiPathBuilder
             'requestBody' => [
                 'description' => 'Partially update information about a ' . $this->convertToHumanReadable($definition->getEntityName()) . ' resource.',
                 'content' => [
-                    'application/vnd.api+json' => [
-                        'schema' => [
-                            'type' => 'object',
-                            'properties' => [
-                                'data' => [
-                                    '$ref' => '#/components/schemas/' . $schemaName,
-                                ],
-                                'included' => [
-                                    'type' => 'array',
-                                    'items' => ['$ref' => '#/components/schemas/resource'],
-                                    'uniqueItems' => true,
-                                ],
-                            ],
-                        ],
-                    ],
                     'application/json' => [
                         'schema' => [
                             '$ref' => '#/components/schemas/' . $schemaName,
@@ -280,6 +269,100 @@ class OpenApiPathBuilder
             'responses' => [
                 Response::HTTP_NO_CONTENT => $this->getResponseRef((string) Response::HTTP_NO_CONTENT),
                 Response::HTTP_NOT_FOUND => $this->getResponseRef((string) Response::HTTP_NOT_FOUND),
+                Response::HTTP_UNAUTHORIZED => $this->getResponseRef((string) Response::HTTP_UNAUTHORIZED),
+            ],
+        ]);
+    }
+
+    private function getSearchPath(EntityDefinition $definition): Post
+    {
+        $schemaName = $this->snakeCaseToCamelCase($definition->getEntityName());
+
+        $tags = [$this->convertToHumanReadable($definition->getEntityName())];
+
+        if ($experimental = $this->isExperimental($definition)) {
+            $tags[] = 'Experimental';
+        }
+
+        return new Post([
+            'summary' => 'Search for the ' . $this->convertToHumanReadable($definition->getEntityName()) . ' resources.' . ($experimental ? ' Experimental API, not part of our backwards compatibility promise, thus this API can introduce breaking changes at any time.' : ''),
+            'description' => $definition->since() ? 'Available since: ' . $definition->since() : '',
+            'tags' => $tags,
+            'operationId' => 'search' . $this->convertToOperationId($definition->getEntityName()),
+            'parameters' => [
+                new Parameter([
+                    'name' => 'sw-include-search-info',
+                    'in' => 'header',
+                    'schema' => [
+                        'type' => 'string',
+                        'enum' => ['0', '1'],
+                        'default' => '1',
+                    ],
+                    'description' => 'Controls whether API search information is included in the response. Default is 1 (enabled), will be 0 (disabled) in the next major version.',
+                ]),
+            ],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            '$ref' => '#/components/schemas/Criteria',
+                        ],
+                    ],
+                ],
+            ],
+            'responses' => [
+                Response::HTTP_OK => $this->getListResponse($schemaName),
+                Response::HTTP_BAD_REQUEST => $this->getResponseRef((string) Response::HTTP_BAD_REQUEST),
+                Response::HTTP_UNAUTHORIZED => $this->getResponseRef((string) Response::HTTP_UNAUTHORIZED),
+            ],
+        ]);
+    }
+
+    private function getAggregatePath(EntityDefinition $definition): Post
+    {
+        $schemaName = $this->snakeCaseToCamelCase($definition->getEntityName());
+
+        $tags = [$this->convertToHumanReadable($definition->getEntityName())];
+
+        if ($experimental = $this->isExperimental($definition)) {
+            $tags[] = 'Experimental';
+        }
+
+        $since = $definition->since();
+
+        // In this version we added this aggregate api
+        if ($since === null || version_compare('6.6.10.0', $since, '>=')) {
+            $since = '6.6.10.0';
+        }
+
+        return new Post([
+            'summary' => 'Aggregate for the ' . $this->convertToHumanReadable($definition->getEntityName()) . ' resources.' . ($experimental ? ' Experimental API, not part of our backwards compatibility promise, thus this API can introduce breaking changes at any time.' : ''),
+            'description' => 'Available since: ' . $since,
+            'tags' => $tags,
+            'operationId' => 'aggregate' . $this->convertToOperationId($definition->getEntityName()),
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'aggregations' => [
+                                    'type' => 'array',
+                                    'items' => [
+                                        '$ref' => '#/components/schemas/Aggregation',
+                                    ],
+                                ],
+                            ],
+                            'required' => ['aggregations'],
+                        ],
+                    ],
+                ],
+            ],
+            'responses' => [
+                Response::HTTP_OK => $this->getListResponse($schemaName),
+                Response::HTTP_BAD_REQUEST => $this->getResponseRef((string) Response::HTTP_BAD_REQUEST),
                 Response::HTTP_UNAUTHORIZED => $this->getResponseRef((string) Response::HTTP_UNAUTHORIZED),
             ],
         ]);
@@ -355,7 +438,55 @@ class OpenApiPathBuilder
                 ],
                 'application/json' => [
                     'schema' => [
-                        '$ref' => '#/components/schemas/' . $schemaName,
+                        'type' => 'object',
+                        'required' => ['data'],
+                        'properties' => [
+                            'data' => [
+                                '$ref' => '#/components/schemas/' . $schemaName,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function getListResponse(string $schemaName): OpenApiResponse
+    {
+        return new OpenApiResponse([
+            'response' => Response::HTTP_OK,
+            'description' => 'List of ' . $schemaName,
+            'content' => [
+                'application/vnd.api+json' => [
+                    'schema' => [
+                        'allOf' => [
+                            ['$ref' => '#/components/schemas/success'],
+                            [
+                                'type' => 'object',
+                                'properties' => [
+                                    'data' => [
+                                        'type' => 'array',
+                                        'items' => [
+                                            '$ref' => '#/components/schemas/' . $schemaName,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'application/json' => [
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'total' => ['type' => 'integer'],
+                            'data' => [
+                                'type' => 'array',
+                                'items' => [
+                                    '$ref' => '#/components/schemas/' . $schemaName,
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],
@@ -372,7 +503,7 @@ class OpenApiPathBuilder
 
     private function getResponseDataParameter(): Parameter
     {
-        $responseDataParameter = new Parameter([
+        return new Parameter([
             'name' => '_response',
             'in' => 'query',
             'schema' => [
@@ -381,26 +512,22 @@ class OpenApiPathBuilder
             'allowEmptyValue' => true,
             'description' => 'Data format for response. Empty if none is provided.',
         ]);
-
-        return $responseDataParameter;
     }
 
     private function getIdParameter(EntityDefinition $definition): Parameter
     {
-        $idParameter = new Parameter([
+        return new Parameter([
             'name' => 'id',
             'in' => 'path',
             'schema' => ['type' => 'string', 'pattern' => '^[0-9a-f]{32}$'],
             'description' => 'Identifier for the ' . $definition->getEntityName(),
             'required' => true,
         ]);
-
-        return $idParameter;
     }
 
     private function snakeCaseToCamelCase(string $input): string
     {
-        return str_replace('_', '', ucwords($input, '_'));
+        return $this->converter->denormalize($input);
     }
 
     private function isExperimental(EntityDefinition $definition): bool

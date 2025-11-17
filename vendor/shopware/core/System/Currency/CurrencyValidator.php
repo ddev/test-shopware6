@@ -15,7 +15,7 @@ use Symfony\Component\Validator\ConstraintViolationList;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('fundamentals@framework')]
 class CurrencyValidator implements EventSubscriberInterface
 {
     final public const VIOLATION_DELETE_DEFAULT_CURRENCY = 'delete_default_currency_violation';
@@ -33,19 +33,19 @@ class CurrencyValidator implements EventSubscriberInterface
         $violations = new ConstraintViolationList();
 
         foreach ($commands as $command) {
-            if (!($command instanceof DeleteCommand) || $command->getDefinition()->getClass() !== CurrencyDefinition::class) {
+            if (!($command instanceof DeleteCommand) || $command->getEntityName() !== CurrencyDefinition::ENTITY_NAME) {
                 continue;
             }
 
             $pk = $command->getPrimaryKey();
-            $id = mb_strtolower((string) Uuid::fromBytesToHex($pk['id']));
+            $id = mb_strtolower(Uuid::fromBytesToHex($pk['id']));
             if ($id !== Defaults::CURRENCY) {
                 continue;
             }
 
             $msgTpl = 'The default currency {{ id }} cannot be deleted.';
             $parameters = ['{{ id }}' => $id];
-            $msg = sprintf('The default currency %s cannot be deleted.', $id);
+            $msg = \sprintf('The default currency %s cannot be deleted.', $id);
             $violation = new ConstraintViolation(
                 $msg,
                 $msgTpl,

@@ -11,11 +11,13 @@ use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
 use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Cms\Aggregate\CmsBlock\CmsBlockCollection;
 use Shopware\Core\Content\Cms\Aggregate\CmsSection\CmsSectionCollection;
+use Shopware\Core\Content\Cms\CmsPageCollection;
 use Shopware\Core\Content\MailTemplate\Aggregate\MailTemplateMedia\MailTemplateMediaCollection;
 use Shopware\Core\Content\Media\Aggregate\MediaFolder\MediaFolderEntity;
 use Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailCollection;
 use Shopware\Core\Content\Media\Aggregate\MediaTranslation\MediaTranslationCollection;
 use Shopware\Core\Content\Media\MediaType\MediaType;
+use Shopware\Core\Content\Media\MediaType\SpatialObjectType;
 use Shopware\Core\Content\Product\Aggregate\ProductConfiguratorSetting\ProductConfiguratorSettingCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductDownload\ProductDownloadCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductManufacturer\ProductManufacturerCollection;
@@ -32,207 +34,103 @@ use Shopware\Core\System\Tag\TagCollection;
 use Shopware\Core\System\User\UserCollection;
 use Shopware\Core\System\User\UserEntity;
 
-#[Package('buyers-experience')]
+/**
+ * @phpstan-type MediaConfig array{'spatialObject': array{'arReady': bool, 'arPlacement': string}}
+ */
+#[Package('discovery')]
 class MediaEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string|null
-     */
-    protected $userId;
+    protected ?string $userId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $mimeType;
+    protected ?string $mimeType = null;
 
-    /**
-     * @var string|null
-     */
-    protected $fileExtension;
+    protected ?string $fileExtension = null;
 
-    /**
-     * @var int|null
-     */
-    protected $fileSize;
+    protected ?int $fileSize = null;
 
-    /**
-     * @var string|null
-     */
-    protected $title;
+    protected ?string $title = null;
 
-    /**
-     * @var string|null
-     */
-    protected $metaDataRaw;
+    protected ?string $metaDataRaw = null;
 
     /**
      * @internal
-     *
-     * @var string|null
      */
-    protected $mediaTypeRaw;
+    protected ?string $mediaTypeRaw = null;
 
     /**
      * @var array<string, mixed>|null
      */
-    protected $metaData;
+    protected ?array $metaData = null;
 
-    /**
-     * @var MediaType|null
-     */
-    protected $mediaType;
+    protected ?MediaType $mediaType = null;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $uploadedAt;
+    protected ?\DateTimeInterface $uploadedAt = null;
 
-    /**
-     * @var string|null
-     */
-    protected $alt;
+    protected ?string $alt = null;
 
-    /**
-     * @var string
-     */
-    protected $url = '';
+    protected string $url = '';
 
-    /**
-     * @var string|null
-     */
-    protected $fileName;
+    protected ?string $fileName = null;
 
-    /**
-     * @var UserEntity|null
-     */
-    protected $user;
+    protected ?UserEntity $user = null;
 
-    /**
-     * @var MediaTranslationCollection|null
-     */
-    protected $translations;
+    protected ?MediaTranslationCollection $translations = null;
 
-    /**
-     * @var CategoryCollection|null
-     */
-    protected $categories;
+    protected ?CategoryCollection $categories = null;
 
-    /**
-     * @var ProductManufacturerCollection|null
-     */
-    protected $productManufacturers;
+    protected ?ProductManufacturerCollection $productManufacturers = null;
 
-    /**
-     * @var ProductMediaCollection|null
-     */
-    protected $productMedia;
+    protected ?ProductMediaCollection $productMedia = null;
 
-    /**
-     * @var UserCollection|null
-     */
-    protected $avatarUsers;
+    protected ?UserCollection $avatarUsers = null;
 
-    /**
-     * @var MediaThumbnailCollection|null
-     */
-    protected $thumbnails;
+    protected ?MediaThumbnailCollection $thumbnails = null;
 
-    /**
-     * @var string|null
-     */
-    protected $mediaFolderId;
+    protected ?string $mediaFolderId = null;
 
-    /**
-     * @var MediaFolderEntity|null
-     */
-    protected $mediaFolder;
+    protected ?MediaFolderEntity $mediaFolder = null;
 
-    /**
-     * @var bool
-     */
-    protected $hasFile = false;
+    protected bool $hasFile = false;
 
-    /**
-     * @var bool
-     */
-    protected $private = false;
+    protected bool $private = false;
 
-    /**
-     * @var PropertyGroupOptionCollection|null
-     */
-    protected $propertyGroupOptions;
+    protected ?PropertyGroupOptionCollection $propertyGroupOptions = null;
 
-    /**
-     * @var MailTemplateMediaCollection|null
-     */
-    protected $mailTemplateMedia;
+    protected ?MailTemplateMediaCollection $mailTemplateMedia = null;
 
-    /**
-     * @var TagCollection|null
-     */
-    protected $tags;
+    protected ?TagCollection $tags = null;
 
     /**
      * @internal
-     *
-     * @var string|null
      */
-    protected $thumbnailsRo;
+    protected ?string $thumbnailsRo = null;
 
     protected ?string $path = null;
 
-    /**
-     * @var DocumentBaseConfigCollection|null
-     */
-    protected $documentBaseConfigs;
+    protected ?DocumentBaseConfigCollection $documentBaseConfigs = null;
 
-    /**
-     * @var ShippingMethodCollection|null
-     */
-    protected $shippingMethods;
+    protected ?ShippingMethodCollection $shippingMethods = null;
 
-    /**
-     * @var PaymentMethodCollection|null
-     */
-    protected $paymentMethods;
+    protected ?PaymentMethodCollection $paymentMethods = null;
 
-    /**
-     * @var ProductConfiguratorSettingCollection|null
-     */
-    protected $productConfiguratorSettings;
+    protected ?ProductConfiguratorSettingCollection $productConfiguratorSettings = null;
 
-    /**
-     * @var OrderLineItemCollection|null
-     */
-    protected $orderLineItems;
+    protected ?OrderLineItemCollection $orderLineItems = null;
 
-    /**
-     * @var CmsBlockCollection|null
-     */
-    protected $cmsBlocks;
+    protected ?CmsBlockCollection $cmsBlocks = null;
 
-    /**
-     * @var CmsSectionCollection|null
-     */
-    protected $cmsSections;
+    protected ?CmsSectionCollection $cmsSections = null;
 
-    /**
-     * @var CmsBlockCollection|null
-     */
-    protected $cmsPages;
+    protected ?CmsPageCollection $cmsPages = null;
 
-    /**
-     * @var DocumentCollection|null
-     */
-    protected $documents;
+    protected ?DocumentCollection $documents = null;
 
-    /**
-     * @var AppPaymentMethodCollection|null
-     */
-    protected $appPaymentMethods;
+    protected ?DocumentCollection $a11yDocuments = null;
+
+    protected ?AppPaymentMethodCollection $appPaymentMethods = null;
 
     /**
      * @var EntityCollection<AppShippingMethodEntity>|null
@@ -242,6 +140,18 @@ class MediaEntity extends Entity
     protected ?ProductDownloadCollection $productDownloads = null;
 
     protected ?OrderLineItemDownloadCollection $orderLineItemDownloads = null;
+
+    /**
+     * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+     *
+     * @var MediaConfig|null
+     */
+    protected ?array $config = null;
+
+    /**
+     * @internal
+     */
+    protected ?string $fileHash = null;
 
     public function get(string $property)
     {
@@ -446,7 +356,7 @@ class MediaEntity extends Entity
             return null;
         }
 
-        return sprintf('%s.%s', $this->fileName, $this->fileExtension);
+        return \sprintf('%s.%s', $this->fileName, $this->fileExtension);
     }
 
     public function setFileName(string $fileName): void
@@ -632,12 +542,12 @@ class MediaEntity extends Entity
         $this->cmsSections = $cmsSections;
     }
 
-    public function getCmsPages(): ?CmsBlockCollection
+    public function getCmsPages(): ?CmsPageCollection
     {
         return $this->cmsPages;
     }
 
-    public function setCmsPages(CmsBlockCollection $cmsPages): void
+    public function setCmsPages(CmsPageCollection $cmsPages): void
     {
         $this->cmsPages = $cmsPages;
     }
@@ -660,6 +570,16 @@ class MediaEntity extends Entity
     public function setDocuments(DocumentCollection $documents): void
     {
         $this->documents = $documents;
+    }
+
+    public function getA11yDocuments(): ?DocumentCollection
+    {
+        return $this->a11yDocuments;
+    }
+
+    public function setA11yDocuments(DocumentCollection $a11yDocuments): void
+    {
+        $this->a11yDocuments = $a11yDocuments;
     }
 
     public function getAppPaymentMethods(): ?AppPaymentMethodCollection
@@ -721,5 +641,41 @@ class MediaEntity extends Entity
     public function setPath(?string $path): void
     {
         $this->path = $path;
+    }
+
+    /**
+     * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+     *
+     * @return MediaConfig|null
+     */
+    public function getConfig(): ?array
+    {
+        return $this->config;
+    }
+
+    /**
+     * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+     *
+     * @param MediaConfig|null $configuration
+     */
+    public function setConfig(?array $configuration): void
+    {
+        $this->config = $configuration;
+    }
+
+    /**
+     * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+     */
+    public function isSpatialObject(): bool
+    {
+        return $this->mediaType instanceof SpatialObjectType;
+    }
+
+    /**
+     * @internal
+     */
+    public function getFileHash(): ?string
+    {
+        return $this->fileHash;
     }
 }

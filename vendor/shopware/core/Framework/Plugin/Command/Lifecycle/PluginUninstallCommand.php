@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'plugin:uninstall',
     description: 'Uninstall a plugin',
 )]
-#[Package('core')]
+#[Package('framework')]
 class PluginUninstallCommand extends AbstractPluginLifecycleCommand
 {
     private const LIFECYCLE_METHOD = 'uninstall';
@@ -34,7 +34,7 @@ class PluginUninstallCommand extends AbstractPluginLifecycleCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new ShopwareStyle($input, $output);
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
         $plugins = $this->prepareExecution(self::LIFECYCLE_METHOD, $io, $input, $context);
 
         if ($plugins === null) {
@@ -46,7 +46,7 @@ class PluginUninstallCommand extends AbstractPluginLifecycleCommand
         $uninstalledPluginCount = 0;
         foreach ($plugins as $plugin) {
             if ($plugin->getInstalledAt() === null) {
-                $io->note(sprintf('Plugin "%s" is not installed. Skipping.', $plugin->getName()));
+                $io->note(\sprintf('Plugin "%s" is not installed. Skipping.', $plugin->getName()));
 
                 continue;
             }
@@ -54,11 +54,11 @@ class PluginUninstallCommand extends AbstractPluginLifecycleCommand
             $this->pluginLifecycleService->uninstallPlugin($plugin, $context, $keepUserData);
             ++$uninstalledPluginCount;
 
-            $io->text(sprintf('Plugin "%s" has been uninstalled successfully.', $plugin->getName()));
+            $io->text(\sprintf('Plugin "%s" has been uninstalled successfully.', $plugin->getName()));
         }
 
         if ($uninstalledPluginCount !== 0) {
-            $io->success(sprintf('Uninstalled %d plugins.', $uninstalledPluginCount));
+            $io->success(\sprintf('Uninstalled %d plugins.', $uninstalledPluginCount));
         }
 
         $this->handleClearCacheOption($input, $io, 'uninstalling');

@@ -1,3 +1,6 @@
+/**
+ * @sw-package fundamentals@framework
+ */
 import CaptchaService from './service/captcha.service';
 
 const { Module } = Shopware;
@@ -9,10 +12,7 @@ Shopware.Component.register('sw-settings-captcha-select-v2', () => import('./com
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 Shopware.Service().register('captchaService', () => {
-    return new CaptchaService(
-        Shopware.Application.getContainer('init').httpClient,
-        Shopware.Service().get('loginService'),
-    );
+    return new CaptchaService(Shopware.Application.getContainer('init').httpClient, Shopware.Service().get('loginService'));
 });
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
@@ -39,7 +39,7 @@ Module.register('sw-settings-basic-information', {
     },
 
     settingsItem: {
-        group: 'shop',
+        group: 'general',
         to: 'sw.settings.basic.information.index',
         icon: 'regular-bars',
         privilege: 'system.system_config',

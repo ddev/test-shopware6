@@ -1,7 +1,7 @@
 import template from './sw-customer-detail-base.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Criteria } = Shopware.Data;
@@ -45,10 +45,8 @@ export default {
         customFieldSetCriteria() {
             const criteria = new Criteria(1, 25);
 
-            criteria
-                .addFilter(Criteria.equals('relations.entityName', 'customer'));
-            criteria.getAssociation('customFields')
-                .addSorting(Criteria.naturalSorting('config.customFieldPosition'));
+            criteria.addFilter(Criteria.equals('relations.entityName', 'customer'));
+            criteria.getAssociation('customFields').addSorting(Criteria.naturalSorting('config.customFieldPosition'));
 
             return criteria;
         },
@@ -58,14 +56,17 @@ export default {
         this.createdComponent();
     },
 
+    beforeRouteLeave() {
+        Shopware.Store.get('shopwareApps').selectedIds = [];
+    },
+
     methods: {
         createdComponent() {
-            Shopware.State.commit('shopwareApps/setSelectedIds', this.customer.id ? [this.customer.id] : []);
+            Shopware.Store.get('shopwareApps').selectedIds = this.customer.id ? [this.customer.id] : [];
 
-            this.customFieldSetRepository.search(this.customFieldSetCriteria)
-                .then((customFieldSets) => {
-                    this.customerCustomFieldSets = customFieldSets;
-                });
+            this.customFieldSetRepository.search(this.customFieldSetCriteria).then((customFieldSets) => {
+                this.customerCustomFieldSets = customFieldSets;
+            });
         },
     },
 };

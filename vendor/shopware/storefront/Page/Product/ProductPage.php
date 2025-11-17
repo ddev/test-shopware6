@@ -4,48 +4,24 @@ namespace Shopware\Storefront\Page\Product;
 
 use Shopware\Core\Content\Cms\CmsPageEntity;
 use Shopware\Core\Content\Product\ProductDefinition;
-use Shopware\Core\Content\Product\SalesChannel\CrossSelling\CrossSellingElementCollection;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Content\Property\Aggregate\PropertyGroupOption\PropertyGroupOptionCollection;
 use Shopware\Core\Content\Property\PropertyGroupCollection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Storefront\Page\Page;
-use Shopware\Storefront\Page\Product\Review\ReviewLoaderResult;
 
-#[Package('storefront')]
+#[Package('framework')]
 class ProductPage extends Page
 {
-    /**
-     * @var SalesChannelProductEntity
-     */
-    protected $product;
+    protected SalesChannelProductEntity $product;
 
-    /**
-     * @var CmsPageEntity
-     */
-    protected $cmsPage;
+    protected CmsPageEntity $cmsPage;
 
     protected ?string $navigationId = null;
 
-    /**
-     * @var PropertyGroupCollection
-     */
-    protected $configuratorSettings;
+    protected PropertyGroupCollection $configuratorSettings;
 
-    /**
-     * @var ReviewLoaderResult
-     */
-    protected $reviewLoaderResult;
-
-    /**
-     * @var PropertyGroupOptionCollection
-     */
-    protected $selectedOptions;
-
-    /**
-     * @var CrossSellingElementCollection
-     */
-    protected $crossSellings;
+    protected PropertyGroupOptionCollection $selectedOptions;
 
     public function getProduct(): SalesChannelProductEntity
     {
@@ -87,16 +63,6 @@ class ProductPage extends Page
         $this->configuratorSettings = $configuratorSettings;
     }
 
-    public function getReviews(): ReviewLoaderResult
-    {
-        return $this->reviewLoaderResult;
-    }
-
-    public function setReviews(ReviewLoaderResult $result): void
-    {
-        $this->reviewLoaderResult = $result;
-    }
-
     public function getSelectedOptions(): PropertyGroupOptionCollection
     {
         return $this->selectedOptions;
@@ -105,16 +71,6 @@ class ProductPage extends Page
     public function setSelectedOptions(PropertyGroupOptionCollection $selectedOptions): void
     {
         $this->selectedOptions = $selectedOptions;
-    }
-
-    public function getCrossSellings(): CrossSellingElementCollection
-    {
-        return $this->crossSellings;
-    }
-
-    public function setCrossSellings(CrossSellingElementCollection $crossSellings): void
-    {
-        $this->crossSellings = $crossSellings;
     }
 
     public function getEntityName(): string

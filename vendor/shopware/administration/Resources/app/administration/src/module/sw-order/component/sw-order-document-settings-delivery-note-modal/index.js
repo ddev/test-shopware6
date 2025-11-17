@@ -1,23 +1,25 @@
-import template from './sw-order-document-settings-delivery-note-modal.html.twig';
-
 /**
- * @package checkout
+ * @sw-package after-sales
  */
+import template from './sw-order-document-settings-delivery-note-modal.html.twig';
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['feature'],
+    emits: [
+        'loading-document',
+        'loading-preview',
+    ],
 
     data() {
         return {
             documentConfig: {
                 custom: {
-                    deliveryDate: (new Date()).toISOString(),
-                    deliveryNoteDate: (new Date()).toISOString(),
+                    deliveryDate: new Date().toISOString(),
+                    deliveryNoteDate: new Date().toISOString(),
                 },
-                documentNumber: 0,
+                documentNumber: '',
                 documentComment: '',
                 documentDate: '',
             },
@@ -28,35 +30,39 @@ export default {
         this.createdComponent();
     },
 
+    computed: {
+        documentPreconditionsFulfilled() {
+            return this.documentConfig.custom.deliveryDate && this.documentConfig.custom.deliveryNoteDate;
+        },
+    },
+
     methods: {
         onCreateDocument(additionalAction = false) {
             this.$emit('loading-document');
 
             if (this.documentNumberPreview === this.documentConfig.documentNumber) {
-                this.numberRangeService.reserve(
-                    `document_${this.currentDocumentType.technicalName}`,
-                    this.order.salesChannelId,
-                    false,
-                ).then((response) => {
-                    this.documentConfig.custom.deliveryNoteNumber = response.number;
-                    if (response.number !== this.documentConfig.documentNumber) {
-                        this.createNotificationInfo({
-                            message: this.$tc('sw-order.documentCard.info.DOCUMENT__NUMBER_WAS_CHANGED'),
-                        });
-                    }
-                    this.documentConfig.documentNumber = response.number;
-                    this.callDocumentCreate(additionalAction);
-                });
+                this.numberRangeService
+                    .reserve(`document_${this.currentDocumentType.technicalName}`, this.order.salesChannelId, false)
+                    .then((response) => {
+                        this.documentConfig.custom.deliveryNoteNumber = response.number;
+                        if (response.number !== this.documentConfig.documentNumber) {
+                            this.createNotificationInfo({
+                                message: this.$tc('sw-order.documentCard.info.DOCUMENT__NUMBER_WAS_CHANGED'),
+                            });
+                        }
+                        this.documentConfig.documentNumber = response.number;
+                        this.callDocumentCreate(additionalAction);
+                    });
             } else {
                 this.documentConfig.custom.deliveryNoteNumber = this.documentConfig.documentNumber;
                 this.callDocumentCreate(additionalAction);
             }
         },
 
-        onPreview() {
+        onPreview(fileType = 'pdf') {
             this.$emit('loading-preview');
             this.documentConfig.custom.deliveryNoteNumber = this.documentConfig.documentNumber;
-            this.$super('onPreview');
+            this.$super('onPreview', fileType);
         },
     },
 };

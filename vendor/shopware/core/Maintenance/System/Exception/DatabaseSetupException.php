@@ -3,8 +3,12 @@
 namespace Shopware\Core\Maintenance\System\Exception;
 
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Maintenance\MaintenanceException;
 
-#[Package('core')]
-class DatabaseSetupException extends \RuntimeException
+/**
+ * @internal
+ */
+#[Package('framework')]
+class DatabaseSetupException extends MaintenanceException
 {
 }

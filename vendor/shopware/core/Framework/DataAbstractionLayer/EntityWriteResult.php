@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * Contains the result of the entity write process
  */
-#[Package('core')]
+#[Package('framework')]
 class EntityWriteResult
 {
     final public const OPERATION_INSERT = 'insert';
@@ -31,7 +31,7 @@ class EntityWriteResult
         $this->operation = mb_strtolower($operation);
 
         if (!\in_array($this->operation, [self::OPERATION_DELETE, self::OPERATION_INSERT, self::OPERATION_UPDATE], true)) {
-            throw new \RuntimeException(sprintf('Unexpected write result operation %s', $operation));
+            throw new \RuntimeException(\sprintf('Unexpected write result operation %s', $operation));
         }
     }
 

@@ -13,7 +13,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Webhook\BusinessEventEncoder;
 
-#[Package('core')]
+#[Package('framework')]
 class AppFlowActionProvider
 {
     /**
@@ -43,16 +43,13 @@ class AppFlowActionProvider
         $data = [...$flow->getConfig(), ...$additionData];
 
         $configData = $this->resolveParamsData($flow->getConfig(), $data, $context, $appFlowActionId);
-        /** @var array<string, mixed> $data */
         $data = [...$configData, ...$additionData];
 
-        /** @var string $parameterData */
-        $parameterData = $appFlowActionData['parameters'];
+        $parameterData = (string) $appFlowActionData['parameters'];
         /** @var array<string, string> $parameters */
         $parameters = array_column(json_decode($parameterData, true, 512, \JSON_THROW_ON_ERROR), 'value', 'name');
 
-        /** @var string $headersData */
-        $headersData = $appFlowActionData['headers'];
+        $headersData = (string) $appFlowActionData['headers'];
         /** @var array<string, string> $headers */
         $headers = array_column(json_decode($headersData, true, 512, \JSON_THROW_ON_ERROR), 'value', 'name');
 

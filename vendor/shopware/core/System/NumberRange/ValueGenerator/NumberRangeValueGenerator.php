@@ -11,7 +11,7 @@ use Shopware\Core\System\NumberRange\NumberRangeEvents;
 use Shopware\Core\System\NumberRange\ValueGenerator\Pattern\ValueGeneratorPatternRegistry;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-#[Package('checkout')]
+#[Package('framework')]
 class NumberRangeValueGenerator implements NumberRangeValueGeneratorInterface
 {
     /**
@@ -68,7 +68,6 @@ class NumberRangeValueGenerator implements NumberRangeValueGeneratorInterface
 
     private function endEvent(string $generatedValue, string $type, Context $context, ?string $salesChannelId, bool $preview): string
     {
-        /** @var NumberRangeGeneratedEvent $generatedEvent */
         $generatedEvent = $this->eventDispatcher->dispatch(
             new NumberRangeGeneratedEvent($generatedValue, $type, $context, $salesChannelId, $preview),
             NumberRangeEvents::NUMBER_RANGE_GENERATED

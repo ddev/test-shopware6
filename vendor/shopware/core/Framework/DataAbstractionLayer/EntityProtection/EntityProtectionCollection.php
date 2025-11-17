@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Struct\Collection;
 /**
  * @extends Collection<EntityProtection>
  */
-#[Package('core')]
+#[Package('framework')]
 class EntityProtectionCollection extends Collection
 {
     /**
@@ -20,7 +20,7 @@ class EntityProtectionCollection extends Collection
     }
 
     /**
-     * @param string|int       $key
+     * @param string|int $key
      * @param EntityProtection $element
      */
     public function set($key, $element): void

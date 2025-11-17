@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-modal-delivery.html.twig';
@@ -9,7 +9,15 @@ import './sw-product-modal-delivery.scss';
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
+
+    emits: [
+        'modal-close',
+        'configuration-close',
+    ],
 
     props: {
         product: {
@@ -43,11 +51,10 @@ export default {
     methods: {
         createdComponent() {
             if (!this.product.variantListingConfig) {
-                this.$set(
-                    this.product,
-                    'variantListingConfig',
-                    { displayParent: null, configuratorGroupConfig: [], mainVariantId: null },
-                );
+                this.product.variantListingConfig = {
+                    displayParent: null,
+                    configuratorGroupConfig: [],
+                };
             }
         },
 
@@ -55,10 +62,10 @@ export default {
             this.isLoading = true;
 
             // Handle variant listing modes (single, expanded) if exists
-            this.product = this.handleExpandedListing(this.product);
+            const product = this.handleExpandedListing(this.product);
 
             // Save the product after generating
-            this.productRepository.save(this.product).then(() => {
+            this.productRepository.save(product).then(() => {
                 this.$emit('configuration-close');
             });
         },

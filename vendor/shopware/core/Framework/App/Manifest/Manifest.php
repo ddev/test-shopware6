@@ -2,10 +2,13 @@
 
 namespace Shopware\Core\Framework\App\Manifest;
 
+use Shopware\Core\Framework\App\AppException;
+use Shopware\Core\Framework\App\Exception\AppXmlParsingException;
 use Shopware\Core\Framework\App\Manifest\Xml\Administration\Admin;
 use Shopware\Core\Framework\App\Manifest\Xml\AllowedHost\AllowedHosts;
 use Shopware\Core\Framework\App\Manifest\Xml\Cookie\Cookies;
 use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFields;
+use Shopware\Core\Framework\App\Manifest\Xml\Gateway\Gateways;
 use Shopware\Core\Framework\App\Manifest\Xml\Meta\Metadata;
 use Shopware\Core\Framework\App\Manifest\Xml\PaymentMethod\Payments;
 use Shopware\Core\Framework\App\Manifest\Xml\Permission\Permissions;
@@ -16,21 +19,28 @@ use Shopware\Core\Framework\App\Manifest\Xml\Storefront\Storefront;
 use Shopware\Core\Framework\App\Manifest\Xml\Tax\Tax;
 use Shopware\Core\Framework\App\Manifest\Xml\Webhook\Webhooks;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SystemConfig\Exception\XmlParsingException;
 use Symfony\Component\Config\Util\XmlUtils;
 
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class Manifest
 {
-    private const XSD_FILE = __DIR__ . '/Schema/manifest-2.0.xsd';
+    private const XSD_FILE = __DIR__ . '/Schema/manifest-3.0.xsd';
 
     private bool $managedByComposer = false;
 
+    private ?string $sourceType = null;
+
+    /**
+     * @var array<string, string|null>
+     */
+    private array $sourceConfig = [];
+
     private function __construct(
         private string $path,
+        private readonly bool $validatesPermissions,
         private readonly Metadata $metadata,
         private readonly ?Setup $setup,
         private readonly ?Admin $admin,
@@ -44,61 +54,41 @@ class Manifest
         private readonly ?Storefront $storefront,
         private readonly ?Tax $tax,
         private readonly ?ShippingMethods $shippingMethods,
+        private readonly ?Gateways $gateways,
     ) {
+    }
+
+    public static function validate(string $fileContent, string $file): void
+    {
+        try {
+            $doc = XmlUtils::parse($fileContent, self::XSD_FILE);
+        } catch (\Exception $e) {
+            throw AppException::xmlParsingException($file, $e->getMessage());
+        }
+
+        self::create($doc, $file);
+    }
+
+    public static function createFromXml(string $xml): self
+    {
+        try {
+            $doc = XmlUtils::parse($xml, self::XSD_FILE);
+        } catch (\Exception $e) {
+            throw AppXmlParsingException::cannotParseContent($e->getMessage());
+        }
+
+        return self::create($doc, '');
     }
 
     public static function createFromXmlFile(string $xmlFile): self
     {
         try {
             $doc = XmlUtils::loadFile($xmlFile, self::XSD_FILE);
-
-            $meta = $doc->getElementsByTagName('meta')->item(0);
-            \assert($meta !== null);
-            $metadata = Metadata::fromXml($meta);
-            $setup = $doc->getElementsByTagName('setup')->item(0);
-            $setup = $setup === null ? null : Setup::fromXml($setup);
-            $admin = $doc->getElementsByTagName('admin')->item(0);
-            $admin = $admin === null ? null : Admin::fromXml($admin);
-            $permissions = $doc->getElementsByTagName('permissions')->item(0);
-            $permissions = $permissions === null ? null : Permissions::fromXml($permissions);
-            $allowedHosts = $doc->getElementsByTagName('allowed-hosts')->item(0);
-            $allowedHosts = $allowedHosts === null ? null : AllowedHosts::fromXml($allowedHosts);
-            $customFields = $doc->getElementsByTagName('custom-fields')->item(0);
-            $customFields = $customFields === null ? null : CustomFields::fromXml($customFields);
-            $webhooks = $doc->getElementsByTagName('webhooks')->item(0);
-            $webhooks = $webhooks === null ? null : Webhooks::fromXml($webhooks);
-            $cookies = $doc->getElementsByTagName('cookies')->item(0);
-            $cookies = $cookies === null ? null : Cookies::fromXml($cookies);
-            $payments = $doc->getElementsByTagName('payments')->item(0);
-            $payments = $payments === null ? null : Payments::fromXml($payments);
-            $ruleConditions = $doc->getElementsByTagName('rule-conditions')->item(0);
-            $ruleConditions = $ruleConditions === null ? null : RuleConditions::fromXml($ruleConditions);
-            $storefront = $doc->getElementsByTagName('storefront')->item(0);
-            $storefront = $storefront === null ? null : Storefront::fromXml($storefront);
-            $tax = $doc->getElementsByTagName('tax')->item(0);
-            $tax = $tax === null ? null : Tax::fromXml($tax);
-            $shippingMethods = $doc->getElementsByTagName('shipping-methods')->item(0);
-            $shippingMethods = $shippingMethods === null ? null : ShippingMethods::fromXml($shippingMethods);
         } catch (\Exception $e) {
-            throw new XmlParsingException($xmlFile, $e->getMessage());
+            throw AppException::xmlParsingException($xmlFile, $e->getMessage());
         }
 
-        return new self(
-            \dirname($xmlFile),
-            $metadata,
-            $setup,
-            $admin,
-            $permissions,
-            $allowedHosts,
-            $customFields,
-            $webhooks,
-            $cookies,
-            $payments,
-            $ruleConditions,
-            $storefront,
-            $tax,
-            $shippingMethods,
-        );
+        return self::create($doc, $xmlFile);
     }
 
     public function getPath(): string
@@ -109,6 +99,14 @@ class Manifest
     public function setPath(string $path): void
     {
         $this->path = $path;
+    }
+
+    /**
+     * This app has indicated that it validates it has permissions before using particular features. Because it has, we can request permission review separately from the app install/update process.
+     */
+    public function validatesPermissions(): bool
+    {
+        return $this->validatesPermissions;
     }
 
     public function getMetadata(): Metadata
@@ -185,6 +183,11 @@ class Manifest
         return $this->tax;
     }
 
+    public function getGateways(): ?Gateways
+    {
+        return $this->gateways;
+    }
+
     /**
      * @return array<string> all hosts referenced in the manifest file
      */
@@ -231,5 +234,93 @@ class Manifest
     public function setManagedByComposer(bool $managedByComposer): void
     {
         $this->managedByComposer = $managedByComposer;
+    }
+
+    public function getSourceType(): ?string
+    {
+        return $this->sourceType;
+    }
+
+    public function setSourceType(string $sourceType): void
+    {
+        $this->sourceType = $sourceType;
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    public function getSourceConfig(): array
+    {
+        return $this->sourceConfig;
+    }
+
+    /**
+     * @param array<string, string|null> $sourceConfig
+     */
+    public function setSourceConfig(array $sourceConfig): void
+    {
+        $this->sourceConfig = $sourceConfig;
+    }
+
+    private static function create(\DOMDocument $doc, string $xmlFile): self
+    {
+        try {
+            $manifest = $doc->getElementsByTagName('manifest')->item(0);
+            \assert($manifest !== null);
+
+            $validatesPermissions = $manifest->hasAttribute('validates-permissions')
+                && XmlUtils::phpize($manifest->getAttribute('validates-permissions')) === true;
+
+            $meta = $doc->getElementsByTagName('meta')->item(0);
+            \assert($meta !== null);
+            $metadata = Metadata::fromXml($meta);
+            $setup = $doc->getElementsByTagName('setup')->item(0);
+            $setup = $setup === null ? null : Setup::fromXml($setup);
+            $admin = $doc->getElementsByTagName('admin')->item(0);
+            $admin = $admin === null ? null : Admin::fromXml($admin);
+            $permissions = $doc->getElementsByTagName('permissions')->item(0);
+            $permissions = $permissions === null ? null : Permissions::fromXml($permissions);
+            $allowedHosts = $doc->getElementsByTagName('allowed-hosts')->item(0);
+            $allowedHosts = $allowedHosts === null ? null : AllowedHosts::fromXml($allowedHosts);
+            $customFields = $doc->getElementsByTagName('custom-fields')->item(0);
+            $customFields = $customFields === null ? null : CustomFields::fromXml($customFields);
+            $webhooks = $doc->getElementsByTagName('webhooks')->item(0);
+            $webhooks = $webhooks === null ? null : Webhooks::fromXml($webhooks);
+            $cookies = $doc->getElementsByTagName('cookies')->item(0);
+            $cookies = $cookies === null ? null : Cookies::fromXml($cookies);
+            $payments = $doc->getElementsByTagName('payments')->item(0);
+            $payments = $payments === null ? null : Payments::fromXml($payments);
+            $ruleConditions = $doc->getElementsByTagName('rule-conditions')->item(0);
+            $ruleConditions = $ruleConditions === null ? null : RuleConditions::fromXml($ruleConditions);
+            $storefront = $doc->getElementsByTagName('storefront')->item(0);
+            $storefront = $storefront === null ? null : Storefront::fromXml($storefront);
+            $tax = $doc->getElementsByTagName('tax')->item(0);
+            $tax = $tax === null ? null : Tax::fromXml($tax);
+            $shippingMethods = $doc->getElementsByTagName('shipping-methods')->item(0);
+            $shippingMethods = $shippingMethods === null ? null : ShippingMethods::fromXml($shippingMethods);
+            $gateways = $doc->getElementsByTagName('gateways')->item(0);
+            $gateways = $gateways === null ? null : Gateways::fromXml($gateways);
+        } catch (\Exception $e) {
+            throw AppException::xmlParsingException($xmlFile, $e->getMessage());
+        }
+
+        return new self(
+            \dirname($xmlFile),
+            $validatesPermissions,
+            $metadata,
+            $setup,
+            $admin,
+            $permissions,
+            $allowedHosts,
+            $customFields,
+            $webhooks,
+            $cookies,
+            $payments,
+            $ruleConditions,
+            $storefront,
+            $tax,
+            $shippingMethods,
+            $gateways
+        );
     }
 }

@@ -1,11 +1,9 @@
 /**
- * @package admin
+ * @sw-package framework
  */
-
 import template from './sw-tabs-item.html.twig';
 import './sw-tabs-item.scss';
 
-const { Component } = Shopware;
 const types = Shopware.Utils.types;
 
 /**
@@ -26,16 +24,42 @@ const types = Shopware.Utils.types;
  *
  * </sw-tabs>
  */
-Component.register('sw-tabs-item', {
+export default {
     template,
 
     inheritAttrs: false,
 
-    inject: ['feature'],
+    inject: {
+        feature: {
+            from: 'feature',
+            default: null,
+        },
+        onNewItemActive: {
+            from: 'onNewItemActive',
+            default: null,
+        },
+        registerNewTabItem: {
+            from: 'registerNewTabItem',
+            default: null,
+        },
+        unregisterNewTabItem: {
+            from: 'unregisterNewTabItem',
+            default: null,
+        },
+        swTabsSetActiveItem: {
+            from: 'swTabsSetActiveItem',
+            default: null,
+        },
+    },
+
+    emits: ['click'],
 
     props: {
         route: {
-            type: [String, Object],
+            type: [
+                String,
+                Object,
+            ],
             required: false,
             default: '',
         },
@@ -107,7 +131,7 @@ Component.register('sw-tabs-item', {
     },
 
     watch: {
-        '$route'() {
+        $route() {
             this.checkIfRouteMatchesLink();
         },
     },
@@ -124,9 +148,15 @@ Component.register('sw-tabs-item', {
         this.createdComponent();
     },
 
+    beforeUnmount() {
+        this.unregisterNewTabItem?.(this);
+    },
+
     methods: {
         createdComponent() {
-            this.$parent.$on('new-item-active', this.checkIfActive);
+            this.onNewItemActive?.(this.checkIfActive);
+            this.registerNewTabItem?.(this);
+
             if (this.active) {
                 this.isActive = true;
             }
@@ -141,6 +171,7 @@ Component.register('sw-tabs-item', {
         },
         updateActiveState() {
             this.checkIfRouteMatchesLink();
+
             if (this.activeTab && this.activeTab === this.name) {
                 this.isActive = true;
             }
@@ -151,39 +182,32 @@ Component.register('sw-tabs-item', {
                 return;
             }
 
-            this.$parent.setActiveItem(this);
+            this.swTabsSetActiveItem(this);
             this.$emit('click');
         },
         checkIfActive(item) {
-            this.isActive = (item.$vnode === this.$vnode);
+            this.isActive = item?.$?.vnode === this.$.vnode;
         },
         checkIfRouteMatchesLink() {
             this.$nextTick().then(() => {
                 /**
                  * Prevent endless loop with checking if the route exists. Because a router-link with a
-                 * non existing route has always the class 'router-link-active'
+                 * non-existing route has always the class 'router-link-active'
                  */
                 let resolvedRoute;
-                if (this.feature.isActive('VUE3')) {
-                    try {
-                        resolvedRoute = this.$router.resolve(this.route);
-                    } catch {
-                        return;
-                    }
 
-                    if (resolvedRoute === undefined) {
-                        return;
-                    }
-                } else {
+                try {
                     resolvedRoute = this.$router.resolve(this.route);
+                } catch {
+                    return;
+                }
+
+                if (resolvedRoute === undefined) {
+                    return;
                 }
 
                 let routeExists = false;
-                if (Shopware.Service('feature').isActive('VUE3')) {
-                    routeExists = resolvedRoute.matched.length > 0;
-                } else {
-                    routeExists = resolvedRoute.resolved.matched.length > 0;
-                }
+                routeExists = resolvedRoute.matched.length > 0;
 
                 if (!routeExists) {
                     return;
@@ -191,9 +215,9 @@ Component.register('sw-tabs-item', {
 
                 const routeIsActive = this.$el.classList.contains('router-link-active');
                 if (routeIsActive) {
-                    this.$parent.setActiveItem(this);
+                    this.swTabsSetActiveItem(this);
                 }
             });
         },
     },
-});
+};

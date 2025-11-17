@@ -8,11 +8,10 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Storefront\Framework\Twig\ErrorTemplateResolver;
 use Shopware\Storefront\Page\Navigation\Error\ErrorPageLoaderInterface;
-use Shopware\Storefront\Pagelet\Footer\FooterPageletLoaderInterface;
-use Shopware\Storefront\Pagelet\Header\HeaderPageletLoaderInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Validator\ConstraintViolationList;
 
@@ -20,25 +19,17 @@ use Symfony\Component\Validator\ConstraintViolationList;
  * @internal
  * Do not use direct or indirect repository calls in a controller. Always use a store-api route to get or put data
  */
-#[Package('storefront')]
+#[Package('framework')]
 class ErrorController extends StorefrontController
 {
-    /**
-     * @var ErrorTemplateResolver
-     */
-    protected $errorTemplateResolver;
-
     /**
      * @internal
      */
     public function __construct(
-        ErrorTemplateResolver $errorTemplateResolver,
-        private readonly HeaderPageletLoaderInterface $headerPageletLoader,
+        private readonly ErrorTemplateResolver $errorTemplateResolver,
         private readonly SystemConfigService $systemConfigService,
         private readonly ErrorPageLoaderInterface $errorPageLoader,
-        private readonly FooterPageletLoaderInterface $footerPageletLoader
     ) {
-        $this->errorTemplateResolver = $errorTemplateResolver;
     }
 
     public function error(\Throwable $exception, Request $request, SalesChannelContext $context): Response
@@ -49,13 +40,13 @@ class ErrorController extends StorefrontController
             $is404StatusCode = $exception instanceof HttpException
                 && $exception->getStatusCode() === Response::HTTP_NOT_FOUND;
 
-            if (!$is404StatusCode && $session !== null && method_exists($session, 'getFlashBag') && !$session->getFlashBag()->has('danger')) {
+            if (!$is404StatusCode && $session !== null && $session instanceof FlashBagAwareSessionInterface && !$session->getFlashBag()->has('danger')) {
                 $session->getFlashBag()->add('danger', $this->trans('error.message-default'));
             }
 
             $request->attributes->set('navigationId', $context->getSalesChannel()->getNavigationCategoryId());
 
-            $salesChannelId = $context->getSalesChannel()->getId();
+            $salesChannelId = $context->getSalesChannelId();
             $cmsErrorLayoutId = $this->systemConfigService->getString('core.basicInformation.http404Page', $salesChannelId);
             if ($cmsErrorLayoutId !== '' && $is404StatusCode) {
                 $errorPage = $this->errorPageLoader->load($cmsErrorLayoutId, $request, $context);
@@ -66,13 +57,6 @@ class ErrorController extends StorefrontController
                 );
             } else {
                 $errorTemplate = $this->errorTemplateResolver->resolve($exception, $request);
-
-                if (!$request->isXmlHttpRequest()) {
-                    $header = $this->headerPageletLoader->load($request, $context);
-                    $footer = $this->footerPageletLoader->load($request, $context);
-                    $errorTemplate->setHeader($header);
-                    $errorTemplate->setFooter($footer);
-                }
 
                 $response = $this->renderStorefront($errorTemplate->getTemplateName(), ['page' => $errorTemplate]);
             }
@@ -92,7 +76,7 @@ class ErrorController extends StorefrontController
         // After this controllers content is rendered (even if the flashbag was not used e.g. on a 404 page),
         // clear the existing flashbag messages
 
-        if ($session !== null && method_exists($session, 'getFlashBag')) {
+        if ($session !== null && $session instanceof FlashBagAwareSessionInterface) {
             $session->getFlashBag()->clear();
         }
 
@@ -115,10 +99,6 @@ class ErrorController extends StorefrontController
             'alert' => $this->renderView('@Storefront/storefront/utilities/alert.html.twig', [
                 'type' => 'danger',
                 'list' => [$this->trans('error.' . $formViolations->getViolations()->get(0)->getCode())],
-            ]),
-            'input' => $this->renderView('@Storefront/storefront/component/captcha/basicCaptchaFields.html.twig', [
-                'formId' => $request->get('formId'),
-                'formViolations' => $formViolations,
             ]),
         ];
 

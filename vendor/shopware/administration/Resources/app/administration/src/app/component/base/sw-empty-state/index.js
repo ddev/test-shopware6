@@ -1,14 +1,14 @@
 import template from './sw-empty-state.html.twig';
 import './sw-empty-state.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
+ *
+ * @deprecated tag:v6.8.0 - Will be removed
  */
-Component.register('sw-empty-state', {
+export default {
     template,
 
     props: {
@@ -24,7 +24,6 @@ Component.register('sw-empty-state', {
         },
         showDescription: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -41,7 +40,6 @@ Component.register('sw-empty-state', {
         },
         absolute: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -83,4 +81,4 @@ Component.register('sw-empty-state', {
             };
         },
     },
-});
+};

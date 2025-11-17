@@ -37,7 +37,7 @@ class DateHistogramAggregation extends AbstractAggregation
         ?string $calendarInterval = null,
         ?string $fixedInterval = null,
         ?string $format = null,
-        ?string $timeZone = null
+        ?string $timeZone = null,
     ) {
         parent::__construct($name);
 
@@ -96,9 +96,6 @@ class DateHistogramAggregation extends AbstractAggregation
         return $this;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getArray()
     {
         if ($this->getCalendarInterval() === null && $this->getFixedInterval() === null) {

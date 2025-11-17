@@ -25,9 +25,12 @@ use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-#[Package('core')]
+#[Package('framework')]
 abstract class AbstractPluginLifecycleCommand extends Command
 {
+    /**
+     * @param EntityRepository<PluginCollection> $pluginRepo
+     */
     public function __construct(
         protected PluginLifecycleService $pluginLifecycleService,
         private readonly EntityRepository $pluginRepo,
@@ -39,7 +42,7 @@ abstract class AbstractPluginLifecycleCommand extends Command
     protected function configureCommand(string $lifecycleMethod): void
     {
         $this
-            ->setDescription(sprintf('%ss given plugins', ucfirst($lifecycleMethod)))
+            ->setDescription(\sprintf('%ss given plugins', ucfirst($lifecycleMethod)))
             ->addArgument(
                 'plugins',
                 InputArgument::REQUIRED | InputArgument::IS_ARRAY,
@@ -95,7 +98,7 @@ abstract class AbstractPluginLifecycleCommand extends Command
             return $plugins;
         }
 
-        $io->text(sprintf('%s %d plugin(s):', ucfirst($lifecycleMethod), \count($plugins)));
+        $io->text(\sprintf('%s %d plugin(s):', ucfirst($lifecycleMethod), \count($plugins)));
         $io->listing($this->formatPluginList($plugins));
 
         return $plugins;
@@ -127,7 +130,7 @@ abstract class AbstractPluginLifecycleCommand extends Command
         }
 
         $io->note(
-            sprintf(
+            \sprintf(
                 'You may want to clear the cache after %s plugin(s). To do so run the cache:clear command',
                 $action
             )
@@ -148,7 +151,6 @@ abstract class AbstractPluginLifecycleCommand extends Command
             $criteria = new Criteria();
             $criteria->addFilter(new EqualsFilter('name', $plugins[0]));
 
-            /** @var PluginCollection $matches */
             $matches = $this->pluginRepo->search($criteria, $context)->getEntities();
             if ($matches->count() === 1) {
                 return $matches;
@@ -163,7 +165,6 @@ abstract class AbstractPluginLifecycleCommand extends Command
         $criteria->addSorting(new FieldSorting('name'));
         $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, $filter));
 
-        /** @var PluginCollection $pluginCollection */
         $pluginCollection = $this->pluginRepo->search($criteria, $context)->getEntities();
 
         if ($pluginCollection->count() <= 1) {
@@ -171,16 +172,16 @@ abstract class AbstractPluginLifecycleCommand extends Command
         }
 
         $choiceAbort = 'Cancel.';
-        $choiceSelect = sprintf('Select one Plugin to %s.', $lifecycleMethod);
+        $choiceSelect = \sprintf('Select one Plugin to %s.', $lifecycleMethod);
 
         $choice = $io->askQuestion(
             new ChoiceQuestion(
-                sprintf(
+                \sprintf(
                     '%d plugins were found. How do you want to continue?',
                     $pluginCollection->count()
                 ),
                 [
-                    sprintf('%s all of them.', $lifecycleMethod),
+                    \sprintf('%s all of them.', $lifecycleMethod),
                     $choiceSelect,
                     $choiceAbort,
                 ]
@@ -196,7 +197,7 @@ abstract class AbstractPluginLifecycleCommand extends Command
         if ($choice === $choiceSelect) {
             $id = $io->askQuestion(
                 new ChoiceQuestion(
-                    sprintf(
+                    \sprintf(
                         'Which plugin do you want to %s?',
                         $lifecycleMethod
                     ),
@@ -217,7 +218,7 @@ abstract class AbstractPluginLifecycleCommand extends Command
     {
         $pluginList = [];
         foreach ($plugins as $plugin) {
-            $pluginList[] = sprintf('%s (v%s)', $plugin->getLabel(), $plugin->getVersion());
+            $pluginList[] = \sprintf('%s (v%s)', $plugin->getLabel(), $plugin->getVersion());
         }
 
         return $pluginList;

@@ -2,11 +2,13 @@ import template from './sw-extension-ratings-card.html.twig';
 import './sw-extension-ratings-card.scss';
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
     template,
+
+    emits: ['update-extension'],
 
     mixins: ['sw-extension-error'],
 
@@ -89,7 +91,9 @@ export default {
                 this.numberOfRatings = this.summary.numberOfRatings;
                 this.reviews = this.reviews.concat(reviews);
             } catch (e) {
-                this.showExtensionErrors(e);
+                if (typeof this.showExtensionErrors === 'function') {
+                    this.showExtensionErrors(e);
+                }
             } finally {
                 this.isLoading = false;
             }
@@ -101,11 +105,7 @@ export default {
         },
 
         async getReviews() {
-            return this.extensionStoreDataService.getReviews(
-                this.criteriaPage,
-                this.criteriaLimit,
-                this.extension.id,
-            );
+            return this.extensionStoreDataService.getReviews(this.criteriaPage, this.criteriaLimit, this.extension.id);
         },
     },
 };

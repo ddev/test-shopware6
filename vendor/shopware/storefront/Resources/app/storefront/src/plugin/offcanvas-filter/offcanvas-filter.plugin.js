@@ -1,7 +1,5 @@
 import OffCanvas from 'src/plugin/offcanvas/offcanvas.plugin';
 import Plugin from 'src/plugin-system/plugin.class';
-import DomAccess from 'src/helper/dom-access.helper';
-import Feature from 'src/helper/feature.helper';
 
 export default class OffCanvasFilter extends Plugin {
 
@@ -21,10 +19,7 @@ export default class OffCanvasFilter extends Plugin {
     _onCloseOffCanvas(event) {
         const oldChildNode = event.detail.offCanvasContent[0];
 
-        /** @deprecated tag:v6.6.0 - Selector "data-offcanvas-filter-content" is deprecated. Use "data-off-canvas-filter-content" instead */
-        const filterContent = Feature.isActive('v6.6.0.0')
-            ? document.querySelector('[data-off-canvas-filter-content="true"]')
-            : document.querySelector('[data-offcanvas-filter-content="true"]');
+        const filterContent = document.querySelector('[data-off-canvas-filter-content="true"]');
 
         // move filter back to original place
         filterContent.innerHTML = oldChildNode.innerHTML;
@@ -42,13 +37,10 @@ export default class OffCanvasFilter extends Plugin {
     _onClickOffCanvasFilter(event) {
         event.preventDefault();
 
-        /** @deprecated tag:v6.6.0 - Selector "data-offcanvas-filter-content" is deprecated. Use "data-off-canvas-filter-content" instead */
-        const filterContent = Feature.isActive('v6.6.0.0')
-            ? document.querySelector('[data-off-canvas-filter-content="true"]')
-            : document.querySelector('[data-offcanvas-filter-content="true"]');
+        const filterContent = document.querySelector('[data-off-canvas-filter-content="true"]');
 
         if (!filterContent) {
-            throw Error('There was no DOM element with the data attribute "data-offcanvas-filter-content".')
+            throw Error('There was no DOM element with the data attribute "data-offcanvas-filter-content".');
         }
 
         OffCanvas.open(
@@ -61,10 +53,8 @@ export default class OffCanvasFilter extends Plugin {
             'offcanvas-filter'
         );
 
-        const filterPanel = DomAccess.querySelector(filterContent, '.filter-panel');
-
-        // move filter from original place to offcanvas
-        filterPanel.remove();
+        // remove filter content from original place
+        filterContent.innerHTML = '';
 
         window.PluginManager.getPluginInstances('Listing')[0].refreshRegistry();
         document.$emitter.subscribe('onCloseOffcanvas', this._onCloseOffCanvas.bind(this));

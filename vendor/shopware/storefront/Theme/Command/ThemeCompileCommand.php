@@ -17,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'theme:compile',
     description: 'Compile the theme',
 )]
-#[Package('storefront')]
+#[Package('framework')]
 class ThemeCompileCommand extends Command
 {
     private SymfonyStyle $io;
@@ -41,13 +41,18 @@ class ThemeCompileCommand extends Command
             ->addOption('skip', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Skip compiling themes for given sales channels ids')
             ->addOption('only-themes', 'O', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Compile only themes for given theme ids')
             ->addOption('skip-themes', 'S', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Skip compiling themes for given theme ids')
+            ->addOption('sync', null, InputOption::VALUE_NONE, 'Compile the theme synchronously')
         ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $this->io = new SymfonyStyle($input, $output);
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
+        if ($input->getOption('sync')) {
+            $context->addState(ThemeService::STATE_NO_QUEUE);
+        }
+
         $this->io->writeln('Start theme compilation');
 
         $onlySalesChannel = ((array) $input->getOption('only')) ?: null;
@@ -86,7 +91,7 @@ class ThemeCompileCommand extends Command
 
             $start = microtime(true);
             $this->themeService->compileTheme($salesChannelId, $themeId, $context, null, !$input->getOption('keep-assets'));
-            $this->io->note(sprintf('Took %f seconds', microtime(true) - $start));
+            $this->io->note(\sprintf('Took %f seconds', microtime(true) - $start));
         }
 
         return self::SUCCESS;

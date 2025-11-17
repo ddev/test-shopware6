@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-variants-price-field.html.twig';
@@ -11,6 +11,14 @@ const utils = Shopware.Utils;
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'price-lock-change',
+        'change',
+        'price-calculate',
+        'price-gross-change',
+        'price-net-change',
+    ],
 
     props: {
         price: {
@@ -135,15 +143,17 @@ export default {
                     return;
                 }
 
-                this.calculatePriceApiService.calculatePrice({
-                    taxId: this.taxRate,
-                    price: this.price[outputType],
-                    output: outputType,
-                    currencyId: this.currency.id,
-                }).then(({ data }) => {
-                    resolve(data.calculatedTaxes[0].tax);
-                    this.$emit('price-calculate', false);
-                });
+                this.calculatePriceApiService
+                    .calculatePrice({
+                        taxId: this.taxRate,
+                        price: this.price[outputType],
+                        output: outputType,
+                        currencyId: this.currency.id,
+                    })
+                    .then(({ data }) => {
+                        resolve(data.calculatedTaxes[0].tax);
+                        this.$emit('price-calculate', false);
+                    });
             });
         },
     },

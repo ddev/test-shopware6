@@ -2,7 +2,7 @@ import template from './sw-order-nested-line-items-row.html.twig';
 import './sw-order-nested-line-items-row.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  *
  * @private
  */
@@ -24,7 +24,6 @@ export default {
         renderParent: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return false;

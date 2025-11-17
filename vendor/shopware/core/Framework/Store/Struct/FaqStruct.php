@@ -7,19 +7,16 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class FaqStruct extends StoreStruct
 {
-    /**
-     * @var string
-     */
-    protected $question;
+    protected string $question;
+
+    protected string $answer;
 
     /**
-     * @var string
+     * @return FaqStruct
      */
-    protected $answer;
-
     public static function fromArray(array $data): StoreStruct
     {
         return (new self())->assign($data);

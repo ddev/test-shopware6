@@ -1,13 +1,10 @@
 import './sw-inherit-wrapper.scss';
 import template from './sw-inherit-wrapper.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Wrapper for inherited data with toggle
  * @status ready
  * @example-type dynamic
@@ -37,19 +34,23 @@ const { Component } = Shopware;
  * </sw-inherit-wrapper>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-inherit-wrapper', {
+export default {
     template,
 
     inject: ['feature'],
 
+    emits: [
+        'update:value',
+        'inheritance-restore',
+        'inheritance-remove',
+    ],
+
     props: {
-        // FIXME: add type property
         // eslint-disable-next-line vue/require-prop-types
         value: {
             required: true,
         },
 
-        // FIXME: add type property
         // eslint-disable-next-line vue/require-prop-types
         inheritedValue: {
             required: true,
@@ -82,7 +83,6 @@ Component.register('sw-inherit-wrapper', {
         hasParent: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: undefined,
         },
@@ -134,17 +134,16 @@ Component.register('sw-inherit-wrapper', {
             },
 
             set(newValue) {
-                if (this.feature.isActive('VUE3') && this.isInherited && newValue !== this.inheritedValue) {
-                    this.removeInheritance(newValue);
+                if (this.isInherited && newValue === this.inheritedValue) {
                     return;
                 }
 
-                if (this.isInherited) {
-                    this.removeInheritance(newValue);
+                if (!this.isInherited && newValue !== this.inheritedValue) {
+                    this.updateValue(newValue, 'restore');
                     return;
                 }
 
-                this.updateValue(newValue, 'restore');
+                this.removeInheritance(newValue);
             },
         },
 
@@ -169,8 +168,8 @@ Component.register('sw-inherit-wrapper', {
                 return this.customInheritationCheckFunction(this.value);
             }
 
-            // if association
-            if (this.isAssociation && this.value) {
+            // if association or array
+            if ((this.isAssociation || Array.isArray(this.value)) && this.value) {
                 return this.value.length <= 0;
             }
 
@@ -190,14 +189,7 @@ Component.register('sw-inherit-wrapper', {
         },
 
         updateValue(value, inheritanceEventName) {
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', value);
-                this.$emit(`inheritance-${inheritanceEventName}`);
-
-                return;
-            }
-
-            this.$emit('input', value);
+            this.$emit('update:value', value);
             this.$emit(`inheritance-${inheritanceEventName}`);
         },
 
@@ -230,12 +222,7 @@ Component.register('sw-inherit-wrapper', {
                 return;
             }
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', null);
-                return;
-            }
-
-            this.$emit('input', null);
+            this.$emit('update:value', null);
         },
 
         removeInheritance(newValue = this.currentValue) {
@@ -263,16 +250,11 @@ Component.register('sw-inherit-wrapper', {
                 return;
             }
 
-            if (!newValue) {
+            if (!newValue || (Array.isArray(newValue) && newValue.length <= 0)) {
                 this.forceInheritanceRemove = true;
             }
 
-            if (this.feature.isActive('VUE3')) {
-                this.$emit('update:value', newValue);
-                return;
-            }
-
-            this.$emit('input', newValue);
+            this.$emit('update:value', newValue);
         },
     },
-});
+};

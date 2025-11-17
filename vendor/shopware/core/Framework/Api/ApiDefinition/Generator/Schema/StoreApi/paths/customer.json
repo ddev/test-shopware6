@@ -1,5 +1,5 @@
 {
-    "openapi": "3.0.0",
+    "openapi": "3.1.0",
     "info": [],
     "paths": {
         "/customer/wishlist/add/{productId}": {
@@ -36,7 +36,8 @@
                 },
                 "security": [
                     {
-                        "ApiKey": []
+                        "ApiKey": [],
+                        "ContextToken": []
                     }
                 ]
             }
@@ -50,6 +51,32 @@
                 "summary": "Fetch a wishlist",
                 "description": "Fetch a customer's wishlist. Products on the wishlist can be filtered using a criteria object.\n\n    **Important constraints**\n\n    * Anonymous (not logged-in) customers can not have wishlists.\n    * The wishlist feature has to be activated.",
                 "operationId": "readCustomerWishlist",
+                "parameters": [
+                    {
+                        "name": "sw-language-id",
+                        "in": "header",
+                        "description": "Instructs Shopware to return the response in the given language.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{32}$"
+                        }
+                    },
+                    {
+                        "name": "sw-include-search-info",
+                        "in": "header",
+                        "description": "Controls whether API search information is included in the response. Default is 1 (enabled), will be 0 (disabled) in the next major version.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ],
+                            "default": "1"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "required": false,
                     "content": {
@@ -78,7 +105,8 @@
                 },
                 "security": [
                     {
-                        "ApiKey": []
+                        "ApiKey": [],
+                        "ContextToken": []
                     }
                 ]
             }
@@ -126,7 +154,8 @@
                 },
                 "security": [
                     {
-                        "ApiKey": []
+                        "ApiKey": [],
+                        "ContextToken": []
                     }
                 ]
             }
@@ -175,7 +204,8 @@
                 },
                 "security": [
                     {
-                        "ApiKey": []
+                        "ApiKey": [],
+                        "ContextToken": []
                     }
                 ]
             }

@@ -3,20 +3,18 @@
 namespace Shopware\Core\Framework\Api\Serializer;
 
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Util\Hasher;
 use Symfony\Component\Serializer\Encoder\DecoderInterface;
 use Symfony\Component\Serializer\Encoder\JsonDecode;
 use Symfony\Component\Serializer\Exception\InvalidArgumentException;
 use Symfony\Component\Serializer\Exception\UnexpectedValueException;
 
-#[Package('core')]
+#[Package('framework')]
 class JsonApiDecoder implements DecoderInterface
 {
     final public const FORMAT = 'jsonapi';
 
-    /**
-     * @return array|mixed
-     */
-    public function decode(string $data, string $format, array $context = [])
+    public function decode(string $data, string $format, array $context = []): mixed
     {
         $decodedData = (new JsonDecode([JsonDecode::ASSOCIATIVE => true]))->decode($data, 'json');
 
@@ -44,17 +42,21 @@ class JsonApiDecoder implements DecoderInterface
         return $format === self::FORMAT;
     }
 
+    /**
+     * @param array<string, mixed> $resource
+     * @param array<string, array<array-key, mixed>> $includes
+     *
+     * @return array<string, mixed>
+     */
     private function resolveRelationship(array $resource, array $includes): array
     {
         $this->validateResourceIdentifier($resource);
 
-        \assert(\is_string($resource['id']));
-        \assert(\is_string($resource['type']));
-        $hash = md5(json_encode(['id' => $resource['id'], 'type' => $resource['type']], \JSON_THROW_ON_ERROR));
+        $hash = $this->getIdentifierHash($resource);
 
         if (!\array_key_exists($hash, $includes)) {
             throw new InvalidArgumentException(
-                sprintf(
+                \sprintf(
                     'Resolving relationship "%s(%s)" failed due to non-existence.',
                     $resource['type'],
                     $resource['id']
@@ -65,11 +67,19 @@ class JsonApiDecoder implements DecoderInterface
         return $includes[$hash];
     }
 
+    /**
+     * @param array<mixed> $array
+     */
     private function isCollection(array $array): bool
     {
         return array_keys($array) === range(0, \count($array) - 1);
     }
 
+    /**
+     * @param list<array<string, mixed>> $included
+     *
+     * @return array<string, array<array-key, mixed>>
+     */
     private function resolveIncludes(array $included): array
     {
         $indexed = [];
@@ -105,6 +115,12 @@ class JsonApiDecoder implements DecoderInterface
         return $indexed;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, array<string, mixed>> $includes
+     *
+     * @return array<string, mixed>
+     */
     private function decodeResource(array $data, array $includes): array
     {
         $entity = $this->convertToStruct($data);
@@ -136,6 +152,11 @@ class JsonApiDecoder implements DecoderInterface
         return $entity;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
     private function convertToStruct(array $data): array
     {
         $this->validateResourceIdentifier($data);
@@ -155,6 +176,12 @@ class JsonApiDecoder implements DecoderInterface
         return $entity;
     }
 
+    /**
+     * @param list<array<string, mixed>> $data
+     * @param array<string, array<array-key, mixed>> $includes
+     *
+     * @return list<array<string, mixed>>
+     */
     private function resolveRelationshipCollection(array $data, array $includes): array
     {
         $collection = [];
@@ -166,11 +193,20 @@ class JsonApiDecoder implements DecoderInterface
         return $collection;
     }
 
+    /**
+     * @param array<string, mixed> $resource
+     */
     private function getIdentifierHash(array $resource): string
     {
-        return md5(json_encode(['id' => $resource['id'], 'type' => $resource['type']], \JSON_THROW_ON_ERROR));
+        return Hasher::hash(['id' => $resource['id'], 'type' => $resource['type']]);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, array<string, mixed>> $includes
+     *
+     * @return list<array<string, mixed>>
+     */
     private function decodeCollection(array $data, array $includes): array
     {
         $collection = [];
@@ -182,6 +218,9 @@ class JsonApiDecoder implements DecoderInterface
         return $collection;
     }
 
+    /**
+     * @param array<string, mixed> $resource
+     */
     private function validateResourceIdentifier($resource): void
     {
         if (\is_array($resource) && \array_key_exists('type', $resource) && \array_key_exists('id', $resource)) {

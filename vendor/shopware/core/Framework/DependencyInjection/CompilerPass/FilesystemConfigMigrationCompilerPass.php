@@ -6,7 +6,7 @@ use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-#[Package('core')]
+#[Package('framework')]
 class FilesystemConfigMigrationCompilerPass implements CompilerPassInterface
 {
     private const MIGRATED_FS = ['theme', 'asset', 'sitemap'];
@@ -14,10 +14,16 @@ class FilesystemConfigMigrationCompilerPass implements CompilerPassInterface
     public function process(ContainerBuilder $container): void
     {
         foreach (self::MIGRATED_FS as $fs) {
-            $key = sprintf('shopware.filesystem.%s', $fs);
+            $key = \sprintf('shopware.filesystem.%s', $fs);
             $urlKey = $key . '.url';
             $typeKey = $key . '.type';
             $configKey = $key . '.config';
+            $visibilityKey = $key . '.visibility';
+
+            if (!$container->hasParameter($visibilityKey)) {
+                $container->setParameter($visibilityKey, '%shopware.filesystem.public.visibility%');
+            }
+
             if ($container->hasParameter($typeKey)) {
                 continue;
             }
@@ -31,6 +37,10 @@ class FilesystemConfigMigrationCompilerPass implements CompilerPassInterface
 
         if (!$container->hasParameter('shopware.filesystem.public.url')) {
             $container->setParameter('shopware.filesystem.public.url', '%shopware.cdn.url%');
+        }
+
+        if (!$container->hasParameter('shopware.filesystem.public.visibility')) {
+            $container->setParameter('shopware.filesystem.public.visibility', 'public');
         }
     }
 }

@@ -3,33 +3,40 @@
 namespace Shopware\Core\Framework\Webhook\Handler;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Exception\RequestException;
+use Shopware\Core\Framework\App\Exception\AppNotFoundException;
 use Shopware\Core\Framework\App\Hmac\Guzzle\AuthMiddleware;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\WriteTypeIntendException;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
 use Shopware\Core\Framework\Webhook\EventLog\WebhookEventLogDefinition;
 use Shopware\Core\Framework\Webhook\Message\WebhookEventMessage;
+use Shopware\Core\Framework\Webhook\Service\RelatedWebhooks;
+use Shopware\Core\Framework\Webhook\WebhookException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
  * @internal
  */
 #[AsMessageHandler]
-#[Package('core')]
-final class WebhookEventMessageHandler
+#[Package('framework')]
+final readonly class WebhookEventMessageHandler
 {
     private const TIMEOUT = 20;
     private const CONNECT_TIMEOUT = 10;
 
     /**
      * @internal
+     *
+     * @param EntityRepository<ScheduledTaskCollection> $webhookEventLogRepository
      */
     public function __construct(
-        private readonly Client $client,
-        private readonly EntityRepository $webhookRepository,
-        private readonly EntityRepository $webhookEventLogRepository
+        private Client $client,
+        private EntityRepository $webhookEventLogRepository,
+        private RelatedWebhooks $relatedWebhooks,
     ) {
     }
 
@@ -68,19 +75,20 @@ final class WebhookEventMessageHandler
 
         $context = Context::createDefaultContext();
 
-        $this->webhookEventLogRepository->update([
+        $this->updateLogIfItExists(
             [
                 'id' => $message->getWebhookEventId(),
                 'deliveryStatus' => WebhookEventLogDefinition::STATUS_RUNNING,
                 'timestamp' => $timestamp,
                 'requestContent' => $requestContent,
             ],
-        ], $context);
+            $context
+        );
 
         try {
             $response = $this->client->post($url, $requestContent);
 
-            $this->webhookEventLogRepository->update([
+            $this->updateLogIfItExists(
                 [
                     'id' => $message->getWebhookEventId(),
                     'deliveryStatus' => WebhookEventLogDefinition::STATUS_SUCCESS,
@@ -92,18 +100,14 @@ final class WebhookEventMessageHandler
                     'responseStatusCode' => $response->getStatusCode(),
                     'responseReasonPhrase' => $response->getReasonPhrase(),
                 ],
-            ], $context);
+                $context
+            );
 
             try {
-                $this->webhookRepository->update([
-                    [
-                        'id' => $message->getWebhookId(),
-                        'errorCount' => 0,
-                    ],
-                ], $context);
-            } catch (WriteTypeIntendException $e) {
+                $this->relatedWebhooks->updateRelated($message->getWebhookId(), ['error_count' => 0], $context);
+            } catch (AppNotFoundException|WriteTypeIntendException $e) {
                 // may happen if app or webhook got deleted in the meantime,
-                // we don't need to update the erro-count in that case, so we can ignore the error
+                // we don't need to update the error-count in that case, so we can ignore the error
             }
         } catch (\Throwable $e) {
             $payload = [
@@ -114,19 +118,39 @@ final class WebhookEventMessageHandler
 
             if ($e instanceof RequestException && $e->getResponse() !== null) {
                 $response = $e->getResponse();
+                $body = $response->getBody()->getContents();
+                if (json_validate($body)) {
+                    $body = \json_decode($body, true, 512, \JSON_THROW_ON_ERROR);
+                }
                 $payload = array_merge($payload, [
                     'responseContent' => [
                         'headers' => $response->getHeaders(),
-                        'body' => \json_decode($response->getBody()->getContents(), true, 512, \JSON_THROW_ON_ERROR),
+                        'body' => $body,
                     ],
                     'responseStatusCode' => $response->getStatusCode(),
                     'responseReasonPhrase' => $response->getReasonPhrase(),
                 ]);
             }
 
-            $this->webhookEventLogRepository->update([$payload], $context);
+            $this->updateLogIfItExists($payload, $context);
 
-            throw new \RuntimeException(\sprintf('Message %s failed with error: %s', static::class, $e->getMessage()), $e->getCode(), $e);
+            if ($e instanceof BadResponseException && $message->getAppId()) {
+                throw WebhookException::appWebhookFailedException($message->getWebhookId(), $message->getAppId(), $e);
+            }
+
+            throw WebhookException::webhookFailedException($message->getWebhookId(), $e);
+        }
+    }
+
+    /**
+     * @param array<string, mixed|null> $payload
+     */
+    private function updateLogIfItExists(array $payload, Context $context): void
+    {
+        try {
+            $this->webhookEventLogRepository->update([$payload], $context);
+        } catch (WriteTypeIntendException $e) {
+            // ignore, as that indicates the log entry was already deleted, in that case we don't need to update it
         }
     }
 }

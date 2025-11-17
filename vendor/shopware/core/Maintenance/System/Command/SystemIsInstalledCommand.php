@@ -12,8 +12,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * This command can be used to detect if the system is installed to script a Shopware installation or update.
+ *
+ * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 #[AsCommand(
     name: 'system:is-installed',
     description: 'Checks if the system is installed and returns exit code 0 if Shopware is installed',

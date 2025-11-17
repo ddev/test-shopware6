@@ -7,19 +7,16 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class ImageStruct extends StoreStruct
 {
-    /**
-     * @var string
-     */
-    protected $remoteLink;
+    protected string $remoteLink;
+
+    protected ?string $raw = null;
 
     /**
-     * @var string|null
+     * @return ImageStruct
      */
-    protected $raw;
-
     public static function fromArray(array $data): StoreStruct
     {
         return (new self())->assign($data);

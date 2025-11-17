@@ -7,10 +7,10 @@ use League\Flysystem\FilesystemOperator;
 use Shopware\Core\Content\ImportExport\Aggregate\ImportExportFile\ImportExportFileEntity;
 use Shopware\Core\Content\ImportExport\Aggregate\ImportExportLog\ImportExportLogEntity;
 use Shopware\Core\Content\ImportExport\Event\EnrichExportCriteriaEvent;
-use Shopware\Core\Content\ImportExport\Event\ImportExportAfterImportRecordEvent;
 use Shopware\Core\Content\ImportExport\Event\ImportExportBeforeExportRecordEvent;
 use Shopware\Core\Content\ImportExport\Event\ImportExportBeforeImportRecordEvent;
 use Shopware\Core\Content\ImportExport\Event\ImportExportBeforeImportRowEvent;
+use Shopware\Core\Content\ImportExport\Event\ImportExportExceptionExportRecordEvent;
 use Shopware\Core\Content\ImportExport\Event\ImportExportExceptionImportRecordEvent;
 use Shopware\Core\Content\ImportExport\Processing\Mapping\CriteriaBuilder;
 use Shopware\Core\Content\ImportExport\Processing\Pipe\AbstractPipe;
@@ -18,14 +18,18 @@ use Shopware\Core\Content\ImportExport\Processing\Reader\AbstractReader;
 use Shopware\Core\Content\ImportExport\Processing\Writer\AbstractWriter;
 use Shopware\Core\Content\ImportExport\Service\AbstractFileService;
 use Shopware\Core\Content\ImportExport\Service\ImportExportService;
+use Shopware\Core\Content\ImportExport\Strategy\Import\ImportStrategyService;
 use Shopware\Core\Content\ImportExport\Struct\Config;
 use Shopware\Core\Content\ImportExport\Struct\Progress;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\Dbal\EntityDefinitionQueryHelper;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityWriteResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenEvent;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IdField;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
@@ -35,7 +39,12 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-#[Package('services-settings')]
+/**
+ * @phpstan-type ImportData array{record: array<string, mixed>, original: array<string, mixed>}
+ *
+ * @internal
+ */
+#[Package('fundamentals@after-sales')]
 class ImportExport
 {
     private const PART_FILE_SUFFIX = '.offset_';
@@ -43,16 +52,16 @@ class ImportExport
     private ?int $total = null;
 
     /**
-     * @var WriteCommand[]|null
+     * @var WriteCommand[]
      */
-    private ?array $failedWriteCommands = null;
+    private array $failedWriteCommands = [];
 
     /**
-     * @internal
+     * @param EntityRepository<covariant EntityCollection<covariant Entity>> $repository
      */
     public function __construct(
         private readonly ImportExportService $importExportService,
-        private readonly ImportExportLogEntity $logEntity,
+        private ImportExportLogEntity $logEntity,
         private readonly FilesystemOperator $filesystem,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly Connection $connection,
@@ -61,6 +70,7 @@ class ImportExport
         private readonly AbstractReader $reader,
         private readonly AbstractWriter $writer,
         private readonly AbstractFileService $fileService,
+        private readonly ImportStrategyService $importStrategyService,
         private readonly int $importLimit = 250,
         private readonly int $exportLimit = 250
     ) {
@@ -68,10 +78,13 @@ class ImportExport
 
     public function import(Context $context, int $offset = 0): Progress
     {
+        // We fetch a fresh version of the log entity to have the most recent results
+        $this->logEntity = $this->importExportService->findLog($context, $this->logEntity->getId());
+
         $progress = $this->importExportService->getProgress($this->logEntity->getId(), $offset);
 
-        /** @var ImportExportFileEntity $file */
         $file = $this->logEntity->getFile();
+        \assert($file instanceof ImportExportFileEntity);
 
         $progress->setTotal($file->getSize());
 
@@ -80,23 +93,28 @@ class ImportExport
         }
 
         $processed = 0;
+        $results = [];
+        $failedRecords = [];
+        $this->failedWriteCommands = [];
 
         $path = $file->getPath();
         $progress->setTotal($this->filesystem->fileSize($path));
         $invalidRecordsProgress = null;
 
-        $failedRecords = [];
-
         $resource = $this->filesystem->readStream($path);
+
         $config = Config::fromLog($this->logEntity);
+        $config = $this->filterApiAwareFields($config, $context);
+
         $overallResults = $this->logEntity->getResult();
 
         $this->eventDispatcher->addListener(WriteCommandExceptionEvent::class, $this->onWriteException(...));
 
-        $createEntities = $config->get('createEntities') ?? true;
-        $updateEntities = $config->get('updateEntities') ?? true;
-
         $context->addState(Context::SKIP_TRIGGER_FLOW);
+
+        if ($this->logEntity->getActivity() === ImportExportLogEntity::ACTIVITY_DRYRUN) {
+            $this->connection->beginTransaction();
+        }
 
         foreach ($this->reader->read($config, $resource, $offset) as $row) {
             $event = new ImportExportBeforeImportRowEvent($row, $config, $context);
@@ -116,14 +134,6 @@ class ImportExport
                 continue;
             }
 
-            $result = null;
-            $this->failedWriteCommands = null;
-
-            if ($this->logEntity->getActivity() === ImportExportLogEntity::ACTIVITY_DRYRUN) {
-                $this->connection->setNestTransactionsWithSavepoints(true);
-                $this->connection->beginTransaction();
-            }
-
             try {
                 if (isset($record['_error']) && $record['_error'] instanceof \Throwable) {
                     throw $record['_error'];
@@ -139,45 +149,39 @@ class ImportExport
 
                 $record = $event->getRecord();
 
-                if ($createEntities === true && $updateEntities === false) {
-                    $result = $this->repository->create([$record], $context);
-                } elseif ($createEntities === false && $updateEntities === true) {
-                    $result = $this->repository->update([$record], $context);
-                } else {
-                    // expect that both create and update are true -> upsert
-                    // both false isn't possible via admin (but still results in an upsert)
-                    $result = $this->repository->upsert([$record], $context);
-                }
+                $importResult = $this->importStrategyService->import($record, $row, $config, $progress, $context);
 
-                $progress->addProcessedRecords(1);
-
-                $afterRecord = new ImportExportAfterImportRecordEvent($result, $record, $row, $config, $context);
-                $this->eventDispatcher->dispatch($afterRecord);
+                $results = array_merge($results, $importResult->results);
+                $failedRecords = array_merge($failedRecords, $importResult->failedRecords);
             } catch (\Throwable $exception) {
                 $event = new ImportExportExceptionImportRecordEvent($exception, $record, $row, $config, $context);
                 $this->eventDispatcher->dispatch($event);
 
-                $exception = $event->getException();
+                $importException = $event->getException();
 
-                if ($exception) {
-                    $record['_error'] = mb_convert_encoding($exception->getMessage(), 'UTF-8', 'UTF-8');
+                if ($importException) {
+                    $record['_error'] = mb_convert_encoding($importException->getMessage(), 'UTF-8', 'UTF-8');
                     $failedRecords[] = $record;
                 }
             }
-
-            if ($this->logEntity->getActivity() === ImportExportLogEntity::ACTIVITY_DRYRUN) {
-                $this->connection->rollBack();
-            }
-
-            $this->importExportService->saveProgress($progress);
-
-            $overallResults = $this->logResults($overallResults, $result, $this->repository->getDefinition()->getEntityName());
 
             ++$processed;
             if ($this->importLimit > 0 && $processed >= $this->importLimit) {
                 break;
             }
         }
+
+        $importResult = $this->importStrategyService->commit($config, $progress, $context);
+
+        $results = array_merge($results, $importResult->results);
+        $failedRecords = array_merge($failedRecords, $importResult->failedRecords);
+
+        if ($this->logEntity->getActivity() === ImportExportLogEntity::ACTIVITY_DRYRUN) {
+            $this->connection->rollBack();
+        }
+
+        $overallResults = $this->logResults($overallResults, $results, $failedRecords, $this->repository->getDefinition()->getEntityName());
+
         $progress->setOffset($this->reader->getOffset());
 
         $this->eventDispatcher->removeListener(WriteCommandExceptionEvent::class, $this->onWriteException(...));
@@ -190,14 +194,11 @@ class ImportExport
         // importing the file is complete
         if ($this->reader->getOffset() === $this->filesystem->fileSize($path)) {
             if ($this->logEntity->getInvalidRecordsLog() instanceof ImportExportLogEntity) {
-                /** @var ImportExportLogEntity $invalidLog */
                 $invalidLog = $this->logEntity->getInvalidRecordsLog();
                 $invalidRecordsProgress ??= $this->importExportService->getProgress($invalidLog->getId(), $invalidLog->getRecords());
 
                 // complete invalid records export
                 $this->mergePartFiles($invalidLog, $invalidRecordsProgress);
-
-                $invalidRecordsProgress->setState(Progress::STATE_SUCCEEDED);
                 $this->importExportService->saveProgress($invalidRecordsProgress);
             }
 
@@ -218,6 +219,8 @@ class ImportExport
         }
 
         $config = Config::fromLog($this->logEntity);
+        $config = $this->filterApiAwareFields($config, $context);
+
         $criteriaBuilder = new CriteriaBuilder($this->repository->getDefinition());
 
         $criteria = $criteria === null ? new Criteria() : clone $criteria;
@@ -238,9 +241,11 @@ class ImportExport
         $criteria->setLimit($this->exportLimit <= 0 ? 250 : $this->exportLimit);
         $fullExport = $this->exportLimit <= 0;
 
-        /** @var ImportExportFileEntity $file */
         $file = $this->logEntity->getFile();
+        \assert($file instanceof ImportExportFileEntity);
         $targetFile = $this->getPartFilePath($file->getPath(), $offset);
+
+        $failedRecords = [];
 
         do {
             $result = $this->repository->search($criteria, $context);
@@ -257,10 +262,15 @@ class ImportExport
                 break;
             }
 
-            $progress = $this->exportChunk($config, $entities, $progress, $targetFile);
+            $progress = $this->exportChunk($config, $entities, $progress, $targetFile, $context, false, $failedRecords);
 
-            $criteria->setOffset($criteria->getOffset() + $criteria->getLimit());
+            $criteria->setOffset((int) $criteria->getOffset() + (int) $criteria->getLimit());
         } while ($fullExport && $progress->getOffset() < $progress->getTotal());
+
+        if (!empty($failedRecords)) {
+            $progress->setInvalidRecordsLogId($this->exportInvalid($context, $failedRecords)->getLogId());
+            $this->importExportService->saveProgress($progress);
+        }
 
         if ($progress->getTotal() > $progress->getOffset()) {
             return $progress;
@@ -268,7 +278,60 @@ class ImportExport
 
         $this->writer->finish($config, $targetFile);
 
-        return $this->mergePartFiles($this->logEntity, $progress);
+        if (!$this->logEntity->getInvalidRecordsLog() instanceof ImportExportLogEntity) {
+            return $this->mergePartFiles($this->logEntity, $progress);
+        }
+
+        $progress->setState(Progress::STATE_FAILED);
+        $this->importExportService->saveProgress($progress);
+
+        $invalidLog = $this->logEntity->getInvalidRecordsLog();
+        $invalidRecordsProgress = $this->importExportService->getProgress($invalidLog->getId(), $invalidLog->getRecords());
+
+        // complete invalid records export
+        $this->mergePartFiles($invalidLog, $invalidRecordsProgress);
+
+        $this->importExportService->saveProgress($invalidRecordsProgress);
+
+        return $progress;
+    }
+
+    /**
+     * @param array<int|string, mixed> $exceptions
+     *
+     * @internal
+     */
+    public function exportExceptions(Context $context, array $exceptions): Progress
+    {
+        $progress = $this->importExportService->getProgress($this->logEntity->getId(), 0);
+
+        $originalConfig = $this->logEntity->getConfig();
+
+        try {
+            $this->logEntity->setConfig([]);
+
+            $progress->setInvalidRecordsLogId($this->exportInvalid($context, $exceptions)->getLogId());
+
+            $this->logEntity->setConfig($originalConfig);
+
+            $invalidLog = $this->logEntity->getInvalidRecordsLog();
+            \assert($invalidLog instanceof ImportExportLogEntity);
+            $invalidRecordsProgress = $this->importExportService->getProgress($invalidLog->getId(), $invalidLog->getRecords());
+
+            // complete invalid records export
+            $this->mergePartFiles($invalidLog, $invalidRecordsProgress);
+            $this->importExportService->saveProgress($invalidRecordsProgress);
+        } finally {
+            // assure that the config is restored
+            if ($this->logEntity->getConfig() !== $originalConfig) {
+                $this->logEntity->setConfig($originalConfig);
+            }
+        }
+
+        $progress->setState(Progress::STATE_FAILED);
+        $this->importExportService->saveProgress($progress);
+
+        return $progress;
     }
 
     public function abort(): void
@@ -292,7 +355,7 @@ class ImportExport
 
     public function onWriteException(WriteCommandExceptionEvent $event): void
     {
-        $this->failedWriteCommands = $event->getCommands();
+        $this->failedWriteCommands = array_merge($this->failedWriteCommands, $event->getCommands());
     }
 
     private function getPartFilePath(string $targetPath, int $offset): string
@@ -310,11 +373,11 @@ class ImportExport
         $this->importExportService->saveProgress($progress);
 
         $tmpFile = tempnam(sys_get_temp_dir(), '');
-        /** @var resource $tmp */
-        $tmp = fopen($tmpFile ?: '', 'w+b');
+        $tmp = fopen($tmpFile ?: '', 'w+');
+        \assert(\is_resource($tmp));
 
-        /** @var ImportExportFileEntity $file */
         $file = $logEntity->getFile();
+        \assert($file instanceof ImportExportFileEntity);
         $target = $file->getPath();
 
         $dir = \dirname($target);
@@ -347,6 +410,8 @@ class ImportExport
         // copy final file into filesystem
         $this->filesystem->writeStream($target, $tmp);
 
+        // The Google Cloud Storage filesystem closes the stream even though it should not. To prevent a fatal
+        // error, we therefore need to check whether the stream has been closed yet.
         if (\is_resource($tmp)) {
             fclose($tmp);
         }
@@ -377,30 +442,69 @@ class ImportExport
     }
 
     /**
-     * @param iterable<Entity|array<mixed>> $records
+     * @param array<Entity|array<int|string, mixed>> $records
+     * @param array<int, array<mixed>> $failedRecords
      */
-    private function exportChunk(Config $config, iterable $records, Progress $progress, string $targetFile): Progress
-    {
+    private function exportChunk(
+        Config $config,
+        iterable $records,
+        Progress $progress,
+        string $targetFile,
+        Context $context,
+        bool $allowErrors = false,
+        array &$failedRecords = []
+    ): Progress {
         $exportedRecords = 0;
         $offset = $progress->getOffset();
-        /** @var Entity|array<mixed> $originalRecord */
         foreach ($records as $originalRecord) {
             $originalRecord = $originalRecord instanceof Entity
                 ? $originalRecord->jsonSerialize()
                 : $originalRecord;
 
-            $record = [];
+            $mappedRecord = [];
+            $exportExceptions = [];
+
             foreach ($this->pipe->in($config, $originalRecord) as $key => $value) {
-                $record[$key] = $value;
+                if (\is_object($value) && !method_exists($value, '__toString')) {
+                    if (!$allowErrors) {
+                        $exportExceptions[$key] = ImportExportException::fieldCannotBeExported($value::class);
+
+                        continue;
+                    }
+
+                    $mappedRecord[$key] = '#ERROR#';
+
+                    continue;
+                }
+
+                $value = (string) $value;
+                $mappedRecord[$key] = $value;
             }
 
-            if ($record !== []) {
-                $event = new ImportExportBeforeExportRecordEvent($config, $record, $originalRecord);
+            if ($exportExceptions) {
+                $event = new ImportExportExceptionExportRecordEvent($exportExceptions, $mappedRecord, $config, $context);
                 $this->eventDispatcher->dispatch($event);
 
-                $record = $event->getRecord();
+                $exceptions = $event->getExceptions();
 
-                $this->writer->append($config, $record, $offset);
+                if ($exceptions) {
+                    $originalRecord['_error'] = json_encode(
+                        \array_map(
+                            fn ($exception) => \mb_convert_encoding($exception->getMessage(), 'UTF-8', 'UTF-8'),
+                            $exceptions
+                        )
+                    );
+                    $failedRecords[] = $originalRecord;
+                }
+            }
+
+            if ($mappedRecord !== [] && !$exportExceptions) {
+                $event = new ImportExportBeforeExportRecordEvent($config, $mappedRecord, $originalRecord);
+                $this->eventDispatcher->dispatch($event);
+
+                $importRecord = $event->getRecord();
+
+                $this->writer->append($config, $importRecord, $offset);
                 ++$exportedRecords;
             }
 
@@ -423,50 +527,30 @@ class ImportExport
      * In case we failed to import some invalid records, we export them as a new csv with the same format and
      * an additional _error column.
      *
-     * @param array<Entity|array<mixed>> $failedRecords
+     * @param array<array<int|string, mixed>> $failedRecords
      */
     private function exportInvalid(Context $context, array $failedRecords): Progress
     {
         $file = $this->logEntity->getFile();
 
-        // created a invalid records export if it doesn't exist
-        if (!$this->logEntity->getInvalidRecordsLogId() && $file instanceof ImportExportFileEntity) {
-            $pathInfo = pathinfo($file->getOriginalName());
-            $newName = $pathInfo['filename'] . '_failed.' . ($pathInfo['extension'] ?? '');
-
-            $newPath = $file->getPath() . '_invalid';
-
-            $config = $this->logEntity->getConfig();
-            $config['mapping'][] = [
-                'key' => '_error',
-                'mappedKey' => '_error',
-            ];
-            $config = new Config($config['mapping'], $config['parameters'] ?? [], $config['updateBy'] ?? []);
-
-            if ($this->logEntity->getProfileId() !== null) {
-                $failedImportLogEntity = $this->importExportService->prepareExport(
-                    $context,
-                    $this->logEntity->getProfileId(),
-                    $file->getExpireDate(),
-                    $newName,
-                    $config->jsonSerialize(),
-                    $newPath,
-                    ImportExportLogEntity::ACTIVITY_INVALID_RECORDS_EXPORT
-                );
-
-                $this->logEntity->setInvalidRecordsLog($failedImportLogEntity);
-                $this->logEntity->setInvalidRecordsLogId($failedImportLogEntity->getId());
-            }
+        if (
+            !$this->logEntity->getInvalidRecordsLogId()
+            && $file instanceof ImportExportFileEntity
+        ) {
+            $failedImportLogEntity = $this->createInvalidRecordsLog($context, $file);
+            \assert($failedImportLogEntity instanceof ImportExportLogEntity);
+            $this->logEntity->setInvalidRecordsLog($failedImportLogEntity);
+            $this->logEntity->setInvalidRecordsLogId($failedImportLogEntity->getId());
         }
 
-        /** @var ImportExportLogEntity $failedImportLogEntity */
         $failedImportLogEntity = $this->logEntity->getInvalidRecordsLog();
+        \assert($failedImportLogEntity instanceof ImportExportLogEntity);
         $config = Config::fromLog($failedImportLogEntity);
 
         $offset = $failedImportLogEntity->getRecords();
 
-        /** @var ImportExportFileEntity $failedImportLogFile */
         $failedImportLogFile = $failedImportLogEntity->getFile();
+        \assert($failedImportLogFile instanceof ImportExportFileEntity);
         $targetFile = $this->getPartFilePath($failedImportLogFile->getPath(), $offset);
 
         $progress = $this->importExportService->getProgress($failedImportLogEntity->getId(), $offset);
@@ -475,10 +559,43 @@ class ImportExport
             $config,
             $failedRecords,
             $progress,
-            $targetFile
+            $targetFile,
+            $context,
+            true
         );
 
+        $this->writer->finish($config, $targetFile);
+
         return $progress;
+    }
+
+    private function createInvalidRecordsLog(Context $context, ImportExportFileEntity $file): ?ImportExportLogEntity
+    {
+        if (!$this->logEntity->getProfileId()) {
+            return null;
+        }
+
+        $pathInfo = pathinfo($file->getOriginalName());
+        $newName = $pathInfo['filename'] . '_failed.' . ($pathInfo['extension'] ?? '');
+
+        $newPath = $file->getPath() . '_invalid';
+
+        $config = $this->logEntity->getConfig();
+        $config['mapping'][] = [
+            'key' => '_error',
+            'mappedKey' => '_error',
+        ];
+        $config = new Config($config['mapping'], $config['parameters'] ?? [], $config['updateBy'] ?? []);
+
+        return $this->importExportService->prepareExport(
+            $context,
+            $this->logEntity->getProfileId(),
+            $file->getExpireDate(),
+            $newName,
+            $config->jsonSerialize(),
+            $newPath,
+            ImportExportLogEntity::ACTIVITY_INVALID_RECORDS_EXPORT
+        );
     }
 
     /**
@@ -541,68 +658,108 @@ class ImportExport
         }
     }
 
+    private function filterApiAwareFields(Config $config, Context $context): Config
+    {
+        $definition = $this->repository->getDefinition();
+        $source = $context->getSource()::class;
+
+        $allowedMappings = array_filter(
+            $config->getMapping()->getElements(),
+            function ($mapping) use ($definition, $source) {
+                $fields = EntityDefinitionQueryHelper::getFieldsOfAccessor(
+                    $definition,
+                    $mapping->getKey()
+                );
+
+                foreach ($fields as $field) {
+                    $flag = $field->getFlag(ApiAware::class);
+
+                    if (!($flag instanceof ApiAware) || !$flag->isSourceAllowed($source)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        );
+
+        return new Config(
+            array_values($allowedMappings),
+            $config->getParameters(),
+            $config->getUpdateBy()
+        );
+    }
+
     /**
      * @param array<string, mixed> $overallResults
+     * @param EntityWrittenContainerEvent[] $results
+     * @param array<int, array<int|string, mixed>> $failedRecords
      *
      * @return array<string, mixed>
      */
     private function logResults(
         array $overallResults,
-        ?EntityWrittenContainerEvent $result,
+        array $results,
+        array $failedRecords,
         string $entityName
     ): array {
         $defaultTemplate = [
-            sprintf('%sSkip', EntityWriteResult::OPERATION_INSERT) => 0,
-            sprintf('%sSkip', EntityWriteResult::OPERATION_UPDATE) => 0,
-            sprintf('%sError', EntityWriteResult::OPERATION_INSERT) => 0,
-            sprintf('%sError', EntityWriteResult::OPERATION_UPDATE) => 0,
+            \sprintf('%sSkip', EntityWriteResult::OPERATION_INSERT) => 0,
+            \sprintf('%sSkip', EntityWriteResult::OPERATION_UPDATE) => 0,
+            \sprintf('%sError', EntityWriteResult::OPERATION_INSERT) => 0,
+            \sprintf('%sError', EntityWriteResult::OPERATION_UPDATE) => 0,
             'otherError' => 0,
             EntityWriteResult::OPERATION_INSERT => 0,
             EntityWriteResult::OPERATION_UPDATE => 0,
         ];
 
-        if (!$result && !$this->failedWriteCommands) {
-            $entityResult = $overallResults[$entityName] ?? $defaultTemplate;
-            ++$entityResult['otherError'];
-            $overallResults[$entityName] = $entityResult;
-
-            return $overallResults;
-        }
-
-        if (!$result && $this->failedWriteCommands) {
-            foreach ($this->failedWriteCommands as $writeCommand) {
-                if (!$writeCommand instanceof WriteCommand) {
-                    continue;
-                }
-
-                $entityName = $writeCommand->getDefinition()->getEntityName();
-                $entityResult = $overallResults[$entityName] ?? $defaultTemplate;
-                $operation = $writeCommand->getEntityExistence()->exists()
-                    ? EntityWriteResult::OPERATION_UPDATE
-                    : EntityWriteResult::OPERATION_INSERT;
-                $type = $writeCommand->isFailed() ? 'Error' : 'Skip';
-                ++$entityResult[sprintf('%s%s', $operation, $type)];
-                $overallResults[$entityName] = $entityResult;
-            }
-
-            return $overallResults;
-        }
-
-        if (!$result || !$result->getEvents()) {
-            return $overallResults;
-        }
-
-        foreach ($result->getEvents() as $event) {
-            if (!$event instanceof EntityWrittenEvent) {
+        foreach ($results as $result) {
+            if ($result->getEvents() === null) {
                 continue;
             }
 
-            foreach ($event->getWriteResults() as $writeResult) {
-                $entityResult = $overallResults[$writeResult->getEntityName()] ?? $defaultTemplate;
-                ++$entityResult[$writeResult->getOperation()];
-                $overallResults[$writeResult->getEntityName()] = $entityResult;
+            foreach ($result->getEvents() as $event) {
+                if (!$event instanceof EntityWrittenEvent) {
+                    continue;
+                }
+
+                foreach ($event->getWriteResults() as $writeResult) {
+                    $entityResult = $overallResults[$writeResult->getEntityName()] ?? $defaultTemplate;
+
+                    ++$entityResult[$writeResult->getOperation()];
+
+                    $overallResults[$writeResult->getEntityName()] = $entityResult;
+                }
             }
         }
+
+        foreach ($this->failedWriteCommands as $writeCommand) {
+            if (!$writeCommand instanceof WriteCommand) {
+                continue;
+            }
+
+            $entityName = $writeCommand->getEntityName();
+
+            $entityResult = $overallResults[$entityName] ?? $defaultTemplate;
+
+            $operation = $writeCommand->getEntityExistence()->exists()
+                ? EntityWriteResult::OPERATION_UPDATE
+                : EntityWriteResult::OPERATION_INSERT;
+
+            $type = $writeCommand->isFailed() ? 'Error' : 'Skip';
+
+            ++$entityResult[\sprintf('%s%s', $operation, $type)];
+
+            $overallResults[$entityName] = $entityResult;
+        }
+
+        // The entries present in the failed records failed either via failed write commands or some other errors.
+        // As we already logged the failed write commands we still need to log the remaining failed records.
+        $entityResult = $overallResults[$entityName] ?? $defaultTemplate;
+
+        $entityResult['otherError'] += \count($failedRecords) - \count($this->failedWriteCommands);
+
+        $overallResults[$entityName] = $entityResult;
 
         return $overallResults;
     }

@@ -6,6 +6,7 @@ use Shopware\Core\Checkout\Shipping\Aggregate\ShippingMethodPrice\ShippingMethod
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Rule\RuleIdMatcher;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 /**
@@ -14,14 +15,20 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 #[Package('checkout')]
 class ShippingMethodCollection extends EntityCollection
 {
+    /**
+     * @deprecated tag:v6.8.0 use RuleIdMatcher instead
+     */
     public function filterByActiveRules(SalesChannelContext $salesChannelContext): ShippingMethodCollection
     {
+        Feature::triggerDeprecationOrThrow(
+            'v6.8.0.0',
+            Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0', RuleIdMatcher::class)
+        );
+
         return $this->filter(
             function (ShippingMethodEntity $shippingMethod) use ($salesChannelContext) {
-                if (Feature::isActive('v6.6.0.0')) {
-                    if ($shippingMethod->getAvailabilityRuleId() === null) {
-                        return true;
-                    }
+                if ($shippingMethod->getAvailabilityRuleId() === null) {
+                    return true;
                 }
 
                 return \in_array($shippingMethod->getAvailabilityRuleId(), $salesChannelContext->getRuleIds(), true);
@@ -30,7 +37,7 @@ class ShippingMethodCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getPriceIds(): array
     {
@@ -64,8 +71,8 @@ class ShippingMethodCollection extends EntityCollection
     public function sortShippingMethodsByPreference(SalesChannelContext $context): void
     {
         $ids = array_merge(
-            [$context->getShippingMethod()->getId(), $context->getSalesChannel()->getShippingMethodId()],
-            $this->getIds()
+            [$context->getSalesChannel()->getShippingMethodId()],
+            $this->getIds(),
         );
 
         $this->sortByIdArray($ids);

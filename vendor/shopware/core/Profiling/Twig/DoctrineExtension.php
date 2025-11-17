@@ -13,7 +13,7 @@ use Twig\TwigFilter;
 /**
  * This class contains the needed functions in order to do the query highlighting
  */
-#[Package('core')]
+#[Package('framework')]
 class DoctrineExtension extends AbstractExtension
 {
     private SqlFormatter $sqlFormatter;
@@ -90,8 +90,9 @@ class DoctrineExtension extends AbstractExtension
     public function replaceQueryParameters(string $query, array|Data $parameters = []): string
     {
         if ($parameters instanceof Data) {
+            /** @var array<mixed> */
+            // @phpstan-ignore varTag.type (Symfony's Data::getValue return type is missing the content type of array)
             $parameters = $parameters->getValue(true);
-            /** @var array<mixed> $parameters */
         }
 
         $i = 0;

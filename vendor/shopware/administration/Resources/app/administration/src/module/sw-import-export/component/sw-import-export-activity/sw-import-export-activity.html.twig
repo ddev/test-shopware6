@@ -1,7 +1,5 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_import_export_activity %}
 <div class="sw-import-export-activity">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_activity_listing %}
     <sw-entity-listing
         v-if="showGrid"
@@ -14,26 +12,23 @@
         :allow-column-edit="false"
         :full-page="true"
     >
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_activity_listing_size %}
         <template #column-file.size="{ item }">
             {{ calculateFileSize(item.file.size) }}
         </template>
         {% endblock %}
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_activity_listing_records %}
         <template #column-records="{ item }">
             {{ item.records }}
         </template>
         {% endblock %}
         <template #column-label-invalidRecords="{ column }">
-            {{ $te(column.label) ? $tc(column.label) : column.label }}
+            {{ $te(column.label) ? $t(column.label) : column.label }}
             <sw-help-text
                 class="sw-import-export-activity__invalid-records-help-text"
-                :text="$tc('sw-import-export.activity.invalidHelpText')"
+                :text="$t('sw-import-export.activity.invalidHelpText')"
             />
         </template>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_activity_listing_invalid_records %}
         <template #column-invalidRecords="{ item }">
             <template v-if="item.invalidRecordsLog">
@@ -44,7 +39,6 @@
             </template>
         </template>
         {% endblock %}
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_activity_listing_createdAt %}
         <template #column-createdAt="{ item }">
             <sw-label
@@ -52,18 +46,21 @@
                 size="small"
                 appearance="pill"
             >
-                {{ $tc('sw-import-export.activity.dryrun') }}
+                {{ $t('sw-import-export.activity.dryrun') }}
             </sw-label>
+            <!-- eslint-disable-next-line vuejs-accessibility/anchor-has-content -->
             <a
                 href="#"
                 @click.prevent="onShowLog(item)"
             >
-                {{ dateFilter(item.createdAt, { hour: '2-digit', minute: '2-digit' }) }}
+                <sw-time-ago
+                    :date="item.createdAt"
+                    :date-time-format="{ month: '2-digit', day: '2-digit' }"
+                />
             </a>
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_activity_listing_state %}
         <template #column-state="{ item }">
             <sw-color-badge
@@ -84,30 +81,26 @@
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_activity_listing_actions %}
         <template #actions="{ item }">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_activity_listing_actions_show_results %}
             <sw-context-menu-item
                 v-if="item.result && Object.keys(item.result).length"
                 class="sw-import-export-activity__results-action"
                 @click="onShowResult(item)"
             >
-                {{ $tc('sw-import-export.activity.contextMenu.showResults') }}
+                {{ $t('sw-import-export.activity.contextMenu.showResults') }}
             </sw-context-menu-item>
             {% endblock %}
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_activity_listing_actions_show_log_info %}
             <sw-context-menu-item
                 v-if="type === 'export'"
                 class="sw-import-export-activity__log-info-action"
                 @click="onShowLog(item)"
             >
-                {{ $tc('sw-import-export.activity.contextMenu.showLogInfo') }}
+                {{ $t('sw-import-export.activity.contextMenu.showLogInfo') }}
             </sw-context-menu-item>
             {% endblock %}
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_activity_listing_actions_download_file %}
             <a
                 class="sw-import-export-activity__download-action"
@@ -121,13 +114,11 @@
                 </sw-context-menu-item>
             </a>
             {% endblock %}
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_activity_listing_actions_open_profile %}
             <sw-context-menu-item @click="onOpenProfile(item.profileId)">
-                {{ $tc('sw-import-export.activity.contextMenu.showProfile') }}
+                {{ $t('sw-import-export.activity.contextMenu.showProfile') }}
             </sw-context-menu-item>
             {% endblock %}
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_activity_listing_actions_abort_process %}
             <sw-context-menu-item
                 v-if="item.state === 'progress'"
@@ -135,10 +126,9 @@
                 variant="danger"
                 @click="onAbortProcess(item)"
             >
-                {{ $tc('sw-import-export.activity.contextMenu.abortProcess') }}
+                {{ $t('sw-import-export.activity.contextMenu.abortProcess') }}
             </sw-context-menu-item>
             {% endblock %}
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_activity_listing_actions_download_invalid %}
             <template v-if="item.invalidRecordsLog">
                 <a
@@ -149,7 +139,7 @@
                     @keydown.enter="openProcessFileDownload(item.invalidRecordsLog)"
                 >
                     <sw-context-menu-item>
-                        {{ $tc('sw-import-export.activity.contextMenu.downloadInvalidFile') }}
+                        {{ $t('sw-import-export.activity.contextMenu.downloadInvalidFile') }}
                     </sw-context-menu-item>
                 </a>
             </template>
@@ -159,23 +149,19 @@
     </sw-entity-listing>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_activity_spinner %}
     <sw-loader v-else-if="showSpinner" />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_activity_empty_state %}
-    <sw-empty-state
+    <mt-empty-state
         v-if="showEmptyState"
-        :title="emptyStateTitle"
-        :subline="emptyStateSubLine"
-        :absolute="false"
-        icon="regular-database"
+        icon="solid-database"
+        :headline="emptyStateTitle"
+        :description="emptyStateSubLine"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_activity_log_info_modal %}
     <sw-import-export-activity-log-info-modal
         v-if="showDetailModal"
@@ -184,7 +170,6 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_activity_result_modal %}
     <sw-import-export-activity-result-modal
         v-if="showResultModal"
@@ -194,9 +179,9 @@
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_activity_modal %}
     <sw-import-export-edit-profile-modal
+        v-if="selectedProfile"
         :profile="selectedProfile"
         @profile-save="saveSelectedProfile"
         @profile-close="closeSelectedProfile"

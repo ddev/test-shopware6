@@ -1,13 +1,17 @@
+/**
+ * @sw-package framework
+ */
+
 import template from './sw-base-filter.html.twig';
 import './sw-base-filter.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-base-filter', {
+export default {
     template,
+
+    emits: ['filter-reset'],
 
     props: {
         title: {
@@ -37,4 +41,4 @@ Component.register('sw-base-filter', {
             this.$emit('filter-reset');
         },
     },
-});
+};

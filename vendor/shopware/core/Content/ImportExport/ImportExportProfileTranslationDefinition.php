@@ -7,7 +7,10 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\StringField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('services-settings')]
+/**
+ * @deprecated tag:v6.8.0 - reason:remove-entity - Will be removed
+ */
+#[Package('fundamentals@after-sales')]
 class ImportExportProfileTranslationDefinition extends EntityTranslationDefinition
 {
     final public const ENTITY_NAME = ImportExportProfileDefinition::ENTITY_NAME . '_translation';

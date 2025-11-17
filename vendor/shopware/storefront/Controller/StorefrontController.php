@@ -3,8 +3,8 @@
 namespace Shopware\Storefront\Controller;
 
 use Shopware\Core\Checkout\Cart\Cart;
-use Shopware\Core\Checkout\Cart\Error\Error;
 use Shopware\Core\Checkout\Cart\Error\ErrorRoute;
+use Shopware\Core\Content\Media\MediaUrlPlaceholderHandlerInterface;
 use Shopware\Core\Content\Seo\SeoUrlPlaceholderHandlerInterface;
 use Shopware\Core\Framework\Adapter\Twig\TemplateFinder;
 use Shopware\Core\Framework\Log\Package;
@@ -19,22 +19,21 @@ use Shopware\Storefront\Event\StorefrontRedirectEvent;
 use Shopware\Storefront\Event\StorefrontRenderEvent;
 use Shopware\Storefront\Framework\Routing\RequestTransformer;
 use Shopware\Storefront\Framework\Routing\Router;
-use Shopware\Storefront\Framework\Routing\StorefrontResponse;
 use Shopware\Storefront\Framework\Twig\Extension\IconCacheTwigFilter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
-use Symfony\Contracts\Service\Attribute\Required;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
-#[Package('storefront')]
+#[Package('framework')]
 abstract class StorefrontController extends AbstractController
 {
     public const SUCCESS = 'success';
@@ -42,22 +41,16 @@ abstract class StorefrontController extends AbstractController
     public const INFO = 'info';
     public const WARNING = 'warning';
 
-    private ?Environment $twig = null;
-
-    #[Required]
-    public function setTwig(Environment $twig): void
-    {
-        $this->twig = $twig;
-    }
-
     public static function getSubscribedServices(): array
     {
         $services = parent::getSubscribedServices();
 
+        $services['twig'] = Environment::class;
         $services['event_dispatcher'] = EventDispatcherInterface::class;
         $services[SystemConfigService::class] = SystemConfigService::class;
         $services[TemplateFinder::class] = TemplateFinder::class;
         $services[SeoUrlPlaceholderHandlerInterface::class] = SeoUrlPlaceholderHandlerInterface::class;
+        $services[MediaUrlPlaceholderHandlerInterface::class] = MediaUrlPlaceholderHandlerInterface::class;
         $services[ScriptExecutor::class] = ScriptExecutor::class;
         $services['translator'] = TranslatorInterface::class;
         $services[RequestTransformerInterface::class] = RequestTransformerInterface::class;
@@ -73,7 +66,7 @@ abstract class StorefrontController extends AbstractController
         $request = $this->container->get('request_stack')->getCurrentRequest();
 
         if ($request === null) {
-            $request = new Request();
+            throw StorefrontException::noRequestProvided();
         }
 
         $salesChannelContext = $request->attributes->get(PlatformRequest::ATTRIBUTE_SALES_CHANNEL_CONTEXT_OBJECT);
@@ -88,28 +81,25 @@ abstract class StorefrontController extends AbstractController
             IconCacheTwigFilter::enable();
         }
 
-        $response = Profiler::trace('twig-rendering', fn () => $this->render($view, $event->getParameters(), new StorefrontResponse()));
+        $response = Profiler::trace('twig-rendering', fn () => $this->render($view, $event->getParameters(), new Response()));
 
         if ($iconCacheEnabled) {
             IconCacheTwigFilter::disable();
         }
 
-        if (!$response instanceof StorefrontResponse) {
-            throw StorefrontException::unSupportStorefrontResponse();
-        }
-
         $host = $request->attributes->get(RequestTransformer::STOREFRONT_URL);
 
         $seoUrlReplacer = $this->container->get(SeoUrlPlaceholderHandlerInterface::class);
+        $mediaUrlReplacer = $this->container->get(MediaUrlPlaceholderHandlerInterface::class);
         $content = $response->getContent();
+
         if ($content !== false) {
+            $content = $mediaUrlReplacer->replace($content);
+
             $response->setContent(
                 $seoUrlReplacer->replace($content, $host, $salesChannelContext)
             );
         }
-
-        $response->setData($parameters);
-        $response->setContext($salesChannelContext);
 
         $response->headers->set('Content-Type', 'text/html');
 
@@ -133,7 +123,7 @@ abstract class StorefrontController extends AbstractController
 
             $redirectTo = $request->get('redirectTo');
 
-            if ($redirectTo) {
+            if ($redirectTo && \is_string($redirectTo)) {
                 return $this->redirectToRoute($redirectTo, $params);
             }
 
@@ -157,7 +147,11 @@ abstract class StorefrontController extends AbstractController
     {
         $router = $this->container->get('router');
 
-        $url = $this->generateUrl($routeName, $routeParameters, Router::PATH_INFO);
+        try {
+            $url = $this->generateUrl($routeName, $routeParameters, Router::PATH_INFO);
+        } catch (RouteNotFoundException $e) {
+            throw StorefrontException::routeNotFound($routeName, $e);
+        }
 
         // for the route matching the request method is set to "GET" because
         // this method is not ought to be used as a post passthrough
@@ -171,14 +165,16 @@ abstract class StorefrontController extends AbstractController
         $request = $this->container->get('request_stack')->getCurrentRequest();
 
         if ($request === null) {
-            $request = new Request();
+            throw StorefrontException::noRequestProvided();
         }
 
         $attributes = array_merge(
             $this->container->get(RequestTransformerInterface::class)->extractInheritableAttributes($request),
             $route,
             $attributes,
-            ['_route_params' => $routeParameters]
+            // in the case of virtual urls (localhost/de) we need to skip the request transformer matching, otherwise the virtual url (/de) is stripped out, and we cannot find any sales channel
+            // so we set the `skip-transformer` attribute, which is checked in the HttpKernel before the request transformer is set
+            ['_route_params' => $routeParameters, 'sw-skip-transformer' => true]
         );
 
         return $this->forward($route['_controller'], $attributes, $routeParameters);
@@ -195,7 +191,7 @@ abstract class StorefrontController extends AbstractController
             $params = json_decode($params, true);
         }
 
-        if (empty($params)) {
+        if (empty($params) || \is_numeric($params)) {
             $params = [];
         }
 
@@ -227,9 +223,8 @@ abstract class StorefrontController extends AbstractController
             $flat = array_merge($flat, $messages);
         }
 
-        /** @var array<string, Error[]> $groups */
-        foreach ($groups as $type => $errors) {
-            foreach ($errors as $error) {
+        foreach ($groups as $type => $errorGroup) {
+            foreach ($errorGroup as $error) {
                 $parameters = [];
 
                 foreach ($error->getParameters() as $key => $value) {
@@ -243,13 +238,14 @@ abstract class StorefrontController extends AbstractController
                     );
                 }
 
-                $message = $this->trans('checkout.' . $error->getMessageKey(), $parameters);
+                $translatedMessage = $this->trans('checkout.' . $error->getMessageKey(), $parameters);
+                $error->setTranslatedMessage($translatedMessage);
 
-                if (\in_array($message, $flat, true)) {
+                if (\in_array($translatedMessage, $flat, true)) {
                     continue;
                 }
 
-                $this->addFlash($type, $message);
+                $this->addFlash($type, $translatedMessage);
             }
         }
     }
@@ -262,7 +258,11 @@ abstract class StorefrontController extends AbstractController
         $event = new StorefrontRedirectEvent($route, $parameters, $status);
         $this->container->get('event_dispatcher')->dispatch($event);
 
-        return parent::redirectToRoute($event->getRoute(), $event->getParameters(), $event->getStatus());
+        try {
+            return parent::redirectToRoute($event->getRoute(), $event->getParameters(), $event->getStatus());
+        } catch (RouteNotFoundException $e) {
+            throw StorefrontException::routeNotFound($route, $e);
+        }
     }
 
     /**
@@ -272,15 +272,25 @@ abstract class StorefrontController extends AbstractController
     {
         $view = $this->getTemplateFinder()->find($view);
 
-        if ($this->twig !== null) {
-            try {
-                return $this->twig->render($view, $parameters);
-            } catch (LoaderError|RuntimeError|SyntaxError $e) {
-                throw StorefrontException::cannotRenderView($view, $e->getMessage(), $parameters);
-            }
+        try {
+            return $this->container->get('twig')->render($view, $parameters);
+        } catch (LoaderError|RuntimeError|SyntaxError $e) {
+            throw StorefrontException::renderViewException($view, $e, $parameters);
         }
+    }
 
-        throw StorefrontException::dontHaveTwigInjected(static::class);
+    /**
+     * @param array<string, mixed> $parameters
+     */
+    protected function render(string $view, array $parameters = [], ?Response $response = null): Response
+    {
+        $content = $this->renderView($view, $parameters);
+
+        $response ??= new Response();
+
+        $response->setContent($content);
+
+        return $response;
     }
 
     protected function getTemplateFinder(): TemplateFinder

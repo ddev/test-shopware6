@@ -5,14 +5,15 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Always valid condition item for the condition-tree. This component must be a child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-is-always-valid :condition="condition"></sw-condition-is-always-valid>
  */
-Component.extend('sw-condition-is-always-valid', 'sw-condition-base', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     computed: {
@@ -29,7 +30,7 @@ Component.extend('sw-condition-is-always-valid', 'sw-condition-base', {
         selectValues() {
             return [
                 {
-                    label: this.$tc('global.sw-condition.condition.yes'),
+                    label: this.$tc('global.default.yes'),
                     value: true,
                 },
             ];
@@ -41,4 +42,4 @@ Component.extend('sw-condition-is-always-valid', 'sw-condition-base', {
             return this.conditionValueIsNewError;
         },
     },
-});
+};

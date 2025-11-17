@@ -5,13 +5,16 @@ const { Mixin } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
- * @package inventory
+ * @sw-package after-sales
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
 
     mixins: [
         Mixin.getByName('listing'),
@@ -19,8 +22,8 @@ export default {
 
     data() {
         return {
-            isLoading: false,
             items: null,
+            isLoading: false,
             sortBy: 'status,createdAt',
         };
     },
@@ -81,19 +84,21 @@ export default {
         },
 
         criteria() {
-            const criteria = new Criteria(this.page, this.limit);
+            const criteria = new Criteria(this.page, this.limit)
+                .setTerm(this.term)
+                .addAssociation('customer')
+                .addAssociation('product');
 
-            criteria.setTerm(this.term);
-
-            this.sortBy.split(',').forEach(sorting => {
+            this.sortBy.split(',').forEach((sorting) => {
                 criteria.addSorting(Criteria.sort(sorting, this.sortDirection, this.naturalSorting));
             });
-            criteria.addAssociation('customer');
-            criteria.addAssociation('product');
 
             return criteria;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },
@@ -111,21 +116,34 @@ export default {
         getList() {
             this.isLoading = true;
 
-            const context = { ...Shopware.Context.api, inheritance: true };
-            return this.repository.search(this.criteria, context).then((result) => {
-                this.total = result.total;
-                this.items = result;
-                this.isLoading = false;
-            });
+            const context = {
+                ...Shopware.Context.api,
+                inheritance: true,
+            };
+
+            return this.repository
+                .search(this.criteria, context)
+                .then((result) => {
+                    this.total = result.total;
+                    this.items = result;
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
         },
 
         onDelete(option) {
             this.$refs.listing.deleteItem(option);
 
-            this.repository.search(this.criteria, { ...Shopware.Context.api, inheritance: true }).then((result) => {
-                this.total = result.total;
-                this.items = result;
-            });
+            this.repository
+                .search(this.criteria, {
+                    ...Shopware.Context.api,
+                    inheritance: true,
+                })
+                .then((result) => {
+                    this.total = result.total;
+                    this.items = result;
+                });
         },
     },
 };

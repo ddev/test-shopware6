@@ -8,39 +8,51 @@
         v-else
         class="sw-extension-my-extensions-listing__listing-grid"
     >
-        <sw-alert
+        <mt-banner
             v-if="!isAppUrlReachable"
             class="sw-extension-my-extensions-listing__app-url-warning"
-            variant="warning"
+            variant="attention"
             :title="$tc('sw-app.component.sw-app-wrong-app-url-modal.title')"
         >
+            <div>
+                {{ $tc('sw-app.component.sw-app-wrong-app-url-modal.explanation') }}
+            </div>
 
-            <template #default>
-                <div>
-                    {{ $tc('sw-app.component.sw-app-wrong-app-url-modal.explanation') }}
-                </div>
-                <div>
-                    {{ $tc('sw-app.component.sw-app-wrong-app-url-modal.textGetSupport') }}
-                </div>
-            </template>
+            <mt-button
+                class="sw-app-wrong-app-url-modal__content-link-button"
+                variant="secondary"
+                :link="$tc('sw-app.component.sw-app-wrong-app-url-modal.linkToDocsArticle')"
+            >
+                {{ $tc('sw-app.component.sw-app-wrong-app-url-modal.labelLearnMoreButton') }}
+            </mt-button>
+        </mt-banner>
 
-            <template #actions>
-                <sw-button
-                    class="sw-app-wrong-app-url-modal__content-link-button"
-                    variant="ghost"
-                    :link="$tc('sw-app.component.sw-app-wrong-app-url-modal.linkToDocsArticle')"
-                >
-                    {{ $tc('sw-app.component.sw-app-wrong-app-url-modal.labelLearnMoreButton') }}
-                </sw-button>
-            </template>
+        <mt-banner
+            v-if="extensionManagementDisabled"
+            class="sw-extension-my-extensions-listing__runtime-extension-warning"
+            variant="attention"
+            :title="$tc('sw-extension-store.component.sw-extension-my-extensions-listing.alertExtensionManagement.title')"
+        >
+            <div>
+                {{ $tc('sw-extension-store.component.sw-extension-my-extensions-listing.alertExtensionManagement.description') }}
+            </div>
 
-        </sw-alert>
+            <mt-link
+                type="external"
+                href="https://developer.shopware.com/docs/guides/hosting/installation-updates/extension-managment.html"
+            >
+                {{ $tc('sw-app.component.sw-app-wrong-app-url-modal.labelLearnMoreButton') }}
+            </mt-link>
+        </mt-banner>
+
+        {% block sw_extension_my_extensions_list_empty_state %}
+
         <sw-meteor-card
             v-if="!extensionListPaginated.length && !filterByActiveState"
             class="sw-extension-my-extensions-listing__empty-state"
         >
             <img
-                :src="assetFilter('administration/static/img/empty-states/extensions-empty-state.svg')"
+                :src="assetFilter('administration/administration/static/img/empty-states/extensions-empty-state.svg')"
                 alt=""
             >
 
@@ -58,13 +70,16 @@
                 {{ $tc('sw-extension-store.component.sw-extension-my-extensions-listing.apps.textEmptyState') }}
             </p>
 
-            <sw-button
-                variant="ghost"
+            <mt-button
+                ghost
+                variant="secondary"
                 @click="isThemeRoute ? openThemesStore() : openStore()"
             >
                 {{ $tc('sw-extension-store.component.sw-extension-my-extensions-listing.btnOpenStore') }}
-            </sw-button>
+            </mt-button>
         </sw-meteor-card>
+
+        {% endblock %}
 
         <template v-else>
             <div class="sw-extension-my-extensions-listing__container">
@@ -73,12 +88,17 @@
                     @update:sorting-option="changeSortingOption"
                 />
 
+                <sw-extension-component-section
+                    v-if="isThemeRoute"
+                    position-identifier="sw-extension-my-extensions-listing__before-content"
+                />
+
                 <sw-meteor-card
                     v-if="!extensionListPaginated.length && filterByActiveState"
                     class="sw-extension-my-extensions-listing__empty-state"
                 >
                     <img
-                        :src="assetFilter('administration/static/img/empty-states/extensions-empty-state.svg')"
+                        :src="assetFilter('administration/administration/static/img/empty-states/extensions-empty-state.svg')"
                         alt=""
                     >
 
@@ -93,15 +113,10 @@
                 <template v-else>
                     <template
                         v-for="entry in extensionListPaginated"
-                        {% if VUE3 %}
                         :key="entry.name"
-                        {% endif %}
                     >
                         <component
                             :is="entry.storeLicense ? 'sw-extension-card-bought' : 'sw-self-maintained-extension-card'"
-                            {% if VUE2 %}
-                            :key="entry.name"
-                            {% endif %}
                             :extension="entry"
                             @update-list="updateList"
                         />

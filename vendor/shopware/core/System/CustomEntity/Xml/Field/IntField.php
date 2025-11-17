@@ -9,11 +9,18 @@ use Shopware\Core\System\CustomEntity\Xml\Field\Traits\TranslatableTrait;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class IntField extends Field
 {
     use RequiredTrait;
     use TranslatableTrait;
 
     protected string $type = 'int';
+
+    protected ?int $default = null;
+
+    public function getDefault(): ?int
+    {
+        return $this->default;
+    }
 }

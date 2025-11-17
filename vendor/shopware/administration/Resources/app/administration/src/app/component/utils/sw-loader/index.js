@@ -1,58 +1,52 @@
-import './sw-loader.scss';
 import template from './sw-loader.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
- * @description Renders a loading indicator for panels, input fields, buttons, etc.
+ * @private
  * @status ready
- * @example-type dynamic
- * @component-example
- * <sw-loader />
+ * @description Wrapper component for sw-loader and mt-loader. Autoswitches between the two components.
  */
-// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-loader', {
+export default {
     template,
 
     props: {
-        size: {
+        modelValue: {
             type: String,
             required: false,
-            default: '50px',
-            validator(value) {
-                return /^(12|[2-9][0-9]|[1-9][2-9]|[1-9]\d{2,})px$/.test(value);
-            },
+            default: null,
+        },
+
+        value: {
+            type: String,
+            required: false,
+            default: null,
         },
     },
 
     computed: {
-        loaderSize() {
-            return {
-                width: `${this.numericSize}px`,
-                height: `${this.numericSize}px`,
-            };
-        },
-
-        numericSize() {
-            const numericSize = parseInt(this.size, 10);
-
-            if (Number.isNaN(numericSize)) {
-                return 50;
+        useMeteorComponent() {
+            // Use new meteor component in major
+            if (Shopware.Feature.isActive('ENABLE_METEOR_COMPONENTS')) {
+                return true;
             }
 
-            if (numericSize < 12) {
-                return 50;
-            }
+            // Throw warning when deprecated component is used
+            Shopware.Utils.debug.warn(
+                'sw-loader',
+                // eslint-disable-next-line max-len
+                'The old usage of "sw-loader" is deprecated and will be removed in v6.8.0.0. Please use "mt-loader" instead.',
+            );
 
-            return numericSize;
-        },
-
-        borderWidth() {
-            return `${Math.floor(this.numericSize / 12)}px`;
+            return false;
         },
     },
-});
+
+    methods: {
+        getSlots() {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+
+            return this.$slots;
+        },
+    },
+};

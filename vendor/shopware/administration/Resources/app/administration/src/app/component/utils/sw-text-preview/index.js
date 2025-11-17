@@ -1,11 +1,12 @@
+/**
+ * @sw-package framework
+ */
+
 import './sw-text-preview.scss';
 import template from './sw-text-preview.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Displays text (no html) up to a defined length and shows a "Show more" button that opens a modal.
  *              New lines are converted into line-breaks (br) and empty lines are removed in preview.
  * @status ready
@@ -17,7 +18,7 @@ const lineExpr = /(?:\r\n|\r|\n)/g;
 const lineBreak = '<br />';
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-text-preview', {
+export default {
     template,
 
     props: {
@@ -83,4 +84,4 @@ Component.register('sw-text-preview', {
             this.showModal = true;
         },
     },
-});
+};

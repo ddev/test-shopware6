@@ -1,4 +1,5 @@
-.is-act-checkoutregisterpage {
+.is-act-checkoutregisterpage, // @deprecated tag:v6.8.0 - Body class `is-act-checkoutregisterpage` will be removed, use active route class `is-active-route-frontend-checkout-register-page` instead.
+.is-active-route-frontend-checkout-register-page {
     .checkout {
         padding-top: 70px;
 
@@ -13,22 +14,14 @@
 
         .checkout-aside {
             @extend .col-md-4;
-            @extend .d-none;
             @extend .d-lg-block;
         }
     }
 }
 
-.register-guest-control {
-    margin-bottom: $spacer;
-}
-
-.register-login-collapse-toogle {
-    margin-bottom: $spacer;
-}
-
 @include media-breakpoint-up(lg) {
-    .is-act-checkoutregisterpage {
+    .is-act-checkoutregisterpage, // @deprecated tag:v6.8.0 - Body class `is-act-checkoutregisterpage` will be removed, use active route class `is-active-route-frontend-checkout-register-page` instead.
+    .is-active-route-frontend-checkout-register-page {
         .checkout {
             .checkout-main {
                 margin-bottom: 0;

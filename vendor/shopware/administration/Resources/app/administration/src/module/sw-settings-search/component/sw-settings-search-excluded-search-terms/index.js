@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package inventory
  */
 import template from './sw-settings-search-excluded-search-terms.html.twig';
 import './sw-settings-search-excluded-search-terms.scss';
@@ -14,6 +14,11 @@ export default {
         'excludedSearchTermService',
         'repositoryFactory',
         'acl',
+    ],
+
+    emits: [
+        'edit-change',
+        'data-load',
     ],
 
     mixins: [
@@ -55,12 +60,14 @@ export default {
         },
 
         getSearchableGeneralColumns() {
-            return [{
-                property: 'value',
-                label: 'sw-settings-search.generalTab.textColumnSearchTerm',
-                inlineEdit: 'string',
-                sortable: false,
-            }];
+            return [
+                {
+                    property: 'value',
+                    label: 'sw-settings-search.generalTab.textColumnSearchTerm',
+                    inlineEdit: 'string',
+                    sortable: false,
+                },
+            ];
         },
 
         assetFilter() {
@@ -165,13 +172,17 @@ export default {
         onDeleteExcludedTerm(terms) {
             this.responseMessage = this.$tc('sw-settings-search.notification.deleteExcludedTermSuccess');
             this.isLoading = true;
-            const values = terms.filter((term) => { return term.value !== ''; }).map(term => term.value);
+            const values = terms
+                .filter((term) => {
+                    return term.value !== '';
+                })
+                .map((term) => term.value);
             if (values.length <= 0) {
                 this.renderComponent();
                 return;
             }
             this.originalItems = this.originalItems.filter((item) => {
-                return !values.find(term => term === item);
+                return !values.find((term) => term === item);
             });
             this.saveConfig();
         },
@@ -229,7 +240,7 @@ export default {
         getOriginItem(term) {
             const all = this.filterItems();
             const items = this.sliceItems(all);
-            const found = items.find(item => item.id === term.id);
+            const found = items.find((item) => item.id === term.id);
 
             if (found) {
                 return found.value;
@@ -249,7 +260,8 @@ export default {
         saveConfig() {
             this.searchConfigs.excludedTerms = this.originalItems;
 
-            return this.searchRepository.save(this.searchConfigs)
+            return this.searchRepository
+                .save(this.searchConfigs)
                 .then(() => {
                     this.createNotificationSuccess({
                         message: this.responseMessage,
@@ -269,7 +281,8 @@ export default {
         },
 
         onResetExcludedSearchTermDefault() {
-            this.excludedSearchTermService.resetExcludedSearchTerm()
+            this.excludedSearchTermService
+                .resetExcludedSearchTerm()
                 .then(() => {
                     this.createNotificationSuccess({
                         message: this.$tc('sw-settings-search.notification.resetToDefaultExcludedTermSuccess'),

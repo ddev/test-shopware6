@@ -27,6 +27,8 @@ class TaxProviderProcessor
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<TaxProviderCollection> $taxProviderRepository
      */
     public function __construct(
         private readonly EntityRepository $taxProviderRepository,
@@ -58,10 +60,14 @@ class TaxProviderProcessor
             $exceptions
         );
 
-        if (!$result) {
+        if ($exceptions->hasExceptions()) {
             $this->logger->error($exceptions->getMessage(), ['error' => $exceptions]);
 
             throw $exceptions;
+        }
+
+        if (!$result) {
+            return;
         }
 
         $this->adjustment->adjust($cart, $result, $context);
@@ -81,7 +87,6 @@ class TaxProviderProcessor
                 ])
             );
 
-        /** @var TaxProviderCollection $providers */
         $providers = $this->taxProviderRepository->search($criteria, $context->getContext())->getEntities();
 
         // we can safely sort the providers in php, as we do not expect more than a couple of providers

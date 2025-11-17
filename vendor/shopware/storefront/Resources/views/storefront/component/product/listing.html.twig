@@ -1,5 +1,4 @@
-{% set currentPage = ((searchResult.criteria.offset + 1) / searchResult.criteria.limit )|round(0, 'ceil') %}
-{% set paginationConfig = { page: currentPage }|json_encode %}
+{% set paginationConfig = { page: searchResult.page } %}
 
 {% if disableEmptyFilter is not defined %}
     {% set disableEmptyFilter = config('core.listing.disableEmptyFilterOptions') %}
@@ -11,18 +10,20 @@
     dataUrl: dataUrl,
     filterUrl: filterUrl,
     disableEmptyFilter: disableEmptyFilter,
+    ariaLiveUpdates: ariaLiveUpdates,
     snippets: {
-        resetAllButtonText: 'listing.filterPanelResetAll'|trans|sw_sanitize
+        resetAllButtonText: 'listing.filterPanelResetAll'|trans|sw_sanitize,
+        resetAllFiltersAriaLabel: 'listing.filterResetAllAriaLabel'|trans|sw_sanitize,
+        removeFilterAriaLabel: 'listing.filterRemoveAriaLabel'|trans|sw_sanitize
     }
 } %}
 
 {% block product_listing %}
     <div class="cms-element-product-listing-wrapper"
          data-listing-pagination="true"
-         data-listing-pagination-options='{{ paginationConfig }}'
+         data-listing-pagination-options="{{ paginationConfig|json_encode }}"
          data-listing="true"
-         data-listing-options='{{ listingPagination|json_encode }}'>
-
+         data-listing-options="{{ listingPagination|json_encode }}">
         {% block element_product_listing_wrapper_content %}
             <div class="cms-element-product-listing">
                 {% if searchResult.total > 0 %}
@@ -32,7 +33,8 @@
                                 {% block element_product_listing_pagination_nav_top %}
                                     {% sw_include '@Storefront/storefront/component/pagination.html.twig' with {
                                         entities: searchResult,
-                                        criteria: searchResult.criteria
+                                        fallbackUrl: paginationFallbackUrl,
+                                        paginationLocation: 'top',
                                     } %}
                                 {% endblock %}
                             </div>
@@ -50,15 +52,24 @@
                 {% endif %}
 
                 {% block element_product_listing_row %}
-                    <div class="row cms-listing-row js-listing-wrapper">
+                    {% if searchResult.total > searchResult.limit %}
+                        {% set ariaLiveText = 'listing.filterPanelAriaLivePaginated'|trans({
+                            '%count%': searchResult.elements|length,
+                            '%total%': searchResult.total}
+                        )|sw_sanitize %}
+                    {% else %}
+                        {% set ariaLiveText = 'listing.filterPanelAriaLive'|trans({'%count%': searchResult.total})|sw_sanitize %}
+                    {% endif %}
+
+                    <div class="row cms-listing-row js-listing-wrapper" data-aria-live-text="{{- ariaLiveText -}}"{% if searchResult.total > 0 %} role="list"{% endif %}>
                         {% if searchResult.total > 0 %}
                             {% block element_product_listing_col %}
                                 {% for product in searchResult %}
-                                    <div class="cms-listing-col {{ listingColumns }}">
+                                    <div class="cms-listing-col {{ listingColumns }}" role="listitem">
                                         {% block element_product_listing_box %}
                                             {% sw_include '@Storefront/storefront/component/product/card/box.html.twig' with {
-                                                'layout': boxLayout,
-                                                'displayMode': displayMode
+                                                layout: boxLayout,
+                                                displayMode: displayMode
                                             } %}
                                         {% endblock %}
                                     </div>
@@ -83,7 +94,6 @@
                     {% block element_product_listing_pagination_nav_bottom %}
                         {% sw_include '@Storefront/storefront/component/pagination.html.twig' with {
                             entities: searchResult,
-                            criteria: searchResult.criteria,
                             paginationLocation: 'bottom',
                         } %}
                     {% endblock %}

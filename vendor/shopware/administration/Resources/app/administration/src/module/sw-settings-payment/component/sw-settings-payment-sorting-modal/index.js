@@ -4,7 +4,7 @@ import './sw-settings-payment-sorting-modal.scss';
 const { Mixin } = Shopware;
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -14,6 +14,11 @@ export default {
         'acl',
         'repositoryFactory',
         'feature',
+    ],
+
+    emits: [
+        'modal-close',
+        'modal-save',
     ],
 
     mixins: [Mixin.getByName('notification')],
@@ -61,7 +66,8 @@ export default {
                 return paymentMethod;
             });
 
-            return this.paymentMethodRepository.saveAll(this.sortedPaymentMethods, Shopware.Context.api)
+            return this.paymentMethodRepository
+                .saveAll(this.sortedPaymentMethods, Shopware.Context.api)
                 .then(() => {
                     this.isSaving = false;
                     this.$emit('modal-close');
@@ -84,11 +90,14 @@ export default {
 
         isShopwareDefaultPaymentMethod(paymentMethod) {
             const defaultPaymentMethods = [
-                'Shopware\\Core\\Checkout\\Payment\\Cart\\PaymentHandler\\DebitPayment',
                 'Shopware\\Core\\Checkout\\Payment\\Cart\\PaymentHandler\\InvoicePayment',
                 'Shopware\\Core\\Checkout\\Payment\\Cart\\PaymentHandler\\CashPayment',
                 'Shopware\\Core\\Checkout\\Payment\\Cart\\PaymentHandler\\PrePayment',
             ];
+
+            if (!this.feature.isActive('v6.8.0.0')) {
+                defaultPaymentMethods.push('Shopware\\Core\\Checkout\\Payment\\Cart\\PaymentHandler\\DebitPayment');
+            }
 
             return defaultPaymentMethods.includes(paymentMethod.handlerIdentifier);
         },

@@ -1,20 +1,15 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_sales_channel_detail %}
 <sw-page class="sw-sales-channel-detail">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_sales_channel_detail_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_sales_channel_detail_header_headline %}
         <h2>{{ placeholder(salesChannel, 'name', $tc('sw-sales-channel.detail.textHeadline')) }}</h2>
         {% endblock %}
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_sales_channel_detail_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_sales_channel_detail_actions_save %}
         <sw-button-process
             v-tooltip.bottom="tooltipSave"
@@ -23,11 +18,7 @@
             :process-success="isSaveSuccessful"
             :disabled="!allowSaving || isLoading || productComparison.invalidFileName"
             variant="primary"
-            {% if VUE3 %}
             @update:process-success="saveFinish"
-            {% else %}
-            @process-finish="saveFinish"
-            {% endif %}
             @click.prevent="onSave"
         >
             {{ $tc('sw-sales-channel.detail.buttonSave') }}
@@ -36,7 +27,6 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_sales_channel_detail_language_switch %}
     <template #language-switch>
         <sw-language-switch
@@ -47,19 +37,16 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_sales_channel_detail_content %}
     <template #content>
         <sw-card-view>
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_sales_channel_detail_content_language_info %}
             <sw-language-info
                 :entity-description="placeholder(salesChannel, 'name', $tc('sw-sales-channel.detail.textHeadline'))"
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_sales_channel_detail_content_tabs %}
             <sw-tabs
                 class="sw-sales-channel-detail-__tabs"
@@ -74,10 +61,9 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_sales_channel_detail_content_tab_products %}
                 <sw-tabs-item
-                    v-if="isHeadless || isStoreFront"
+                    v-if="isHeadless || isStorefront"
                     :route="{ name: 'sw.sales.channel.detail.products', params: { id: $route.params.id } }"
                     :title="$tc('sw-sales-channel.detail.tabProducts')"
                 >
@@ -85,7 +71,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_sales_channel_detail_content_tab_theme %}{% endblock %}
 
                 {%  block sw_sales_channel_detail_content_tab_product_comparison %}
@@ -100,7 +85,7 @@
 
                 {%  block sw_sales_channel_detail_content_tab_analytics %}
                 <sw-tabs-item
-                    v-if="isStoreFront"
+                    v-if="isStorefront"
                     :route="{ name: 'sw.sales.channel.detail.analytics', params: { id: $route.params.id } }"
                     :title="$tc('sw-sales-channel.detail.tabAnalytics')"
                 >
@@ -110,7 +95,6 @@
             </sw-tabs>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_sales_channel_detail_content_view %}
             <template v-if="isLoading">
                 <sw-skeleton />
@@ -118,7 +102,6 @@
             </template>
 
             <template v-else>
-                {% if VUE3 %}
                 <router-view
                     :key="$route.params.id"
                     v-slot="{ Component }"
@@ -143,27 +126,6 @@
                         @template-modal-confirm="onTemplateModalConfirm"
                     />
                 </router-view>
-                {% else %}
-                <router-view
-                    :key="$route.params.id"
-                    :sales-channel="salesChannel"
-                    :product-export="productExport"
-                    :storefront-sales-channel-criteria="storefrontSalesChannelCriteria"
-                    :custom-field-sets="customFieldSets"
-                    :is-loading="isLoading"
-                    :product-comparison-access-url="productComparison.productComparisonAccessUrl"
-                    :template-options="productComparison.templateOptions"
-                    :show-template-modal="productComparison.showTemplateModal"
-                    :template-name="productComparison.templateName"
-                    @template-selected="onTemplateSelected"
-                    @access-key-changed="generateAccessUrl"
-                    @domain-changed="generateAccessUrl"
-                    @invalid-file-name="setInvalidFileName(true)"
-                    @valid-file-name="setInvalidFileName(false)"
-                    @template-modal-close="onTemplateModalClose"
-                    @template-modal-confirm="onTemplateModalConfirm"
-                />
-                {% endif %}
             </template>
             {% endblock %}
         </sw-card-view>
@@ -171,7 +133,6 @@
     {% endblock %}
 
     <template #sidebar>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_sales_channel_detail_sidebar %}
         {% endblock %}
     </template>

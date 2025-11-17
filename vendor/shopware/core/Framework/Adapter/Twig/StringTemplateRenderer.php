@@ -2,12 +2,15 @@
 
 namespace Shopware\Core\Framework\Adapter\Twig;
 
-use Shopware\Core\Framework\Adapter\Twig\Exception\StringTemplateRenderingException;
+use Shopware\Core\Framework\Adapter\AdapterException;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Util\Hasher;
+use Symfony\Component\Filesystem\Path;
 use Twig\Cache\FilesystemCache;
 use Twig\Environment;
 use Twig\Error\Error;
+use Twig\Error\SyntaxError;
 use Twig\Extension\CoreExtension;
 use Twig\Extension\EscaperExtension;
 use Twig\Loader\ArrayLoader;
@@ -15,7 +18,7 @@ use Twig\Loader\ArrayLoader;
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class StringTemplateRenderer
 {
     private Environment $twig;
@@ -34,7 +37,7 @@ class StringTemplateRenderer
     {
         // use private twig instance here, because we use custom template loader
         $this->twig = new TwigEnvironment(new ArrayLoader(), [
-            'cache' => new FilesystemCache($this->cacheDir . '/string-template-renderer'),
+            'cache' => new FilesystemCache(Path::join($this->cacheDir)),
         ]);
 
         $this->disableTestMode();
@@ -58,12 +61,10 @@ class StringTemplateRenderer
 
     /**
      * @param array<string, mixed> $data
-     *
-     * @throws StringTemplateRenderingException
      */
     public function render(string $templateSource, array $data, Context $context, bool $htmlEscape = true): string
     {
-        $name = md5($templateSource . !$htmlEscape);
+        $name = Hasher::hash($templateSource . !$htmlEscape);
         $this->twig->setLoader(new ArrayLoader([$name => $templateSource]));
 
         $this->twig->addGlobal('context', $context);
@@ -74,10 +75,19 @@ class StringTemplateRenderer
             $escaperExtension->setDefaultStrategy($htmlEscape ? 'html' : false);
         }
 
+        if ($this->twig->hasExtension(CoreExtension::class) && \array_key_exists('timezone', $data) && $data['timezone'] !== null) {
+            $coreExtension = $this->twig->getExtension(CoreExtension::class);
+            $coreExtension->setTimezone($data['timezone']);
+        }
+
         try {
             return $this->twig->render($name, $data);
         } catch (Error $error) {
-            throw new StringTemplateRenderingException($error->getMessage());
+            if ($error instanceof SyntaxError) {
+                throw AdapterException::invalidTemplateSyntax($error->getMessage());
+            }
+
+            throw AdapterException::renderingTemplateFailed($error->getMessage());
         }
     }
 

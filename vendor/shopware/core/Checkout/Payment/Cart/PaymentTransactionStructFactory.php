@@ -2,8 +2,7 @@
 
 namespace Shopware\Core\Checkout\Payment\Cart;
 
-use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionEntity;
-use Shopware\Core\Checkout\Order\OrderEntity;
+use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 
@@ -15,23 +14,13 @@ class PaymentTransactionStructFactory extends AbstractPaymentTransactionStructFa
         throw new DecorationPatternException(self::class);
     }
 
-    public function sync(OrderTransactionEntity $orderTransaction, OrderEntity $order): SyncPaymentTransactionStruct
+    public function build(string $orderTransactionId, Context $context, ?string $returnUrl = null): PaymentTransactionStruct
     {
-        return new SyncPaymentTransactionStruct($orderTransaction, $order);
+        return new PaymentTransactionStruct($orderTransactionId, $returnUrl);
     }
 
-    public function async(OrderTransactionEntity $orderTransaction, OrderEntity $order, string $returnUrl): AsyncPaymentTransactionStruct
+    public function refund(string $refundId, string $orderTransactionId): RefundPaymentTransactionStruct
     {
-        return new AsyncPaymentTransactionStruct($orderTransaction, $order, $returnUrl);
-    }
-
-    public function prepared(OrderTransactionEntity $orderTransaction, OrderEntity $order): PreparedPaymentTransactionStruct
-    {
-        return new PreparedPaymentTransactionStruct($orderTransaction, $order);
-    }
-
-    public function recurring(OrderTransactionEntity $orderTransaction, OrderEntity $order): RecurringPaymentTransactionStruct
-    {
-        return new RecurringPaymentTransactionStruct($orderTransaction, $order);
+        return new RefundPaymentTransactionStruct($refundId, $orderTransactionId);
     }
 }

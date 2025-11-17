@@ -1,21 +1,18 @@
-import type { RawLocation, Route } from 'vue-router';
-import type { PropType } from 'vue';
+import type { RouteLocationNamedRaw } from 'vue-router';
 import template from './sw-meteor-navigation.html.twig';
 import './sw-meteor-navigation.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  */
-Component.register('sw-meteor-navigation', {
+export default Shopware.Component.wrapComponentConfig({
     template,
 
     props: {
         fromLink: {
-            type: Object as PropType<Route|null>,
+            type: Object as PropType<RouteLocationNamedRaw | null>,
             required: false,
             default: null,
         },
@@ -26,7 +23,7 @@ Component.register('sw-meteor-navigation', {
             return this.parentRoute !== null;
         },
 
-        parentRoute(): RawLocation|Route|null {
+        parentRoute(): RouteLocationNamedRaw | null {
             if (this.fromLink && this.fromLink.name !== null) {
                 return this.fromLink;
             }

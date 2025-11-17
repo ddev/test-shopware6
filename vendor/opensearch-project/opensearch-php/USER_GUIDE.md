@@ -24,7 +24,7 @@ class MyOpenSearchClass
 
     public function __construct()
     {
-        //simple Setup 
+        // Simple Setup
         $this->client = OpenSearch\ClientBuilder::fromConfig([
             'hosts' => [
                 'https://localhost:9200'
@@ -66,7 +66,7 @@ class MyOpenSearchClass
         var_dump($this->client->info());
     }
 
-    // Create a document 
+    // Create a document
     public function create()
     {
         $time = time();
@@ -213,6 +213,16 @@ class MyOpenSearchClass
         var_dump($docs['hits']['total']['value'] > 0);
     }
 
+    // Write queries in SQL
+    public function searchUsingSQL()
+    {
+        $docs = $this->client->sql()->query([
+          'query' => "SELECT * FROM " . INDEX_NAME . " WHERE name = 'wrecking'",
+          'format' => 'json'
+        ]);
+        var_dump($docs['hits']['total']['value'] > 0);
+    }
+
     public function getMultipleDocsByIDs()
     {
         $docs = $this->client->search([
@@ -249,7 +259,7 @@ class MyOpenSearchClass
         ]);
         var_dump($docs['hits']['total']['value'] > 0);
     }
-    
+
     public function searchByPointInTime()
     {
         $result = $this->client->createPointInTime([
@@ -257,7 +267,7 @@ class MyOpenSearchClass
             'keep_alive' => '10m'
         ]);
         $pitId = $result['pit_id'];
-    
+
         // Get first page of results in Point-in-Time
         $result = $this->client->search([
             'body' => [
@@ -273,7 +283,7 @@ class MyOpenSearchClass
             ]
         ]);
         var_dump($result['hits']['total']['value'] > 0);
-        
+
         $last = end($result['hits']['hits']);
         $lastSort = $last['sort'] ?? null;
 
@@ -293,7 +303,7 @@ class MyOpenSearchClass
             ]
         ]);
         var_dump($result['hits']['total']['value'] > 0);
-        
+
         // Close Point-in-Time
         $result = $this->client->deletePointInTime([
             'body' => [
@@ -338,6 +348,7 @@ try {
     $e->getOneByID();
     $e->getMultipleDocsByIDs();
     $e->search();
+    $e->searchUsingSQL();
     $e->searchByPointInTime();
     $e->deleteByQuery('');
     $e->deleteByID();
@@ -394,15 +405,15 @@ $client = (new \OpenSearch\ClientBuilder())
     ->setSigV4Region('us-east-2')
 
     ->setSigV4Service('es')
-    
+
     // Default credential provider.
     ->setSigV4CredentialProvider(true)
-    
+
     ->setSigV4CredentialProvider([
       'key' => 'awskeyid',
       'secret' => 'awssecretkey',
     ])
-    
+
     ->build();
 ```
 
@@ -415,15 +426,15 @@ $client = (new \OpenSearch\ClientBuilder())
     ->setSigV4Region('us-east-2')
 
     ->setSigV4Service('aoss')
-    
+
     // Default credential provider.
     ->setSigV4CredentialProvider(true)
-    
+
     ->setSigV4CredentialProvider([
       'key' => 'awskeyid',
       'secret' => 'awssecretkey',
     ])
-    
+
     ->build();
 ```
 
@@ -470,7 +481,7 @@ $client = (new \OpenSearch\ClientBuilder())
 ## Disabling Port Modification
 
 To prevent port modifications, include the `includePortInHostHeader` option into `ClientBuilder::fromConfig`.
-This will ensure that the port from the supplied URL is unchanged. 
+This will ensure that the port from the supplied URL is unchanged.
 
 The following example will force port `9100` usage.
 
@@ -490,3 +501,7 @@ $client = \OpenSearch\ClientBuilder::fromConfig($config);
 
 ...
 ```
+
+## Advanced Features
+
+* [ML Commons](guides/ml-commons.md)

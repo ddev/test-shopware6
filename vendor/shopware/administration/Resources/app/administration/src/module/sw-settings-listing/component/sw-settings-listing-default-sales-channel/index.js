@@ -1,6 +1,10 @@
 import template from './sw-settings-listing-default-sales-channel.html.twig';
 import './sw-settings-listing-default-sales-channel.scss';
 
+/**
+ * @sw-package inventory
+ */
+
 const { EntityCollection } = Shopware.Data;
 const { isEmpty } = Shopware.Utils.types;
 const { cloneDeep } = Shopware.Utils.object;
@@ -9,13 +13,15 @@ const { cloneDeep } = Shopware.Utils.object;
 export default {
     template,
 
-    inject: ['repositoryFactory', 'systemConfigApiService'],
+    inject: [
+        'repositoryFactory',
+        'systemConfigApiService',
+    ],
 
     props: {
         isLoading: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default() {
                 return false;
@@ -61,11 +67,11 @@ export default {
                     return;
                 }
 
-                const salesChannelIds = this.salesChannel.map(salesChannel => salesChannel.id);
-                this.visibilityConfig = this.visibilityConfig.filter(entry => salesChannelIds.includes(entry.id));
+                const salesChannelIds = this.salesChannel.map((salesChannel) => salesChannel.id);
+                this.visibilityConfig = this.visibilityConfig.filter((entry) => salesChannelIds.includes(entry.id));
 
                 const configData = new Map();
-                this.visibilityConfig.forEach(entry => configData.set(entry.id, { ...entry }));
+                this.visibilityConfig.forEach((entry) => configData.set(entry.id, { ...entry }));
 
                 this.salesChannel.forEach((salesChannel) => {
                     configData.set(salesChannel, {
@@ -103,7 +109,7 @@ export default {
 
                 if (!isEmpty(configData)) {
                     this.configData.null = configData;
-                    this.salesChannel.forEach(salesChannel => salesChannelEntity.add(salesChannel));
+                    this.salesChannel.forEach((salesChannel) => salesChannelEntity.add(salesChannel));
                     this.salesChannel = salesChannelEntity;
 
                     return;

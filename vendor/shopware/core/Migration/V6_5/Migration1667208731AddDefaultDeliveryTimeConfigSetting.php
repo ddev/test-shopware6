@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1667208731AddDefaultDeliveryTimeConfigSetting extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -26,11 +26,6 @@ class Migration1667208731AddDefaultDeliveryTimeConfigSetting extends MigrationSt
         }
 
         $this->insertSettingValue($connection);
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 
     private function insertSettingValue(Connection $connection): void

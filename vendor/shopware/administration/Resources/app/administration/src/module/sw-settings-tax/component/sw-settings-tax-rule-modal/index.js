@@ -1,7 +1,7 @@
 import template from './sw-settings-tax-rule-modal.html.twig';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Context } = Shopware;
@@ -12,7 +12,11 @@ const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 export default {
     template,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+    ],
+
+    emits: ['modal-close'],
 
     props: {
         tax: {
@@ -45,13 +49,9 @@ export default {
             if (!this.currentTaxRuleType) {
                 return null;
             }
+
             const subComponentName = this.currentTaxRuleType.technicalName.replace(/_/g, '-');
-
-            if (this.feature.isActive('VUE3')) {
-                return `sw-settings-tax-rule-type-${subComponentName}`;
-            }
-
-            return this.$options.components[`sw-settings-tax-rule-type-${subComponentName}`];
+            return `sw-settings-tax-rule-type-${subComponentName}`;
         },
         taxRuleTypeCriteria() {
             const criteria = new Criteria(1, 25);
@@ -66,7 +66,12 @@ export default {
             return criteria;
         },
 
-        ...mapPropertyErrors('taxRule', ['taxRuleTypeId', 'countryId', 'taxRate', 'activeFrom']),
+        ...mapPropertyErrors('taxRule', [
+            'taxRuleTypeId',
+            'countryId',
+            'taxRate',
+            'activeFrom',
+        ]),
     },
 
     created() {
@@ -92,13 +97,16 @@ export default {
         },
 
         onConfirm() {
-            this.taxRuleRepository.save(this.taxRule, Context.api).then(() => {
-                this.isSaveSuccessful = true;
+            this.taxRuleRepository
+                .save(this.taxRule, Context.api)
+                .then(() => {
+                    this.isSaveSuccessful = true;
 
-                this.$emit('modal-close');
-            }).catch(() => {
-                this.isLoading = false;
-            });
+                    this.$emit('modal-close');
+                })
+                .catch(() => {
+                    this.isLoading = false;
+                });
         },
     },
 };

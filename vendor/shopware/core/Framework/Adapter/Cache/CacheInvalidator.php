@@ -4,88 +4,107 @@ namespace Shopware\Core\Framework\Adapter\Cache;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheInterface;
 use Shopware\Core\Framework\Adapter\Cache\InvalidatorStorage\AbstractInvalidatorStorage;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\PlatformRequest;
 use Symfony\Component\Cache\Adapter\TagAwareAdapterInterface;
+use Symfony\Component\Cache\Psr16Cache;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class CacheInvalidator
 {
+    private readonly CacheInterface $httpCacheStore;
+
     /**
      * @internal
      *
      * @param CacheItemPoolInterface[] $adapters
      */
     public function __construct(
-        private readonly int $delay,
         private readonly array $adapters,
         private readonly AbstractInvalidatorStorage $cache,
         private readonly EventDispatcherInterface $dispatcher,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly RequestStack $requestStack,
+        TagAwareAdapterInterface $httpCacheStore,
+        private readonly bool $softPurge,
+        private readonly bool $useDelayedCache
     ) {
+        $this->httpCacheStore = new Psr16Cache($httpCacheStore);
     }
 
     /**
-     * @param list<string> $tags
+     * @param array<string> $tags
      */
     public function invalidate(array $tags, bool $force = false): void
     {
-        /** @var list<string> $tags */
         $tags = array_filter(array_unique($tags));
 
         if (empty($tags)) {
             return;
         }
 
-        if ($this->delay > 0 && !$force) {
-            $this->cache->store($tags);
+        if ($force || $this->shouldForceInvalidate() || !$this->useDelayedCache) {
+            $this->purge($tags);
 
             return;
         }
 
-        $this->purge($tags);
+        $this->cache->store($tags);
     }
 
     /**
-     * @deprecated tag:v6.6.0 - The parameter $time is obsolete and will be removed in v6.6.0.0
+     * @return array<string>
      */
-    public function invalidateExpired(?\DateTime $time = null): void
+    public function invalidateExpired(): array
     {
-        if ($time) {
-            Feature::triggerDeprecationOrThrow('v6.6.0.0', 'The parameter $time in \Shopware\Core\Framework\Adapter\Cache\CacheInvalidator::invalidateExpired is obsolete and will be removed in v6.6.0.0');
-        }
-
         $tags = $this->cache->loadAndDelete();
 
         if (empty($tags)) {
-            return;
+            return $tags;
         }
 
-        $this->logger->debug(sprintf('Purged %d tags', \count($tags)));
+        $this->logger->info(\sprintf('Purged %d tags', \count($tags)));
 
         $this->purge($tags);
+
+        return $tags;
     }
 
     /**
-     * @param list<string> $keys
+     * @param array<string> $keys
      */
     private function purge(array $keys): void
     {
         foreach ($this->adapters as $adapter) {
+            $adapter->deleteItems($keys);
+
             if ($adapter instanceof TagAwareAdapterInterface) {
                 $adapter->invalidateTags($keys);
             }
         }
 
-        foreach ($this->adapters as $adapter) {
-            $adapter->deleteItems($keys);
+        if ($this->softPurge) {
+            $list = [];
+
+            foreach ($keys as $key) {
+                $list['http_invalidation_' . $key . '_timestamp'] = time();
+            }
+
+            $this->httpCacheStore->setMultiple($list);
         }
 
         $this->dispatcher->dispatch(new InvalidateCacheEvent($keys));
+    }
+
+    private function shouldForceInvalidate(): bool
+    {
+        return $this->requestStack->getMainRequest()?->headers->get(PlatformRequest::HEADER_FORCE_CACHE_INVALIDATE) === '1';
     }
 }

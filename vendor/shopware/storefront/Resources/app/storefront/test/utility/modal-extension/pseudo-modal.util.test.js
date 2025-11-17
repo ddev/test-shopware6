@@ -1,18 +1,18 @@
 import PseudoModalUtil from 'src/utility/modal-extension/pseudo-modal.util';
 
-import PseudoModalTemplate from './pseudo-modal.template.html'
-import ModalContentTemplate from './modal-content.template.html'
+import PseudoModalTemplate from './pseudo-modal.template.html';
+import ModalContentTemplate from './modal-content.template.html';
 
 const selector = {
     templateTitle: '.js-pseudo-modal-template-title-element',
-}
+    templateRoot: '.js-pseudo-modal-template-root-element',
+};
 
 /**
  * @package storefront
  */
 describe('pseudo-modal.util tests', () => {
     let pseudoModal = null;
-    const spyInsertAdjacentElement = jest.fn();
 
     function initialModal() {
         return new PseudoModalUtil(ModalContentTemplate);
@@ -20,7 +20,11 @@ describe('pseudo-modal.util tests', () => {
 
     beforeEach(() => {
         document.body.innerHTML = PseudoModalTemplate;
-        document.body.insertAdjacentElement = spyInsertAdjacentElement;
+
+        // Mock implementation of insertAdjacentElement because it is currently not supported by jsdom
+        document.body.insertAdjacentElement = jest.fn().mockImplementation((position, html) => {
+            document.body.appendChild(html);
+        });
 
         jest.useFakeTimers();
         pseudoModal = initialModal();
@@ -38,6 +42,24 @@ describe('pseudo-modal.util tests', () => {
         jest.runAllTimers();
 
         expect(spyModalOpen).toHaveBeenCalled();
+
+        // Ensure opened modal is found in DOM
+        const openedModal = document.querySelector('.modal.fade.show');
+        expect(openedModal).toBeTruthy();
+
+        // Ensure content is found inside opened modal DOM
+        expect(openedModal.querySelector('.modal-body').innerHTML).toContain('<div>Modal content</div>');
+    });
+
+    test('it should open the modal with delay', () => {
+        const spyModalOpen = jest.spyOn(pseudoModal, '_open');
+        const spyCallback = jest.fn();
+
+        pseudoModal.open(spyCallback, 200);
+        jest.advanceTimersByTime(210);
+
+        expect(spyModalOpen).toHaveBeenCalled();
+        expect(spyCallback).toHaveBeenCalled();
 
         // Ensure opened modal is found in DOM
         const openedModal = document.querySelector('.modal.fade.show');
@@ -82,5 +104,44 @@ describe('pseudo-modal.util tests', () => {
         const titleElement = modal.querySelectorAll(selector.templateTitle);
 
         expect(titleElement).toHaveLength(1);
+    });
+
+    test('it closes existing modal before opening new modal', () => {
+        pseudoModal.open();
+        jest.runAllTimers();
+
+        // Ensure first modal is opened
+        const openedModal = document.querySelector('.js-pseudo-modal .modal.fade.show');
+        expect(openedModal.querySelector('.modal-body').innerHTML).toContain('<div>Modal content</div>');
+
+        // While the first modal is still open, some other modal is opened with new instance of PseudoModalUtil
+        const newPseudoModal = new PseudoModalUtil('<div>New modal content</div>');
+        newPseudoModal.open();
+        jest.runAllTimers();
+
+        // Ensure new modal is opened with new content
+        const newModal = document.querySelector('.js-pseudo-modal .modal.fade.show');
+        expect(newModal.querySelector('.modal-body').innerHTML).toContain('<div>New modal content</div>');
+
+        // Ensure only a single backdrop exists
+        expect(document.querySelectorAll('.modal-backdrop').length).toBe(1);
+    });
+
+    test('it should place the content below the modal content', () => {
+        const newPseudoModal = new PseudoModalUtil('<div class="`${selector.templateRoot}`"><h1>New modal content</h1></div>');
+        newPseudoModal.open();
+        jest.runAllTimers();
+
+        const newModal = document.querySelector('.js-pseudo-modal .modal.fade.show');
+        expect(newModal.querySelector('.modal-content').innerHTML).toContain('<h1>New modal content</h1>');
+    });
+
+    test('it should handle just a string', () => {
+        const newPseudoModal = new PseudoModalUtil('New modal content string');
+        newPseudoModal.open();
+        jest.runAllTimers();
+
+        const newModal = document.querySelector('.js-pseudo-modal .modal.fade.show');
+        expect(newModal.querySelector('.modal-body').innerHTML).toContain('New modal content string');
     });
 });

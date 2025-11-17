@@ -12,7 +12,7 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\RateLimiter\Storage\CacheStorage;
 
-#[Package('core')]
+#[Package('framework')]
 class RateLimiterCompilerPass implements CompilerPassInterface
 {
     private const DEFAULT_ENABLED_STATE = true;
@@ -25,7 +25,6 @@ class RateLimiterCompilerPass implements CompilerPassInterface
     {
         $rateLimiter = $container->getDefinition(RateLimiter::class);
 
-        /** @var array<string, array<string, string>> $rateLimiterConfig */
         $rateLimiterConfig = $container->getParameter('shopware.api.rate_limiter');
 
         foreach ($rateLimiterConfig as $name => $config) {
@@ -48,7 +47,7 @@ class RateLimiterCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * @param array<string, array<string, int|string>|bool|string|int> $config
+     * @param array<string, mixed> $config
      */
     private function setConfigDefaults(array &$config): void
     {

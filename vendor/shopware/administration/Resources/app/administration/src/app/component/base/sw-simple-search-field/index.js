@@ -1,13 +1,12 @@
 import template from './sw-simple-search-field.html.twig';
 import './sw-simple-search-field.scss';
 
-const { Component, Utils } = Shopware;
+const { Utils } = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description a search field with delayed update
  * @status ready
  * @example-type static
@@ -19,12 +18,12 @@ const { Component, Utils } = Shopware;
  *   @search-term-change="debouncedInputEvent"
  *  />
  */
-Component.register('sw-simple-search-field', {
+export default {
     template,
     inheritAttrs: false,
 
     emits: [
-        'input',
+        'update:value',
         'search-term-change',
     ],
 
@@ -33,12 +32,20 @@ Component.register('sw-simple-search-field', {
             type: String,
             required: false,
             default: 'default',
-            validValues: ['default', 'inverted', 'form'],
+            validValues: [
+                'default',
+                'inverted',
+                'form',
+            ],
             validator(value) {
                 if (!value.length) {
                     return true;
                 }
-                return ['default', 'inverted', 'form'].includes(value);
+                return [
+                    'default',
+                    'inverted',
+                    'form',
+                ].includes(value);
             },
         },
 
@@ -46,7 +53,12 @@ Component.register('sw-simple-search-field', {
             type: String,
             default: null,
             required: false,
+        },
 
+        size: {
+            type: String,
+            required: false,
+            default: 'default',
         },
 
         delay: {
@@ -84,8 +96,8 @@ Component.register('sw-simple-search-field', {
 
     methods: {
         onInput(input) {
-            this.$emit('input', input);
+            this.$emit('update:value', input);
             this.onSearchTermChanged(input);
         },
     },
-});
+};

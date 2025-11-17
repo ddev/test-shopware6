@@ -2,38 +2,27 @@
 
 namespace Shopware\Core\Checkout\Promotion\Aggregate\PromotionIndividualCode;
 
-use Shopware\Core\Checkout\Promotion\Exception\CodeAlreadyRedeemedException;
 use Shopware\Core\Checkout\Promotion\PromotionEntity;
 use Shopware\Core\Checkout\Promotion\PromotionException;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('buyers-experience')]
+#[Package('checkout')]
 class PromotionIndividualCodeEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $promotionId;
+    protected string $promotionId;
 
-    /**
-     * @var string
-     */
-    protected $code;
+    protected string $code;
 
-    /**
-     * @var PromotionEntity|null
-     */
-    protected $promotion;
+    protected ?PromotionEntity $promotion = null;
 
     /**
      * @var array<string>|null
      */
-    protected $payload;
+    protected ?array $payload = null;
 
     /**
      * Gets if the code has been redeemed
@@ -94,11 +83,11 @@ class PromotionIndividualCodeEntity extends Entity
      * Sets the code to the state "redeemed" by building
      * a payload and assigning the provided values.
      *
-     * @param string $orderId      order that has been placed with this code
-     * @param string $customerId   the customer id of the order
+     * @param string $orderId order that has been placed with this code
+     * @param string $customerId the customer id of the order
      * @param string $customerName the full name of the customer when placing the order
      *
-     * @throws CodeAlreadyRedeemedException
+     * @throws PromotionException
      */
     public function setRedeemed(string $orderId, string $customerId, string $customerName): void
     {
@@ -106,11 +95,7 @@ class PromotionIndividualCodeEntity extends Entity
         if ($this->payload !== null && \array_key_exists('orderId', $this->payload)) {
             // if we have another order id, then throw an exception
             if ($this->payload['orderId'] !== $orderId) {
-                if (Feature::isActive('v6.6.0.0')) {
-                    throw PromotionException::codeAlreadyRedeemed($this->code);
-                }
-
-                throw new CodeAlreadyRedeemedException($this->code);
+                throw PromotionException::codeAlreadyRedeemed($this->code);
             }
         }
 

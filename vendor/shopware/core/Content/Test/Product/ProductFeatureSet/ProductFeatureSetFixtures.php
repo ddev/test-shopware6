@@ -2,23 +2,25 @@
 
 namespace Shopware\Core\Content\Test\Product\ProductFeatureSet;
 
+use PHPUnit\Framework\Attributes\Before;
 use Shopware\Core\Content\Product\Aggregate\ProductFeatureSet\ProductFeatureSetDefinition;
 use Shopware\Core\Content\Product\Aggregate\ProductFeatureSet\ProductFeatureSetEntity;
 use Shopware\Core\Framework\Uuid\Uuid;
-use Shopware\Core\System\Test\EntityFixturesBase;
+use Shopware\Core\Test\Integration\Traits\EntityFixturesBase;
 
+/**
+ * @internal
+ */
 trait ProductFeatureSetFixtures
 {
     use EntityFixturesBase;
 
     /**
-     * @var array
+     * @var array<mixed>
      */
-    public $featureSetFixtures;
+    public array $featureSetFixtures;
 
-    /**
-     * @before
-     */
+    #[Before]
     public function initializeFeatureSetFixtures(): void
     {
         $this->featureSetFixtures = [
@@ -62,12 +64,13 @@ trait ProductFeatureSetFixtures
 
     private function getFeatureSetFixture(string $fixtureName): ProductFeatureSetEntity
     {
-        /** @var ProductFeatureSetEntity $template */
         $template = $this->createFixture(
             $fixtureName,
             $this->featureSetFixtures,
             self::getFixtureRepository(ProductFeatureSetDefinition::ENTITY_NAME)
         );
+
+        static::assertInstanceOf(ProductFeatureSetEntity::class, $template);
 
         return $template;
     }

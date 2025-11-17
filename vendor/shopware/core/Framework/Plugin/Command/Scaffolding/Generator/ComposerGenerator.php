@@ -13,7 +13,7 @@ use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class ComposerGenerator implements ScaffoldingGenerator
 {
     public function hasCommandOption(): bool
@@ -50,14 +50,14 @@ class ComposerGenerator implements ScaffoldingGenerator
         $snakeCasePluginName = (new CamelCaseToSnakeCaseNameConverter())->normalize($configuration->name);
         $snakeCaseNamespace = (new CamelCaseToSnakeCaseNameConverter())->normalize($configuration->namespace);
 
-        $composerName = str_replace('_', '-', $snakeCaseNamespace . '/' . $snakeCasePluginName);
+        $composerName = str_replace(['_', '\\'], ['-', ''], $snakeCaseNamespace . '/' . $snakeCasePluginName);
 
         return Stub::template(
             'composer.json',
             self::STUB_DIRECTORY . '/composer.stub',
             [
-                'namespace' => $configuration->namespace,
-                'className' => $configuration->name,
+                'namespace' => str_replace('\\', '\\\\', $configuration->namespace),
+                'className' => str_replace('\\', '\\\\', $configuration->name),
                 'composerName' => $composerName,
             ]
         );

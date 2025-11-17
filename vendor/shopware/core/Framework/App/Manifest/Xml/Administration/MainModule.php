@@ -3,12 +3,13 @@
 namespace Shopware\Core\Framework\App\Manifest\Xml\Administration;
 
 use Shopware\Core\Framework\App\Manifest\Xml\XmlElement;
+use Shopware\Core\Framework\App\Manifest\XmlParserUtils;
 use Shopware\Core\Framework\Log\Package;
 
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class MainModule extends XmlElement
 {
     protected string $source;
@@ -20,15 +21,6 @@ class MainModule extends XmlElement
 
     protected static function parse(\DOMElement $element): array
     {
-        $values = [];
-
-        foreach ($element->attributes as $attribute) {
-            if (!$attribute instanceof \DOMAttr) {
-                continue;
-            }
-            $values[$attribute->name] = $attribute->value;
-        }
-
-        return $values;
+        return XmlParserUtils::parseAttributes($element);
     }
 }

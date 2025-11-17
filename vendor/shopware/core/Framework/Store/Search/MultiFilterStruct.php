@@ -7,13 +7,13 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class MultiFilterStruct extends FilterStruct
 {
     /**
      * @var FilterStruct[]
      */
-    protected $queries;
+    protected array $queries;
 
     protected string $operator;
 

@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\ImportExport\Controller;
 
 use Shopware\Core\Content\ImportExport\Exception\ProfileNotFoundException;
+use Shopware\Core\Content\ImportExport\ImportExportException;
 use Shopware\Core\Content\ImportExport\ImportExportFactory;
 use Shopware\Core\Content\ImportExport\ImportExportProfileEntity;
 use Shopware\Core\Content\ImportExport\Message\ImportExportMessage;
@@ -11,34 +12,37 @@ use Shopware\Core\Content\ImportExport\Service\DownloadService;
 use Shopware\Core\Content\ImportExport\Service\ImportExportService;
 use Shopware\Core\Content\ImportExport\Service\SupportedFeaturesService;
 use Shopware\Core\Framework\Api\Acl\Role\AclRoleDefinition;
-use Shopware\Core\Framework\Api\Exception\MissingPrivilegeException;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\AssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\TranslationsAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Routing\RoutingException;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\Framework\Validation\DataValidationDefinition;
 use Shopware\Core\Framework\Validation\DataValidator;
+use Shopware\Core\PlatformRequest;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Type;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('services-settings')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('fundamentals@after-sales')]
 class ImportExportActionController extends AbstractController
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<EntityCollection<ImportExportProfileEntity>> $profileRepository
      */
     public function __construct(
         private readonly SupportedFeaturesService $supportedFeaturesService,
@@ -84,7 +88,7 @@ class ImportExportActionController extends AbstractController
                 $request->request->has('dryRun')
             );
 
-            unlink($file->getPathname());
+            unlink($file->getRealPath());
         } else {
             $this->checkAllowedReadPrivileges($profile, $context);
 
@@ -126,7 +130,7 @@ class ImportExportActionController extends AbstractController
     #[Route(path: '/api/_action/import-export/file/download', name: 'api.action.import_export.file.download', defaults: ['auth_required' => false], methods: ['GET'])]
     public function download(Request $request, Context $context): Response
     {
-        /** @var array<string> $params */
+        /** @var array<string, string> $params */
         $params = $request->query->all();
         $definition = new DataValidationDefinition();
         $definition->add('fileId', new NotBlank(), new Type('string'));
@@ -142,7 +146,7 @@ class ImportExportActionController extends AbstractController
         $logId = $request->request->get('logId');
 
         if (!\is_string($logId)) {
-            throw RoutingException::invalidRequestParameter('logId');
+            throw ImportExportException::invalidRequestParameter('logId');
         }
 
         $this->importExportService->cancel($context, $logId);
@@ -156,7 +160,7 @@ class ImportExportActionController extends AbstractController
     {
         $profileId = $request->query->get('profileId');
         if (!\is_string($profileId)) {
-            throw RoutingException::invalidRequestParameter('profileId');
+            throw ImportExportException::invalidRequestParameter('profileId');
         }
         $profileId = strtolower($profileId);
 
@@ -179,11 +183,11 @@ class ImportExportActionController extends AbstractController
         $enclosure = (string) $request->request->get('enclosure', '"');
 
         if ($file === null || !$file->isValid()) {
-            throw RoutingException::invalidRequestParameter('file');
+            throw ImportExportException::invalidRequestParameter('file');
         }
 
         if (!\is_string($sourceEntity)) {
-            throw RoutingException::invalidRequestParameter('sourceEntity');
+            throw ImportExportException::invalidRequestParameter('sourceEntity');
         }
 
         $mapping = $this->mappingService->getMappingFromTemplate($context, $file, $sourceEntity, $delimiter, $enclosure);
@@ -201,11 +205,11 @@ class ImportExportActionController extends AbstractController
             ->getEntities()
             ->get($profileId);
 
-        if ($profile instanceof ImportExportProfileEntity) {
+        if ($profile) {
             return $profile;
         }
 
-        throw new ProfileNotFoundException($profileId);
+        throw ImportExportException::profileNotFound($profileId);
     }
 
     private function checkAllowedReadPrivileges(ImportExportProfileEntity $profile, Context $context): void
@@ -213,7 +217,7 @@ class ImportExportActionController extends AbstractController
         $missingPrivileges = [];
 
         $sourceEntity = $profile->getSourceEntity();
-        $privilege = sprintf('%s:%s', $sourceEntity, AclRoleDefinition::PRIVILEGE_READ);
+        $privilege = \sprintf('%s:%s', $sourceEntity, AclRoleDefinition::PRIVILEGE_READ);
 
         if (!$context->isAllowed($privilege)) {
             $missingPrivileges[] = $privilege;
@@ -226,11 +230,11 @@ class ImportExportActionController extends AbstractController
         $propertyPaths = array_map(fn (string $key): array => explode('.', $key), $mappedKeys);
 
         foreach ($propertyPaths as $properties) {
-            $missingPrivileges = $this->getMissingPrivilges($properties, $definition, $context, $missingPrivileges);
+            $missingPrivileges = $this->getMissingPrivileges($properties, $definition, $context, $missingPrivileges);
         }
 
         if (!empty($missingPrivileges)) {
-            throw new MissingPrivilegeException($missingPrivileges);
+            throw ImportExportException::missingPrivilege($missingPrivileges);
         }
     }
 
@@ -240,7 +244,7 @@ class ImportExportActionController extends AbstractController
      *
      * @return array<string>
      */
-    private function getMissingPrivilges(
+    private function getMissingPrivileges(
         array $properties,
         EntityDefinition $definition,
         Context $context,
@@ -255,14 +259,14 @@ class ImportExportActionController extends AbstractController
         }
 
         $definition = $property->getReferenceDefinition();
-        $privilege = sprintf('%s:%s', $definition->getEntityName(), AclRoleDefinition::PRIVILEGE_READ);
+        $privilege = \sprintf('%s:%s', $definition->getEntityName(), AclRoleDefinition::PRIVILEGE_READ);
 
         if (!$context->isAllowed($privilege)) {
             $missingPrivileges[] = $privilege;
         }
 
         if (!empty($properties)) {
-            $missingPrivileges = $this->getMissingPrivilges($properties, $definition, $context, $missingPrivileges);
+            $missingPrivileges = $this->getMissingPrivileges($properties, $definition, $context, $missingPrivileges);
         }
 
         return $missingPrivileges;

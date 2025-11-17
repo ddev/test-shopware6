@@ -7,11 +7,11 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class XOrFilter extends MultiFilter
 {
     /**
-     * @param  Filter[] $queries
+     * @param Filter[] $queries
      */
     public function __construct(array $queries = [])
     {

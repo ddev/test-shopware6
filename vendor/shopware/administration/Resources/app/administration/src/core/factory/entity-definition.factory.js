@@ -1,11 +1,11 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import EntityDefinition, { getScalarTypes, getJsonTypes } from 'src/core/data/entity-definition.data';
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default {
     getScalarTypes,

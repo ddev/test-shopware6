@@ -1,14 +1,11 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_import_export_edit_profile_modal_mapping %}
 <div class="sw-import-export-edit-profile-modal-mapping">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_edit_profile_modal_mapping_toolbar %}
     <div class="sw-import-export-edit-profile-modal-mapping__toolbar">
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_toolbar_search_field %}
         <sw-simple-search-field
-            v-model="searchTerm"
+            v-model:value="searchTerm"
             size="small"
             variant="form"
             :disabled="!mappingsExist"
@@ -16,27 +13,26 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_toolbar_add_mapping %}
-        <sw-button
+        <mt-button
             v-tooltip="{
                 message: $tc('sw-import-export.profile.addMappingTooltipText'),
                 disabled: addMappingEnabled,
                 showOnDisabledElements: true
             }"
             class="sw-import-export-edit-profile-modal-mapping__add-action"
-            variant="ghost"
+            ghost
             :disabled="profile.systemDefault || !addMappingEnabled"
             size="small"
+            variant="secondary"
             @click="onAddMapping"
         >
             {{ $tc('sw-import-export.profile.addMappingLabel') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
     </div>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_edit_profile_modal_mapping_grid %}
     <sw-data-grid
         v-if="mappingsExist"
@@ -49,30 +45,21 @@
         class="sw-import-export-edit-profile-modal-mapping__grid"
     >
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_grid_csv_name_column %}
         <template #column-csvName="{ item, itemIndex }">
-            <sw-text-field
-                {% if VUE3 %}
-                v-model:value="item.mappedKey"
-                {% else %}
+
+            <mt-text-field
                 v-model="item.mappedKey"
-                {% endif %}
                 :name="`mappedKey-${itemIndex}`"
                 :disabled="profile.systemDefault"
             />
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_grid_entry_column %}
         <template #column-entry="{ item }">
             <sw-import-export-entity-path-select
-                {% if VUE3 %}
                 v-model:value="item.key"
-                {% else %}
-                v-model="item.key"
-                {% endif %}
                 :languages="languages"
                 :currencies="currencies"
                 :entity-type="profile.sourceEntity"
@@ -82,103 +69,86 @@
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_grid_required_column %}
         <template #column-required="{ item }">
-            <sw-switch-field
+
+            <mt-switch
                 v-show="isRequiredBySystem(item)"
                 class="sw-import-export-edit-profile-modal-mapping__required-by-user-switch"
-                :value="true"
+                :model-value="true"
                 :disabled="true"
-                @change="() => {}"
             />
-            <sw-switch-field
+
+            <mt-switch
                 v-show="!isRequiredBySystem(item)"
-                {% if VUE3 %}
-                v-model:value="item.requiredByUser"
-                {% else %}
                 v-model="item.requiredByUser"
-                {% endif %}
                 class="sw-import-export-edit-profile-modal-mapping__required-by-user-switch"
                 :disabled="profile.systemDefault"
             />
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_grid_default_value_column %}
         <template #column-defaultValue="{ item, itemIndex }">
-            <sw-switch-field
-                {% if VUE3 %}
-                v-model:value="item.useDefaultValue"
-                {% else %}
+
+            <mt-switch
                 v-model="item.useDefaultValue"
-                {% endif %}
                 :name="`useDefaultValue-${itemIndex}`"
                 :disabled="isDefaultValueCheckboxDisabled()"
                 class="sw-import-export-edit-profile-modal-mapping__default-value-switch"
             />
 
-            <sw-text-field
-                {% if VUE3 %}
-                v-model:value="item.defaultValue"
-                {% else %}
+            <mt-text-field
                 v-model="item.defaultValue"
-                {% endif %}
                 :name="`defaultValue-${itemIndex}`"
                 :disabled="isDefaultValueTextFieldDisabled(item)"
             />
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_grid_position_column %}
         <template #column-position="{ item, itemIndex }">
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_import_export_edit_profile_modal_mapping_grid_position_column_button_group %}
-            <sw-button-group>
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+            <sw-button-group class="sw-import-export-edit-profile-modal-mapping__position-buttons">
                 {% block sw_import_export_edit_profile_modal_mapping_grid_position_column_button_group_up %}
-                <sw-button
+                <mt-button
                     size="x-small"
                     square
                     :disabled="isFirstMapping(item) || !!searchTerm"
+                    variant="secondary"
                     @click="updateSorting(itemIndex, 'up')"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_import_export_edit_profile_modal_mapping_grid_position_column_button_group_up_icon %}
-                    <sw-icon
+                    <mt-icon
                         name="regular-chevron-up-xxs"
-                        size="14px"
+                        size="12px"
                     />
                     {% endblock %}
-                </sw-button>
+                </mt-button>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_import_export_edit_profile_modal_mapping_grid_position_column_button_group_down %}
-                <sw-button
+                <mt-button
                     size="x-small"
                     square
                     :disabled="isLastMapping(item) || !!searchTerm"
+                    variant="secondary"
                     @click="updateSorting(itemIndex, 'down')"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_import_export_edit_profile_modal_mapping_grid_position_column_button_group_down_icon %}
-                    <sw-icon
+                    <mt-icon
                         name="regular-chevron-down-xxs"
-                        size="14px"
+                        size="12px"
                     />
                     {% endblock %}
-                </sw-button>
+                </mt-button>
                 {% endblock %}
             </sw-button-group>
             {% endblock %}
         </template>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_import_export_edit_profile_modal_mapping_grid_context_menu_delete %}
         <template #actions="{ item }">
             <sw-context-menu-item
@@ -194,13 +164,12 @@
     </sw-data-grid>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_import_export_edit_profile_modal_mapping_empty_state %}
-    <sw-empty-state
+    <mt-empty-state
         v-else
         class="sw-import-export-edit-profile-modal-mapping__empty-state"
-        :title="$tc('sw-import-export.profile.mappingEmptyState')"
-        :absolute="false"
+        :icon="$route.meta.$module.icon"
+        :headline="$tc('sw-import-export.profile.mappingEmptyState')"
     />
     {% endblock %}
 </div>

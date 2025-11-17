@@ -1,13 +1,12 @@
 import template from './sw-search-more-results.html.twig';
 import './sw-search-more-results.scss';
 
-const { Component, Application } = Shopware;
+const { Application } = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Renders the search result show more based on the item type.
  * @status ready
@@ -17,7 +16,7 @@ const { Component, Application } = Shopware;
  * </sw-search-more-results>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-search-more-results', {
+export default {
     template,
 
     inject: [
@@ -46,11 +45,7 @@ Component.register('sw-search-more-results', {
          * @return {string}
          */
         searchTypeRoute() {
-            if (
-                !this.entity ||
-                !this.searchTypes[this.entity] ||
-                !this.searchTypes[this.entity].listingRoute
-            ) {
+            if (!this.entity || !this.searchTypes[this.entity] || !this.searchTypes[this.entity].listingRoute) {
                 const module = this.moduleFactory.getModuleByEntityName(this.entity);
 
                 if (module?.manifest?.routes?.index) {
@@ -76,12 +71,12 @@ Component.register('sw-search-more-results', {
 
             return this.$tc(
                 'global.sw-search-more-results.labelShowResultsInModuleV2',
-                0,
                 {
                     entityName: entityName,
                     entityNameLower: entityName.toLowerCase(),
                 },
+                0,
             );
         },
     },
-});
+};

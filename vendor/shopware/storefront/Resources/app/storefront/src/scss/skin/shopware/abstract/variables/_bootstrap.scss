@@ -4,6 +4,8 @@ Bootstrap variables
 Contains all overrides of bootstrap default variables.
 
 https://getbootstrap.com/docs/5.2/customize/sass/#variable-defaults
+
+@sw-package framework
 */
 
 // Color system
@@ -32,9 +34,24 @@ $grid-gutter-width: 40px !default;
 // Body
 $body-bg: $sw-background-color !default;
 $body-color: $sw-text-color !default;
+$body-secondary-color: $sw-text-color !default;
 
 // Components
 $border-color: $sw-border-color !default;
+
+// Focus outlines
+$focus-ring-width: 0.25rem !default;
+$focus-ring-opacity: 1 !default;
+$focus-ring-color: rgba($primary, $focus-ring-opacity) !default;
+$focus-ring-blur: 0 !default;
+$focus-ring-box-shadow: (
+    0 0 0 0.125rem $body-bg,
+    0 0 $focus-ring-blur $focus-ring-width $focus-ring-color
+) !default;
+$focus-ring-box-shadow-inset: (
+    inset 0 0 0 0.125rem $focus-ring-color,
+    inset 0 0 0 0.25rem $body-bg
+) !default;
 
 $border-radius: 0 !default;
 $border-radius-lg: 0 !default;
@@ -42,10 +59,10 @@ $border-radius-sm: 0 !default;
 
 // Typography
 $font-family-base: $sw-font-family-base !default;
-
-$font-size-base: 0.875rem !default;
-$font-size-lg: 1rem !default;
-$font-size-sm: 0.75rem !default;
+$paragraph-margin-bottom: 2rem !default;
+$font-size-base: 1rem !default;
+$font-size-lg: 1.125rem !default;
+$font-size-sm: 0.875rem !default;
 $font-weight-normal: 400 !default;
 
 $h1-font-size: 36px !default;
@@ -55,34 +72,37 @@ $h4-font-size: 20px !default;
 $h5-font-size: 16px !default;
 $h6-font-size: 14px !default;
 
+$nav-link-font-size: $font-size-base !default;
+
 $headings-font-weight: 700 !default;
 $headings-font-family: $sw-font-family-headline !default;
 
-$link-decoration: none !default;
+$link-decoration: underline !default;
 $link-hover-decoration: underline !default;
 
 // Buttons + Forms
-$input-btn-padding-y: 0.5625rem !default;
-$input-btn-padding-x: 0.5625rem !default;
+$input-padding-y: 0.438rem !default;
+$input-padding-x: 0.5625rem !default;
 
-$input-placeholder-color: #c3c3c3 !default;
+$input-placeholder-color: #666977 !default;
 
 $form-label-margin-bottom: 3px !default;
 
 // Buttons
 $btn-padding-y: 2px !default;
 $btn-padding-x: 12px !default;
-$btn-line-height: 34px !default;
+$btn-line-height: 2.125rem !default;
+$btn-white-space: nowrap !default;
 
 $btn-padding-y-sm: 2px !default;
 $btn-padding-x-sm: 12px !default;
 $btn-font-size-sm: 14px !default;
-$btn-line-height-sm: 30px !default;
+$btn-line-height-sm: 1.875rem !default;
 
 $btn-padding-y-lg: 2px !default;
 $btn-padding-x-lg: 12px !default;
 $btn-font-size-lg: 16px !default;
-$btn-line-height-lg: 38px !default;
+$btn-line-height-lg: 2.375rem !default;
 
 $btn-font-weight: 600 !default;
 $btn-link-disabled-color: $gray-300 !default;
@@ -98,16 +118,26 @@ $form-check-padding-start: 1.5rem !default;
 $input-focus-border-color: $sw-color-brand-primary !default;
 $custom-select-indicator-color: $input-color !default;
 $custom-control-indicator-active-bg: $sw-color-brand-primary !default;
+$input-btn-focus-width: $focus-ring-width !default;
+$input-btn-focus-color: $focus-ring-color !default;
+$form-select-focus-border-color: $input-focus-border-color !default;
+$form-select-focus-width: $input-btn-focus-width !default;
+$form-select-focus-box-shadow: (
+    0 0 0 0.125rem $body-bg,
+    0 0 $focus-ring-blur $focus-ring-width $focus-ring-color
+) !default;
 
 // Pagination
 $pagination-color: $sw-text-color !default;
 $pagination-hover-color: $sw-text-color !default;
 $pagination-border-width: 0 !default;
-$pagination-padding-y: 0.595rem;
-$pagination-padding-x: 0.75rem;
+$pagination-padding-y: 0.595rem !default;
+$pagination-padding-x: 0.75rem !default;
 $pagination-border-color: $sw-border-color !default;
 $pagination-hover-border-color: $sw-border-color !default;
 $pagination-focus-border-color: $sw-border-color !default;
+$pagination-disabled-color: $gray-600 !default;
+$pagination-disabled-bg: transparent !default;
 
 // Dropdown
 $dropdown-border-color: $sw-border-color !default;
@@ -120,8 +150,6 @@ $spinner-width: 26px !default;
 $spinner-border-width: 2px !default;
 
 // Modals
-$modal-header-padding-y: 10px !default;
-$modal-header-padding-x: 10px !default;
 $modal-content-border-width: 0 !default;
 $modal-content-box-shadow-xs: 0 43px 43px -6px rgba(#000, 0.2) !default;
 $modal-content-box-shadow-sm-up: 0 43px 43px -6px rgba(#000, 0.2) !default;
@@ -149,13 +177,15 @@ $offcanvas-border-width: 0 !default;
 $offcanvas-border-color: transparent !default;
 $offcanvas-backdrop-opacity: 1 !default;
 
-
 // Alerts
-$alert-padding-x: 0 !default;
-$alert-padding-y: 0 !default;
-$alert-border-width: 0 !default;
+$alert-padding-x: 0.5rem !default;
+$alert-padding-y: 0.5rem !default;
+$alert-border-width: 1px !default;
 
 // Badges
 $badge-border-radius: 50px !default;
 $badge-padding-x: 5px !default;
 $badge-padding-y: 0 !default;
+
+// Navbar
+$navbar-light-active-color: $primary !default;

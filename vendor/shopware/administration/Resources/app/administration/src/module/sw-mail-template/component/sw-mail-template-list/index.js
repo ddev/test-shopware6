@@ -4,13 +4,16 @@ const { Mixin } = Shopware;
 const { Criteria } = Shopware.Data;
 
 /**
- * @package services-settings
+ * @sw-package after-sales
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
 
     mixins: [
         Mixin.getByName('listing'),
@@ -62,15 +65,13 @@ export default {
             this.isLoading = true;
 
             const criteria = new Criteria(this.page, this.limit);
-            criteria
-                .addAssociation('mailTemplateType')
-                .addSorting(Criteria.sort('mailTemplateType.name'));
+            criteria.addAssociation('mailTemplateType').addSorting(Criteria.sort('mailTemplateType.name'));
 
             if (this.searchTerm) {
                 criteria.setTerm(this.searchTerm);
             }
 
-            this.mailTemplateRepository.search(criteria).then(items => {
+            this.mailTemplateRepository.search(criteria).then((items) => {
                 this.total = items.total;
                 this.mailTemplates = items;
                 this.isLoading = false;
@@ -80,19 +81,22 @@ export default {
         },
 
         getListColumns() {
-            return [{
-                property: 'mailTemplateType.name',
-                dataIndex: 'mailTemplateType.name',
-                label: 'sw-mail-template.list.columnMailType',
-                allowResize: true,
-                routerLink: 'sw.mail.template.detail',
-                primary: true,
-            }, {
-                property: 'description',
-                dataIndex: 'description',
-                label: 'sw-mail-template.list.columnDescription',
-                allowResize: true,
-            }];
+            return [
+                {
+                    property: 'mailTemplateType.name',
+                    dataIndex: 'mailTemplateType.name',
+                    label: 'sw-mail-template.list.columnMailType',
+                    allowResize: true,
+                    routerLink: 'sw.mail.template.detail',
+                    primary: true,
+                },
+                {
+                    property: 'description',
+                    dataIndex: 'description',
+                    label: 'sw-mail-template.list.columnDescription',
+                    allowResize: true,
+                },
+            ];
         },
 
         onChangeLanguage(languageId) {
@@ -104,12 +108,10 @@ export default {
             this.mailTemplateRepository.clone(id).then((mailTemplate) => {
                 this.getList();
                 this.isLoading = false;
-                this.$router.push(
-                    {
-                        name: 'sw.mail.template.detail',
-                        params: { id: mailTemplate.id },
-                    },
-                );
+                this.$router.push({
+                    name: 'sw.mail.template.detail',
+                    params: { id: mailTemplate.id },
+                });
             });
         },
 

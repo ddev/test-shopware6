@@ -5,6 +5,7 @@ namespace Shopware\Core\Migration\V6_5;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Shopware\Core\Content\Flow\Aggregate\FlowTemplate\FlowTemplateDefinition;
+use Shopware\Core\Content\Flow\Dispatching\Action\SendMailAction;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Migration\MigrationStep;
@@ -13,7 +14,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('business-ops')]
+#[Package('after-sales')]
 class Migration1689257577AddMissingTransactionMailFlow extends MigrationStep
 {
     public const AUTHORIZED_FLOW = 'Order enters status authorized';
@@ -44,10 +45,6 @@ class Migration1689257577AddMissingTransactionMailFlow extends MigrationStep
         }
 
         $this->registerIndexer($connection, 'flow.indexer');
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
     }
 
     /**
@@ -87,11 +84,11 @@ class Migration1689257577AddMissingTransactionMailFlow extends MigrationStep
                     'flow_id' => $flowId,
                     'rule_id' => null,
                     'parent_id' => null,
-                    'action_name' => 'action.mail.send',
+                    'action_name' => SendMailAction::ACTION_NAME,
                     'position' => 1,
                     'true_case' => 0,
                     'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT),
-                    'config' => sprintf(
+                    'config' => \sprintf(
                         '{"recipient": {"data": [], "type": "default"}, "mailTemplateId": "%s", "documentTypeIds": []}',
                         Uuid::fromBytesToHex($mailTemplate['mailTemplateId'])
                     ),
@@ -118,8 +115,8 @@ class Migration1689257577AddMissingTransactionMailFlow extends MigrationStep
         if ($mailTemplate['mailTemplateId'] !== null) {
             $sequenceConfig[] = [
                 'id' => Uuid::randomHex(),
-                'actionName' => 'action.mail.send',
-                'config' => sprintf(
+                'actionName' => SendMailAction::ACTION_NAME,
+                'config' => \sprintf(
                     '{"recipient": {"data": [], "type": "default"}, "mailTemplateId": "%s", "documentTypeIds": []}',
                     Uuid::fromBytesToHex($mailTemplate['mailTemplateId'])
                 ),

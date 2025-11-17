@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-modal-variant-generation.html.twig';
@@ -8,13 +8,21 @@ import './sw-product-modal-variant-generation.scss';
 
 const { Criteria } = Shopware.Data;
 const { Mixin, Context } = Shopware;
-const { mapState } = Shopware.Component.getComponentHelper();
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory'],
+    inject: [
+        'repositoryFactory',
+        'mediaService',
+        'swProductDetailLoadAll',
+    ],
+
+    emits: [
+        'modal-close',
+        'variations-finish-generate',
+    ],
 
     mixins: [
         Mixin.getByName('listing'),
@@ -60,13 +68,16 @@ export default {
             downloadFilesForAllVariants: [],
             usageOfFiles: {},
             idToIndex: {},
+            productDownloadFolderId: null,
+            isAddOnly: false,
+            originalConfiguratorSettings: [],
         };
     },
 
     computed: {
-        ...mapState('swProductDetail', [
-            'currencies',
-        ]),
+        currencies() {
+            return Shopware.Store.get('swProductDetail').currencies;
+        },
 
         productRepository() {
             return this.repositoryFactory.create('product');
@@ -80,6 +91,7 @@ export default {
             return this.repositoryFactory.create('media');
         },
 
+        // @deprecated tag:v6.8.0 - Will be removed, no longer needed
         progressInPercentage() {
             return this.actualProgress / (this.maxProgress * 100);
         },
@@ -99,7 +111,7 @@ export default {
 
         buttonVariant() {
             if (this.variantsNumber <= 0) {
-                return 'danger';
+                return 'critical';
             }
             return 'primary';
         },
@@ -114,10 +126,9 @@ export default {
 
         isGenerateButtonDisabled() {
             return this.variantGenerationQueue.createQueue.some((item) => {
-                return item.downloads.length === 0 && item.productStates.includes('is-download');
+                return item.downloads.length === 0 && item.productStates?.includes('is-download');
             });
         },
-
     },
 
     watch: {
@@ -125,69 +136,100 @@ export default {
             this.getList();
             this.showUploadModal = true;
         },
+
+        isAddOnly() {
+            if (this.isAddOnly) {
+                this.emptyConfiguratorSettings();
+                return;
+            }
+
+            this.addOriginalConfiguratorSettings();
+        },
     },
 
     created() {
         this.createdComponent();
     },
 
+    beforeUnmount() {
+        this.beforeUnmountComponent();
+    },
+
     methods: {
         createdComponent() {
+            this.mediaService.getDefaultFolderId('product_download').then((folderId) => {
+                this.productDownloadFolderId = folderId;
+            });
+
             this.variantsGenerator = new VariantsGenerator();
             this.term = '';
 
-            this.variantsGenerator.on('queues', (queues) => {
-                const optionIdsToSearch = this.product.configuratorSettings.reduce((result, element) => {
-                    if (result.indexOf(element.option.id) < 0) {
-                        result.push(element.option.id);
-                    }
+            this.variantsGenerator.on('queues', this.onQueuesHandler);
 
-                    return result;
-                }, []);
+            this.variantsGenerator.on('progress-max', this.onProgressMaxHandler);
 
-                if (optionIdsToSearch.length > 0) {
-                    const criteria = new Criteria(1, 500);
-                    criteria.addFilter(Criteria.equalsAny('id', optionIdsToSearch));
-                    criteria.addAssociation('group');
+            this.variantsGenerator.on('progress-actual', this.onProgressActualHandler);
+        },
 
-                    this.optionRepository.search(criteria).then((options) => {
-                        queues.createQueue.forEach((item, index) => {
-                            item.options.forEach((option) => {
-                                option.entity = options.get(option.id);
-                            });
+        beforeUnmountComponent() {
+            if (this.variantsGenerator.off) {
+                this.variantsGenerator.off('queues', this.onQueuesHandler);
+                this.variantsGenerator.off('progress-max', this.onProgressMaxHandler);
+                this.variantsGenerator.off('progress-actual', this.onProgressActualHandler);
+            }
+        },
 
-                            item.options.sort((firstOption, secondOption) => {
-                                const firstGroupName = firstOption.entity.group.name;
-                                const secondGroupName = secondOption.entity.group.name;
+        onQueuesHandler(queues) {
+            const optionIdsToSearch = this.product.configuratorSettings.reduce((result, element) => {
+                if (result.indexOf(element.option.id) < 0) {
+                    result.push(element.option.id);
+                }
 
-                                return firstGroupName.localeCompare(secondGroupName);
-                            });
+                return result;
+            }, []);
 
-                            item.downloads = [];
-                            item.productStates = [];
-                            item.id = item.productNumber;
-                            this.idToIndex[item.id] = index;
+            if (optionIdsToSearch.length > 0) {
+                const criteria = new Criteria(1, 500);
+                criteria.addFilter(Criteria.equalsAny('id', optionIdsToSearch));
+                criteria.addAssociation('group');
+
+                this.optionRepository.search(criteria).then((options) => {
+                    queues.createQueue.forEach((item, index) => {
+                        item.options.forEach((option) => {
+                            option.entity = options.get(option.id);
                         });
 
-                        this.variantGenerationQueue = queues;
-                        this.total = queues.createQueue.length;
+                        item.options.sort((firstOption, secondOption) => {
+                            const firstGroupName = firstOption.entity.group.name;
+                            const secondGroupName = secondOption.entity.group.name;
+
+                            return firstGroupName.localeCompare(secondGroupName);
+                        });
+
+                        item.downloads = [];
+                        item.productStates = [];
+                        item.id = item.productNumber;
+                        this.idToIndex[item.id] = index;
                     });
-                } else {
+
                     this.variantGenerationQueue = queues;
                     this.total = queues.createQueue.length;
-                }
-                this.isLoading = false;
-            });
+                });
+            } else {
+                this.variantGenerationQueue = queues;
+                this.total = queues.createQueue.length;
+            }
+            this.isLoading = false;
+        },
 
-            this.variantsGenerator.on('progress-max', (maxProgress) => {
-                this.maxProgress = maxProgress.progress;
-                this.progressType = maxProgress.type;
-            });
+        onProgressMaxHandler(maxProgress) {
+            this.maxProgress = maxProgress.progress;
+            this.progressType = maxProgress.type;
+        },
 
-            this.variantsGenerator.on('progress-actual', (actualProgress) => {
-                this.actualProgress = actualProgress.progress;
-                this.progressType = actualProgress.type;
-            });
+        onProgressActualHandler(actualProgress) {
+            this.actualProgress = actualProgress.progress;
+            this.progressType = actualProgress.type;
         },
 
         /**
@@ -197,11 +239,12 @@ export default {
          */
         removeFile(fileName, variant) {
             // keep all downloadable files expect the one that should be removed
-            variant.downloads = variant.downloads
-                .filter(download => `${download.fileName}.${download.fileExtension}` !== fileName);
+            variant.downloads = variant.downloads.filter(
+                (download) => `${download.fileName}.${download.fileExtension}` !== fileName,
+            );
 
             // check if file is used in another place
-            this.usageOfFiles[fileName] = this.usageOfFiles[fileName].filter(id => id !== variant.id);
+            this.usageOfFiles[fileName] = this.usageOfFiles[fileName].filter((id) => id !== variant.id);
             if (this.usageOfFiles[fileName].length === 0) {
                 delete this.usageOfFiles[fileName];
             }
@@ -209,8 +252,9 @@ export default {
 
             if (!fileUsedElsewhere) {
                 // removes file from the array, so it won't be shown inside the top upload component
-                this.downloadFilesForAllVariants = this.downloadFilesForAllVariants
-                    .filter(download => `${download.fileName}.${download.fileExtension}` !== fileName);
+                this.downloadFilesForAllVariants = this.downloadFilesForAllVariants.filter(
+                    (download) => `${download.fileName}.${download.fileExtension}` !== fileName,
+                );
             }
         },
 
@@ -222,14 +266,16 @@ export default {
                 usage.forEach((use) => {
                     const index = this.idToIndex[use];
                     const variant = this.variantGenerationQueue.createQueue[index];
-                    variant.downloads = variant.downloads
-                        .filter(download => `${download.fileName}.${download.fileExtension}` !== fileName);
+                    variant.downloads = variant.downloads.filter(
+                        (download) => `${download.fileName}.${download.fileExtension}` !== fileName,
+                    );
                 });
                 delete this.usageOfFiles[fileName];
             }
 
-            this.downloadFilesForAllVariants = this.downloadFilesForAllVariants
-                .filter(download => download.id !== file.id);
+            this.downloadFilesForAllVariants = this.downloadFilesForAllVariants.filter(
+                (download) => download.id !== file.id,
+            );
         },
 
         getList() {
@@ -284,25 +330,26 @@ export default {
                 item.downloads = mediaIds;
             });
 
-            this.variantsGenerator.saveVariants(this.variantGenerationQueue).then(() => {
-                return this.productRepository.save(this.product);
-            }).then(() => {
-                this.$emit('variations-finish-generate');
-                this.$emit('modal-close');
-                this.isLoading = false;
-                this.actualProgress = 0;
-                this.maxProgress = 0;
+            this.variantsGenerator
+                .saveVariants(this.variantGenerationQueue)
+                .then(() => {
+                    this.addOriginalConfiguratorSettings();
+                    return this.productRepository.save(this.product);
+                })
+                .then(() => {
+                    this.$emit('variations-finish-generate');
+                    this.$emit('modal-close');
+                    this.isLoading = false;
+                    this.actualProgress = 0;
+                    this.maxProgress = 0;
 
-                this.$root.$emit('product-reload');
-            });
+                    this.swProductDetailLoadAll();
+                });
         },
 
         showNextStep() {
             this.isLoading = true;
-            this.variantsGenerator.generateVariants(
-                this.currencies,
-                this.product,
-            );
+            this.variantsGenerator.generateVariants(this.currencies, this.product, this.isAddOnly);
             this.isLoading = false;
         },
 
@@ -325,10 +372,10 @@ export default {
             const groupedDataValues = Object.values(groupedData);
 
             // Multiply each group options when options are selected
-            this.variantsNumber = groupedDataValues.length > 0
-                ? groupedDataValues.map((group) => group.length)
-                    .reduce((curr, length) => curr * length)
-                : 0;
+            this.variantsNumber =
+                groupedDataValues.length > 0
+                    ? groupedDataValues.map((group) => group.length).reduce((curr, length) => curr * length)
+                    : 0;
         },
 
         onChangeAllVariantValues(checked) {
@@ -360,11 +407,12 @@ export default {
         onChangeVariantValue(checked, item) {
             if (!checked) {
                 Object.keys(this.usageOfFiles).forEach((key) => {
-                    this.usageOfFiles[key] = this.usageOfFiles[key].filter(id => id !== item.id);
+                    this.usageOfFiles[key] = this.usageOfFiles[key].filter((id) => id !== item.id);
                     if (this.usageOfFiles[key].length === 0) {
                         delete this.usageOfFiles[key];
-                        this.downloadFilesForAllVariants = this.downloadFilesForAllVariants
-                            .filter(download => `${download.fileName}.${download.fileExtension}` !== key);
+                        this.downloadFilesForAllVariants = this.downloadFilesForAllVariants.filter(
+                            (download) => `${download.fileName}.${download.fileExtension}` !== key,
+                        );
                     }
                 });
 
@@ -437,9 +485,48 @@ export default {
             this.usageOfFiles[fileName].push(id);
         },
 
+        onModalCancel() {
+            this.addOriginalConfiguratorSettings();
+            this.$emit('modal-close');
+        },
+
+        addOriginalConfiguratorSettings() {
+            this.removeDuplicateEntries();
+            this.originalConfiguratorSettings.forEach((configSetting) => {
+                this.product.configuratorSettings.add(configSetting);
+            });
+
+            this.calcVariantsNumber();
+        },
+
+        emptyConfiguratorSettings() {
+            this.originalConfiguratorSettings = [];
+            this.product.configuratorSettings.getIds().forEach((id) => {
+                this.originalConfiguratorSettings.push(this.product.configuratorSettings.get(id));
+                this.product.configuratorSettings.remove(id);
+            });
+
+            this.calcVariantsNumber();
+        },
+
         onTermChange(term) {
             this.term = term;
             this.getList();
+        },
+
+        removeDuplicateEntries() {
+            const that = this;
+            this.product.configuratorSettings.getIds().forEach((configSettingId) => {
+                const configSetting = that.product.configuratorSettings.get(configSettingId);
+
+                if (
+                    this.originalConfiguratorSettings.find((setting) => {
+                        return setting.optionId === configSetting.optionId;
+                    }) !== undefined
+                ) {
+                    that.product.configuratorSettings.remove(configSettingId);
+                }
+            });
         },
     },
 };

@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package fundamentals@discovery
  */
 import template from './sw-settings-country-general.html.twig';
 import './sw-settings-country-general.scss';
@@ -7,7 +7,6 @@ import './sw-settings-country-general.scss';
 const { Component, Mixin } = Shopware;
 const { mapPropertyErrors } = Component.getComponentHelper();
 const { Criteria } = Shopware.Data;
-
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -17,6 +16,8 @@ export default {
         'repositoryFactory',
         'acl',
     ],
+
+    emits: ['modal-save'],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -65,7 +66,6 @@ export default {
         },
 
         ...mapPropertyErrors('country', ['name']),
-
     },
 
     created() {
@@ -77,12 +77,12 @@ export default {
             if (!this.$route.params.id) {
                 return;
             }
-            this.countryId = this.$route.params.id;
+            this.countryId = this.$route.params.id.toLowerCase();
             this.loadCurrencies();
         },
 
         loadCurrencies() {
-            return this.currencyRepository.search(new Criteria(1, 25), Shopware.Context.api).then(currencies => {
+            return this.currencyRepository.search(new Criteria(1, 25), Shopware.Context.api).then((currencies) => {
                 this.currencies = currencies;
             });
         },
@@ -106,7 +106,12 @@ export default {
         },
 
         changeBaseItem(item) {
-            if (!['customerTax', 'companyTax'].includes(this.taxFreeType)) {
+            if (
+                ![
+                    'customerTax',
+                    'companyTax',
+                ].includes(this.taxFreeType)
+            ) {
                 return;
             }
             this.country[this.taxFreeType] = item;
@@ -129,7 +134,7 @@ export default {
         },
 
         clearMenuOptions() {
-            this.menuOptions.forEach(checkBox => {
+            this.menuOptions.forEach((checkBox) => {
                 delete checkBox.checked;
                 delete checkBox.disabled;
             });
@@ -166,7 +171,7 @@ export default {
                 userCurrencyDependsValue.amount = this.calculateInheritedPrice(currencyId);
                 userCurrencyDependsValue.currencyId = currencyId;
                 userCurrencyDependsValue.enabled = false;
-                const existedValue = this.currencyDependsValue.find(value => {
+                const existedValue = this.currencyDependsValue.find((value) => {
                     return value.currencyId === currencyId;
                 });
 

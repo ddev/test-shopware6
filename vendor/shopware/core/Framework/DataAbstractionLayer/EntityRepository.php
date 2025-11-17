@@ -4,6 +4,7 @@ namespace Shopware\Core\Framework\DataAbstractionLayer;
 
 use Shopware\Core\Framework\Adapter\Database\ReplicaConnection;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\Event\BeforeEntityAggregationEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityAggregationResultLoadedEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityIdSearchResultLoadedEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityLoadedEventFactory;
@@ -21,19 +22,21 @@ use Shopware\Core\Framework\DataAbstractionLayer\Write\CloneBehavior;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteContext;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\ArrayEntity;
-use Shopware\Core\Framework\Uuid\Exception\InvalidUuidException;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Profiling\Profiler;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\VarExporter\LazyGhostTrait;
 
 /**
  * @final
  *
  * @template TEntityCollection of EntityCollection
  */
-#[Package('core')]
+#[Package('framework')]
 class EntityRepository
 {
+    use LazyGhostTrait;
+
     /**
      * @internal
      */
@@ -44,7 +47,7 @@ class EntityRepository
         private readonly EntitySearcherInterface $searcher,
         private readonly EntityAggregatorInterface $aggregator,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly EntityLoadedEventFactory $eventFactory
+        private readonly EntityLoadedEventFactory $eventFactory,
     ) {
     }
 
@@ -67,28 +70,20 @@ class EntityRepository
 
     public function aggregate(Criteria $criteria, Context $context): AggregationResultCollection
     {
-        $criteria = clone $criteria;
+        if (!$criteria->getTitle()) {
+            return $this->_aggregate($criteria, $context);
+        }
 
-        $result = $this->aggregator->aggregate($this->definition, $criteria, $context);
-
-        $event = new EntityAggregationResultLoadedEvent($this->definition, $result, $context);
-        $this->eventDispatcher->dispatch($event, $event->getName());
-
-        return $result;
+        return Profiler::trace($criteria->getTitle(), fn () => $this->_aggregate($criteria, $context), 'repository');
     }
 
     public function searchIds(Criteria $criteria, Context $context): IdSearchResult
     {
-        $criteria = clone $criteria;
+        if (!$criteria->getTitle()) {
+            return $this->_searchIds($criteria, $context);
+        }
 
-        $this->eventDispatcher->dispatch(new EntitySearchedEvent($criteria, $this->definition, $context));
-
-        $result = $this->searcher->search($this->definition, $criteria, $context);
-
-        $event = new EntityIdSearchResultLoadedEvent($this->definition, $result);
-        $this->eventDispatcher->dispatch($event, $event->getName());
-
-        return $result;
+        return Profiler::trace($criteria->getTitle(), fn () => $this->_searchIds($criteria, $context), 'repository');
     }
 
     /**
@@ -161,7 +156,7 @@ class EntityRepository
         ReplicaConnection::ensurePrimary();
 
         if (!$this->definition->isVersionAware()) {
-            throw new \RuntimeException(sprintf('Entity %s is not version aware', $this->definition->getEntityName()));
+            throw DataAbstractionLayerException::entityNotVersionAware($this->definition->getEntityName());
         }
 
         return $this->versionManager->createVersion($this->definition, $id, WriteContext::createFromContext($context), $name, $versionId);
@@ -172,7 +167,7 @@ class EntityRepository
         ReplicaConnection::ensurePrimary();
 
         if (!$this->definition->isVersionAware()) {
-            throw new \RuntimeException(sprintf('Entity %s is not version aware', $this->definition->getEntityName()));
+            throw DataAbstractionLayerException::entityNotVersionAware($this->definition->getEntityName());
         }
         $this->versionManager->merge($versionId, WriteContext::createFromContext($context));
     }
@@ -183,7 +178,7 @@ class EntityRepository
 
         $newId ??= Uuid::randomHex();
         if (!Uuid::isValid($newId)) {
-            throw new InvalidUuidException($newId);
+            throw DataAbstractionLayerException::invalidEntityUuidException($newId);
         }
 
         $affected = $this->versionManager->clone(
@@ -209,6 +204,7 @@ class EntityRepository
         $criteria = clone $criteria;
 
         /** @var TEntityCollection $entities */
+        // @phpstan-ignore varTag.type (phpstan can't detect that TEntityCollection is always an EntityCollection<Entity>)
         $entities = $this->reader->read($this->definition, $criteria, $context);
 
         if ($criteria->getFields() === []) {
@@ -257,25 +253,55 @@ class EntityRepository
 
         $search = $ids->getData();
 
-        foreach ($entities as $element) {
-            if (!\array_key_exists($element->getUniqueIdentifier(), $search)) {
-                continue;
+        if (!$criteria->hasState(Criteria::STATE_DISABLE_SEARCH_INFO)) {
+            foreach ($entities as $element) {
+                if (!\array_key_exists($element->getUniqueIdentifier(), $search)) {
+                    continue;
+                }
+
+                $data = $search[$element->getUniqueIdentifier()];
+                unset($data['id']);
+
+                if (empty($data)) {
+                    continue;
+                }
+
+                $element->addExtension('search', new ArrayEntity($data));
             }
-
-            $data = $search[$element->getUniqueIdentifier()];
-            unset($data['id']);
-
-            if (empty($data)) {
-                continue;
-            }
-
-            $element->addExtension('search', new ArrayEntity($data));
         }
 
         $result = new EntitySearchResult($this->definition->getEntityName(), $ids->getTotal(), $entities, $aggregations, $criteria, $context);
         $result->addState(...$ids->getStates());
 
         $event = new EntitySearchResultLoadedEvent($this->definition, $result);
+        $this->eventDispatcher->dispatch($event, $event->getName());
+
+        return $result;
+    }
+
+    private function _aggregate(Criteria $criteria, Context $context): AggregationResultCollection
+    {
+        $criteria = clone $criteria;
+
+        $this->eventDispatcher->dispatch(new BeforeEntityAggregationEvent($criteria, $this->definition, $context));
+
+        $result = $this->aggregator->aggregate($this->definition, $criteria, $context);
+
+        $event = new EntityAggregationResultLoadedEvent($this->definition, $result, $context);
+        $this->eventDispatcher->dispatch($event, $event->getName());
+
+        return $result;
+    }
+
+    private function _searchIds(Criteria $criteria, Context $context): IdSearchResult
+    {
+        $criteria = clone $criteria;
+
+        $this->eventDispatcher->dispatch(new EntitySearchedEvent($criteria, $this->definition, $context));
+
+        $result = $this->searcher->search($this->definition, $criteria, $context);
+
+        $event = new EntityIdSearchResultLoadedEvent($this->definition, $result);
         $this->eventDispatcher->dispatch($event, $event->getName());
 
         return $result;

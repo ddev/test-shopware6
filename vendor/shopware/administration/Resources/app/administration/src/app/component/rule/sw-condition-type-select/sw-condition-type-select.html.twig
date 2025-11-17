@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_condition_type_select %}
 <sw-grouped-single-select
     class="sw-condition-type-select sw-condition-type-select__select"
@@ -10,14 +9,10 @@
     :groups="availableGroups"
     :placeholder="$tc('global.sw-condition.condition.placeholder')"
     :value="currentValue"
-    :disabled="disabled"
+    :disabled="disabled || undefined"
     required
     show-clearable-button
-    {% if VUE3 %}
     @update:value="changeType"
-    {% else %}
-    @change="changeType"
-    {% endif %}
     @item-selected="changeItem"
     @search-term-change="typeSearchTerm = $event"
 >
@@ -26,7 +21,7 @@
     >
         <sw-select-result
             v-tooltip="getTooltipConfig(item)"
-            :disabled="item.disabled || restrictedConditions[item.type] !== undefined"
+            :disabled="item.disabled || restrictedConditions[item.type] !== undefined || undefined"
             :class="'sw-select-option--' + item.value"
             :selected="isSelected(item)"
             v-bind="{ item, index }"

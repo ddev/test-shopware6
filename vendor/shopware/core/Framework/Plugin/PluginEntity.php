@@ -6,140 +6,80 @@ use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Aggregate\PluginTranslation\PluginTranslationCollection;
 
-#[Package('core')]
+#[Package('framework')]
 class PluginEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
     /**
-     * @var string
+     * @var class-string<Plugin>
      */
-    protected $baseClass;
+    protected string $baseClass;
 
-    /**
-     * @var string
-     */
-    protected $name;
+    protected string $name;
 
-    /**
-     * @var string|null
-     */
-    protected $composerName;
+    protected ?string $composerName = null;
 
-    /**
-     * @var bool
-     */
-    protected $active;
+    protected bool $active;
 
-    /**
-     * @var bool
-     */
-    protected $managedByComposer;
+    protected bool $managedByComposer;
 
-    /**
-     * @var string|null
-     */
-    protected $path;
+    protected ?string $path = null;
 
-    /**
-     * @var string|null
-     */
-    protected $author;
+    protected ?string $author = null;
 
-    /**
-     * @var string|null
-     */
-    protected $copyright;
+    protected ?string $copyright = null;
 
-    /**
-     * @var string|null
-     */
-    protected $license;
+    protected ?string $license = null;
 
-    /**
-     * @var string
-     */
-    protected $version;
+    protected string $version;
 
-    /**
-     * @var string|null
-     */
-    protected $upgradeVersion;
+    protected ?string $upgradeVersion = null;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $installedAt;
+    protected ?\DateTimeInterface $installedAt = null;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $upgradedAt;
+    protected ?\DateTimeInterface $upgradedAt = null;
 
     /**
      * @internal
-     *
-     * @var string|null
      */
-    protected $iconRaw;
+    protected ?string $iconRaw = null;
 
-    /**
-     * @var string|null
-     */
-    protected $icon;
+    protected ?string $icon = null;
 
-    /**
-     * @var string
-     */
-    protected $label;
+    protected string $label;
 
-    /**
-     * @var string|null
-     */
-    protected $description;
+    protected ?string $description = null;
 
-    /**
-     * @var string|null
-     */
-    protected $manufacturerLink;
+    protected ?string $manufacturerLink = null;
 
-    /**
-     * @var string|null
-     */
-    protected $supportLink;
+    protected ?string $supportLink = null;
 
-    /**
-     * @deprecated tag:v6.6.0 - will be removed without a replacement
-     *
-     * @var array<string, list<string>>|null
-     */
-    protected $changelog;
+    protected ?PluginTranslationCollection $translations = null;
 
-    /**
-     * @var PluginTranslationCollection|null
-     */
-    protected $translations;
-
-    /**
-     * @var PaymentMethodCollection|null
-     */
-    protected $paymentMethods;
+    protected ?PaymentMethodCollection $paymentMethods = null;
 
     /**
      * @var array<string, array<string, list<string>|string>>
      */
-    protected $autoload;
+    protected array $autoload = [];
 
+    /**
+     * @return class-string<Plugin>
+     */
     public function getBaseClass(): string
     {
         return $this->baseClass;
     }
 
+    /**
+     * @param class-string<Plugin> $baseClass
+     */
     public function setBaseClass(string $baseClass): void
     {
         $this->baseClass = $baseClass;
@@ -193,6 +133,16 @@ class PluginEntity extends Entity
     public function setPath(string $path): void
     {
         $this->path = $path;
+    }
+
+    public function isLocatedInCustomDirectory(): bool
+    {
+        return str_starts_with($this->path ?? '', 'custom/');
+    }
+
+    public function isLocatedInCustomPluginDirectory(): bool
+    {
+        return str_starts_with($this->path ?? '', 'custom/plugins/');
     }
 
     public function getAuthor(): ?string
@@ -331,30 +281,6 @@ class PluginEntity extends Entity
     public function setSupportLink(string $supportLink): void
     {
         $this->supportLink = $supportLink;
-    }
-
-    /**
-     * @deprecated tag:v6.6.0 - will be removed without a replacement
-     *
-     * @return array<string, list<string>>|null
-     */
-    public function getChangelog(): ?array
-    {
-        Feature::triggerDeprecationOrThrow('v6.6.0.0', Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0'));
-
-        return $this->changelog;
-    }
-
-    /**
-     * @deprecated tag:v6.6.0 - will be removed without a replacement
-     *
-     * @param array<string, list<string>> $changelog
-     */
-    public function setChangelog(array $changelog): void
-    {
-        Feature::triggerDeprecationOrThrow('v6.6.0.0', Feature::deprecatedMethodMessage(self::class, __METHOD__, '6.6.0'));
-
-        $this->changelog = $changelog;
     }
 
     public function getTranslations(): ?PluginTranslationCollection

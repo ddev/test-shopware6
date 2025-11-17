@@ -1,21 +1,14 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_product_cross_selling_form %}
 <div class="product-detail-cross-selling-form">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_prduct_cross_selling_form_card %}
-    <sw-card
-        :title="crossSelling.name"
+    <mt-card
+        :title="crossSellingTitle"
         position-identifier="sw-product-cross-selling-form"
     >
-        <div
-            v-if="!isLoading && crossSelling"
-            class="product-detail-cross-selling-form__card-container"
-        >
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+        <template #headerRight>
             {% block sw_prduct_cross_selling_form_context_menu %}
             <div class="sw-product-detail-cross-selling__context-button">
                 <sw-context-button>
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_product_cross_selling_form_context_button_delete %}
                     <sw-context-menu-item
                         variant="danger"
@@ -29,23 +22,22 @@
                 </sw-context-button>
             </div>
             {% endblock %}
+        </template>
 
+        <div
+            v-if="!isLoading && crossSelling"
+            class="product-detail-cross-selling-form__card-container"
+        >
             <sw-container
                 columns="2fr 1fr"
                 gap="0px 30px"
                 align="start"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_prduct_cross_selling_form_title_field %}
-                <sw-text-field
-                    {% if VUE3 %}
-                    v-model:value="crossSelling.name"
-                    {% else %}
+
+                <mt-text-field
                     v-model="crossSelling.name"
-                    {% endif %}
-                    {% if VUE3 %}
                     name="sw-field--crossSelling-name"
-                    {% endif %}
                     :label="$tc('sw-product.crossselling.inputCrossSellingTitle')"
                     required
                     :placeholder="placeholder(crossSelling, 'name', $tc('sw-product.crossselling.inputCrossSellingTitlePlaceholder'))"
@@ -53,20 +45,15 @@
                     :disabled="!allowEdit"
                 />
                 {% endblock %}
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_prduct_cross_selling_form_active_field %}
-                <sw-switch-field
-                    {% if VUE3 %}
-                    v-model:value="crossSelling.active"
-                    {% else %}
+
+                <mt-switch
                     v-model="crossSelling.active"
-                    {% endif %}
                     class="sw-product-detail-cross-selling__active-switch"
                     :label="$tc('sw-product.crossselling.inputCrossSellingActive')"
                     :disabled="!allowEdit"
-                    {% if VUE3 %}
                     name="sw-field--crossSelling-active"
-                    {% endif %}
+                    bordered
                 />
                 {% endblock %}
             </sw-container>
@@ -75,40 +62,19 @@
                 columns="2fr 1fr"
                 gap="0px 30px"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_prduct_cross_selling_form_type %}
-                <sw-select-field
-                    {% if VUE3 %}
-                    v-model:value="crossSelling.type"
-                    {% else %}
+                <mt-select
                     v-model="crossSelling.type"
-                    {% endif %}
                     :label="$tc('sw-product.crossselling.inputCrossSellingType')"
                     :error="crossSellingTypeError"
                     :disabled="!allowEdit"
-                    {% if VUE3 %}
-                    @update:value="onTypeChanged"
-                    {% else %}
-                    @change="onTypeChanged"
-                    {% endif %}
-                >
-                    <option
-                        v-for="option in crossSellingTypes"
-                        :key="option.value"
-                        :value="option.value"
-                    >
-                        {{ option.label }}
-                    </option>
-                </sw-select-field>
+                    :options="crossSellingTypeOptions"
+                    @update:model-value="onTypeChanged"
+                />
                 {% endblock %}
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_prduct_cross_selling_form_position_field %}
-                <sw-number-field
-                    {% if VUE3 %}
-                    v-model:value="crossSelling.position"
-                    {% else %}
+                <mt-number-field
                     v-model="crossSelling.position"
-                    {% endif %}
                     number-type="int"
                     :min="1"
                     :label="$tc('sw-product.crossselling.inputCrossSellingPosition')"
@@ -120,15 +86,10 @@
             </sw-container>
 
             <div v-if="!useManualAssignment">
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_prduct_cross_selling_form_product_stream_field %}
                 <sw-entity-single-select
                     id="sw-field--crossSelling-product-group"
-                    {% if VUE3 %}
                     v-model:value="crossSelling.productStreamId"
-                    {% else %}
-                    v-model="crossSelling.productStreamId"
-                    {% endif %}
                     entity="product_stream"
                     class="sw-select-cross-selling__select-product-stream"
                     :label="$tc('sw-product.crossselling.inputCrossSellingProductStream')"
@@ -142,36 +103,19 @@
                     columns="1fr 1fr"
                     gap="0px 30px"
                 >
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_prduct_cross_selling_form_sort_field %}
-                    <sw-select-field
+                    <mt-select
                         :label="$tc('sw-product.crossselling.inputCrossSellingSorting')"
-                        :value="sortingConCat"
+                        :model-value="sortingConCat"
                         :disabled="!allowEdit"
-                        {% if VUE3 %}
-                        @update:value="onSortingChanged"
-                        {% else %}
-                        @change="onSortingChanged"
-                        {% endif %}
-                    >
-                        <option
-                            v-for="option in sortingTypes"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-                    </sw-select-field>
+                        :options="sortingTypeOptions"
+                        @update:model-value="onSortingChanged"
+                    />
                     {% endblock %}
 
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_prduct_cross_selling_form_limit_field %}
-                    <sw-number-field
-                        {% if VUE3 %}
-                        v-model:value="crossSelling.limit"
-                        {% else %}
+                    <mt-number-field
                         v-model="crossSelling.limit"
-                        {% endif %}
                         number-type="int"
                         :label="$tc('sw-product.crossselling.inputCrossSellingLimit')"
                         :disabled="!allowEdit"
@@ -179,7 +123,6 @@
                     {% endblock %}
                 </sw-container>
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_prduct_cross_selling_form_preview_link %}
                 <sw-container
                     columns="1fr"
@@ -195,16 +138,15 @@
                         @keydown.enter="openModalPreview"
                     >
                         {{ $tc('sw-product.crossselling.linkOpenStreamPreview') }}
-                        <sw-icon
+                        <mt-icon
                             name="regular-long-arrow-right"
-                            small
+                            size="16px"
                         />
                     </a>
                 </sw-container>
                 {% endblock %}
             </div>
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_cross_selling_assignment %}
             <sw-product-cross-selling-assignment
                 v-else
@@ -215,7 +157,6 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_cross_selling_modal_preview_modal %}
             <sw-product-stream-modal-preview
                 v-if="showModalPreview"
@@ -225,10 +166,9 @@
             />
             {% endblock %}
         </div>
-    </sw-card>
+    </mt-card>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_detail_cross_selling_form_modal_delete %}
     <sw-modal
         v-if="showDeleteModal"
@@ -237,43 +177,39 @@
         class="sw-product-detail-cross-selling__delete-modal"
         @modal-close="onCloseDeleteModal"
     >
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_detail_cross_selling_form_delete_text %}
         <p>
             {{ $tc('sw-product.crossselling.deleteConfirmText') }}
         </p>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_detail_cross_selling_form_modal_delete_footer %}
         <template #modal-footer>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_cross_selling_modal_delete_action_cancel %}
-            <sw-button
+            <mt-button
                 size="small"
+                variant="secondary"
                 @click="onCloseDeleteModal"
             >
-                {{ $tc('sw-product.crossselling.deleteButtonCancel') }}
-            </sw-button>
+                {{ $tc('global.default.cancel') }}
+            </mt-button>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_cross_selling_form_modal_delete_action_delete %}
-            <sw-button
+            <mt-button
                 class="sw-product-detail-cross-selling__delete-button"
                 size="small"
-                variant="danger"
+                variant="critical"
                 @click="onConfirmDelete"
             >
                 {{ $tc('sw-product.crossselling.deleteButtonDelete') }}
-            </sw-button>
+            </mt-button>
             {% endblock %}
         </template>
         {% endblock %}
     </sw-modal>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_cross_selling_form_condition_tree_invisibly %}
     <sw-condition-tree
         v-if="productStreamFilterRepository"

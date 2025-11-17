@@ -7,8 +7,8 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class MultiEntitySelectField extends SingleEntitySelectField
 {
-    protected const COMPONENT_NAME = 'sw-entity-multi-id-select';
+    public const COMPONENT_NAME = 'sw-entity-multi-id-select';
 }

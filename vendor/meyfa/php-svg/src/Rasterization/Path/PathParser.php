@@ -13,7 +13,7 @@ class PathParser
     /**
      * @var int[] $commandLengths A map of command ids to their argument counts.
      */
-    private static $commandLengths = [
+    private static array $commandLengths = [
         'M' => 2,   'm' => 2,   // MoveTo
         'L' => 2,   'l' => 2,   // LineTo
         'H' => 1,   'h' => 1,   // LineToHorizontal
@@ -37,7 +37,7 @@ class PathParser
      *
      * @return array[] An array of commands (structure: see above).
      */
-    public function parse($description)
+    public function parse(string $description): array
     {
         $commands = [];
 
@@ -65,7 +65,7 @@ class PathParser
      *
      * @return string[] The split arguments.
      */
-    private function splitArguments($str)
+    private function splitArguments(string $str): array
     {
         $str = Str::trim($str);
 
@@ -88,7 +88,7 @@ class PathParser
      *
      * @return bool Whether the command is known AND the arg count is correct.
      */
-    private function parseCommandChain($id, array $args, array &$commands)
+    private function parseCommandChain(string $id, array $args, array &$commands): bool
     {
         if (!isset(self::$commandLengths[$id])) {
             // unknown command

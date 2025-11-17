@@ -11,7 +11,7 @@ use Shopware\Core\System\CustomEntity\Xml\CustomEntityXmlSchema;
 /**
  * @internal
  */
-#[Package('content')]
+#[Package('framework')]
 class CustomEntityEnrichmentService
 {
     public function __construct(private readonly AdminUiXmlSchemaValidator $adminUiXmlSchemaValidator)
@@ -53,7 +53,7 @@ class CustomEntityEnrichmentService
 
     private function enrichAdminUi(CustomEntityXmlSchema $customEntityXmlSchema, AdminUiXmlSchema $adminUiXmlSchema): CustomEntityXmlSchema
     {
-        $adminUiEntitiesConfig = $adminUiXmlSchema->getAdminUi()?->getEntities();
+        $adminUiEntitiesConfig = $adminUiXmlSchema->getAdminUi()->getEntities();
         if ($adminUiEntitiesConfig === null) {
             return $customEntityXmlSchema;
         }

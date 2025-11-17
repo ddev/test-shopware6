@@ -1,12 +1,12 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import { warn } from 'src/core/service/utils/debug.utils';
 import { hasOwnProperty } from 'src/core/service/utils/object.utils';
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * The flat tree converts a collection of flat objects into a data tree hierarchy.
  */
 class FlatTree {
@@ -67,11 +67,7 @@ class FlatTree {
         const nodeIdentifier = node.id || node.path;
 
         if (!nodeIdentifier) {
-            warn(
-                'FlatTree',
-                'The node needs an "id" or "path" property. Abort registration.',
-                node,
-            );
+            warn('FlatTree', 'The node needs an "id" or "path" property. Abort registration.', node);
             return this;
         }
 

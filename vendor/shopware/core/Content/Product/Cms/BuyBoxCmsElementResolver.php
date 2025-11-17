@@ -7,6 +7,7 @@ use Shopware\Core\Content\Cms\DataResolver\Element\ElementDataCollection;
 use Shopware\Core\Content\Cms\DataResolver\ResolverContext\EntityResolverContext;
 use Shopware\Core\Content\Cms\DataResolver\ResolverContext\ResolverContext;
 use Shopware\Core\Content\Cms\SalesChannel\Struct\BuyBoxStruct;
+use Shopware\Core\Content\Product\Aggregate\ProductReview\ProductReviewCollection;
 use Shopware\Core\Content\Product\SalesChannel\Detail\ProductConfiguratorLoader;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -18,11 +19,13 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-#[Package('inventory')]
+#[Package('discovery')]
 class BuyBoxCmsElementResolver extends AbstractProductDetailCmsElementResolver
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ProductReviewCollection> $repository
      */
     public function __construct(
         private readonly ProductConfiguratorLoader $configuratorLoader,
@@ -79,8 +82,8 @@ class BuyBoxCmsElementResolver extends AbstractProductDetailCmsElementResolver
         $criteria = new Criteria();
 
         $reviewFilters[] = new EqualsFilter('status', true);
-        if ($context->getCustomer() !== null) {
-            $reviewFilters[] = new EqualsFilter('customerId', $context->getCustomer()->getId());
+        if ($context->getCustomer()) {
+            $reviewFilters[] = new EqualsFilter('customerId', $context->getCustomerId());
         }
 
         $criteria->addFilter(

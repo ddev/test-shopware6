@@ -1,20 +1,21 @@
 import template from './sw-snippet-field.html.twig';
 import './sw-snippet-field.scss';
 
-const { Component, State, Data: { Criteria } } = Shopware;
+const {
+    Data: { Criteria },
+} = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Input field that allows you to easily edit and translate snippet in a modal.
  * @status ready
  * @example-type static
  * @component-example
  * <sw-snippet-field snippet="myPlugin.test.snippet" fieldType="text"></sw-switch-field>
  */
-Component.register('sw-snippet-field', {
+export default {
     template,
 
     inject: [
@@ -32,9 +33,15 @@ Component.register('sw-snippet-field', {
             type: String,
             required: false,
             default: 'text',
-            validValues: ['text', 'textarea'],
+            validValues: [
+                'text',
+                'textarea',
+            ],
             validator(value) {
-                return ['text', 'textarea'].includes(value);
+                return [
+                    'text',
+                    'textarea',
+                ].includes(value);
             },
         },
     },
@@ -84,7 +91,9 @@ Component.register('sw-snippet-field', {
         async createdComponent() {
             this.isLoading = true;
 
-            const translations = await this.snippetSetService.getCustomList(1, 25, { translationKey: [this.snippet] });
+            const translations = await this.snippetSetService.getCustomList(1, undefined, {
+                translationKey: [this.snippet],
+            });
 
             if (translations.total < 1) {
                 this.snippets = [];
@@ -92,7 +101,7 @@ Component.register('sw-snippet-field', {
                 this.snippets = translations.data[this.snippet];
             }
 
-            this.snippetSets = await this.snippetSetRepository.search(new Criteria(1, 25), Shopware.Context.api);
+            this.snippetSets = await this.snippetSetRepository.search(new Criteria(), Shopware.Context.api);
 
             await this.updatePlaceholderValueToSnippetTranslation();
 
@@ -104,7 +113,7 @@ Component.register('sw-snippet-field', {
                 return;
             }
 
-            const currentLocale = State.get('session').currentLocale;
+            const currentLocale = Shopware.Store.get('session').currentLocale;
             let translation = this.getTranslationByLocale(currentLocale);
             if (translation) {
                 this.textValue = translation.value;
@@ -157,4 +166,4 @@ Component.register('sw-snippet-field', {
             this.closeEditModal();
         },
     },
-});
+};

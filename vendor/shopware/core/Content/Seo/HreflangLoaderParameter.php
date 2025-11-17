@@ -5,32 +5,17 @@ namespace Shopware\Core\Content\Seo;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-#[Package('buyers-experience')]
+#[Package('inventory')]
 class HreflangLoaderParameter
 {
     /**
-     * @var string
+     * @param array<string, mixed> $routeParameters
      */
-    protected $route;
-
-    /**
-     * @var array
-     */
-    protected $routeParameters;
-
-    /**
-     * @var SalesChannelContext
-     */
-    protected $salesChannelContext;
-
     public function __construct(
-        string $route,
-        array $routeParameters,
-        SalesChannelContext $salesChannelContext
+        protected string $route,
+        protected array $routeParameters,
+        protected SalesChannelContext $salesChannelContext,
     ) {
-        $this->route = $route;
-        $this->routeParameters = $routeParameters;
-        $this->salesChannelContext = $salesChannelContext;
     }
 
     public function getRoute(): string
@@ -38,6 +23,9 @@ class HreflangLoaderParameter
         return $this->route;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getRouteParameters(): array
     {
         return $this->routeParameters;

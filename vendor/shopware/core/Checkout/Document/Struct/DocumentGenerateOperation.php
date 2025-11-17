@@ -2,25 +2,28 @@
 
 namespace Shopware\Core\Checkout\Document\Struct;
 
-use Shopware\Core\Checkout\Document\FileGenerator\FileTypes;
+use Shopware\Core\Checkout\Document\Service\PdfRenderer;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('checkout')]
+#[Package('after-sales')]
 final class DocumentGenerateOperation extends Struct
 {
     protected ?string $documentId = null;
 
     protected string $orderVersionId = Defaults::LIVE_VERSION;
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         protected string $orderId,
-        protected string $fileType = FileTypes::PDF,
+        protected string $fileType = PdfRenderer::FILE_EXTENSION,
         protected array $config = [],
         protected ?string $referencedDocumentId = null,
         protected bool $static = false,
-        protected bool $preview = false
+        protected bool $preview = false,
     ) {
     }
 
@@ -34,6 +37,9 @@ final class DocumentGenerateOperation extends Struct
         return $this->fileType;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getConfig(): array
     {
         return $this->config;

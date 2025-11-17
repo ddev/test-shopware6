@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module core/factory/mixin
  */
@@ -32,7 +32,7 @@ function getMixinRegistry(): Map<string, unknown> {
  * Register a new mixin
  */
 // eslint-disable-next-line max-len
-function register<T, MixinName extends keyof MixinContainer>(mixinName: MixinName, mixin: T) {
+function register<T, MixinName extends keyof MixinContainer>(mixinName: MixinName, mixin: T): T {
     if (mixinRegistry.has(mixinName)) {
         warn(
             'MixinFactory',
@@ -43,9 +43,9 @@ function register<T, MixinName extends keyof MixinContainer>(mixinName: MixinNam
         return mixinRegistry.get(mixinName) as T;
     }
 
-    addToMixinRegistry(mixinName, mixin);
+    addToMixinRegistry(mixinName, mixin as unknown as MixinContainer[MixinName]);
 
-    return mixin;
+    return mixinRegistry.get(mixinName) as T;
 }
 
 /**
@@ -57,5 +57,6 @@ function getByName<MN extends keyof MixinContainer>(mixinName: MN): MixinContain
         throw new Error(`The mixin "${mixinName}" is not registered.`);
     }
 
-    return mixinRegistry.get(mixinName);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return mixinRegistry.get(mixinName) as MixinContainer[MN];
 }

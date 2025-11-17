@@ -1,12 +1,12 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module core/factory/api-service
  */
 import { warn } from 'src/core/service/utils/debug.utils';
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default {
     getRegistry,
@@ -47,10 +47,7 @@ function getRegistry() {
  */
 function register(apiServiceName, apiService = null) {
     if (!apiServiceName || !apiServiceName.length) {
-        warn(
-            name,
-            'A apiService always needs a name',
-        );
+        warn(name, 'A apiService always needs a name');
         return false;
     }
 
@@ -82,8 +79,17 @@ function getByName(apiServiceName) {
 }
 
 function getServices() {
-    return Array.from(apiServiceRegistry).reduce((accumulator, [key, value]) => {
-        accumulator[key] = value;
-        return accumulator;
-    }, {});
+    return Array.from(apiServiceRegistry).reduce(
+        (
+            accumulator,
+            [
+                key,
+                value,
+            ],
+        ) => {
+            accumulator[key] = value;
+            return accumulator;
+        },
+        {},
+    );
 }

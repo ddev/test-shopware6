@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import template from './sw-import-export-activity-log-info-modal.html.twig';
 import './sw-import-export-activity-log-info-modal.scss';
@@ -14,6 +14,8 @@ export default {
     template,
 
     inject: ['importExport'],
+
+    emits: ['log-close'],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -40,6 +42,9 @@ export default {
             };
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed, because the filter is unused
+         */
         dateFilter() {
             return Shopware.Filter.getByName('date');
         },

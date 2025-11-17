@@ -46,7 +46,8 @@ class FunctionScoreQuery implements BuilderInterface
         float $factor,
         string $modifier = 'none',
         ?BuilderInterface $query = null,
-        $missing = null
+        $missing = null,
+        ?string $name = '',
     ): self {
         $function = [
             'field_value_factor' => array_filter([
@@ -56,6 +57,10 @@ class FunctionScoreQuery implements BuilderInterface
                 'missing' => $missing,
             ]),
         ];
+
+        if (!empty($name)) {
+            $function['_name'] = $name;
+        }
 
         if ($query) {
             $function['filter'] = $query->toArray();
@@ -72,7 +77,8 @@ class FunctionScoreQuery implements BuilderInterface
         array $function,
         array $options = [],
         ?BuilderInterface $query = null,
-        ?int $weight = null
+        ?int $weight = null,
+        ?string $name = '',
     ) {
         $function = array_filter(
             [
@@ -84,6 +90,10 @@ class FunctionScoreQuery implements BuilderInterface
             ]
         );
 
+        if (!empty($name)) {
+            $function['_name'] = $name;
+        }
+
         if ($query) {
             $function['filter'] = $query->toArray();
         }
@@ -93,12 +103,16 @@ class FunctionScoreQuery implements BuilderInterface
         return $this;
     }
 
-    public function addWeightFunction(float $weight, ?BuilderInterface $query = null): self
+    public function addWeightFunction(float $weight, ?BuilderInterface $query = null, ?string $name = ''): self
     {
         $function = [
             'weight' => $weight,
         ];
 
+        if (!empty($name)) {
+            $function['_name'] = $name;
+        }
+
         if ($query) {
             $function['filter'] = $query->toArray();
         }
@@ -108,11 +122,15 @@ class FunctionScoreQuery implements BuilderInterface
         return $this;
     }
 
-    public function addRandomFunction($seed = null, ?BuilderInterface $query = null): self
+    public function addRandomFunction($seed = null, ?BuilderInterface $query = null, ?string $name = ''): self
     {
         $function = [
             'random_score' => $seed ? ['seed' => $seed] : new \stdClass(),
         ];
+
+        if (!empty($name)) {
+            $function['_name'] = $name;
+        }
 
         if ($query) {
             $function['filter'] = $query->toArray();
@@ -127,20 +145,25 @@ class FunctionScoreQuery implements BuilderInterface
         string $source,
         array $params = [],
         array $options = [],
-        ?BuilderInterface $query = null
+        ?BuilderInterface $query = null,
+        ?string $name = '',
     ): self {
         $function = [
             'script_score' => [
                 'script' => array_merge(
-                        [
-                            'lang' => 'painless',
-                            'source' => $source,
-                            'params' => $params,
-                        ],
-                        $options
+                    [
+                        'lang' => 'painless',
+                        'source' => $source,
+                        'params' => $params,
+                    ],
+                    $options
                 ),
             ],
         ];
+
+        if (!empty($name)) {
+            $function['_name'] = $name;
+        }
 
         if ($query) {
             $function['filter'] = $query->toArray();

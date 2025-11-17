@@ -8,7 +8,7 @@ use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 /**
  * @internal
  */
-#[Package('merchant-services')]
+#[Package('data-services')]
 class CollectEntityDataTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -18,6 +18,11 @@ class CollectEntityDataTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 1 day
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
     }
 }

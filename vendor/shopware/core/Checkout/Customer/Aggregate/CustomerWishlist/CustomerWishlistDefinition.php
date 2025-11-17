@@ -18,7 +18,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelDefinition;
 
-#[Package('checkout')]
+#[Package('discovery')]
 class CustomerWishlistDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'customer_wishlist';
@@ -56,7 +56,7 @@ class CustomerWishlistDefinition extends EntityDefinition
             (new FkField('sales_channel_id', 'salesChannelId', SalesChannelDefinition::class))->addFlags(new Required()),
             (new CustomFields())->addFlags(new ApiAware()),
 
-            (new OneToManyAssociationField('products', CustomerWishlistProductDefinition::class, 'customer_wishlist_id'))->addFlags(new CascadeDelete()),
+            (new OneToManyAssociationField('products', CustomerWishlistProductDefinition::class, 'customer_wishlist_id'))->addFlags(new ApiAware(), new CascadeDelete()),
             new ManyToOneAssociationField('customer', 'customer_id', CustomerDefinition::class, 'id', false),
             new ManyToOneAssociationField('salesChannel', 'sales_channel_id', SalesChannelDefinition::class, 'id', false),
         ]);

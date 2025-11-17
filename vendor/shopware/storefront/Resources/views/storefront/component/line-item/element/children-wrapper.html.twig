@@ -3,16 +3,12 @@
     {% set childrenCollapseId = 'collapse-line-item-contains-' ~ lineItem.id ~ '-' ~ displayMode %}
 
     <div class="line-item-children nesting-level-{{ nestingLevel }}">
-
         {% block component_line_item_children_header %}
             <div class="container line-item-collapse-container">
-
                 {% block component_line_item_children_header_row %}
                     <div class="row line-item-collapse">
-
                         {% block component_line_item_children_headline %}
                             <div class="col line-item-headline">
-
                                 {% block component_line_item_children_headline_text %}
                                     <span class="line-item-headline-text">
                                         {{ 'checkout.lineItemContainerHeadline'|trans }}
@@ -37,12 +33,11 @@
                                     data-bs-target="#{{ childrenCollapseId }}"
                                     aria-controls="{{ childrenCollapseId }}"
                                     aria-expanded="false">
-
                                     {% block component_line_item_children_collapse_icon %}
                                         <div class="line-item-collapse-icon">
                                             {% sw_icon 'arrow-down' style {
-                                                'color': 'primary',
-                                                'pack':'solid'
+                                                color: 'primary',
+                                                pack:'solid'
                                             } %}
                                         </div>
                                     {% endblock %}
@@ -55,13 +50,13 @@
         {% endblock %}
 
         {% block component_line_item_children_elements %}
-            <div class="container line-item-children-elements collapse" id="{{ childrenCollapseId }}">
+            <ul class="container line-item-children-elements collapse list-unstyled" id="{{ childrenCollapseId }}">
                 {% for nestedLineItem in lineItem.children %}
                     {% sw_include '@Storefront/storefront/component/line-item/line-item.html.twig' with {
                         lineItem: nestedLineItem
                     } %}
                 {% endfor %}
-            </div>
+            </ul>
         {% endblock %}
     </div>
 {% endblock %}

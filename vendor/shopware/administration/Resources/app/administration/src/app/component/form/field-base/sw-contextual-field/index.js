@@ -1,28 +1,29 @@
 /**
- * @package admin
+ * @sw-package framework
  */
-
 import template from './sw-contextual-field.html.twig';
 import './sw-contextual-field.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
-Component.register('sw-contextual-field', {
+export default {
     template,
     inheritAttrs: false,
 
     computed: {
         hasPrefix() {
-            return this.$scopedSlots.hasOwnProperty('sw-contextual-field-prefix')
-                && this.$scopedSlots['sw-contextual-field-prefix']({}) !== undefined;
+            return (
+                this.$slots.hasOwnProperty('sw-contextual-field-prefix') &&
+                this.$slots['sw-contextual-field-prefix']({}) !== undefined
+            );
         },
 
         hasSuffix() {
-            return this.$scopedSlots.hasOwnProperty('sw-contextual-field-suffix')
-                && this.$scopedSlots['sw-contextual-field-suffix']({}) !== undefined;
+            return (
+                this.$slots.hasOwnProperty('sw-contextual-field-suffix') &&
+                this.$slots['sw-contextual-field-suffix']({}) !== undefined
+            );
         },
     },
-});
+};

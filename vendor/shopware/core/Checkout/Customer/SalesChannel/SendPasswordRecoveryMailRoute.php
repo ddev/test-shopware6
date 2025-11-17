@@ -2,12 +2,14 @@
 
 namespace Shopware\Core\Checkout\Customer\SalesChannel;
 
-use Composer\Semver\Constraint\ConstraintInterface;
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerRecovery\CustomerRecoveryCollection;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerRecovery\CustomerRecoveryEntity;
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\CustomerException;
 use Shopware\Core\Checkout\Customer\Event\CustomerAccountRecoverRequestEvent;
 use Shopware\Core\Checkout\Customer\Event\PasswordRecoveryUrlEvent;
+use Shopware\Core\Checkout\Customer\Service\EmailIdnConverter;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -16,6 +18,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\Framework\Routing\StoreApiRouteScope;
 use Shopware\Core\Framework\Util\Random;
 use Shopware\Core\Framework\Validation\BuildValidationEvent;
 use Shopware\Core\Framework\Validation\DataBag\DataBag;
@@ -23,12 +26,13 @@ use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\DataValidationDefinition;
 use Shopware\Core\Framework\Validation\DataValidator;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SalesChannel\SuccessResponse;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints\Choice;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\EqualTo;
@@ -37,12 +41,15 @@ use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Route(defaults: ['_routeScope' => ['store-api']])]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StoreApiRouteScope::ID]])]
 #[Package('checkout')]
 class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRoute
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerCollection> $customerRepository
+     * @param EntityRepository<CustomerRecoveryCollection> $customerRecoveryRepository
      */
     public function __construct(
         private readonly EntityRepository $customerRepository,
@@ -63,13 +70,20 @@ class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRout
     #[Route(path: '/store-api/account/recovery-password', name: 'store-api.account.recovery.send.mail', methods: ['POST'])]
     public function sendRecoveryMail(RequestDataBag $data, SalesChannelContext $context, bool $validateStorefrontUrl = true): SuccessResponse
     {
+        EmailIdnConverter::encodeDataBag($data);
+
         $this->validateRecoverEmail($data, $context, $validateStorefrontUrl);
 
         if (($request = $this->requestStack->getMainRequest()) !== null) {
             $this->rateLimiter->ensureAccepted(RateLimiter::RESET_PASSWORD, strtolower($data->get('email') . '-' . $request->getClientIp()));
         }
 
-        $customer = $this->getCustomerByEmail($data->get('email'), $context);
+        try {
+            $customer = $this->getCustomerByEmail($data->get('email'), $context);
+        } catch (CustomerException) {
+            return new SuccessResponse();
+        }
+
         $customerId = $customer->getId();
 
         $customerIdCriteria = new Criteria();
@@ -78,8 +92,8 @@ class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRout
 
         $repoContext = $context->getContext();
 
-        $existingRecovery = $this->customerRecoveryRepository->search($customerIdCriteria, $repoContext)->first();
-        if ($existingRecovery instanceof CustomerRecoveryEntity) {
+        $existingRecovery = $this->customerRecoveryRepository->search($customerIdCriteria, $repoContext)->getEntities()->first();
+        if ($existingRecovery) {
             $this->deleteRecoveryForCustomer($existingRecovery, $repoContext);
         }
 
@@ -90,14 +104,17 @@ class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRout
 
         $this->customerRecoveryRepository->create([$recoveryData], $repoContext);
 
-        $customerRecovery = $this->customerRecoveryRepository->search($customerIdCriteria, $repoContext)->first();
-        \assert($customerRecovery instanceof CustomerRecoveryEntity);
+        $customerRecovery = $this->customerRecoveryRepository->search($customerIdCriteria, $repoContext)->getEntities()->first();
+        if (!$customerRecovery) {
+            throw CustomerException::customerNotFoundByIdException($customerId);
+        }
 
         $hash = $customerRecovery->getHash();
 
         $recoverUrl = $this->getRecoverUrl($context, $hash, $data->get('storefrontUrl'), $customerRecovery);
 
         $event = new CustomerAccountRecoverRequestEvent($context, $customerRecovery, $recoverUrl);
+
         $this->eventDispatcher->dispatch($event, CustomerAccountRecoverRequestEvent::EVENT_NAME);
 
         return new SuccessResponse();
@@ -157,10 +174,8 @@ class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRout
             return;
         }
 
-        /** @var ConstraintInterface[] $fieldValidations */
         $fieldValidations = $validations[$field];
 
-        /** @var EqualTo|null $equalityValidation */
         $equalityValidation = null;
 
         foreach ($fieldValidations as $emailValidation) {
@@ -180,7 +195,7 @@ class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRout
             return;
         }
 
-        $message = str_replace('{{ compared_value }}', $compareValue ?? '', (string) $equalityValidation->message);
+        $message = str_replace('{{ compared_value }}', $compareValue ?? '', $equalityValidation->message);
 
         $violations = new ConstraintViolationList();
         $violations->add(new ConstraintViolation($message, $equalityValidation->message, [], '', $field, $data[$field]));
@@ -190,24 +205,19 @@ class SendPasswordRecoveryMailRoute extends AbstractSendPasswordRecoveryMailRout
 
     private function getCustomerByEmail(string $email, SalesChannelContext $context): CustomerEntity
     {
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('customer.active', 1));
-        $criteria->addFilter(new EqualsFilter('customer.email', $email));
-        $criteria->addFilter(new EqualsFilter('customer.guest', 0));
+        $criteria = (new Criteria())
+            ->addFilter(new EqualsFilter('customer.active', 1))
+            ->addFilter(new EqualsFilter('customer.email', $email))
+            ->addFilter(new EqualsFilter('customer.guest', 0))
+            ->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
+                new EqualsFilter('customer.boundSalesChannelId', null),
+                new EqualsFilter('customer.boundSalesChannelId', $context->getSalesChannelId()),
+            ]));
 
-        $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
-            new EqualsFilter('customer.boundSalesChannelId', null),
-            new EqualsFilter('customer.boundSalesChannelId', $context->getSalesChannel()->getId()),
-        ]));
-
-        $result = $this->customerRepository->search($criteria, $context->getContext());
-
-        if ($result->count() !== 1) {
+        $customer = $this->customerRepository->search($criteria, $context->getContext())->getEntities()->first();
+        if (!$customer) {
             throw CustomerException::customerNotFound($email);
         }
-
-        $customer = $result->first();
-        \assert($customer instanceof CustomerEntity);
 
         return $customer;
     }

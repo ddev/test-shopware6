@@ -22,137 +22,66 @@ class OrderLineItemEntity extends Entity
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $orderId;
+    protected string $orderId;
 
-    /**
-     * @var string
-     */
-    protected $identifier;
+    protected string $identifier;
 
-    /**
-     * @var string|null
-     */
-    protected $referencedId;
+    protected ?string $referencedId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $productId;
+    protected ?string $productId = null;
 
     /**
      * @internal
      */
     protected ?string $promotionId = null;
 
-    /**
-     * @var int
-     */
-    protected $quantity;
+    protected int $quantity;
+
+    protected float $unitPrice;
+
+    protected float $totalPrice;
+
+    protected string $label;
+
+    protected ?string $description = null;
+
+    protected bool $good;
+
+    protected bool $removable;
+
+    protected ?string $coverId = null;
+
+    protected bool $stackable;
+
+    protected int $position;
+
+    protected ?CalculatedPrice $price = null;
+
+    protected ?PriceDefinitionInterface $priceDefinition = null;
 
     /**
-     * @var float
+     * @var array<mixed>|null
      */
-    protected $unitPrice;
+    protected ?array $payload = null;
+
+    protected ?string $parentId = null;
+
+    protected ?OrderLineItemEntity $parent = null;
+
+    protected ?string $type = null;
+
+    protected ?OrderEntity $order = null;
+
+    protected ?OrderDeliveryPositionCollection $orderDeliveryPositions = null;
+
+    protected ?MediaEntity $cover = null;
 
     /**
-     * @var float
-     */
-    protected $totalPrice;
-
-    /**
-     * @var string
-     */
-    protected $label;
-
-    /**
-     * @var string|null
-     */
-    protected $description;
-
-    /**
-     * @var bool
-     */
-    protected $good;
-
-    /**
-     * @var bool
-     */
-    protected $removable;
-
-    /**
-     * @var string|null
-     */
-    protected $coverId;
-
-    /**
-     * @var bool
-     */
-    protected $stackable;
-
-    /**
-     * @var int
-     */
-    protected $position;
-
-    /**
-     * @var CalculatedPrice|null
-     */
-    protected $price;
-
-    /**
-     * @var PriceDefinitionInterface|null
-     */
-    protected $priceDefinition;
-
-    /**
-     * @var array<string>|null
-     */
-    protected $payload;
-
-    /**
-     * @var string|null
-     */
-    protected $parentId;
-
-    /**
-     * @var OrderLineItemEntity|null
-     */
-    protected $parent;
-
-    /**
-     * @var string|null
-     */
-    protected $type;
-
-    /**
-     * @var OrderEntity|null
-     */
-    protected $order;
-
-    /**
-     * @var OrderDeliveryPositionCollection|null
-     */
-    protected $orderDeliveryPositions;
-
-    /**
-     * @var MediaEntity|null
-     */
-    protected $cover;
-
-    /**
-     * @var OrderLineItemCollection|null
-     *
      * @internal
      */
-    protected $children;
+    protected ?OrderLineItemCollection $children = null;
 
-    /**
-     * @var ProductEntity|null
-     */
-    protected $product;
+    protected ?ProductEntity $product = null;
 
     protected ?OrderTransactionCaptureRefundPositionCollection $orderTransactionCaptureRefundPositions = null;
 
@@ -165,20 +94,11 @@ class OrderLineItemEntity extends Entity
 
     protected ?PromotionEntity $promotion = null;
 
-    /**
-     * @var string
-     */
-    protected $orderVersionId;
+    protected string $orderVersionId;
 
-    /**
-     * @var string
-     */
-    protected $productVersionId;
+    protected string $productVersionId;
 
-    /**
-     * @var string
-     */
-    protected $parentVersionId;
+    protected string $parentVersionId;
 
     public function getOrderId(): string
     {
@@ -328,12 +248,31 @@ class OrderLineItemEntity extends Entity
         return $this->payload;
     }
 
+    public function getPayloadValue(string $key): mixed
+    {
+        if (!$this->hasPayloadValue($key)) {
+            return null;
+        }
+
+        return $this->payload[$key] ?? null;
+    }
+
+    public function hasPayloadValue(string $key): bool
+    {
+        return isset($this->payload[$key]);
+    }
+
     /**
      * @param array<string, mixed>|null $payload
      */
     public function setPayload(?array $payload): void
     {
         $this->payload = $payload;
+    }
+
+    public function setPayloadValue(string $key, mixed $value): void
+    {
+        $this->payload[$key] = $value;
     }
 
     public function getParentId(): ?string

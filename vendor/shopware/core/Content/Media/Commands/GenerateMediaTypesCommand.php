@@ -22,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'media:generate-media-types',
     description: 'Generates media types for all media files',
 )]
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class GenerateMediaTypesCommand extends Command
 {
     private ShopwareStyle $io;
@@ -31,6 +31,8 @@ class GenerateMediaTypesCommand extends Command
 
     /**
      * @internal
+     *
+     * @param EntityRepository<MediaCollection> $mediaRepository
      */
     public function __construct(
         private readonly TypeDetector $typeDetector,
@@ -55,7 +57,7 @@ class GenerateMediaTypesCommand extends Command
     {
         $this->io = new ShopwareStyle($input, $output);
 
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
         $this->batchSize = $this->validateBatchSize($input);
 
         $this->io->comment('Starting to generate MediaTypes. This may take some time...');
@@ -99,13 +101,12 @@ class GenerateMediaTypesCommand extends Command
         do {
             $result = $this->mediaRepository->search($criteria, $context);
 
-            /** @var MediaCollection $medias */
             $medias = $result->getEntities();
             foreach ($medias as $media) {
                 $this->detectMediaType($context, $media);
             }
             $this->io->progressAdvance($result->count());
-            $criteria->setOffset($criteria->getOffset() + $this->batchSize);
+            $criteria->setOffset((int) $criteria->getOffset() + (int) $this->batchSize);
         } while ($result->getTotal() > $this->batchSize);
     }
 

@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  * @description
@@ -11,9 +11,12 @@
  *     <!-- Your components -->
  * </sw-error-boundary>
  */
-Shopware.Component.register('sw-error-boundary', {
-
+export default {
     render() {
+        if (typeof this.$slots.default === 'function') {
+            return this.$slots.default();
+        }
+
         return this.$slots.default;
     },
 
@@ -28,11 +31,6 @@ Shopware.Component.register('sw-error-boundary', {
     },
 
     errorCaptured(err, vm) {
-        // TODO: NEXT-18182 - Remove this check when all modules are migrated to Vue 3
-        if (Shopware.Service('feature').isActive('VUE3')) {
-            return true;
-        }
-
         // Show more detailed error messages in development mode
         if (process.env.NODE_ENV === 'development') {
             return true;
@@ -63,7 +61,7 @@ Shopware.Component.register('sw-error-boundary', {
                 url: window.location.href,
             };
 
-            this.logEntryRepository.save(newLogEntry).catch(e => Shopware.Utils.debug.error(e));
+            this.logEntryRepository.save(newLogEntry).catch((e) => Shopware.Utils.debug.error(e));
         },
     },
-});
+};

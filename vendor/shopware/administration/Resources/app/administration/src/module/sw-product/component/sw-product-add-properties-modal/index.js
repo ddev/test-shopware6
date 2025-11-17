@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-add-properties-modal.html.twig';
@@ -11,6 +11,11 @@ export default {
 
     inject: ['repositoryFactory'],
 
+    emits: [
+        'modal-cancel',
+        'modal-save',
+    ],
+
     props: {
         newProperties: {
             type: Array,
@@ -19,7 +24,6 @@ export default {
         propertiesAvailable: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -42,7 +46,6 @@ export default {
     },
 
     methods: {
-
         onCancel() {
             this.$emit('modal-cancel');
         },

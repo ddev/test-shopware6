@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 Shopware.Filter.register('date', (value: string, options: Intl.DateTimeFormatOptions = {}): string => {
@@ -11,6 +11,6 @@ Shopware.Filter.register('date', (value: string, options: Intl.DateTimeFormatOpt
 });
 
 /**
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  */
 export default {};

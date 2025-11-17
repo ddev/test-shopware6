@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import { mapPropertyErrors } from 'src/app/service/map-errors.service';
 import template from './sw-import-export-edit-profile-field-indicators.html.twig';
@@ -17,13 +17,10 @@ export default {
     },
 
     computed: {
-        ...mapPropertyErrors(
-            'profile',
-            [
-                'delimiter',
-                'enclosure',
-            ],
-        ),
+        ...mapPropertyErrors('profile', [
+            'delimiter',
+            'enclosure',
+        ]),
 
         supportedDelimiter() {
             return [

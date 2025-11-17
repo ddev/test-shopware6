@@ -6,19 +6,25 @@ use Shopware\Core\Framework\Bundle;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\XmlReader;
 use Shopware\Core\System\SystemConfig\Exception\BundleConfigNotFoundException;
+use Shopware\Core\System\SystemConfig\SystemConfigException;
 
-#[Package('system-settings')]
+#[Package('framework')]
 class ConfigReader extends XmlReader
 {
+    public const INPUT_TYPE_BOOL = 'bool';
+    public const INPUT_TYPE_CHECKBOX = 'checkbox';
+    public const INPUT_TYPE_INT = 'int';
+    public const INPUT_TYPE_FLOAT = 'float';
+    public const INPUT_TYPE_MULTI_SELECT = 'multi-select';
+
     private const FALLBACK_LOCALE = 'en-GB';
 
-    /**
-     * @var string
-     */
-    protected $xsdFile = __DIR__ . '/../Schema/config.xsd';
+    protected string $xsdFile = __DIR__ . '/../Schema/config.xsd';
 
     /**
      * @throws BundleConfigNotFoundException
+     *
+     * @return array<array<string, mixed>>
      */
     public function getConfigFromBundle(Bundle $bundle, ?string $bundleConfigName = null): array
     {
@@ -30,7 +36,7 @@ class ConfigReader extends XmlReader
         $configPath = $bundle->getPath() . '/' . ltrim($bundleConfigName, '/');
 
         if (!is_file($configPath)) {
-            throw new BundleConfigNotFoundException($bundleConfigName, $bundle->getName());
+            throw SystemConfigException::bundleConfigNotFound($bundleConfigName, $bundle->getName());
         }
 
         return $this->read($configPath);
@@ -44,6 +50,9 @@ class ConfigReader extends XmlReader
         return $this->getCardDefinitions($xml);
     }
 
+    /**
+     * @return array<array{title: array<string, string|null>, name: string|null, elements: list<array<string, mixed>>, flag?: string|null}>
+     */
     private function getCardDefinitions(\DOMDocument $xml): array
     {
         $cardDefinitions = [];
@@ -63,6 +72,9 @@ class ConfigReader extends XmlReader
         return $cardDefinitions;
     }
 
+    /**
+     * @return array<string, string|null>
+     */
     private function getCardTitles(\DOMElement $element): array
     {
         $titles = [];
@@ -73,19 +85,19 @@ class ConfigReader extends XmlReader
         return $titles;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
     private function getElements(\DOMElement $xml): array
     {
         $elements = [];
-        $count = 0;
-        /** @var \DOMElement $element */
         foreach (static::getAllChildren($xml) as $element) {
             $nodeName = $element->nodeName;
-            if ($nodeName === 'title' || $nodeName === 'name' || $nodeName === 'flag') {
+            if (\in_array($nodeName, ['title', 'name', 'flag'], true)) {
                 continue;
             }
 
-            $elements[$count] = $this->elementToArray($element);
-            ++$count;
+            $elements[] = $this->elementToArray($element);
         }
 
         return $elements;
@@ -119,6 +131,9 @@ class ConfigReader extends XmlReader
         return null;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function elementToArray(\DOMElement $element): array
     {
         $options = static::getAllChildren($element);
@@ -131,7 +146,9 @@ class ConfigReader extends XmlReader
     }
 
     /**
-     * @param array<\DOMElement> $options
+     * @param list<\DOMElement> $options
+     *
+     * @return array<string, mixed>
      */
     private function getElementDataForComponent(\DOMElement $element, array $options): array
     {
@@ -142,6 +159,11 @@ class ConfigReader extends XmlReader
         return $this->addOptionsToElementData($options, $elementData);
     }
 
+    /**
+     * @param list<\DOMElement> $options
+     *
+     * @return array<string, mixed>
+     */
     private function getElementDataForInputField(\DOMElement $element, array $options): array
     {
         $swFieldType = $element->getAttribute('type') ?: 'text';
@@ -154,7 +176,7 @@ class ConfigReader extends XmlReader
     }
 
     /**
-     * @param array<\DOMElement> $options
+     * @param list<\DOMElement> $options
      * @param array<string, mixed> $elementData
      *
      * @return array<string, mixed>
@@ -180,12 +202,40 @@ class ConfigReader extends XmlReader
                 continue;
             }
 
+            if ($option->nodeName === 'defaultValue') {
+                $elementData[$option->nodeName] = $this->parseDefaultValue($option->nodeValue, $elementData['type'] ?? null);
+
+                continue;
+            }
+
             $elementData[$option->nodeName] = $option->nodeValue;
         }
 
         return $elementData;
     }
 
+    private function parseDefaultValue(?string $value, ?string $type): mixed
+    {
+        $value = XmlReader::phpize($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        return match ($type) {
+            // custom elements can have all types, there we can't guarantee the type
+            null => $value,
+            self::INPUT_TYPE_BOOL, self::INPUT_TYPE_CHECKBOX => (bool) $value,
+            self::INPUT_TYPE_INT => (int) $value,
+            self::INPUT_TYPE_FLOAT => (float) $value,
+            self::INPUT_TYPE_MULTI_SELECT => (array) $value,
+            default => (string) $value,
+        };
+    }
+
+    /**
+     * @return array<array{id: string|null, name: array<string, string|null>}>
+     */
     private function optionsToArray(\DOMElement $element): array
     {
         $options = [];
@@ -205,6 +255,9 @@ class ConfigReader extends XmlReader
         return $options;
     }
 
+    /**
+     * @return array<string, string|null>
+     */
     private function getOptionLabels(\DOMElement $option): array
     {
         $optionLabels = [];

@@ -1,14 +1,13 @@
+import { reactive } from 'vue';
 import template from './sw-text-editor.html.twig';
 import './sw-text-editor.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
+ * @deprecated tag:v6.8.0 - Will be removed, use mt-text-editor instead.
  * @example-type static
  * @description <p>A simple text editor which uses the browsers api.
  *              Pass a buttonConfig array to configure the buttons you desire.
@@ -35,8 +34,12 @@ const { Component } = Shopware;
  *      :is-inline-edit="true"
  *  />
  */
-Component.register('sw-text-editor', {
+export default {
     template,
+
+    inject: ['feature'],
+
+    emits: ['update:value'],
 
     props: {
         value: {
@@ -56,7 +59,12 @@ Component.register('sw-text-editor', {
             required: false,
             default: '',
             validator(value) {
-                return ['', 'center', 'flex-start', 'flex-end'].includes(value);
+                return [
+                    '',
+                    'center',
+                    'flex-start',
+                    'flex-end',
+                ].includes(value);
             },
         },
 
@@ -96,6 +104,17 @@ Component.register('sw-text-editor', {
             default: null,
         },
 
+        /**
+         * @description:
+         * If set to true, the component will show warning below the editor the content might be sanitized
+         * but does not call the sanitize API, the sanitization is done by the backend on saving
+         */
+        sanitizeInfoWarn: {
+            type: Boolean,
+            required: false,
+            default: false,
+        },
+
         enableTransparentBackground: {
             type: Boolean,
             required: false,
@@ -106,7 +125,7 @@ Component.register('sw-text-editor', {
             type: Array,
             required: false,
             default() {
-                return [
+                return reactive([
                     {
                         type: 'paragraph',
                         title: Shopware.Snippet.tc('sw-text-editor-toolbar.title.format'),
@@ -265,7 +284,7 @@ Component.register('sw-text-editor', {
                         icon: 'regular-redo-xs',
                         position: 'middle',
                     },
-                ];
+                ]);
             },
         },
 
@@ -298,7 +317,37 @@ Component.register('sw-text-editor', {
                 nextColWidth: null,
             },
             isTableEdit: false,
-            cmsPageState: Shopware.State.get('cmsPageState'),
+            cmsPageState: Shopware.Store.get('cmsPage'),
+            minorElementTags: [
+                '#text',
+                'br',
+                'b',
+                'strong',
+                'mark',
+                'del',
+                's',
+                'ins',
+                'small',
+                'i',
+                'em',
+                'u',
+                'a',
+                'ul',
+                'ol',
+                'dl',
+                'img',
+            ],
+            sectionElementTags: [
+                'p',
+                'h1',
+                'h2',
+                'h3',
+                'h4',
+                'h5',
+                'h6',
+                'blockquote',
+                'table',
+            ],
         };
     },
 
@@ -333,11 +382,17 @@ Component.register('sw-text-editor', {
         availableDataMappings() {
             let mappings = [];
 
-            Object.entries(this.cmsPageState.currentMappingTypes).forEach(entry => {
-                const [type, value] = entry;
+            Object.entries(this.cmsPageState.currentMappingTypes).forEach((entry) => {
+                const [
+                    type,
+                    value,
+                ] = entry;
 
                 if (type === 'string') {
-                    mappings = [...mappings, ...value];
+                    mappings = [
+                        ...mappings,
+                        ...value,
+                    ];
                 }
             });
 
@@ -379,7 +434,7 @@ Component.register('sw-text-editor', {
         this.mountedComponent();
     },
 
-    destroyed() {
+    unmounted() {
         this.destroyedComponent();
     },
 
@@ -410,10 +465,7 @@ Component.register('sw-text-editor', {
                     });
                 }
 
-                if (
-                    this.allowInlineDataMapping &&
-                    this.availableDataMappings.length > 0
-                ) {
+                if (this.allowInlineDataMapping && this.availableDataMappings.length > 0) {
                     const dataMappingButton = {
                         type: 'data-mapping',
                         title: this.$tc('sw-text-editor-toolbar.title.data-mapping'),
@@ -424,14 +476,12 @@ Component.register('sw-text-editor', {
                         tooltipHideDelay: 100,
                     };
 
-                    const buttonConfigs = this.availableDataMappings.map(mapping => (
-                        {
-                            type: mapping,
-                            name: mapping,
-                            title: mapping,
-                            handler: this.handleInsertDataMapping,
-                        }
-                    ));
+                    const buttonConfigs = this.availableDataMappings.map((mapping) => ({
+                        type: mapping,
+                        name: mapping,
+                        title: mapping,
+                        handler: this.handleInsertDataMapping,
+                    }));
 
                     dataMappingButton.children = buttonConfigs;
 
@@ -478,12 +528,15 @@ Component.register('sw-text-editor', {
 
             const path = this.getPath(event);
 
-            if (path.some(element => element.classList?.contains('sw-popover__wrapper'))) {
+            if (path.some((element) => element.classList?.contains('sw-popover__wrapper'))) {
                 return;
             }
 
-            if ((event.type === 'keydown' || event.type === 'mousedown') &&
-                !path.includes(this.$el) && !path.includes(this.toolbar)) {
+            if (
+                (event.type === 'keydown' || event.type === 'mousedown') &&
+                !path.includes(this.$el) &&
+                !path.includes(this.toolbar)
+            ) {
                 this.hasSelection = false;
                 return;
             }
@@ -529,14 +582,12 @@ Component.register('sw-text-editor', {
         },
 
         resetForeColor() {
-            Object.keys(this.buttonConfig).forEach(
-                (key) => {
-                    if (this.buttonConfig[key].type === 'foreColor') {
-                        // eslint-disable-next-line vue/no-mutating-props
-                        this.buttonConfig[key].value = '';
-                    }
-                },
-            );
+            Object.keys(this.buttonConfig).forEach((key) => {
+                if (this.buttonConfig[key].type === 'foreColor') {
+                    // eslint-disable-next-line vue/no-mutating-props
+                    this.buttonConfig[key].value = '';
+                }
+            });
         },
 
         onToolbarCreated(elem) {
@@ -582,9 +633,7 @@ Component.register('sw-text-editor', {
                 focusOffset,
             } = this.selection;
 
-            const contentAfterSelection = Array.from(focusNodeText)
-                .splice(focusOffset, focusNodeText.length)
-                .join('');
+            const contentAfterSelection = Array.from(focusNodeText).splice(focusOffset, focusNodeText.length).join('');
             const positionOfEndBracket = contentAfterSelection.indexOf('}}');
             const containsBothStartBrackets = /\{\{/.test(this.selection.toString());
 
@@ -605,10 +654,7 @@ Component.register('sw-text-editor', {
                 focusOffset,
             } = this.selection;
 
-            const contentBeforeSelection = Array.from(anchorNodeText)
-                .splice(0, anchorOffset)
-                .reverse()
-                .join('');
+            const contentBeforeSelection = Array.from(anchorNodeText).splice(0, anchorOffset).reverse().join('');
             const positionOfStartBracket = contentBeforeSelection.indexOf('{{');
             const containsBothEndBrackets = /}}/.test(this.selection.toString());
 
@@ -660,18 +706,13 @@ Component.register('sw-text-editor', {
                 focusNode: { textContent: focusNodeText },
             } = this.selection;
 
-            const contentBeforeSelection = Array.from(anchorNodeText)
-                .splice(0, anchorOffset)
-                .reverse()
-                .join('');
+            const contentBeforeSelection = Array.from(anchorNodeText).splice(0, anchorOffset).reverse().join('');
             // https://regex101.com/r/HWsZiH/1
-            const startBracketFound = (/^[^}]*{{/).test(contentBeforeSelection);
+            const startBracketFound = /^[^}]*{{/.test(contentBeforeSelection);
 
-            const contentAfterSelection = Array.from(focusNodeText)
-                .splice(focusOffset, focusNodeText.length)
-                .join('');
+            const contentAfterSelection = Array.from(focusNodeText).splice(focusOffset, focusNodeText.length).join('');
             // https://regex101.com/r/nzzL4t/1
-            const endBracketFound = (/^[^{]*}}/).test(contentAfterSelection);
+            const endBracketFound = /^[^{]*}}/.test(contentAfterSelection);
 
             return !!startBracketFound && !!endBracketFound;
         },
@@ -718,6 +759,8 @@ Component.register('sw-text-editor', {
         },
 
         setTableSelectorListeners(selector) {
+            // eslint-disable-next-line max-len
+            // eslint-disable-next-line listeners/no-inline-function-event-listener,listeners/no-missing-remove-event-listener
             selector.addEventListener('mousedown', (e) => {
                 this.tableData.curCol = e.target.parentElement;
                 this.tableData.nextCol = this.tableData.curCol.nextElementSibling;
@@ -730,18 +773,22 @@ Component.register('sw-text-editor', {
         },
 
         setTableListeners() {
+            // eslint-disable-next-line max-len
+            // eslint-disable-next-line listeners/no-inline-function-event-listener,listeners/no-missing-remove-event-listener
             this.$el.addEventListener('mousemove', (e) => {
                 if (this.tableData.curCol) {
                     const diffX = e.pageX - this.tableData.pageX;
 
                     if (this.tableData.nextCol) {
-                        this.tableData.nextCol.style.width = `${this.tableData.nextColWidth - (diffX)}px`;
+                        this.tableData.nextCol.style.width = `${this.tableData.nextColWidth - diffX}px`;
                     }
 
                     this.tableData.curCol.style.width = `${this.tableData.curColWidth + diffX}px`;
                 }
             });
 
+            // eslint-disable-next-line max-len
+            // eslint-disable-next-line listeners/no-inline-function-event-listener,listeners/no-missing-remove-event-listener
             this.$el.addEventListener('mouseup', () => {
                 this.tableData.curCol = null;
                 this.tableData.nextCol = null;
@@ -768,7 +815,7 @@ Component.register('sw-text-editor', {
 
             if (displayAsButton) {
                 classes.push('btn');
-                classes.push(...buttonVariant.split('-').map(cls => `btn-${cls}`));
+                classes.push(...buttonVariant.split('-').map((cls) => `btn-${cls}`));
             }
 
             if (classes.length > 0) {
@@ -794,7 +841,107 @@ Component.register('sw-text-editor', {
 
         onFocus() {
             this.setFocus();
-            document.execCommand('defaultParagraphSeparator', false, 'span');
+            document.execCommand('defaultParagraphSeparator', false, 'p');
+        },
+
+        /**
+         * When initiating a proper line break, loose text nodes get fixed.
+         * It is not called on inline line breaks (shift + enter) to wait
+         * until the next proper line break initializes a new paragraph.
+         */
+        onEnter(event) {
+            if (event.key === 'Enter' && !event.shiftKey && this.hasDirectMinorElements()) {
+                this.fixWrongNodes(false);
+            }
+        },
+
+        /**
+         * This method optimizes the produced markup of the editor.
+         * The default behaviour of a contenteditable element can result
+         * in loose text nodes or unwanted `<div>` elements.
+         *
+         * It will wrap loose text nodes and minor elements into paragraphs.
+         * Optionally you can replace falsy `<div>` nodes with paragraphs, too.
+         * This helps to achieve a consistent text formatting.
+         *
+         * @param {boolean} replaceDivNodes - Defines if <div> nodes should be replaced. Defaults to false.
+         */
+        fixWrongNodes(replaceDivNodes = false) {
+            // Valid section elements that should stay as they are.
+            const sectionElements = this.sectionElementTags;
+
+            // Elements that should be replaced by a paragraph element.
+            const replaceElements = ['div'];
+
+            // Elements that should be wrapped in a paragraph element.
+            const wrapElements = this.minorElementTags;
+
+            const nodes = this.$refs.textEditor.childNodes;
+            let newParagraph = null;
+            let replaceNode = null;
+            let removeNodes = [];
+
+            nodes.forEach((node) => {
+                const nodeName = node.nodeName.toLowerCase();
+                const isMinorNode = wrapElements.includes(nodeName);
+                const isSectionNode = sectionElements.includes(nodeName);
+                const shouldBeReplaced = replaceDivNodes === true && replaceElements.includes(nodeName);
+                const shouldBeWrapped = (isMinorNode || !isSectionNode) && !replaceElements.includes(nodeName);
+
+                // Replace wrong section elements, like `<div>`.
+                if (shouldBeReplaced) {
+                    const paragraph = document.createElement('p');
+                    paragraph.innerHTML = node.innerHTML;
+
+                    // Copy the attributes to maintain applied formatting like text alignment.
+                    if (node.hasAttributes()) {
+                        Array.from(node.attributes).forEach((attr) => {
+                            paragraph.setAttribute(attr.name, attr.value);
+                        });
+                    }
+
+                    this.$refs.textEditor.replaceChild(paragraph, node);
+
+                    // Wrap minor elements in a proper paragraph element.
+                } else if (shouldBeWrapped) {
+                    // If there are several following elements to wrap, they are collected in one paragraph.
+                    if (newParagraph === null) {
+                        newParagraph = document.createElement('p');
+                        newParagraph.appendChild(node.cloneNode(true));
+
+                        replaceNode = node;
+                    } else {
+                        newParagraph.appendChild(node.cloneNode(true));
+                        removeNodes.push(node);
+                    }
+
+                    // If a new section starts, replace all collected minor elements with the new paragraph.
+                } else {
+                    if (newParagraph !== null && replaceNode !== null) {
+                        this.$refs.textEditor.replaceChild(newParagraph, replaceNode);
+                    }
+
+                    removeNodes.forEach((removeNode) => {
+                        this.$refs.textEditor.removeChild(removeNode);
+                    });
+
+                    newParagraph = null;
+                    replaceNode = null;
+                    removeNodes = [];
+                }
+            });
+
+            this.emitContent();
+        },
+
+        /**
+         * Checks if nodes of the content are not wrapped in a proper section element.
+         *
+         * @returns {boolean}
+         */
+        hasDirectMinorElements() {
+            const nodes = Array.from(this.$refs.textEditor.childNodes);
+            return nodes.some((node) => this.minorElementTags.includes(node.nodeName.toLowerCase()));
         },
 
         setFocus() {
@@ -838,7 +985,6 @@ Component.register('sw-text-editor', {
         onContentChange() {
             this.isEmpty = this.emptyCheck(this.getContentValue());
             this.placeholderVisible = this.isEmpty;
-
             this.setWordCount();
         },
 
@@ -848,16 +994,14 @@ Component.register('sw-text-editor', {
             const nodes = [];
 
             let element = this.selection.focusNode;
-            while (
-                element.parentNode &&
-                !element?.parentNode?.classList.contains('sw-text-editor__content-editor')
-            ) {
+            while (element.parentNode && !element?.parentNode?.classList.contains('sw-text-editor__content-editor')) {
                 nodes.unshift(element.parentNode);
                 element = element.parentNode;
             }
 
-            const formattedSting = nodes.map(node => node.tagName.toLowerCase())
-                .filter(nodeName => nodeName !== 'p')
+            const formattedSting = nodes
+                .map((node) => node.tagName.toLowerCase())
+                .filter((nodeName) => nodeName !== 'p')
                 .reduce((previousValue, currentElement) => {
                     return `<${currentElement}>${previousValue}</${currentElement}>`;
                 }, this.selection.toString());
@@ -900,12 +1044,12 @@ Component.register('sw-text-editor', {
         },
 
         emitContent() {
-            this.$emit('input', this.getContentValue());
+            this.$emit('update:value', this.getContentValue());
         },
 
         emitHtmlContent(value) {
             this.content = value;
-            this.$emit('input', value);
+            this.$emit('update:value', value);
 
             this.isEmpty = this.emptyCheck(this.content);
             this.placeholderVisible = this.isEmpty;
@@ -916,9 +1060,11 @@ Component.register('sw-text-editor', {
                 return null;
             }
 
-            if (!this.$refs.textEditor.textContent ||
+            if (
+                !this.$refs.textEditor.textContent ||
                 !this.$refs.textEditor.textContent.length ||
-                this.$refs.textEditor.textContent.length <= 0) {
+                this.$refs.textEditor.textContent.length <= 0
+            ) {
                 return null;
             }
 
@@ -954,4 +1100,4 @@ Component.register('sw-text-editor', {
             return !!this.label || !!this.$slots.label || !!this.$scopedSlots?.label?.();
         },
     },
-});
+};

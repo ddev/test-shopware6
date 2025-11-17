@@ -6,6 +6,10 @@ const defaultSearchConfiguration = {
         _searchable: true,
         _score: searchRankingPoint.HIGH_SEARCH_RANKING,
     },
+    path: {
+        _searchable: true,
+        _score: searchRankingPoint.HIGH_SEARCH_RANKING,
+    },
     alt: {
         _searchable: true,
         _score: searchRankingPoint.MIDDLE_SEARCH_RANKING,
@@ -29,7 +33,7 @@ const defaultSearchConfiguration = {
 };
 
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default defaultSearchConfiguration;

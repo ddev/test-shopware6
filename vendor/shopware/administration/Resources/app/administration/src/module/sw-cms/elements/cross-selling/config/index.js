@@ -6,12 +6,14 @@ const { Criteria } = Shopware.Data;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: ['element-update'],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -46,6 +48,46 @@ export default {
         isProductPageType() {
             return this.cmsPageState?.currentPage?.type === 'product_detail';
         },
+
+        boxLayoutOptions() {
+            return [
+                {
+                    id: 1,
+                    value: 'standard',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeStandard'),
+                },
+                {
+                    id: 2,
+                    value: 'image',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeImage'),
+                },
+                {
+                    id: 3,
+                    value: 'minimal',
+                    label: this.$tc('sw-cms.elements.productBox.config.label.layoutTypeMinimal'),
+                },
+            ];
+        },
+
+        displayModeOptions() {
+            return [
+                {
+                    id: 1,
+                    value: 'standard',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeStandard'),
+                },
+                {
+                    id: 2,
+                    value: 'cover',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeCover'),
+                },
+                {
+                    id: 3,
+                    value: 'contain',
+                    label: this.$tc('sw-cms.elements.general.config.label.displayModeContain'),
+                },
+            ];
+        },
     },
 
     created() {
@@ -57,19 +99,31 @@ export default {
             this.initElementConfig('cross-selling');
         },
 
-        onProductChange(productId) {
-            if (!productId) {
-                this.element.config.product.value = null;
-                this.$set(this.element.data, 'product', null);
+        async onProductChange(productId) {
+            if (productId) {
+                await this.fetchProduct(productId);
             } else {
-                this.productRepository.get(productId, this.productSelectContext, this.selectedProductCriteria)
-                    .then((product) => {
-                        this.element.config.product.value = productId;
-                        this.$set(this.element.data, 'product', product);
-                    });
+                this.deleteProduct();
             }
 
             this.$emit('element-update', this.element);
+        },
+
+        async fetchProduct(productId) {
+            const product = await this.productRepository.get(
+                productId,
+                this.productSelectContext,
+                this.selectedProductCriteria,
+            );
+            this.element.config.product.value = productId;
+
+            this.element.data.product = product;
+        },
+
+        deleteProduct() {
+            this.element.config.product.value = null;
+
+            this.element.data.product = null;
         },
     },
 };

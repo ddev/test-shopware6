@@ -2,12 +2,15 @@
 
 namespace Shopware\Core\Content\Newsletter\ScheduledTask;
 
+use Psr\Log\LoggerInterface;
+use Shopware\Core\Content\Newsletter\Aggregate\NewsletterRecipient\NewsletterRecipientCollection;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\RangeFilter;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskHandler;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -15,23 +18,29 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @internal
  */
 #[AsMessageHandler(handles: NewsletterRecipientTask::class)]
-#[Package('buyers-experience')]
+#[Package('after-sales')]
 final class NewsletterRecipientTaskHandler extends ScheduledTaskHandler
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<ScheduledTaskCollection> $scheduledTaskRepository
+     * @param EntityRepository<NewsletterRecipientCollection> $newsletterRecipientRepository
      */
     public function __construct(
         EntityRepository $scheduledTaskRepository,
+        LoggerInterface $logger,
         private readonly EntityRepository $newsletterRecipientRepository
     ) {
-        parent::__construct($scheduledTaskRepository);
+        parent::__construct($scheduledTaskRepository, $logger);
     }
 
     public function run(): void
     {
+        $context = Context::createCLIContext();
+
         $criteria = $this->getExpiredNewsletterRecipientCriteria();
-        $emailRecipient = $this->newsletterRecipientRepository->searchIds($criteria, Context::createDefaultContext());
+        $emailRecipient = $this->newsletterRecipientRepository->searchIds($criteria, $context);
 
         if (empty($emailRecipient->getIds())) {
             return;
@@ -39,7 +48,7 @@ final class NewsletterRecipientTaskHandler extends ScheduledTaskHandler
 
         $emailRecipientIds = array_map(fn ($id) => ['id' => $id], $emailRecipient->getIds());
 
-        $this->newsletterRecipientRepository->delete($emailRecipientIds, Context::createDefaultContext());
+        $this->newsletterRecipientRepository->delete($emailRecipientIds, $context);
     }
 
     private function getExpiredNewsletterRecipientCriteria(): Criteria

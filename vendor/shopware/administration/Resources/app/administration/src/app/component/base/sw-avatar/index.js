@@ -1,7 +1,6 @@
 import template from './sw-avatar.html.twig';
 import './sw-avatar.scss';
 
-const { Component } = Shopware;
 const { cloneDeep } = Shopware.Utils.object;
 
 const colors = [
@@ -20,9 +19,9 @@ const colors = [
 ];
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * @description The component helps adding a custom user image or initials to the administration.
  * @status ready
  * @example-type static
@@ -43,7 +42,7 @@ const colors = [
  *            :sourceContext="user"></sw-avatar>
  * </div>
  */
-Component.register('sw-avatar', {
+export default {
     template,
 
     props: {
@@ -87,7 +86,10 @@ Component.register('sw-avatar', {
             required: false,
             default: 'circle',
             validator: (value) => {
-                return ['circle', 'square'].includes(value);
+                return [
+                    'circle',
+                    'square',
+                ].includes(value);
             },
         },
     },
@@ -194,4 +196,4 @@ Component.register('sw-avatar', {
             this.lineHeight = Math.round(avatarSize * 0.98);
         },
     },
-});
+};

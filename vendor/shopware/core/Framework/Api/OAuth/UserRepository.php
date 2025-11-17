@@ -8,37 +8,38 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use Shopware\Core\Framework\Api\OAuth\User\User;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Sso\Config\LoginConfigService;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('core')]
+#[Package('framework')]
 class UserRepository implements UserRepositoryInterface
 {
     /**
      * @internal
      */
-    public function __construct(private readonly Connection $connection)
-    {
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly LoginConfigService $loginConfigService,
+    ) {
     }
 
-    /**
-     * Get a user entity.
-     *
-     * @param string $username
-     * @param string $password
-     * @param string $grantType The grant type used
-     */
     public function getUserEntityByUserCredentials(
-        $username,
-        $password,
-        $grantType,
+        string $username,
+        #[\SensitiveParameter]
+        string $password,
+        string $grantType,
         ClientEntityInterface $clientEntity
     ): ?UserEntityInterface {
+        if ($this->loginConfigService->getConfig()?->useDefault === false) {
+            // never allow login via password if the default login is disabled (e.g. using SSO only)
+            return null;
+        }
+
         $builder = $this->connection->createQueryBuilder();
-        $user = $builder->select(['user.id', 'user.password'])
+        $user = $builder->select('user.id', 'user.password')
             ->from('user')
             ->where('username = :username')
             ->setParameter('username', $username)
-            ->executeQuery()
             ->fetchAssociative();
 
         if (!$user) {

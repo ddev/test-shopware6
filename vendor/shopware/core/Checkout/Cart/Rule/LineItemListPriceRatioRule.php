@@ -13,7 +13,10 @@ use Shopware\Core\Framework\Rule\RuleConfig;
 use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\Framework\Rule\RuleScope;
 
-#[Package('services-settings')]
+/**
+ * @final
+ */
+#[Package('fundamentals@after-sales')]
 class LineItemListPriceRatioRule extends Rule
 {
     final public const RULE_NAME = 'cartLineItemListPriceRatio';
@@ -84,7 +87,7 @@ class LineItemListPriceRatioRule extends Rule
 
         $listPriceRatioAmount = null;
         if ($listPrice instanceof ListPrice) {
-            $listPriceRatioAmount = $listPrice->getPercentage();
+            $listPriceRatioAmount = (100 - $listPrice->getPercentage()) / 100;
         }
 
         return RuleComparison::numeric($listPriceRatioAmount, (float) $this->amount, $this->operator);

@@ -5,13 +5,18 @@ const { Component, Mixin, Context } = Shopware;
 const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
+
+    emits: ['media-folder-renamed'],
 
     mixins: [
         Mixin.getByName('media-sidebar-modal-mixin'),
@@ -59,9 +64,12 @@ export default {
         },
 
         quickActionClasses(disabled) {
-            return ['sw-media-sidebar__quickaction', {
-                'sw-media-sidebar__quickaction--disabled': disabled,
-            }];
+            return [
+                'sw-media-sidebar__quickaction',
+                {
+                    'sw-media-sidebar__quickaction--disabled': disabled,
+                },
+            ];
         },
     },
 };

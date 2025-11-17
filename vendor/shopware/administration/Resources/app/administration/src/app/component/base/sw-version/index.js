@@ -1,11 +1,9 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-version.html.twig';
 import './sw-version.scss';
-
-const { Component } = Shopware;
 
 /**
  * @private
@@ -17,7 +15,7 @@ const { Component } = Shopware;
  *     <sw-version class="collapsible-text"></sw-version>
  * </div>
  */
-Component.register('sw-version', {
+export default {
     template,
 
     computed: {
@@ -36,7 +34,7 @@ Component.register('sw-version', {
             match.shift();
 
             // Iterate version parts and append to output
-            match.forEach(((versionPart, index) => {
+            match.forEach((versionPart, index) => {
                 if (typeof versionPart !== 'string') {
                     return;
                 }
@@ -58,7 +56,7 @@ Component.register('sw-version', {
 
                 // Add dot and version part to output
                 output += `.${hrt}`;
-            }));
+            });
 
             return output;
         },
@@ -85,4 +83,4 @@ Component.register('sw-version', {
             return text;
         },
     },
-});
+};

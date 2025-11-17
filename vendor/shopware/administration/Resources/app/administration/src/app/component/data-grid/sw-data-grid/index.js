@@ -1,15 +1,13 @@
 import template from './sw-data-grid.html.twig';
 import './sw-data-grid.scss';
 
-const { Component } = Shopware;
 const { Criteria } = Shopware.Data;
 const utils = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @description The sw-data-grid is a component to render tables with data.
  * It also supports hiding columns or scrolling horizontally when many columns are present.
@@ -29,13 +27,23 @@ const utils = Shopware.Utils;
  *     ]">
  * </sw-data-grid>
  */
-Component.register('sw-data-grid', {
+export default {
     template,
 
     inject: [
         'acl',
         'repositoryFactory',
         'feature',
+    ],
+
+    emits: [
+        'selection-change',
+        'select-all-items',
+        'select-item',
+        'inline-edit-assign',
+        'inline-edit-save',
+        'inline-edit-cancel',
+        'column-sort',
     ],
 
     props: {
@@ -57,7 +65,6 @@ Component.register('sw-data-grid', {
 
         showSelection: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -65,7 +72,6 @@ Component.register('sw-data-grid', {
 
         showActions: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -73,7 +79,6 @@ Component.register('sw-data-grid', {
 
         showHeader: {
             type: Boolean,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
             required: false,
@@ -136,7 +141,6 @@ Component.register('sw-data-grid', {
         compactMode: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -150,7 +154,6 @@ Component.register('sw-data-grid', {
         showPreviews: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -167,8 +170,10 @@ Component.register('sw-data-grid', {
             type: Function,
             required: false,
             default(item) {
-                return !this.reachMaximumSelectionExceed ||
-                    Object.keys(this.selection).includes(item[this.itemIdentifierProperty]);
+                return (
+                    !this.reachMaximumSelectionExceed ||
+                    Object.keys(this.selection).includes(item[this.itemIdentifierProperty])
+                );
             },
         },
 
@@ -189,6 +194,20 @@ Component.register('sw-data-grid', {
             required: false,
             default: null,
         },
+
+        isRecordDisabled: {
+            type: Function,
+            required: false,
+            default() {
+                return false;
+            },
+        },
+
+        contextButtonMenuWidth: {
+            type: Number,
+            required: false,
+            default: 220,
+        },
     },
 
     data() {
@@ -202,7 +221,7 @@ Component.register('sw-data-grid', {
             currentSetting: {},
             currentColumns: [],
             columnIndex: null,
-            selection: { ...this.preSelection || {} },
+            selection: { ...(this.preSelection || {}) },
             originalTarget: null,
             compact: this.compactMode,
             previews: this.showPreviews,
@@ -248,10 +267,12 @@ Component.register('sw-data-grid', {
                 return false;
             }
 
-            const currentVisibleIds = this.records.map(record => record.id);
+            const currentVisibleIds = this.records.map((record) => record.id);
 
-            return this.reachMaximumSelectionExceed
-                && Object.keys(this.selection).every(id => !currentVisibleIds.includes(id));
+            return (
+                this.reachMaximumSelectionExceed &&
+                Object.keys(this.selection).every((id) => !currentVisibleIds.includes(id))
+            );
         },
 
         allSelectedChecked() {
@@ -273,7 +294,7 @@ Component.register('sw-data-grid', {
 
             const selectedItems = Object.values(this.selection);
 
-            return this.records.every(item => {
+            return this.records.every((item) => {
                 return selectedItems.some((selection) => {
                     return selection[this.itemIdentifierProperty] === item[this.itemIdentifierProperty];
                 });
@@ -285,7 +306,7 @@ Component.register('sw-data-grid', {
         },
 
         currentUser() {
-            return Shopware.State.get('session').currentUser;
+            return Shopware.Store.get('session').currentUser;
         },
 
         userGridSettingCriteria() {
@@ -302,8 +323,12 @@ Component.register('sw-data-grid', {
                 return false;
             }
 
-            const currentVisibleIds = this.records.map(record => record.id);
-            return this.selectionCount > 0 && Object.keys(this.selection).some(id => !currentVisibleIds.includes(id));
+            const currentVisibleIds = this.records.map((record) => record.id);
+            return this.selectionCount > 0 && Object.keys(this.selection).some((id) => !currentVisibleIds.includes(id));
+        },
+
+        currentVisibleColumns() {
+            return this.currentColumns.filter((column) => column.visible);
         },
     },
 
@@ -384,10 +409,7 @@ Component.register('sw-data-grid', {
                 return Promise.resolve();
             }
 
-            return this.userConfigRepository.search(
-                this.userGridSettingCriteria,
-                Shopware.Context.api,
-            ).then((response) => {
+            return this.userConfigRepository.search(this.userGridSettingCriteria, Shopware.Context.api).then((response) => {
                 if (!response.length) {
                     return;
                 }
@@ -433,38 +455,43 @@ Component.register('sw-data-grid', {
                 return;
             }
 
-            const userColumnSettings = Object.fromEntries(userSettings.columns.map((column, index) => {
-                return [
-                    column.dataIndex, {
-                        width: column.width,
-                        allowResize: column.allowResize,
-                        sortable: column.sortable,
-                        visible: column.visible,
-                        align: column.align,
-                        naturalSorting: column.naturalSorting,
-                        position: index,
-                    },
-                ];
-            }));
+            const userColumnSettings = Object.fromEntries(
+                userSettings.columns.map((column, index) => {
+                    return [
+                        column.dataIndex,
+                        {
+                            width: column.width,
+                            allowResize: column.allowResize,
+                            sortable: column.sortable,
+                            visible: column.visible,
+                            align: column.align,
+                            naturalSorting: column.naturalSorting,
+                            position: index,
+                        },
+                    ];
+                }),
+            );
 
-            this.currentColumns = this.currentColumns.map(column => {
-                if (userColumnSettings[column.dataIndex] === undefined) {
-                    return column;
-                }
+            this.currentColumns = this.currentColumns
+                .map((column) => {
+                    if (userColumnSettings[column.dataIndex] === undefined) {
+                        return column;
+                    }
 
-                return utils.object.mergeWith(
-                    {},
-                    column,
-                    userColumnSettings[column.dataIndex],
-                    (localValue, serverValue) => {
-                        if (serverValue !== undefined && serverValue !== null) {
-                            return serverValue;
-                        }
+                    return utils.object.mergeWith(
+                        {},
+                        column,
+                        userColumnSettings[column.dataIndex],
+                        (localValue, serverValue) => {
+                            if (serverValue !== undefined && serverValue !== null) {
+                                return serverValue;
+                            }
 
-                        return localValue;
-                    },
-                );
-            }).sort((column1, column2) => column1.position - column2.position);
+                            return localValue;
+                        },
+                    );
+                })
+                .sort((column1, column2) => column1.position - column2.position);
         },
 
         findResizeColumns() {
@@ -474,7 +501,9 @@ Component.register('sw-data-grid', {
         },
 
         findPreviewSlots() {
-            const scopedSlots = Array.from(Object.keys(this.$scopedSlots));
+            let scopedSlots = [];
+
+            scopedSlots = Object.keys(this.$slots);
 
             this.hasPreviewSlots = scopedSlots.some((scopedSlot) => {
                 return scopedSlot.includes('preview-');
@@ -549,6 +578,7 @@ Component.register('sw-data-grid', {
                 {
                     'is--inline-edit': this.isInlineEdit(item),
                     'is--selected': this.isSelected(item.id),
+                    'is--disabled': this.isRecordDisabled(item),
                 },
                 `sw-data-grid__row--${itemIndex}`,
             ];
@@ -659,9 +689,7 @@ Component.register('sw-data-grid', {
         },
 
         selectAll(selected) {
-            this.$delete(this.selection);
-
-            this.records.forEach(item => {
+            this.records.forEach((item) => {
                 if (this.isSelected(item[this.itemIdentifierProperty]) !== selected) {
                     this.selectItem(selected, item);
                 }
@@ -679,31 +707,17 @@ Component.register('sw-data-grid', {
                 return;
             }
 
-            const selection = this.selection;
-
-            if (this.feature.isActive('VUE3')) {
-                const key = item[this.itemIdentifierProperty];
-                if (selected) {
-                    this.selection = {
-                        ...this.selection,
-                        [key]: item,
-                    };
-                } else {
-                    this.selection = Object.fromEntries(
-                        Object.entries(this.selection).filter(([selectionKey]) => selectionKey !== key),
-                    );
-                }
-                this.$emit('select-item', this.selection, item, selected);
-
-                return;
-            }
-
+            const key = item[this.itemIdentifierProperty];
             if (selected) {
-                this.$set(this.selection, item[this.itemIdentifierProperty], item);
-            } else if (!selected && selection[item[this.itemIdentifierProperty]]) {
-                this.$delete(this.selection, item[this.itemIdentifierProperty]);
+                this.selection = {
+                    ...this.selection,
+                    [key]: item,
+                };
+            } else {
+                this.selection = Object.fromEntries(
+                    Object.entries(this.selection).filter(([selectionKey]) => selectionKey !== key),
+                );
             }
-
             this.$emit('select-item', this.selection, item, selected);
         },
 
@@ -746,8 +760,7 @@ Component.register('sw-data-grid', {
                 return;
             }
 
-            if (event.target.closest('.sw-context-button') ||
-                event.target.closest('.sw-data-grid__cell-resize')) {
+            if (event.target.closest('.sw-context-button') || event.target.closest('.sw-data-grid__cell-resize')) {
                 return;
             }
 
@@ -871,4 +884,4 @@ Component.register('sw-data-grid', {
             this.$emit('column-sort', column);
         },
     },
-});
+};

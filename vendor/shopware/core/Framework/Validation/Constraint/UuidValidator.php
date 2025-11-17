@@ -2,20 +2,20 @@
 
 namespace Shopware\Core\Framework\Validation\Constraint;
 
+use Shopware\Core\Framework\FrameworkException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Validation\Constraint\Uuid as UuidConstraint;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
-use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
-#[Package('core')]
+#[Package('framework')]
 class UuidValidator extends ConstraintValidator
 {
     public function validate(mixed $value, Constraint $constraint): void
     {
         if (!$constraint instanceof UuidConstraint) {
-            throw new UnexpectedTypeException($constraint, UuidConstraint::class);
+            throw FrameworkException::unexpectedType($constraint, UuidConstraint::class);
         }
 
         // custom constraints should ignore null and empty values to allow

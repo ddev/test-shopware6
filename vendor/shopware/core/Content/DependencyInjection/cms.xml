@@ -29,15 +29,20 @@
         </service>
 
         <service id="Shopware\Core\Content\Cms\DataResolver\CmsSlotsDataResolver" public="true">
-            <argument type="tagged" tag="shopware.cms.data_resolver"/>
+            <argument type="tagged_iterator" tag="shopware.cms.data_resolver"/>
             <argument type="collection">
                 <argument type="service" key="product" id="sales_channel.product.repository" />
             </argument>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+            <argument type="service" id="Shopware\Core\Framework\Extensions\ExtensionDispatcher"/>
         </service>
 
         <service id="Shopware\Core\Content\Cms\DataResolver\Element\TextCmsElementResolver">
             <argument type="service" id="Shopware\Core\Framework\Util\HtmlSanitizer"/>
+            <tag name="shopware.cms.data_resolver"/>
+        </service>
+
+        <service id="Shopware\Core\Content\Cms\DataResolver\Element\HtmlCmsElementResolver">
             <tag name="shopware.cms.data_resolver"/>
         </service>
 
@@ -56,6 +61,7 @@
             <argument type="service" id="cms_page.repository"/>
             <argument type="service" id="Shopware\Core\Content\Cms\DataResolver\CmsSlotsDataResolver"/>
             <argument type="service" id="event_dispatcher"/>
+            <argument type="service" id="Shopware\Core\Framework\Adapter\Cache\CacheTagCollector"/>
         </service>
 
         <service id="Shopware\Core\Content\Cms\SalesChannel\CmsRoute" public="true">
@@ -70,6 +76,10 @@
         <service id="Shopware\Core\Content\Cms\Subscriber\UnusedMediaSubscriber">
             <argument type="service" id="Doctrine\DBAL\Connection"/>
 
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="Shopware\Core\Content\Cms\Subscriber\CmsVersionMergeSubscriber">
             <tag name="kernel.event_subscriber"/>
         </service>
     </services>

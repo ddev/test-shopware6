@@ -5,6 +5,16 @@
         padding-top: 0;
     }
 
+    .sw-settings-cache__card-indexes {
+        .sw-container + .sw-container {
+            margin-top: 30px;
+        }
+
+        .mt-select {
+            margin-bottom: 0;
+        }
+    }
+
     &__indexers-entry {
         padding: 4px 8px;
         border-radius: $border-radius-default;
@@ -19,15 +29,17 @@
     }
 
     .sw-card-section {
+        width: 100%;
         padding: 30px 0;
 
         &--secondary {
-            padding: 0;
+            padding: 30px;
         }
     }
 }
 
 .sw-settings-cache__card-toolbar {
+    width: 100%;
     row-gap: 25px;
 
     &-heading {
@@ -61,12 +73,18 @@
 
 .sw-settings-cache__indexers-select {
     &.sw-field {
-        margin: 8px 0 0;
+        margin: 0;
     }
 
     &.sw-select {
         .sw-select__selection {
             padding-top: 8px;
         }
+    }
+}
+
+.sw-settings-cache__skip-indexers-select {
+    &.sw-field {
+        margin-bottom: 0;
     }
 }

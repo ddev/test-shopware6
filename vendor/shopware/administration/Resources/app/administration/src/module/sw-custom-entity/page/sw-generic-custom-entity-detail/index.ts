@@ -1,11 +1,9 @@
-import type { Entity } from '@shopware-ag/admin-extension-sdk/es/data/_internals/Entity';
 import type {
     AdminTabsDefinition,
     CustomEntityDefinition,
     CustomEntityProperties,
     AdminUiDefinition,
 } from 'src/app/service/custom-entity-definition.service';
-import type EntityCollection from 'src/core/data/entity-collection.data';
 import type Repository from 'src/core/data/repository.data';
 
 import template from './sw-generic-custom-entity-detail.html.twig';
@@ -14,15 +12,15 @@ import './sw-generic-custom-entity-detail.scss';
 const { Mixin } = Shopware;
 
 type GenericCustomEntityDetailData = {
-    isLoading: boolean,
-    isSaveSuccessful: boolean,
-    customEntityData: Entity<'generic_custom_entity'>|null,
-    customEntityDataInstances?: EntityCollection<'generic_custom_entity'>,
+    isLoading: boolean;
+    isSaveSuccessful: boolean;
+    customEntityData: Entity<'generic_custom_entity'> | null;
+    customEntityDataInstances?: EntityCollection<'generic_custom_entity'>;
 };
 
 /**
  * @private
- * @package content
+ * @sw-package framework
  */
 export default Shopware.Component.wrapComponentConfig({
     template,
@@ -48,11 +46,11 @@ export default Shopware.Component.wrapComponentConfig({
     },
 
     computed: {
-        customEntityDataId(): string|null {
-            return this.$route.params?.id;
+        customEntityDataId(): string | null {
+            return (this.$route.params?.id as null | string)?.toLowerCase() ?? null;
         },
 
-        customEntityName(): string {
+        customEntityName(): string | string[] {
             return this.$route.params.entityName || '';
         },
 
@@ -61,7 +59,7 @@ export default Shopware.Component.wrapComponentConfig({
                 return null;
             }
 
-            return this.customEntityDefinitionService.getDefinitionByName(this.customEntityName) ?? null;
+            return this.customEntityDefinitionService.getDefinitionByName(this.customEntityName as string) ?? null;
         },
 
         customEntityDataRepository(): Repository<'generic_custom_entity'> | null {
@@ -69,8 +67,7 @@ export default Shopware.Component.wrapComponentConfig({
                 return null;
             }
 
-            return this.repositoryFactory
-                .create(this.customEntityDataDefinition.entity as 'generic_custom_entity');
+            return this.repositoryFactory.create(this.customEntityDataDefinition.entity as 'generic_custom_entity');
         },
 
         customEntityProperties(): CustomEntityProperties | undefined {
@@ -89,11 +86,11 @@ export default Shopware.Component.wrapComponentConfig({
             return this.customEntityDataDefinition?.flags['admin-ui']?.detail?.tabs ?? [];
         },
 
-        mainTabName(): string|undefined {
+        mainTabName(): string | undefined {
             return this.detailTabs?.[0]?.name;
         },
 
-        titlePropertyName(): string|undefined {
+        titlePropertyName(): string | undefined {
             return this.detailTabs?.[0]?.cards?.[0].fields?.[0]?.ref;
         },
     },
@@ -109,11 +106,13 @@ export default Shopware.Component.wrapComponentConfig({
 
         initializeCustomEntity(): void {
             if (this.adminConfig !== null) {
+                // @ts-expect-error
                 // eslint-disable-next-line max-len
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-non-null-assertion
-                this.$route.meta!.$module.icon = this.adminConfig?.icon;
+                this.$route.meta.$module.icon = this.adminConfig?.icon;
             }
 
+            // eslint-disable-next-line no-warning-comments
             // ToDo NEXT-22874 - Favicon handling
             void this.loadData();
         },
@@ -123,7 +122,7 @@ export default Shopware.Component.wrapComponentConfig({
 
             try {
                 if (!this.customEntityDataRepository) {
-                    throw new Error(`Custom entity repository for "${this.customEntityName}" not found`);
+                    throw new Error(`Custom entity repository for "${this.customEntityName as string}" not found`);
                 }
 
                 if (!this.customEntityDataId) {
@@ -140,9 +139,7 @@ export default Shopware.Component.wrapComponentConfig({
                 // Methods from mixins are not recognized
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 this.createNotificationError({
-                    message: this.$tc(
-                        'global.notification.notificationLoadingDataErrorMessage',
-                    ),
+                    message: this.$tc('global.notification.notificationLoadingDataErrorMessage'),
                 });
             } finally {
                 this.isLoading = false;
@@ -153,25 +150,29 @@ export default Shopware.Component.wrapComponentConfig({
             this.isLoading = true;
 
             if (!this.customEntityData) {
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
                 return Promise.reject();
             }
 
-            return this.customEntityDataRepository?.save(this.customEntityData).then(async () => {
-                this.isSaveSuccessful = true;
+            return this.customEntityDataRepository
+                ?.save(this.customEntityData)
+                .then(async () => {
+                    this.isSaveSuccessful = true;
 
-                if (!this.customEntityDataId && this.customEntityData?.id) {
-                    await this.$router.push({
-                        name: 'sw.custom.entity.detail',
-                        params: {
-                            id: this.customEntityData.id,
-                        },
-                    });
-                }
+                    if (!this.customEntityDataId && this.customEntityData?.id) {
+                        await this.$router.push({
+                            name: 'sw.custom.entity.detail',
+                            params: {
+                                id: this.customEntityData.id,
+                            },
+                        });
+                    }
 
-                void this.loadData();
-            }).finally(() => {
-                this.isLoading = false;
-            });
+                    void this.loadData();
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
         },
 
         saveFinish(): void {
@@ -179,12 +180,18 @@ export default Shopware.Component.wrapComponentConfig({
         },
 
         onChangeLanguage(languageId: string): void {
-            Shopware.State.commit('context/setApiLanguageId', languageId);
+            Shopware.Store.get('context').setApiLanguageId(languageId);
             void this.loadData();
         },
 
         getFieldTranslation(namespace: string, name: string, suffix = '', checkExistence = false): string {
-            const snippetKey = [this.customEntityName, namespace, name].join('.').concat(suffix);
+            const snippetKey = [
+                this.customEntityName,
+                namespace,
+                name,
+            ]
+                .join('.')
+                .concat(suffix);
             if (checkExistence && !this.$te(snippetKey)) {
                 return '';
             }

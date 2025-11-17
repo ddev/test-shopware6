@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 
 import template from './sw-sales-channel-create.html.twig';
@@ -22,6 +22,8 @@ export default {
 
     beforeRouteUpdate: insertIdIntoRoute,
 
+    inject: ['systemConfigApiService'],
+
     computed: {
         allowSaving() {
             return this.acl.can('sales_channel.creator');
@@ -34,24 +36,51 @@ export default {
                 return;
             }
 
-            if (!Shopware.State.getters['context/isSystemDefaultLanguage']) {
-                Shopware.State.commit('context/resetLanguageToDefault');
+            if (!Shopware.Store.get('context').isSystemDefaultLanguage) {
+                Shopware.Store.get('context').resetLanguageToDefault();
             }
 
             this.salesChannel = this.salesChannelRepository.create();
             this.salesChannel.typeId = this.$route.params.typeId;
             this.salesChannel.active = false;
 
-            this.$super('createdComponent');
+            this.setMeasurementUnits()
+                .catch(() => {
+                    this.createNotificationError({
+                        message: this.$tc('sw-sales-channel.detail.messageMeasurementUnitsSetError'),
+                    });
+                })
+                .finally(() => {
+                    this.$super('createdComponent');
+                });
+        },
+
+        async setMeasurementUnits() {
+            const measurementUnits = await this.getMeasurementUnits();
+
+            this.salesChannel.measurementUnits = {
+                system: measurementUnits['core.measurementUnits.system'],
+                units: {
+                    length: measurementUnits['core.measurementUnits.length'],
+                    weight: measurementUnits['core.measurementUnits.weight'],
+                },
+            };
         },
 
         saveFinish() {
             this.isSaveSuccessful = false;
-            this.$router.push({ name: 'sw.sales.channel.detail', params: { id: this.salesChannel.id } });
+            this.$router.push({
+                name: 'sw.sales.channel.detail',
+                params: { id: this.salesChannel.id },
+            });
         },
 
         onSave() {
             this.$super('onSave');
+        },
+
+        getMeasurementUnits() {
+            return this.systemConfigApiService.getValues('core.measurementUnits');
         },
     },
 };

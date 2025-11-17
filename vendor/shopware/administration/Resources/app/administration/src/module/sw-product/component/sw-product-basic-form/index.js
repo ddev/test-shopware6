@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-basic-form.html.twig';
@@ -7,7 +7,7 @@ import './sw-product-basic-form.scss';
 
 const { Criteria } = Shopware.Data;
 const { Context, Mixin } = Shopware;
-const { mapPropertyErrors, mapState } = Shopware.Component.getComponentHelper();
+const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -23,7 +23,6 @@ export default {
         allowEdit: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -31,7 +30,6 @@ export default {
         showSettingsInformation: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -44,11 +42,17 @@ export default {
     },
 
     computed: {
-        ...mapState('swProductDetail', [
-            'product',
-            'parentProduct',
-            'loading',
-        ]),
+        product() {
+            return Shopware.Store.get('swProductDetail').product;
+        },
+
+        parentProduct() {
+            return Shopware.Store.get('swProductDetail').parentProduct;
+        },
+
+        isLoading() {
+            return Shopware.Store.get('swProductDetail').isLoading;
+        },
 
         ...mapPropertyErrors('product', [
             'name',
@@ -64,7 +68,7 @@ export default {
         },
 
         isTitleRequired() {
-            return Shopware.State.getters['context/isSystemDefaultLanguage'];
+            return Shopware.Store.get('context').isSystemDefaultLanguage;
         },
 
         productNumberRangeLink() {
@@ -81,13 +85,17 @@ export default {
         },
 
         productNumberHelpText() {
-            return this.$tc('sw-product.basicForm.productNumberHelpText.label', 0, {
-                link: `<sw-internal-link
+            return this.$tc(
+                'sw-product.basicForm.productNumberHelpText.label',
+                {
+                    link: `<sw-internal-link
                            :router-link=${JSON.stringify(this.productNumberRangeLink)}
                            :inline="true">
                            ${this.$tc('sw-product.basicForm.productNumberHelpText.linkText')}
                        </sw-internal-link>`,
-            });
+                },
+                0,
+            );
         },
 
         highlightHelpText() {
@@ -100,18 +108,22 @@ export default {
                 params: { key: 'listing.boxLabelTopseller' },
             };
 
-            return this.$tc('sw-product.basicForm.highlightHelpText.label', 0, {
-                themesLink: `<sw-internal-link
+            return this.$tc(
+                'sw-product.basicForm.highlightHelpText.label',
+                {
+                    themesLink: `<sw-internal-link
                                  :router-link=${JSON.stringify(themesLink)}
                                  :inline="true">
                                  ${this.$tc('sw-product.basicForm.highlightHelpText.themeLinkText')}
                              </sw-internal-link>`,
-                snippetLink: `<sw-internal-link
+                    snippetLink: `<sw-internal-link
                                   :router-link=${JSON.stringify(snippetLink)}
                                   :inline="true">
                                   ${this.$tc('sw-product.basicForm.highlightHelpText.snippetLinkText')}
                               </sw-internal-link>`,
-            });
+                },
+                0,
+            );
         },
 
         numberRangeCriteria() {
@@ -134,7 +146,6 @@ export default {
         },
 
         updateIsTitleRequired() {
-            // TODO: Refactor when there is a possibility to check if the title field is inherited
             this.isTitleRequired = Shopware.Context.api.languageId === Shopware.Context.api.systemLanguageId;
         },
 

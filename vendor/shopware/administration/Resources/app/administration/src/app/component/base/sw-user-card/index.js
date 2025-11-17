@@ -1,15 +1,12 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 import template from './sw-user-card.html.twig';
 import './sw-user-card.scss';
 
-const { Component } = Shopware;
-
 /**
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Renders a compact user information card using the provided user data.
  * @status ready
  * @example-type static
@@ -49,7 +46,7 @@ const { Component } = Shopware;
  * </template>
  * </sw-user-card>
  */
-Component.register('sw-user-card', {
+export default {
     template,
 
     props: {
@@ -94,4 +91,4 @@ Component.register('sw-user-card', {
             return Shopware.Filter.getByName('salutation');
         },
     },
-});
+};

@@ -5,7 +5,7 @@ const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -30,7 +30,7 @@ export default {
                         name: '1-3 days',
                     },
                     price: [
-                        { gross: 0.00 },
+                        { gross: 0.0 },
                     ],
                 };
             }
@@ -69,7 +69,7 @@ export default {
 
     watch: {
         pageType(newPageType) {
-            this.$set(this.element, 'locked', newPageType === 'product_detail');
+            this.element.locked = newPageType === 'product_detail';
         },
     },
 
@@ -81,7 +81,8 @@ export default {
         createdComponent() {
             this.initElementConfig('buy-box');
             this.initElementData('buy-box');
-            this.$set(this.element, 'locked', this.isProductPageType);
+
+            this.element.locked = this.isProductPageType;
         },
     },
 };

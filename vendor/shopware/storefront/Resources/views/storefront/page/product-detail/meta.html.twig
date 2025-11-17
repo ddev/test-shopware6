@@ -12,7 +12,7 @@
 
     <meta property="og:description"
           content="{{ metaDescription }}">
-    <meta property="og:image"
+    <meta property="og:{{ page.product.cover.media.getMediaType().getName() === 'VIDEO' ? 'video' : 'image' }}"
           content="{{ page.product.cover.media.url }}">
 
     {% if page.product.manufacturer %}
@@ -44,7 +44,7 @@
 {% endblock %}
 
 {% block layout_head_title_inner %}
-    {% if page.metaInformation.metaTitle %}{{ page.metaInformation.metaTitle }}{% else %}{{ page.product.translated.name }}{% if page.product.variation %} - {% for variation in page.product.variation %}{{ variation.group }}: {{ variation.option }}{% if page.product.variation|last != variation %}{{ " | " }}{% endif %}{% endfor %}{% endif %}{% endif %}
+    {% if page.metaInformation.metaTitle %}{{ page.metaInformation.metaTitle }}{% else %}{{ page.product.translated.name }}{% if page.product.variation %} - {% for variation in page.product.variation %}{{ variation.group }}: {{ variation.option }}{% if page.product.variation|last != variation %}{{ ' | ' }}{% endif %}{% endfor %}{% endif %}{% endif %}
 {% endblock %}
 
 {% block layout_head_canonical %}

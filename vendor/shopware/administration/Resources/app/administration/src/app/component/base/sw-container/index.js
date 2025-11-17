@@ -1,14 +1,12 @@
 import template from './sw-container.html.twig';
 import './sw-container.scss';
 
-const { Component } = Shopware;
 const { warn } = Shopware.Utils.debug;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Provides a container element which is divided in multiple sections with the use of CSS grid.
  * @status ready
  * @example-type static
@@ -18,7 +16,7 @@ const { warn } = Shopware.Utils.debug;
  *     <div>Right content</div>
  * </sw-container>
  */
-Component.register('sw-container', {
+export default {
     template,
 
     props: {
@@ -41,18 +39,42 @@ Component.register('sw-container', {
             type: String,
             required: false,
             default: 'stretch',
-            validValues: ['start', 'end', 'center', 'stretch', 'left', 'right'],
+            validValues: [
+                'start',
+                'end',
+                'center',
+                'stretch',
+                'left',
+                'right',
+            ],
             validator(value) {
-                return ['start', 'end', 'center', 'stretch', 'left', 'right'].includes(value);
+                return [
+                    'start',
+                    'end',
+                    'center',
+                    'stretch',
+                    'left',
+                    'right',
+                ].includes(value);
             },
         },
         align: {
             type: String,
             required: false,
             default: 'stretch',
-            validValues: ['start', 'end', 'center', 'stretch'],
+            validValues: [
+                'start',
+                'end',
+                'center',
+                'stretch',
+            ],
             validator(value) {
-                return ['start', 'end', 'center', 'stretch'].includes(value);
+                return [
+                    'start',
+                    'end',
+                    'center',
+                    'stretch',
+                ].includes(value);
             },
         },
         breakpoints: {
@@ -101,7 +123,7 @@ Component.register('sw-container', {
                 return cssGrid;
             }
 
-            Object.keys(this.breakpoints).find(breakpoint => {
+            Object.keys(this.breakpoints).find((breakpoint) => {
                 const currentBreakpointWidth = Number.parseInt(breakpoint, 10);
                 const currentBreakpoint = this.breakpoints[breakpoint];
 
@@ -146,4 +168,4 @@ Component.register('sw-container', {
             };
         },
     },
-});
+};

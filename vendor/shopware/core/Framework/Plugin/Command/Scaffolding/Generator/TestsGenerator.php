@@ -12,7 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class TestsGenerator implements ScaffoldingGenerator
 {
     public function hasCommandOption(): bool
@@ -62,7 +62,7 @@ class TestsGenerator implements ScaffoldingGenerator
             'tests/TestBootstrap.php',
             self::STUB_DIRECTORY . '/test-bootstrap.stub',
             [
-                'namespace' => $configuration->namespace,
+                'namespace' => str_replace('\\', '\\\\', $configuration->namespace),
                 'className' => $configuration->name,
             ]
         );

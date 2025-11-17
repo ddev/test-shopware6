@@ -32,7 +32,7 @@ use Symfony\Contracts\Service\ResetInterface;
 /**
  * @phpstan-type ConfigField array{field: string, tokenize: '1'|'0', ranking: numeric-string, language_id: string}
  */
-#[Package('core')]
+#[Package('framework')]
 class SearchKeywordUpdater implements ResetInterface
 {
     /**
@@ -55,7 +55,7 @@ class SearchKeywordUpdater implements ResetInterface
     }
 
     /**
-     * @param array<string>   $ids
+     * @param array<string> $ids
      */
     public function update(array $ids, Context $context): void
     {
@@ -75,7 +75,7 @@ class SearchKeywordUpdater implements ResetInterface
                 new SystemSource(),
                 [],
                 Defaults::CURRENCY,
-                array_filter([$language->getId(), $language->getParentId(), Defaults::LANGUAGE_SYSTEM]),
+                array_values(array_filter([$language->getId(), $language->getParentId(), Defaults::LANGUAGE_SYSTEM])),
                 $context->getVersionId()
             );
 
@@ -217,7 +217,7 @@ class SearchKeywordUpdater implements ResetInterface
     }
 
     /**
-     * @param list<string>    $accessors
+     * @param list<string> $accessors
      */
     private function buildCriteria(array $accessors, Criteria $criteria, Context $context): void
     {
@@ -257,7 +257,7 @@ class SearchKeywordUpdater implements ResetInterface
 
             // filter the associations that have no translations in given language,
             // as we automatically use the parent languages keywords for those
-            $translationLanguageAccessor = sprintf(
+            $translationLanguageAccessor = \sprintf(
                 '%s.%s.languageId',
                 $association,
                 $translationField->getPropertyName()
@@ -286,7 +286,7 @@ class SearchKeywordUpdater implements ResetInterface
 
         $query->setParameter('languageIds', Uuid::fromHexToBytesList([$languageId, Defaults::LANGUAGE_SYSTEM]), ArrayParameterType::BINARY);
 
-        /** @var array<int, ConfigField> $all */
+        /** @var list<ConfigField> $all */
         $all = $query->executeQuery()->fetchAllAssociative();
 
         $fields = array_filter($all, fn (array $field) => $field['language_id'] === $languageId);

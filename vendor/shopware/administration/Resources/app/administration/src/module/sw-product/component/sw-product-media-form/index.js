@@ -1,18 +1,23 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-media-form.html.twig';
 import './sw-product-media-form.scss';
 
-const { Component, Mixin } = Shopware;
-const { mapGetters } = Component.getComponentHelper();
+const { Mixin } = Shopware;
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+        'systemConfigApiService',
+    ],
+
+    emits: ['media-open'],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -30,6 +35,12 @@ export default {
             required: false,
             default: false,
         },
+
+        fileAccept: {
+            type: String,
+            required: false,
+            default: '*/*',
+        },
     },
 
     data() {
@@ -38,12 +49,13 @@ export default {
             isMediaLoading: false,
             columnCount: 5,
             columnWidth: 90,
+            globalIsArReady: false,
         };
     },
 
     computed: {
         product() {
-            const state = Shopware.State.get('swProductDetail');
+            const state = Shopware.Store.get('swProductDetail');
 
             if (this.isInherited) {
                 return state.parentProduct;
@@ -71,12 +83,12 @@ export default {
                 return null;
             }
             const coverId = this.product.cover ? this.product.cover.mediaId : this.product.coverId;
-            return this.product.media.find(media => media.id === coverId);
+            return this.product.media.find((media) => media.id === coverId);
         },
 
-        ...mapGetters('swProductDetail', {
-            isStoreLoading: 'isLoading',
-        }),
+        isStoreLoading() {
+            return Shopware.Store.get('swProductDetail').isLoading;
+        },
 
         isLoading() {
             return this.isMediaLoading || this.isStoreLoading;
@@ -84,6 +96,10 @@ export default {
 
         productMediaRepository() {
             return this.repositoryFactory.create('product_media');
+        },
+
+        mediaRepository() {
+            return this.repositoryFactory.create('media');
         },
 
         productMedia() {
@@ -102,13 +118,28 @@ export default {
         },
 
         currentCoverID() {
-            const coverMediaItem = this.productMedia.find(coverMedium => coverMedium.media.id === this.product.coverId);
+            const coverMediaItem = this.productMedia.find((coverMedium) => coverMedium.media.id === this.product.coverId);
 
             return coverMediaItem.id;
         },
     },
 
+    created() {
+        this.onCreated();
+    },
+
     methods: {
+        onCreated() {
+            this.systemConfigApiService
+                .getValues('core.media')
+                .then((response) => {
+                    this.globalIsArReady = response['core.media.defaultEnableAugmentedReality'];
+                })
+                .catch((error) => {
+                    throw error;
+                });
+        },
+
         onOpenMedia() {
             this.$emit('media-open');
         },
@@ -119,7 +150,8 @@ export default {
                     return false;
                 }
 
-                const cssColumns = window.getComputedStyle(this.$refs.grid, null)
+                const cssColumns = window
+                    .getComputedStyle(this.$refs.grid, null)
                     .getPropertyValue('grid-template-columns')
                     .split(' ');
                 this.columnCount = cssColumns.length;
@@ -137,7 +169,7 @@ export default {
             let placeholderCount = columnCount;
 
             if (this.productMedia.length !== 0) {
-                placeholderCount = columnCount - ((this.productMedia.length) % columnCount);
+                placeholderCount = columnCount - (this.productMedia.length % columnCount);
                 if (placeholderCount === columnCount) {
                     return 0;
                 }
@@ -176,9 +208,27 @@ export default {
             return productMedia;
         },
 
-        successfulUpload({ targetId }) {
+        async successfulUpload({ targetId }) {
+            const existingMedia = this.product.media.find((productMedia) => productMedia.mediaId === targetId);
+
             // on replace
-            if (this.product.media.find((productMedia) => productMedia.mediaId === targetId)) {
+            if (existingMedia) {
+                const mediaItem = await this.mediaRepository.get(targetId);
+
+                const productMedia = this.createMediaAssociation(targetId);
+                productMedia.media = mediaItem;
+
+                const existingMediaWasCover = this.product.cover?.id === existingMedia.id;
+
+                // replace the media item
+                this.product.media.remove(existingMedia.id);
+                this.product.media.add(productMedia);
+
+                if (existingMediaWasCover) {
+                    this.product.coverId = productMedia.id;
+                    this.product.cover = productMedia;
+                }
+
                 return;
             }
 
@@ -229,6 +279,21 @@ export default {
             return productMedia.id === coverId;
         },
 
+        /**
+         * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+         */
+        isSpatial(productMedia) {
+            // we need to check the media url since media.fileExtension is set directly after upload
+            return productMedia.media?.fileExtension === 'glb' || !!productMedia.media?.url?.endsWith('.glb');
+        },
+
+        /**
+         * @experimental stableVersion:v6.8.0 feature:SPATIAL_BASES
+         */
+        isArReady(productMedia) {
+            return productMedia.media?.config?.spatial?.arReady ?? this.globalIsArReady;
+        },
+
         removeFile(productMedia) {
             // remove cover id if mediaId matches
             if (this.product.coverId === productMedia.id) {
@@ -268,9 +333,11 @@ export default {
         },
 
         onMediaItemDragSort(dragData, dropData, validDrop) {
-            if (validDrop !== true
-                || (dragData.id === this.product.coverId && dragData.position === 0)
-                || (dropData.id === this.product.coverId && dropData.position === 0)) {
+            if (
+                validDrop !== true ||
+                (dragData.id === this.product.coverId && dragData.position === 0) ||
+                (dropData.id === this.product.coverId && dropData.position === 0)
+            ) {
                 return;
             }
 

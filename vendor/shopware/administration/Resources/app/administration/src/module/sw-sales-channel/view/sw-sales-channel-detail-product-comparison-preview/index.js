@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package discovery
  */
 
 import template from './sw-sales-channel-detail-product-comparison-preview.html.twig';
@@ -8,6 +8,8 @@ import './sw-sales-channel-detail-product-comparison-preview.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: ['close'],
 
     props: {
         content: {
@@ -36,8 +38,6 @@ export default {
 
     methods: {
         onModalClose() {
-            this.content = null;
-            this.errors = null;
             this.$emit('close');
         },
 

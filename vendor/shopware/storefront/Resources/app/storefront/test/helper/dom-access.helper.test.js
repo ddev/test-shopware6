@@ -2,6 +2,7 @@ import DomAccess from 'src/helper/dom-access.helper';
 import template from './dom-access.helper.template.html';
 
 /**
+ * @deprecated tag:v6.8.0 - DomAccess Helper will be removed.
  * @package storefront
  */
 describe('dom-access.helper', () => {
@@ -46,7 +47,7 @@ describe('dom-access.helper', () => {
             expect(DomAccess.hasAttribute(node, 'style')).toBe(true);
         });
 
-        test('has attribute returns false if attribute does not exists', () => {
+        test('has attribute returns false if attribute does not exist', () => {
             const node = document.querySelector('div.headline');
 
             expect(DomAccess.hasAttribute(node, 'noExistent')).toBe(false);
@@ -191,6 +192,44 @@ describe('dom-access.helper', () => {
         test('returns node when found', () => {
             const emptyList = document.querySelector('ul.non-empty-list');
             expect(DomAccess.querySelectorAll(emptyList, 'li')).toBeInstanceOf(NodeList);
+        });
+    });
+
+    describe('getFocusableElements', () => {
+        test('returns all focusable elements', () => {
+            const focusableElements = DomAccess.getFocusableElements();
+
+            expect(focusableElements).toBeInstanceOf(NodeList);
+            expect(focusableElements).toHaveLength(5);
+            expect(focusableElements[0]).toBeInstanceOf(HTMLAnchorElement);
+            expect(focusableElements[1]).toBeInstanceOf(HTMLButtonElement);
+            expect(focusableElements[2]).toBeInstanceOf(HTMLInputElement);
+            expect(focusableElements[3]).toBeInstanceOf(HTMLSelectElement);
+            expect(focusableElements[4]).toBeInstanceOf(HTMLTextAreaElement);
+        });
+
+        test('returns the first focusable element', () => {
+            const focusableElement = DomAccess.getFirstFocusableElement();
+
+            expect(focusableElement).toBeInstanceOf(HTMLAnchorElement);
+            expect(focusableElement.textContent).toBe('This is a link and the first focusable element');
+        });
+
+        test('returns the last focusable element', () => {
+            const focusableElement = DomAccess.getLastFocusableElement();
+
+            expect(focusableElement).toBeInstanceOf(HTMLTextAreaElement);
+            expect(focusableElement.textContent).toBe('This is a textarea and the last focusable element');
+        });
+
+        test('only returns focusable elements inside given parent element', () => {
+            const parentElement = document.querySelector('.parent-element');
+            const focusableElements = DomAccess.getFocusableElements(parentElement);
+
+            expect(focusableElements).toBeInstanceOf(NodeList);
+            expect(focusableElements).toHaveLength(2);
+            expect(focusableElements[0]).toBeInstanceOf(HTMLInputElement);
+            expect(focusableElements[1]).toBeInstanceOf(HTMLSelectElement);
         });
     });
 });

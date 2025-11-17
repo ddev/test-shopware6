@@ -3,6 +3,7 @@ import BaseWishlistStoragePlugin from 'src/plugin/wishlist/base-wishlist-storage
 import CookieStorageHelper from 'src/helper/storage/cookie-storage.helper';
 import Storage from 'src/helper/storage/storage.helper';
 import NativeEventEmitter from 'src/helper/emitter.helper';
+import AjaxOffCanvas from "../../../src/plugin/offcanvas/ajax-offcanvas.plugin";
 
 /**
  * @package checkout
@@ -15,7 +16,7 @@ describe('WishlistLocalStoragePlugin tests', () => {
 
     beforeEach(() => {
         CookieStorageHelper.setItem('wishlist-enabled', true);
-        // create mocks
+
         window.wishlistEnabled = true;
 
         const mockElement = document.createElement('div');

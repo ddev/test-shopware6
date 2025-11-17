@@ -14,18 +14,18 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * @internal
  */
-#[Package('merchant-services')]
+#[Package('data-services')]
 class EntityDeleteEventHelper
 {
     /**
      * @var EntityDefinition[]
      */
-    private array $includedEntityDefinitions;
+    private array $includedEntityDefinitions = [];
 
     /**
      * @var string[]
      */
-    private array $excludedFields;
+    private array $excludedFields = [];
 
     /**
      * @var array<string, list<array<string, string>>>
@@ -34,8 +34,6 @@ class EntityDeleteEventHelper
 
     public function __construct(private readonly EntityDeleteEvent $event)
     {
-        $this->includedEntityDefinitions = [];
-        $this->excludedFields = [];
     }
 
     /**
@@ -65,13 +63,13 @@ class EntityDeleteEventHelper
         $this->eventEntityIds = [];
 
         foreach ($this->event->getCommands() as $entityWriteResult) {
-            $definition = $entityWriteResult->getDefinition();
-
-            if (!\array_key_exists($definition->getEntityName(), $this->includedEntityDefinitions)) {
+            if (!\array_key_exists($entityWriteResult->getEntityName(), $this->includedEntityDefinitions)) {
                 continue;
             }
 
-            $this->eventEntityIds[$definition->getEntityName()][] = $this->getCommandPrimaryKeys(
+            $definition = $this->includedEntityDefinitions[$entityWriteResult->getEntityName()];
+
+            $this->eventEntityIds[$entityWriteResult->getEntityName()][] = $this->getCommandPrimaryKeys(
                 $entityWriteResult,
                 $definition->getPrimaryKeys(),
             );

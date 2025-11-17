@@ -2,32 +2,25 @@
 
 namespace Shopware\Core\Framework\DataAbstractionLayer\Indexing\MessageQueue;
 
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\AsyncMessageInterface;
+use Shopware\Core\Framework\MessageQueue\DeduplicatableMessageInterface;
+use Shopware\Core\Framework\Util\Hasher;
 
-#[Package('core')]
-class IterateEntityIndexerMessage implements AsyncMessageInterface
+#[Package('framework')]
+class IterateEntityIndexerMessage implements AsyncMessageInterface, DeduplicatableMessageInterface
 {
-    /**
-     * @var string
-     */
-    protected $indexer;
-
     /**
      * @internal
      *
-     * @deprecated tag:v6.6.0 - parameter $offset will be natively typed to type `?array`
-     *
      * @param array{offset: int|null}|null $offset
-     * @param list<string> $skip
+     * @param array<string> $skip
      */
     public function __construct(
-        string $indexer,
-        protected $offset,
+        protected string $indexer,
+        protected ?array $offset,
         protected array $skip = []
     ) {
-        $this->indexer = $indexer;
     }
 
     public function getIndexer(): string
@@ -36,37 +29,52 @@ class IterateEntityIndexerMessage implements AsyncMessageInterface
     }
 
     /**
-     * @deprecated tag:v6.6.0 - reason:return-type-change - return type will be natively typed to type `?array`
-     *
      * @return array{offset: int|null}|null
      */
-    public function getOffset()
+    public function getOffset(): ?array
     {
         return $this->offset;
     }
 
     /**
-     * @deprecated tag:v6.6.0 - parameter $offset will be natively typed to type `?array`
-     *
      * @param array{offset: int|null}|null $offset
      */
-    public function setOffset($offset): void
+    public function setOffset(?array $offset): void
     {
-        if ($offset !== null && !\is_array($offset)) {
-            Feature::triggerDeprecationOrThrow(
-                'v6.6.0.0',
-                'The parameter $offset of method ' . __METHOD__ . ' will be natively typed to type `?array` in v6.6.0.0.'
-            );
-        }
-
         $this->offset = $offset;
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getSkip(): array
     {
         return $this->skip;
+    }
+
+    /**
+     * @experimental stableVersion:v6.8.0 feature:DEDUPLICATABLE_MESSAGES
+     */
+    public function deduplicationId(): ?string
+    {
+        $sortedSkip = $this->skip;
+        sort($sortedSkip);
+
+        $sortedOffset = $this->offset;
+        if (\is_array($sortedOffset)) {
+            ksort($sortedOffset);
+        }
+
+        $data = json_encode([
+            $this->indexer,
+            $sortedOffset,
+            $sortedSkip,
+        ]);
+
+        if ($data === false) {
+            return null;
+        }
+
+        return Hasher::hash($data);
     }
 }

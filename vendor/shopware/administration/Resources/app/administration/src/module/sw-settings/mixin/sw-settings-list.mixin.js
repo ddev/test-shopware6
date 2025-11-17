@@ -1,11 +1,13 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
-const { Mixin, Data: { Criteria } } = Shopware;
+const {
+    Mixin,
+    Data: { Criteria },
+} = Shopware;
 const { debug } = Shopware.Utils;
 
 Mixin.register('sw-settings-list', {
-
     mixins: [
         Mixin.getByName('listing'),
         Mixin.getByName('notification'),
@@ -20,7 +22,11 @@ Mixin.register('sw-settings-list', {
             isLoading: false,
             showDeleteModal: false,
             deleteEntity: null,
-            steps: [10, 25, 50],
+            steps: [
+                10,
+                25,
+                50,
+            ],
         };
     },
 
@@ -28,8 +34,9 @@ Mixin.register('sw-settings-list', {
         entityRepository() {
             return this.repositoryFactory.create(this.entityName);
         },
+
         listingCriteria() {
-            const criteria = new Criteria(1, 25);
+            const criteria = new Criteria(this.page, this.limit);
 
             if (this.term) {
                 criteria.setTerm(this.term);
@@ -37,13 +44,15 @@ Mixin.register('sw-settings-list', {
 
             return criteria;
         },
+
         titleSaveSuccess() {
             if (this.$te(`sw-settings-${this.entityName.replace(/[_]/g, '-')}.list.titleDeleteSuccess`)) {
-                return this.$tc((`sw-settings-${this.entityName.replace(/[_]/g, '-')}.list.titleDeleteSuccess`));
+                return this.$tc(`sw-settings-${this.entityName.replace(/[_]/g, '-')}.list.titleDeleteSuccess`);
             }
 
             return this.$tc('global.default.success');
         },
+
         messageSaveSuccess() {
             if (this.deleteEntity) {
                 let name = this.deleteEntity.name;
@@ -52,17 +61,17 @@ Mixin.register('sw-settings-list', {
                 }
 
                 if (this.$te(`sw-settings-${this.entityName.replace(/[_]/g, '-')}.list.messageDeleteSuccess)`)) {
-                    return this.$tc(
-                        `sw-settings-${this.entityName.replace(/[_]/g, '-')}.list.messageDeleteSuccess`,
-                        0,
-                        { name: name },
-                    );
+                    return this.$tc(`sw-settings-${this.entityName.replace(/[_]/g, '-')}.list.messageDeleteSuccess`, 0, {
+                        name: name,
+                    });
                 }
 
                 return this.$tc(
                     'global.notification.messageDeleteSuccess',
+                    {
+                        name: name,
+                    },
                     0,
-                    { name: name },
                 );
             }
             return '';
@@ -79,7 +88,8 @@ Mixin.register('sw-settings-list', {
         getList() {
             this.isLoading = true;
 
-            this.entityRepository.search(this.listingCriteria)
+            this.entityRepository
+                .search(this.listingCriteria)
                 .then((items) => {
                     this.items = items;
                     this.total = items.total;
@@ -107,7 +117,8 @@ Mixin.register('sw-settings-list', {
             this.deleteEntity = this.items.find((item) => item.id === id);
 
             this.onCloseDeleteModal();
-            return this.entityRepository.delete(id)
+            return this.entityRepository
+                .delete(id)
                 .then(() => {
                     this.createNotificationSuccess({
                         title: this.titleSaveSuccess,
@@ -123,10 +134,9 @@ Mixin.register('sw-settings-list', {
         onInlineEditSave(item) {
             this.isLoading = true;
 
-            return this.entityRepository.save(item)
-                .finally(() => {
-                    this.isLoading = false;
-                });
+            return this.entityRepository.save(item).finally(() => {
+                this.isLoading = false;
+            });
         },
 
         onInlineEditCancel() {

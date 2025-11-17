@@ -8,17 +8,14 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only rely on the concrete hook implementations
  */
-#[Package('core')]
+#[Package('framework')]
 abstract class Hook
 {
-    protected Context $context;
-
     /**
      * @internal
      */
-    public function __construct(Context $context)
+    public function __construct(protected Context $context)
     {
-        $this->context = $context;
     }
 
     /**

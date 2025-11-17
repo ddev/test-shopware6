@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package inventory
  */
 import template from './sw-settings-search-example-modal.html.twig';
 import './sw-settings-search-example-modal.scss';
@@ -7,6 +7,8 @@ import './sw-settings-search-example-modal.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: ['modal-close'],
 
     data() {
         return {

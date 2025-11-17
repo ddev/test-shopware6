@@ -9,25 +9,13 @@ use Shopware\Core\Framework\Event\ShopwareSalesChannelEvent;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-#[Package('inventory')]
+#[Package('discovery')]
 class NavigationLoadedEvent extends NestedEvent implements ShopwareSalesChannelEvent
 {
-    /**
-     * @var Tree
-     */
-    protected $navigation;
-
-    /**
-     * @var SalesChannelContext
-     */
-    protected $salesChannelContext;
-
     public function __construct(
-        Tree $navigation,
-        SalesChannelContext $salesChannelContext
+        protected Tree $navigation,
+        protected SalesChannelContext $salesChannelContext,
     ) {
-        $this->navigation = $navigation;
-        $this->salesChannelContext = $salesChannelContext;
     }
 
     public function getContext(): Context

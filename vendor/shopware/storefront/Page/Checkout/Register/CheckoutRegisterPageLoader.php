@@ -9,13 +9,16 @@ use Shopware\Core\Checkout\Customer\CustomerException;
 use Shopware\Core\Checkout\Customer\Exception\AddressNotFoundException;
 use Shopware\Core\Checkout\Customer\SalesChannel\AbstractListAddressRoute;
 use Shopware\Core\Content\Category\Exception\CategoryNotFoundException;
+use Shopware\Core\Framework\Adapter\Translation\AbstractTranslator;
 use Shopware\Core\Framework\DataAbstractionLayer\Exception\InconsistentCriteriaIdsException;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Uuid\Exception\InvalidUuidException;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Framework\Uuid\UuidException;
 use Shopware\Core\System\Country\CountryCollection;
 use Shopware\Core\System\Country\SalesChannel\AbstractCountryRoute;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -29,7 +32,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Do not use direct or indirect repository calls in a PageLoader. Always use a store-api route to get or put data.
  */
-#[Package('storefront')]
+#[Package('framework')]
 class CheckoutRegisterPageLoader
 {
     /**
@@ -41,7 +44,8 @@ class CheckoutRegisterPageLoader
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly CartService $cartService,
         private readonly AbstractSalutationRoute $salutationRoute,
-        private readonly AbstractCountryRoute $countryRoute
+        private readonly AbstractCountryRoute $countryRoute,
+        private readonly AbstractTranslator $translator
     ) {
     }
 
@@ -57,10 +61,7 @@ class CheckoutRegisterPageLoader
         $page = $this->genericLoader->load($request, $salesChannelContext);
 
         $page = CheckoutRegisterPage::createFrom($page);
-
-        if ($page->getMetaInformation()) {
-            $page->getMetaInformation()->setRobots('noindex,follow');
-        }
+        $this->setMetaInformation($page);
 
         $page->setCountries($this->getCountries($salesChannelContext));
         $page->setCart($this->cartService->getCart($salesChannelContext->getToken(), $salesChannelContext));
@@ -79,10 +80,18 @@ class CheckoutRegisterPageLoader
         return $page;
     }
 
+    protected function setMetaInformation(CheckoutRegisterPage $page): void
+    {
+        $page->getMetaInformation()?->setRobots('noindex,follow');
+        $page->getMetaInformation()?->setMetaTitle(
+            $this->translator->trans('checkout.registerMetaTitle') . ' | ' . $page->getMetaInformation()->getMetaTitle()
+        );
+    }
+
     private function getById(string $addressId, SalesChannelContext $context): CustomerAddressEntity
     {
         if (!Uuid::isValid($addressId)) {
-            throw new InvalidUuidException($addressId);
+            throw UuidException::invalidUuid($addressId);
         }
 
         if ($context->getCustomer() === null) {
@@ -118,13 +127,9 @@ class CheckoutRegisterPageLoader
     private function getCountries(SalesChannelContext $salesChannelContext): CountryCollection
     {
         $criteria = (new Criteria())
-            ->addFilter(new EqualsFilter('active', true))
-            ->addAssociation('country.states');
+            ->addSorting(new FieldSorting('position', FieldSorting::ASCENDING))
+            ->addSorting(new FieldSorting('name', FieldSorting::ASCENDING));
 
-        $countries = $this->countryRoute->load(new Request(), $criteria, $salesChannelContext)->getCountries();
-
-        $countries->sortCountryAndStates();
-
-        return $countries;
+        return $this->countryRoute->load(new Request(), $criteria, $salesChannelContext)->getCountries();
     }
 }

@@ -1,30 +1,23 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_condition_value_content %}
 <div class="sw-condition-line-item-property sw-condition__condition-value">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_condition_line_item_properties_field_operator %}
     <sw-condition-operator-select
         v-bind="{ operators, condition }"
         :plural="matchesAll"
-        :disabled="disabled"
+        :disabled="disabled || undefined"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_condition_line_item_properties_field_identifiers %}
     <sw-entity-multi-select
         size="medium"
         entity="property_group_option"
-        :disabled="disabled"
+        :disabled="disabled || undefined"
         :entity-collection="options"
         :criteria="optionCriteria"
         @select-collapsed="onSelectCollapsed"
         @search-term-change="setSearchTerm"
-        {% if VUE3 %}
         @update:entity-collection="setOptions"
-        {% else %}
-        @change="setOptions"
-        {% endif %}
     >
 
         <template #selection-label-property="{ item }">
@@ -53,13 +46,11 @@
         </template>
 
         <template #result-description-property="{ item, searchTerm, highlightSearchTerm }">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_condition_line_item_properties_field_description %}
             <slot
                 name="result-description-property"
                 v-bind="{ item, searchTerm, highlightSearchTerm }"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_condition_line_item_properties_field_description_default %}
                 <sw-highlight-text
                     v-if="highlightSearchTerm"

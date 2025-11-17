@@ -1,10 +1,11 @@
 /**
- * @package storefront
+ * @sw-package framework
+ * @deprecated tag:v6.8.0 - Use native fetch() API directly. Remove this class.
  */
 export default class HttpClient {
-
     constructor() {
         this._request = null;
+        this._errorHandlingInternal = false;
     }
 
     /**
@@ -101,6 +102,15 @@ export default class HttpClient {
     }
 
     /**
+     * Set the error handling
+     *
+     * @param {boolean} errorHandlingInternal
+     */
+    setErrorHandlingInternal(errorHandlingInternal) {
+        this._errorHandlingInternal = errorHandlingInternal;
+    }
+
+    /**
      * @private
      * Register event listener, which executes the given callback, when the request has finished
      *
@@ -112,9 +122,24 @@ export default class HttpClient {
             return;
         }
 
-        request.addEventListener('loadend', () => {
-            callback(request.responseText, request);
-        });
+        if (this._errorHandlingInternal === true) {
+            request.addEventListener('load', () => {
+                callback(request.responseText, request);
+            });
+            request.addEventListener('abort', () => {
+                console.warn(`the request to ${request.responseURL} was aborted`);
+            });
+            request.addEventListener('error', () => {
+                console.warn(`the request to ${request.responseURL} failed with status ${request.status}`);
+            });
+            request.addEventListener('timeout', () => {
+                console.warn(`the request to ${request.responseURL} timed out`);
+            });
+        } else {
+            request.addEventListener('loadend', () => {
+                callback(request.responseText, request);
+            });
+        }
     }
 
     _sendRequest(request, data, callback) {

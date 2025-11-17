@@ -7,14 +7,17 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class NotHookableError extends Error
 {
     private const KEY = 'manifest-not-hookable';
 
+    /**
+     * @param list<string> $violations
+     */
     public function __construct(array $violations)
     {
-        $this->message = sprintf(
+        $this->message = \sprintf(
             "The following webhooks are not hookable:\n- %s",
             implode("\n- ", $violations)
         );

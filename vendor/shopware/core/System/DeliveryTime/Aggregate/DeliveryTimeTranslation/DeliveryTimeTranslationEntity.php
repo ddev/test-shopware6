@@ -7,35 +7,16 @@ use Shopware\Core\Framework\DataAbstractionLayer\TranslationEntity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\DeliveryTime\DeliveryTimeEntity;
 
-#[Package('checkout')]
+#[Package('discovery')]
 class DeliveryTimeTranslationEntity extends TranslationEntity
 {
     use EntityCustomFieldsTrait;
 
-    /**
-     * @var DeliveryTimeEntity|null
-     */
-    protected $deliveryTime;
+    protected ?DeliveryTimeEntity $deliveryTime = null;
 
-    /**
-     * @var string
-     */
-    protected $deliveryTimeId;
+    protected string $deliveryTimeId;
 
-    /**
-     * @var string|null
-     */
-    protected $name;
-
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $createdAt;
-
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $updatedAt;
+    protected ?string $name = null;
 
     public function getDeliveryTime(): ?DeliveryTimeEntity
     {

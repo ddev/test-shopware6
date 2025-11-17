@@ -3,35 +3,32 @@
 namespace Shopware\Storefront\Page\Account\Order;
 
 use Shopware\Core\Checkout\Order\OrderCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Storefront\Framework\Page\StorefrontSearchResult;
 use Shopware\Storefront\Page\Page;
 
 #[Package('checkout')]
 class AccountOrderPage extends Page
 {
     /**
-     * @var StorefrontSearchResult<OrderCollection>
+     * @var EntitySearchResult<OrderCollection>
      */
-    protected $orders;
+    protected EntitySearchResult $orders;
+
+    protected ?string $deepLinkCode = null;
 
     /**
-     * @var string|null
+     * @return EntitySearchResult<OrderCollection>
      */
-    protected $deepLinkCode;
-
-    /**
-     * @return StorefrontSearchResult<OrderCollection>
-     */
-    public function getOrders(): StorefrontSearchResult
+    public function getOrders(): EntitySearchResult
     {
         return $this->orders;
     }
 
     /**
-     * @param StorefrontSearchResult<OrderCollection> $orders
+     * @param EntitySearchResult<OrderCollection> $orders
      */
-    public function setOrders(StorefrontSearchResult $orders): void
+    public function setOrders(EntitySearchResult $orders): void
     {
         $this->orders = $orders;
     }

@@ -15,7 +15,6 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\Filter;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -28,7 +27,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
     name: 'media:generate-thumbnails',
     description: 'Generates thumbnails for all media files',
 )]
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class GenerateThumbnailsCommand extends Command
 {
     private ShopwareStyle $io;
@@ -51,7 +50,8 @@ class GenerateThumbnailsCommand extends Command
         private readonly ThumbnailService $thumbnailService,
         private readonly EntityRepository $mediaRepository,
         private readonly EntityRepository $mediaFolderRepository,
-        private readonly MessageBusInterface $messageBus
+        private readonly MessageBusInterface $messageBus,
+        private readonly bool $remoteThumbnailsEnable = false
     ) {
         parent::__construct();
     }
@@ -89,7 +89,14 @@ class GenerateThumbnailsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $this->io = new ShopwareStyle($input, $output);
-        $context = Context::createDefaultContext();
+
+        if ($this->remoteThumbnailsEnable) {
+            $this->io->comment('Remote thumbnails are enabled. Skipping thumbnail generation.');
+
+            return self::FAILURE;
+        }
+
+        $context = Context::createCLIContext();
 
         $this->initializeCommand($input, $context);
 
@@ -165,7 +172,7 @@ class GenerateThumbnailsCommand extends Command
                     }
                 } catch (\Throwable $e) {
                     ++$errored;
-                    $errors[] = [sprintf('Cannot process file %s (id: %s) due error: %s', $media->getFileName(), $media->getId(), $e->getMessage())];
+                    $errors[] = [\sprintf('Cannot process file %s (id: %s) due error: %s', $media->getFileName(), $media->getId(), $e->getMessage())];
                 }
             }
             $this->io->progressAdvance($result->count());
@@ -201,7 +208,7 @@ class GenerateThumbnailsCommand extends Command
     private function generateSynchronous(RepositoryIterator $mediaIterator, Context $context): void
     {
         $totalMediaCount = $mediaIterator->getTotal();
-        $this->io->comment(sprintf('Generating Thumbnails for %d files. This may take some time...', $totalMediaCount));
+        $this->io->comment(\sprintf('Generating Thumbnails for %d files. This may take some time...', $totalMediaCount));
         $this->io->progressStart($totalMediaCount);
 
         $result = $this->generateThumbnails($mediaIterator, $context);
@@ -239,18 +246,13 @@ class GenerateThumbnailsCommand extends Command
         $this->io->comment('Generating batch jobs...');
         while (($result = $mediaIterator->fetch()) !== null) {
             $msg = new UpdateThumbnailsMessage();
-            $msg->setIsStrict($this->isStrict);
+            $msg->setStrict($this->isStrict);
             $msg->setMediaIds($result->getEntities()->getIds());
-
-            if (Feature::isActive('v6.6.0.0')) {
-                $msg->setContext($context);
-            } else {
-                $msg->withContext($context);
-            }
+            $msg->setContext($context);
 
             $this->messageBus->dispatch($msg);
             ++$batchCount;
         }
-        $this->io->success(sprintf('Generated %d Batch jobs!', $batchCount));
+        $this->io->success(\sprintf('Generated %d Batch jobs!', $batchCount));
     }
 }

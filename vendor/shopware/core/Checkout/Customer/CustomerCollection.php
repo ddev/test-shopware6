@@ -16,7 +16,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 class CustomerCollection extends EntityCollection
 {
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getGroupIds(): array
     {
@@ -29,20 +29,7 @@ class CustomerCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
-     */
-    public function getDefaultPaymentMethodIds(): array
-    {
-        return $this->fmap(fn (CustomerEntity $customer) => $customer->getDefaultPaymentMethodId());
-    }
-
-    public function filterByDefaultPaymentMethodId(string $id): self
-    {
-        return $this->filter(fn (CustomerEntity $customer) => $customer->getDefaultPaymentMethodId() === $id);
-    }
-
-    /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getSalesChannelIds(): array
     {
@@ -55,7 +42,7 @@ class CustomerCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getLastPaymentMethodIds(): array
     {
@@ -68,7 +55,7 @@ class CustomerCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getDefaultBillingAddressIds(): array
     {
@@ -81,7 +68,7 @@ class CustomerCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getDefaultShippingAddressIds(): array
     {
@@ -97,13 +84,6 @@ class CustomerCollection extends EntityCollection
     {
         return new CustomerGroupCollection(
             $this->fmap(fn (CustomerEntity $customer) => $customer->getGroup())
-        );
-    }
-
-    public function getDefaultPaymentMethods(): PaymentMethodCollection
-    {
-        return new PaymentMethodCollection(
-            $this->fmap(fn (CustomerEntity $customer) => $customer->getDefaultPaymentMethod())
         );
     }
 
@@ -136,7 +116,7 @@ class CustomerCollection extends EntityCollection
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getListVatIds(): array
     {

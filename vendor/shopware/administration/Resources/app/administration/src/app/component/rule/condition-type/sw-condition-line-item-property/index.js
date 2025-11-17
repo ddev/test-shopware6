@@ -6,17 +6,21 @@ const { EntityCollection, Criteria } = Shopware.Data;
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Condition for the LineItemPropertyRule. This component must a be child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-line-item-property :condition="condition" :level="0"></sw-condition-line-item-property>
  */
-Component.extend('sw-condition-line-item-property', 'sw-condition-base-line-item', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+        'feature',
+    ],
 
     data() {
         return {
@@ -41,11 +45,17 @@ Component.extend('sw-condition-line-item-property', 'sw-condition-base-line-item
             },
             set(identifiers) {
                 this.ensureValueExist();
-                this.condition.value = { ...this.condition.value, identifiers };
+                this.condition.value = {
+                    ...this.condition.value,
+                    identifiers,
+                };
             },
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.identifiers']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.identifiers',
+        ]),
 
         currentError() {
             return this.conditionValueOperatorError || this.conditionValueIdentifiersError;
@@ -99,4 +109,4 @@ Component.extend('sw-condition-line-item-property', 'sw-condition-base-line-item
             this.searchTerm = '';
         },
     },
-});
+};

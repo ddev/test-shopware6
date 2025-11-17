@@ -1,15 +1,13 @@
 import './sw-select-option.scss';
 import template from './sw-select-option.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  * @status deprecated 6.1
  */
-Component.register('sw-select-option', {
+export default {
     template,
 
     props: {
@@ -55,7 +53,7 @@ Component.register('sw-select-option', {
         this.createdComponent();
     },
 
-    destroyed() {
+    unmounted() {
         this.destroyedComponent();
     },
 
@@ -118,8 +116,11 @@ Component.register('sw-select-option', {
         },
 
         onMouseEnter(originalDomEvent) {
-            this.$parent.$emit('option-mouse-over', { originalDomEvent, index: this.index });
+            this.$parent.$emit('option-mouse-over', {
+                originalDomEvent,
+                index: this.index,
+            });
             this.isActive = true;
         },
     },
-});
+};

@@ -4,7 +4,7 @@ namespace Shopware\Core\System\Snippet\Filter;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('system-settings')]
+#[Package('discovery')]
 class EditedFilter extends AbstractFilter implements SnippetFilterInterface
 {
     /**

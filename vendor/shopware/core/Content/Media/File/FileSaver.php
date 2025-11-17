@@ -8,6 +8,7 @@ use Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailEntity;
 use Shopware\Core\Content\Media\Core\Application\AbstractMediaPathStrategy;
 use Shopware\Core\Content\Media\Core\Event\UpdateMediaPathEvent;
 use Shopware\Core\Content\Media\Event\MediaFileExtensionWhitelistEvent;
+use Shopware\Core\Content\Media\Event\MediaPathChangedEvent;
 use Shopware\Core\Content\Media\Infrastructure\Path\SqlMediaLocationBuilder;
 use Shopware\Core\Content\Media\MediaCollection;
 use Shopware\Core\Content\Media\MediaEntity;
@@ -23,13 +24,12 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
-use Shopware\Core\Framework\Feature;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class FileSaver
 {
     private readonly FileNameValidator $fileNameValidator;
@@ -37,7 +37,8 @@ class FileSaver
     /**
      * @internal
      *
-     * @param list<string> $allowedExtensions
+     * @param EntityRepository<MediaCollection> $mediaRepository
+     * @param array<string> $allowedExtensions
      * @param list<string> $privateAllowedExtensions
      */
     public function __construct(
@@ -52,7 +53,8 @@ class FileSaver
         private readonly SqlMediaLocationBuilder $locationBuilder,
         private readonly AbstractMediaPathStrategy $mediaPathStrategy,
         private readonly array $allowedExtensions,
-        private readonly array $privateAllowedExtensions
+        private readonly array $privateAllowedExtensions,
+        private readonly bool $remoteThumbnailsEnable = false
     ) {
         $this->fileNameValidator = new FileNameValidator();
     }
@@ -92,16 +94,15 @@ class FileSaver
             $context
         );
 
-        $this->saveFileToMediaDir($mediaFile, $media);
+        $this->saveFileToMediaDir($mediaFile, $media, $context);
+
+        if ($this->remoteThumbnailsEnable) {
+            return;
+        }
 
         $message = new GenerateThumbnailsMessage();
         $message->setMediaIds([$mediaId]);
-
-        if (Feature::isActive('v6.6.0.0')) {
-            $message->setContext($context);
-        } else {
-            $message->withContext($context);
-        }
+        $message->setContext($context);
 
         $this->messageBus->dispatch($message);
     }
@@ -134,8 +135,6 @@ class FileSaver
     {
         $path = $this->getNewMediaPath($media, $destination);
 
-        $thumbnails = $this->getNewThumbnailPaths($media, $destination);
-
         try {
             $renamedFiles = $this->renameFile(
                 $media->getPath(),
@@ -146,15 +145,13 @@ class FileSaver
             throw MediaException::couldNotRenameFile($media->getId(), (string) $media->getFileName());
         }
 
-        foreach ($media->getThumbnails() ?? [] as $thumbnail) {
-            try {
-                $thumbnailDestination = $thumbnails[$thumbnail->getUniqueIdentifier()];
+        $event = new MediaPathChangedEvent($context);
 
-                $renamedFiles = [...$renamedFiles, ...$this->renameThumbnail($thumbnail, $media, $thumbnailDestination)];
-            } catch (\Exception) {
-                $this->rollbackRenameAction($media, $renamedFiles);
-            }
-        }
+        $event->mediaWithMimeType(
+            mediaId: $media->getId(),
+            path: $path,
+            mimeType: $media->getMimeType()
+        );
 
         $updateData = [
             'id' => $media->getId(),
@@ -162,17 +159,46 @@ class FileSaver
             'path' => $path,
         ];
 
-        if (!empty($thumbnails)) {
-            $updateData['thumbnails'] = array_map(function ($id, $path) {
-                return ['id' => $id, 'path' => $path];
-            }, array_keys($thumbnails), $thumbnails);
+        if ($this->remoteThumbnailsEnable === false) {
+            $thumbnails = $this->getNewThumbnailPaths($media, $destination);
+
+            foreach ($media->getThumbnails() ?? [] as $thumbnail) {
+                try {
+                    $thumbnailDestination = $thumbnails[$thumbnail->getUniqueIdentifier()];
+
+                    if (!\is_string($thumbnailDestination)) {
+                        throw MediaException::couldNotRenameFile($media->getId(), (string) $media->getFileName());
+                    }
+
+                    $renamedFiles = [...$renamedFiles, ...$this->renameThumbnail($thumbnail, $media, $thumbnailDestination)];
+                } catch (\Exception) {
+                    $this->rollbackRenameAction($media, $renamedFiles);
+                }
+            }
+
+            if (!empty($thumbnails)) {
+                foreach ($thumbnails as $thumbnailId => $thumbnailPath) {
+                    $event->thumbnailWithMimeType(
+                        mediaId: $media->getId(),
+                        thumbnailId: $thumbnailId,
+                        path: $thumbnailPath,
+                        mimeType: $media->getMimeType()
+                    );
+                }
+
+                $updateData['thumbnails'] = array_map(function ($id, $path) {
+                    return ['id' => $id, 'path' => $path];
+                }, array_keys($thumbnails), $thumbnails);
+            }
         }
 
         try {
             $context->scope(Context::SYSTEM_SCOPE, function (Context $context) use ($updateData): void {
-                // also triggers the indexing, so that the thumbnails_ro is recalculate
+                // also triggers the indexing, so that the thumbnails_ro is recalculated
                 $this->mediaRepository->update([$updateData], $context);
             });
+
+            $this->eventDispatcher->dispatch($event);
         } catch (\Exception) {
             $this->rollbackRenameAction($media, $renamedFiles);
         }
@@ -205,20 +231,29 @@ class FileSaver
             // nth
         }
 
+        if ($this->remoteThumbnailsEnable) {
+            return;
+        }
+
         $this->thumbnailService->deleteThumbnails($media, $context);
     }
 
-    private function saveFileToMediaDir(MediaFile $mediaFile, MediaEntity $media): void
+    private function saveFileToMediaDir(MediaFile $mediaFile, MediaEntity $media, Context $context): void
     {
-        $stream = fopen($mediaFile->getFileName(), 'rb');
+        $stream = fopen($mediaFile->getFileName(), 'r');
         if (!\is_resource($stream)) {
             throw MediaException::cannotOpenSourceStreamToRead($mediaFile->getFileName());
         }
 
         $path = $media->getPath();
 
+        $event = new MediaPathChangedEvent($context);
+        $event->mediaWithMimeType(mediaId: $media->getId(), path: $path, mimeType: $media->getMimeType());
+
         try {
             $this->getFileSystem($media)->writeStream($path, $stream);
+
+            $this->eventDispatcher->dispatch($event);
         } finally {
             // The Google Cloud Storage filesystem closes the stream even though it should not. To prevent a fatal
             // error, we therefore need to check whether the stream has been closed yet.
@@ -257,25 +292,16 @@ class FileSaver
             'fileName' => $destination,
             'metaData' => $metadata,
             'mediaTypeRaw' => serialize($mediaType),
+            'uploadedAt' => new \DateTime(),
         ];
-
-        if ($media->getUploadedAt() === null) {
-            $data['uploadedAt'] = new \DateTime();
-        }
 
         $context->scope(Context::SYSTEM_SCOPE, function (Context $context) use ($data): void {
             $this->mediaRepository->update([$data], $context);
         });
 
-        $criteria = new Criteria([$media->getId()]);
-        $criteria->addAssociation('mediaFolder');
-
         $this->eventDispatcher->dispatch(new UpdateMediaPathEvent([$media->getId()]));
 
-        /** @var MediaEntity $media */
-        $media = $this->mediaRepository->search($criteria, $context)->get($media->getId());
-
-        return $media;
+        return $this->findMediaById($media->getId(), $context);
     }
 
     /**
@@ -307,10 +333,14 @@ class FileSaver
     {
         $criteria = new Criteria([$mediaId]);
         $criteria->addAssociation('mediaFolder');
-        /** @var MediaEntity|null $currentMedia */
-        $currentMedia = $this->mediaRepository
-            ->search($criteria, $context)
-            ->get($mediaId);
+
+        $currentMedia = null;
+        $context->scope(Context::SYSTEM_SCOPE, function (Context $context) use ($criteria, $mediaId, &$currentMedia): void {
+            $currentMedia = $this->mediaRepository
+                ->search($criteria, $context)
+                ->getEntities()
+                ->get($mediaId);
+        });
 
         if ($currentMedia === null) {
             throw MediaException::mediaNotFound($mediaId);
@@ -390,17 +420,11 @@ class FileSaver
             [
                 new EqualsFilter('fileName', $destination),
                 new EqualsFilter('fileExtension', $fileExtension),
-                new NotFilter(
-                    NotFilter::CONNECTION_AND,
-                    [new EqualsFilter('id', $media->getId())]
-                ),
+                new NotEqualsFilter('id', $media->getId()),
             ]
         ));
 
-        /** @var MediaCollection $mediaCollection */
-        $mediaCollection = $this->mediaRepository->search($criteria, $context)->getEntities();
-
-        return $mediaCollection;
+        return $this->mediaRepository->search($criteria, $context)->getEntities();
     }
 
     /**

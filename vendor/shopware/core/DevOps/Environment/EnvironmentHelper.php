@@ -4,7 +4,7 @@ namespace Shopware\Core\DevOps\Environment;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class EnvironmentHelper
 {
     /**
@@ -47,7 +47,7 @@ class EnvironmentHelper
     {
         if (!is_subclass_of($transformerClass, EnvironmentHelperTransformerInterface::class)) {
             throw new \InvalidArgumentException(
-                sprintf(
+                \sprintf(
                     'Expected class to implement "%1$s" but got "%2$s".',
                     EnvironmentHelperTransformerInterface::class,
                     $transformerClass

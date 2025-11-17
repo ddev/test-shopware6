@@ -1,11 +1,14 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-manufacturer-detail.html.twig';
 import './sw-manufacturer-detail.scss';
 
-const { Mixin, Data: { Criteria } } = Shopware;
+const {
+    Mixin,
+    Data: { Criteria },
+} = Shopware;
 
 const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 
@@ -13,7 +16,11 @@ const { mapPropertyErrors } = Shopware.Component.getComponentHelper();
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+        'mediaDefaultFolderService',
+    ],
 
     mixins: [
         Mixin.getByName('placeholder'),
@@ -34,13 +41,14 @@ export default {
         },
     },
 
-
     data() {
         return {
             manufacturer: null,
             customFieldSets: [],
             isLoading: false,
             isSaveSuccessful: false,
+            showMediaModal: false,
+            mediaDefaultFolderId: null,
         };
     },
 
@@ -73,9 +81,7 @@ export default {
 
         customFieldSetCriteria() {
             const criteria = new Criteria(1, null);
-            criteria.addFilter(
-                Criteria.equals('relations.entityName', 'product_manufacturer'),
-            );
+            criteria.addFilter(Criteria.equals('relations.entityName', 'product_manufacturer'));
 
             return criteria;
         },
@@ -129,21 +135,26 @@ export default {
                 path: 'manufacturer',
                 scope: this,
             });
+
             if (this.manufacturerId) {
                 this.loadEntityData();
                 return;
             }
 
-            Shopware.State.commit('context/resetLanguageToDefault');
+            Shopware.Store.get('context').resetLanguageToDefault();
             this.manufacturer = this.manufacturerRepository.create();
         },
 
         async loadEntityData() {
             this.isLoading = true;
 
-            const [manufacturerResponse, customFieldResponse] = await Promise.allSettled([
+            const [
+                manufacturerResponse,
+                customFieldResponse,
+            ] = await Promise.allSettled([
                 this.manufacturerRepository.get(this.manufacturerId),
                 this.customFieldSetRepository.search(this.customFieldSetCriteria),
+                this.getMediaDefaultFolderId(),
             ]);
 
             if (manufacturerResponse.status === 'fulfilled') {
@@ -156,9 +167,7 @@ export default {
 
             if (manufacturerResponse.status === 'rejected' || customFieldResponse.status === 'rejected') {
                 this.createNotificationError({
-                    message: this.$tc(
-                        'global.notification.notificationLoadingDataErrorMessage',
-                    ),
+                    message: this.$tc('global.notification.notificationLoadingDataErrorMessage'),
                 });
             }
 
@@ -181,6 +190,9 @@ export default {
             this.manufacturer.mediaId = targetId;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed without replacement
+         */
         setMediaFromSidebar(media) {
             this.manufacturer.mediaId = media.id;
         },
@@ -189,12 +201,25 @@ export default {
             this.manufacturer.mediaId = null;
         },
 
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed without replacement
+         */
         openMediaSidebar() {
             this.$refs.mediaSidebarItem.openContent();
         },
 
         onDropMedia(dragData) {
             this.setMediaItem({ targetId: dragData.id });
+        },
+
+        onMediaSelectionChange([mediaEntity]) {
+            this.manufacturer.mediaId = mediaEntity.id;
+        },
+
+        getMediaDefaultFolderId() {
+            this.mediaDefaultFolderService.getDefaultFolderId('product_manufacturer').then((id) => {
+                this.mediaDefaultFolderId = id;
+            });
         },
 
         onSave() {
@@ -204,24 +229,28 @@ export default {
 
             this.isLoading = true;
 
-            this.manufacturerRepository.save(this.manufacturer).then(() => {
-                this.isLoading = false;
-                this.isSaveSuccessful = true;
-                if (this.manufacturerId === null) {
-                    this.$router.push({ name: 'sw.manufacturer.detail', params: { id: this.manufacturer.id } });
-                    return;
-                }
+            this.manufacturerRepository
+                .save(this.manufacturer)
+                .then(() => {
+                    this.isLoading = false;
+                    this.isSaveSuccessful = true;
+                    if (this.manufacturerId === null) {
+                        this.$router.push({
+                            name: 'sw.manufacturer.detail',
+                            params: { id: this.manufacturer.id },
+                        });
+                        return;
+                    }
 
-                this.loadEntityData();
-            }).catch((exception) => {
-                this.isLoading = false;
-                this.createNotificationError({
-                    message: this.$tc(
-                        'global.notification.notificationSaveErrorMessageRequiredFieldsInvalid',
-                    ),
+                    this.loadEntityData();
+                })
+                .catch((exception) => {
+                    this.isLoading = false;
+                    this.createNotificationError({
+                        message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
+                    });
+                    throw exception;
                 });
-                throw exception;
-            });
         },
 
         onCancel() {

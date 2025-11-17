@@ -6,7 +6,7 @@ use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 
-#[Package('system-settings')]
+#[Package('discovery')]
 class AppSnippetFileLoader
 {
     /**
@@ -79,7 +79,7 @@ class AppSnippetFileLoader
             $nameParts[1],
             $author,
             false,
-            ''
+            '',
         );
     }
 
@@ -94,7 +94,7 @@ class AppSnippetFileLoader
             $nameParts[1],
             $author,
             $nameParts[2] === 'base',
-            ''
+            '',
         );
     }
 

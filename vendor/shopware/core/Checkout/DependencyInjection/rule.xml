@@ -92,6 +92,10 @@
             <tag name="shopware.rule.definition"/>
         </service>
 
+        <service id="Shopware\Core\Checkout\Customer\Rule\CustomerRequestedGroupRule">
+            <tag name="shopware.rule.definition"/>
+        </service>
+
         <service id="Shopware\Core\Checkout\Customer\Rule\CustomerTagRule">
             <tag name="shopware.rule.definition"/>
         </service>
@@ -105,10 +109,6 @@
         </service>
 
         <service id="Shopware\Core\Checkout\Customer\Rule\EmailRule">
-            <tag name="shopware.rule.definition"/>
-        </service>
-
-        <service id="Shopware\Core\Checkout\Customer\Rule\IsNewCustomerRule">
             <tag name="shopware.rule.definition"/>
         </service>
 
@@ -344,12 +344,16 @@
             <tag name="shopware.rule.definition"/>
         </service>
 
-        <service id="Shopware\Core\Checkout\Customer\Rule\CampaignCodeRule">
+        <service id="Shopware\Core\Checkout\Cart\Rule\AffiliateCodeOfOrderRule">
             <tag name="shopware.rule.definition"/>
         </service>
 
-        <service id="Shopware\Core\Checkout\Customer\Rule\CustomerDefaultPaymentMethodRule">
-            <tag name="shopware.rule.definition" />
+        <service id="Shopware\Core\Checkout\Cart\Rule\CampaignCodeOfOrderRule">
+            <tag name="shopware.rule.definition"/>
+        </service>
+
+        <service id="Shopware\Core\Checkout\Customer\Rule\CampaignCodeRule">
+            <tag name="shopware.rule.definition"/>
         </service>
 
         <service id="Shopware\Core\Checkout\Cart\Rule\LineItemPropertyValueRule">
@@ -357,6 +361,10 @@
         </service>
 
         <service id="Shopware\Core\Checkout\Cart\Rule\LineItemVariantValueRule">
+            <tag name="shopware.rule.definition"/>
+        </service>
+
+        <service id="Shopware\Core\Checkout\Cart\Rule\AdminSalesChannelSourceRule">
             <tag name="shopware.rule.definition"/>
         </service>
     </services>

@@ -1,10 +1,9 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_first_run_wizard_shopware_account %}
 <div class="sw-first-run-wizard-shopware-account">
     <sw-container columns="1fr 1fr">
         <img
             class="sw-first-run-wizard-shopware-account__illustration"
-            :src="assetFilter('/administration/static/img/first-run-wizard/shopware-account.svg')"
+            :src="assetFilter('/administration/administration/static/img/first-run-wizard/shopware-account.svg')"
             alt=""
         >
         <div>
@@ -27,12 +26,9 @@
                 </a>.
             </p>
             <div class="input-fields">
-                <sw-text-field
-                    {% if VUE3 %}
-                    v-model:value="shopwareId"
-                    {% else %}
+
+                <mt-text-field
                     v-model="shopwareId"
-                    {% endif %}
                     name="shopwareId"
                     validation="required"
                     :label="$tc('sw-first-run-wizard.shopwareAccount.emailAddressLabel')"
@@ -41,12 +37,8 @@
             </div>
 
             <div class="input-fields">
-                <sw-password-field
-                    {% if VUE3 %}
-                    v-model:value="password"
-                    {% else %}
+                <mt-password-field
                     v-model="password"
-                    {% endif %}
                     :label="$tc('sw-first-run-wizard.shopwareAccount.passwordLabel')"
                     :placeholder="$tc('sw-first-run-wizard.shopwareAccount.passwordPlaceholder')"
                 />
@@ -66,13 +58,12 @@
                 v-if="accountError"
                 class="sw-first-run-wizard-shopware-account__error"
             >
-                <sw-alert
+                <mt-banner
                     :title="$tc('global.default.error')"
-                    variant="error"
-                    appearance="notification"
+                    variant="critical"
                 >
                     {{ $tc('sw-first-run-wizard.error.messageLoginDataInvalid') }}
-                </sw-alert>
+                </mt-banner>
             </div>
         </div>
     </sw-container>

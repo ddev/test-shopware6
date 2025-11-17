@@ -1,5 +1,5 @@
-/*
- * @package inventory
+/**
+ * @sw-package inventory
  */
 
 import template from './sw-product-variants-configurator-selection.html.twig';
@@ -13,6 +13,8 @@ export default {
 
     inject: ['repositoryFactory'],
 
+    emits: ['option-select'],
+
     mixins: [
         Mixin.getByName('notification'),
     ],
@@ -21,6 +23,12 @@ export default {
         product: {
             type: Object,
             required: true,
+        },
+    },
+
+    watch: {
+        isAddOnly() {
+            this.selectOptions(this.$refs.optionGrid);
         },
     },
 
@@ -51,7 +59,7 @@ export default {
                 });
 
                 // set reactive
-                this.$set(group, 'optionCount', optionCount.length);
+                group.optionCount = optionCount.length;
             });
 
             this.$emit('option-select');
@@ -59,10 +67,10 @@ export default {
 
         selectOptions(grid) {
             grid.selectAll(false);
-
             this.preventSelection = true;
             this.options.forEach((configurator) => {
                 if (configurator.option) {
+                    configurator.option.gridDisabled = this.disabled && !configurator._isNew;
                     grid.selectItem(!configurator.isDeleted, configurator.option);
                 }
             });
@@ -75,7 +83,7 @@ export default {
                 return;
             }
 
-            const exists = this.options.find(i => i.optionId === item.id);
+            const exists = this.options.find((i) => i.optionId === item.id);
 
             if (exists) {
                 this.options.remove(exists.id);

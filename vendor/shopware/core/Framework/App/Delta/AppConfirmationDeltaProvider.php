@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class AppConfirmationDeltaProvider
 {
     /**
@@ -20,7 +20,7 @@ class AppConfirmationDeltaProvider
     }
 
     /**
-     * @return array<string, array>
+     * @return array<string, array<array-key, mixed>>
      */
     public function getReports(Manifest $manifest, AppEntity $app): array
     {

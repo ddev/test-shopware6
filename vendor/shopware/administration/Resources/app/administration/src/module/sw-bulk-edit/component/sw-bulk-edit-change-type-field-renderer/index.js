@@ -1,5 +1,5 @@
 /**
- * @package system-settings
+ * @sw-package framework
  */
 import template from './sw-bulk-edit-change-type-field-renderer.html.twig';
 import './sw-bulk-edit-change-type-field-renderer.scss';
@@ -9,6 +9,13 @@ export default {
     template,
 
     inject: ['feature'],
+
+    emits: [
+        'change-value',
+        'update:default-unit',
+        'inheritance-restore',
+        'inheritance-remove',
+    ],
 
     props: {
         bulkEditData: {
@@ -53,17 +60,27 @@ export default {
         },
 
         showSelectBoxType(formField) {
-            return this.getConfigValue(formField, 'allowOverwrite') === true ||
+            return (
+                this.getConfigValue(formField, 'allowOverwrite') === true ||
                 this.getConfigValue(formField, 'allowClear') === true ||
                 this.getConfigValue(formField, 'allowAdd') === true ||
-                this.getConfigValue(formField, 'allowRemove') === true;
+                this.getConfigValue(formField, 'allowRemove') === true
+            );
         },
 
-        onChangeValue(value, fieldName) {
+        onChangeValue(value, fieldName, valueChange = true) {
+            if (valueChange) {
+                this.entity[fieldName] = value;
+            }
+
             if (!this.bulkEditData[fieldName].isInherited) {
                 this.bulkEditData[fieldName].value = value;
             }
             this.$emit('change-value', fieldName, value);
+        },
+
+        onChangeToggle(value, fieldName) {
+            this.onChangeValue(value, fieldName, false);
         },
 
         onInheritanceRestore(item) {

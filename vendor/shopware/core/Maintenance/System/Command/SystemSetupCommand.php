@@ -2,12 +2,14 @@
 
 namespace Shopware\Core\Maintenance\System\Command;
 
-use Defuse\Crypto\Key;
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Tools\DsnParser;
 use Shopware\Core\DevOps\Environment\EnvironmentHelper;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Maintenance\System\Service\JwtCertificateGenerator;
+use Shopware\Core\Framework\Util\Random;
+use Shopware\Core\Maintenance\MaintenanceException;
+use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -15,9 +17,11 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
-use Symfony\Component\Console\Style\OutputStyle;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Dotenv\Command\DotenvDumpCommand;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Url;
+use Symfony\Component\Validator\Validation;
 
 /**
  * @internal should be used over the CLI only
@@ -26,12 +30,11 @@ use Symfony\Component\Dotenv\Command\DotenvDumpCommand;
     name: 'system:setup',
     description: 'Setup the system',
 )]
-#[Package('core')]
+#[Package('framework')]
 class SystemSetupCommand extends Command
 {
     public function __construct(
         private readonly string $projectDir,
-        private readonly JwtCertificateGenerator $jwtCertificateGenerator,
         private readonly DotenvDumpCommand $dumpEnvCommand
     ) {
         parent::__construct();
@@ -47,8 +50,6 @@ class SystemSetupCommand extends Command
             ->addOption('database-ssl-cert', null, InputOption::VALUE_OPTIONAL, 'Database SSL Cert path', $this->getDefault('DATABASE_SSL_CERT', ''))
             ->addOption('database-ssl-key', null, InputOption::VALUE_OPTIONAL, 'Database SSL Key path', $this->getDefault('DATABASE_SSL_KEY', ''))
             ->addOption('database-ssl-dont-verify-cert', null, InputOption::VALUE_OPTIONAL, 'Database Don\'t verify server cert', $this->getDefault('DATABASE_SSL_DONT_VERIFY_SERVER_CERT', ''))
-            ->addOption('generate-jwt-keys', null, InputOption::VALUE_NONE, 'Generate jwt private and public key')
-            ->addOption('jwt-passphrase', null, InputOption::VALUE_OPTIONAL, 'JWT private key passphrase', 'shopware')
             ->addOption('composer-home', null, InputOption::VALUE_REQUIRED, 'Set the composer home directory otherwise the environment variable $COMPOSER_HOME will be used or the project dir as fallback', $this->getDefault('COMPOSER_HOME', ''))
             ->addOption('app-env', null, InputOption::VALUE_OPTIONAL, 'Application environment', $this->getDefault('APP_ENV', 'prod'))
             ->addOption('app-url', null, InputOption::VALUE_OPTIONAL, 'Application URL', $this->getDefault('APP_URL', 'http://localhost'))
@@ -70,7 +71,6 @@ class SystemSetupCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        /** @var array<string, string> $env */
         $env = [
             'APP_ENV' => $input->getOption('app-env'),
             'APP_URL' => trim((string) $input->getOption('app-url')),
@@ -113,57 +113,39 @@ class SystemSetupCommand extends Command
 
         $io = new SymfonyStyle($input, $output);
 
-        if (file_exists($this->projectDir . '/symfony.lock')) {
+        if (\is_file($this->projectDir . '/symfony.lock')) {
             $io->warning('It looks like you have installed Shopware with Symfony Flex. You should use a .env.local file instead of creating a complete new one');
         }
 
         $io->title('Shopware setup process');
         $io->text('This tool will setup your instance.');
 
-        if (!$input->getOption('force') && file_exists($this->projectDir . '/.env')) {
+        if (!$input->getOption('force') && \is_file($this->projectDir . '/.env')) {
             $io->comment('Instance has already been set-up. To start over, please delete your .env file.');
 
             return Command::SUCCESS;
         }
 
         if (!$input->isInteractive()) {
-            $this->generateJwt($input, $io);
-            $key = Key::createNewRandomKey();
-            $env['APP_SECRET'] = $key->saveToAsciiSafeString();
+            $env['APP_SECRET'] = Random::getString(SystemGenerateAppSecretCommand::APP_SECRET_LENGTH);
             $env['INSTANCE_ID'] = $this->generateInstanceId();
 
-            $this->createEnvFile($input, $io, $env);
-
-            return Command::SUCCESS;
+            return $this->createEnvFile($input, $io, $env);
         }
 
         $io->section('Application information');
         $env['APP_ENV'] = $io->choice('Application environment', ['prod', 'dev'], $input->getOption('app-env'));
 
         // TODO: optionally check http connection (create test file in public and request)
-        $env['APP_URL'] = $io->ask('URL to your /public folder', $input->getOption('app-url'), static function (string $value): string {
-            $value = trim($value);
-
-            if ($value === '') {
-                throw new \RuntimeException('Shop URL is required.');
-            }
-
-            if (!filter_var($value, \FILTER_VALIDATE_URL)) {
-                throw new \RuntimeException('Invalid URL.');
-            }
-
-            return $value;
-        });
+        $validator = Validation::createCallable(new NotBlank(), new Url());
+        $env['APP_URL'] = $io->ask('URL to your /public folder', $input->getOption('app-url'), $validator);
 
         $io->section('Application information');
         $env['BLUE_GREEN_DEPLOYMENT'] = $io->confirm('Blue Green Deployment', $input->getOption('blue-green') !== '0') ? '1' : '0';
 
-        $io->section('Generate keys and secrets');
+        $io->section('Generate secrets');
 
-        $this->generateJwt($input, $io);
-
-        $key = Key::createNewRandomKey();
-        $env['APP_SECRET'] = $key->saveToAsciiSafeString();
+        $env['APP_SECRET'] = Random::getString(SystemGenerateAppSecretCommand::APP_SECRET_LENGTH);
         $env['INSTANCE_ID'] = $this->generateInstanceId();
 
         $io->section('Database information');
@@ -182,9 +164,7 @@ class SystemSetupCommand extends Command
             throw $exception;
         }
 
-        $this->createEnvFile($input, $io, $env);
-
-        return Command::SUCCESS;
+        return $this->createEnvFile($input, $io, $env);
     }
 
     /**
@@ -194,13 +174,7 @@ class SystemSetupCommand extends Command
     {
         $env = [];
 
-        $emptyValidation = static function (string $value): string {
-            if (trim($value) === '') {
-                throw new \RuntimeException('This value is required.');
-            }
-
-            return $value;
-        };
+        $emptyValidation = Validation::createCallable(new NotBlank());
 
         $dbUser = $io->ask('Database user', 'app', $emptyValidation);
         $dbPass = $io->askHidden('Database password') ?: '';
@@ -212,7 +186,7 @@ class SystemSetupCommand extends Command
         $dbSslKey = $io->ask('Database SSL Key Path', '');
         $dbSslDontVerify = $io->askQuestion(new ConfirmationQuestion('Skip verification of the database server\'s SSL certificate?', false));
 
-        $dsnWithoutDb = sprintf(
+        $dsnWithoutDb = \sprintf(
             'mysql://%s:%s@%s:%d',
             (string) $dbUser,
             rawurlencode((string) $dbPass),
@@ -221,7 +195,13 @@ class SystemSetupCommand extends Command
         );
         $dsn = $dsnWithoutDb . '/' . $dbName;
 
-        $params = ['url' => $dsnWithoutDb, 'charset' => 'utf8mb4'];
+        $dsnParser = new DsnParser(['mysql' => 'pdo_mysql']);
+        $params = $dsnParser->parse($dsnWithoutDb);
+
+        $params = array_merge([
+            'charset' => 'utf8mb4',
+            'driver' => 'pdo_mysql',
+        ], $params); // adding parameters that are not in the DSN
 
         if ($dbSslCa) {
             $params['driverOptions'][\PDO::MYSQL_ATTR_SSL_CA] = $dbSslCa;
@@ -256,9 +236,9 @@ class SystemSetupCommand extends Command
     }
 
     /**
-     * @param array<string, string> $configuration
+     * @param array<string, string|null> $configuration
      */
-    private function createEnvFile(InputInterface $input, SymfonyStyle $output, array $configuration): void
+    private function createEnvFile(InputInterface $input, SymfonyStyle $output, array $configuration): int
     {
         $output->note('Preparing .env');
 
@@ -266,7 +246,7 @@ class SystemSetupCommand extends Command
         $envFile = $this->projectDir . '/.env';
 
         foreach ($configuration as $key => $value) {
-            $envVars .= $key . '="' . str_replace('"', '\\"', $value) . '"' . \PHP_EOL;
+            $envVars .= $key . '="' . str_replace('"', '\\"', (string) $value) . '"' . \PHP_EOL;
         }
 
         $output->text($envFile);
@@ -274,7 +254,9 @@ class SystemSetupCommand extends Command
         $output->writeln($envVars);
 
         if ($input->isInteractive() && !$output->confirm('Check if everything is ok. Write into "' . $envFile . '"?', false)) {
-            throw new \RuntimeException('abort');
+            $output->error('Aborted!');
+
+            return Command::FAILURE;
         }
 
         $output->note('Writing into ' . $envFile);
@@ -282,14 +264,15 @@ class SystemSetupCommand extends Command
         file_put_contents($envFile, $envVars);
 
         if (!$input->getOption('dump-env')) {
-            return;
+            return Command::SUCCESS;
         }
 
         $application = $this->getApplication();
+        if (!$application instanceof Application) {
+            throw MaintenanceException::consoleApplicationNotFound();
+        }
 
-        \assert($application !== null);
-
-        $application->doRun(
+        return $application->doRun(
             new ArrayInput(
                 [
                     'command' => $this->dumpEnvCommand->getName(),
@@ -300,46 +283,9 @@ class SystemSetupCommand extends Command
         );
     }
 
-    private function generateJwt(InputInterface $input, OutputStyle $io): int
-    {
-        $jwtDir = $this->projectDir . '/config/jwt';
-
-        if (!file_exists($jwtDir) && !mkdir($jwtDir, 0700, true) && !is_dir($jwtDir)) {
-            throw new \RuntimeException(sprintf('Directory "%s" was not created', $jwtDir));
-        }
-
-        // TODO: make it regenerate the public key if only private exists
-        if (file_exists($jwtDir . '/private.pem') && !$input->getOption('force')) {
-            $io->note('Private/Public key already exists. Skipping');
-
-            return self::SUCCESS;
-        }
-
-        if (!$input->getOption('generate-jwt-keys') && !$input->getOption('jwt-passphrase')) {
-            return self::SUCCESS;
-        }
-
-        $this->jwtCertificateGenerator->generate(
-            $jwtDir . '/private.pem',
-            $jwtDir . '/public.pem',
-            $input->getOption('jwt-passphrase')
-        );
-
-        return self::SUCCESS;
-    }
-
     private function generateInstanceId(): string
     {
-        $length = 32;
-        $keySpace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-        $str = '';
-        $max = mb_strlen($keySpace, '8bit') - 1;
-        for ($i = 0; $i < $length; ++$i) {
-            $str .= $keySpace[random_int(0, $max)];
-        }
-
-        return $str;
+        return Random::getAlphanumericString(32);
     }
 
     private function getDefault(string $var, string $default): string

@@ -10,17 +10,20 @@ use Shopware\Core\Framework\Api\Sync\SyncOperation;
 use Shopware\Core\Framework\Api\Sync\SyncResult;
 use Shopware\Core\Framework\Api\Sync\SyncServiceInterface;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\DataAbstractionLayerException;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\Routing\ApiRouteScope;
 use Shopware\Core\PlatformRequest;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\Encoder\DecoderInterface;
+use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 
-#[Route(defaults: ['_routeScope' => ['api']])]
-#[Package('core')]
+#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [ApiRouteScope::ID]])]
+#[Package('framework')]
 class SyncController extends AbstractController
 {
     final public const ACTION_UPSERT = 'upsert';
@@ -42,7 +45,7 @@ class SyncController extends AbstractController
     #[Route(path: '/api/_action/sync', name: 'api.action.sync', methods: ['POST'])]
     public function sync(Request $request, Context $context): JsonResponse
     {
-        /** @var list<string> $indexingSkips */
+        /** @var list<non-falsy-string> $indexingSkips */
         $indexingSkips = array_filter(explode(',', (string) $request->headers->get(PlatformRequest::HEADER_INDEXING_SKIP, '')));
 
         $behavior = new SyncBehavior(
@@ -50,28 +53,30 @@ class SyncController extends AbstractController
             $indexingSkips
         );
 
-        $payload = $this->serializer->decode($request->getContent(), 'json');
-
-        $operations = [];
-        foreach ($payload as $key => $operation) {
-            if (isset($operation['key'])) {
-                $key = $operation['key'];
-            }
-            $key = (string) $key;
-            $operations[] = new SyncOperation(
-                $key,
-                $operation['entity'],
-                $operation['action'],
-                $operation['payload'] ?? [],
-                $operation['criteria'] ?? []
-            );
-
-            if (empty($operation['entity'])) {
-                throw ApiException::invalidSyncOperationException(sprintf('Missing "entity" argument for operation with key "%s". It needs to be a non-empty string.', (string) $key));
-            }
+        try {
+            $payload = $this->serializer->decode($request->getContent(), 'json');
+        } catch (NotEncodableValueException) {
+            throw ApiException::invalidApiType('json');
         }
 
-        $result = $context->scope(Context::CRUD_API_SCOPE, fn (Context $context): SyncResult => $this->syncService->sync($operations, $context, $behavior));
+        $operations = [];
+
+        foreach ($payload as $key => $operation) {
+            if (!\is_array($operation)) {
+                throw ApiException::badRequest('Invalid payload format. Expected an array of operations.');
+            }
+            $operations[] = SyncOperation::createFromArray($operation, (string) $key);
+        }
+
+        try {
+            $result = $context->scope(Context::CRUD_API_SCOPE, fn (Context $context): SyncResult => $this->syncService->sync($operations, $context, $behavior));
+        } catch (DataAbstractionLayerException $exception) {
+            if ($exception->getErrorCode() === DataAbstractionLayerException::INVALID_WRITE_INPUT) {
+                throw ApiException::badRequest('Invalid payload. Should contain a list of associative arrays');
+            }
+
+            throw $exception;
+        }
 
         return $this->createResponse($result, Response::HTTP_OK);
     }

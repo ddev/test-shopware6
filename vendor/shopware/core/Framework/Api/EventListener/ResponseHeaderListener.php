@@ -11,7 +11,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class ResponseHeaderListener implements EventSubscriberInterface
 {
     private const HEADERS = [
@@ -38,13 +38,6 @@ class ResponseHeaderListener implements EventSubscriberInterface
             $headersBag->set(
                 $header,
                 $event->getRequest()->headers->get($header),
-                false
-            );
-        }
-        if (!$headersBag->has(PlatformRequest::HEADER_FRAME_OPTIONS)) {
-            $headersBag->set(
-                PlatformRequest::HEADER_FRAME_OPTIONS,
-                'deny',
                 false
             );
         }

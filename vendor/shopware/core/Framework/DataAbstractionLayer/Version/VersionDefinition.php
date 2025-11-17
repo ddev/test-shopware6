@@ -14,7 +14,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Version\Aggregate\VersionCommit\VersionCommitDefinition;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+#[Package('framework')]
 class VersionDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'version';
@@ -43,7 +43,7 @@ class VersionDefinition extends EntityDefinition
     {
         $dateTime = (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT);
 
-        return ['name' => sprintf('Draft %s', $dateTime), 'createdAt' => $dateTime];
+        return ['name' => \sprintf('Draft %s', $dateTime), 'createdAt' => $dateTime];
     }
 
     public function since(): ?string

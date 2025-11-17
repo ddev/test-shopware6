@@ -1,10 +1,8 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_product_media_form %}
 <div
     class="sw-product-media-form"
     :class="{ 'is--disabled': disabled }"
 >
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_media_form_upload %}
     <sw-upload-listener
         v-if="!isLoading"
@@ -18,26 +16,24 @@
         v-if="!isLoading && acl.can('product.editor')"
         variant="regular"
         :upload-tag="product.id"
-        :scroll-target="$parent.$el"
         :default-folder="product.getEntityName()"
+        :file-accept="fileAccept"
         @media-upload-sidebar-open="onOpenMedia"
     />
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_media_form_grid %}
     <div class="sw-product-media-form__previews">
         <div class="sw-product-media-form__cover-container sw-product-media-form__column">
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_media_form_cover_preview %}
             <div
                 v-if="product.cover || cover"
                 class="sw-product-media-form__preview-cover"
             >
                 <div class="preview-cover">
-                    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                     {% block sw_product_media_form_cover_image %}
                     <sw-media-preview-v2
+                        :key="cover ? cover.media?.url : product.cover.media?.url"
                         class="sw-product-media-form__cover-image"
                         :source="cover ? cover.mediaId : product.cover.mediaId"
                     />
@@ -66,6 +62,8 @@
                 v-draggable="{ dragGroup: 'product-media', data: mediaItem, onDragEnter: onMediaItemDragSort }"
                 v-droppable="{ dragGroup: 'product-media', data: mediaItem }"
                 :is-cover="isCover(mediaItem)"
+                :is-spatial="isSpatial(mediaItem)"
+                :is-ar-ready="isArReady(mediaItem)"
                 :is-placeholder="mediaItem.isPlaceholder"
                 :media-id="mediaItem.mediaId"
                 :show-cover-label="showCoverLabel"

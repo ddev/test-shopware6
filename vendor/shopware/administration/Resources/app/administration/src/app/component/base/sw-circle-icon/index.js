@@ -1,13 +1,10 @@
 import template from './sw-circle-icon.html.twig';
 import './sw-circle-icon.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description Renders an icon from the icon library. For a list of available variants see sw-label.
  * @status ready
  * @example-type static
@@ -21,7 +18,7 @@ const { Component } = Shopware;
  *     <sw-circle-icon size="50" variant="info" iconName="regular-times-hexagon">
  * </div>
  */
-Component.register('sw-circle-icon', {
+export default {
     template,
 
     props: {
@@ -43,7 +40,14 @@ Component.register('sw-circle-icon', {
             type: String,
             required: false,
             default: '',
-            validValues: ['info', 'danger', 'success', 'warning', 'neutral', 'primary'],
+            validValues: [
+                'info',
+                'danger',
+                'success',
+                'warning',
+                'neutral',
+                'primary',
+            ],
         },
     },
 
@@ -61,4 +65,4 @@ Component.register('sw-circle-icon', {
             };
         },
     },
-});
+};

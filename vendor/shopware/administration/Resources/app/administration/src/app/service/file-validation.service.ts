@@ -1,73 +1,90 @@
 type MimeTypes = {
-    [key: string]: string[],
+    [key: string]: string[];
 };
 
 type FileValidationService = {
-    extensionByType: MimeTypes,
-    checkByExtension: (
-        file: File,
-        extensionAccept: string,
-        mimeOverride: MimeTypes
-    ) => boolean,
-    checkByType: (
-        file: File,
-        mimeAccept: string,
-    ) => boolean,
+    extensionByType: MimeTypes;
+    checkByExtension: (file: File, extensionAccept: string, mimeOverride: MimeTypes) => boolean;
+    checkByType: (file: File, mimeAccept: string) => boolean;
 };
 
 /**
+ * @sw-package framework
  * @private
  * @method fileHelperService
  * @returns FileHelperServiceType
  */
 export default function fileValidationService(): FileValidationService {
     const extensionByType: MimeTypes = {
-        'image/jpeg': ['jpg', 'jpeg'],
+        'image/jpeg': [
+            'jpg',
+            'jpeg',
+        ],
         'image/png': ['png'],
         'image/webp': ['webp'],
+        'image/avif': ['avif'],
         'image/gif': ['gif'],
         'image/svg+xml': ['svg'],
         'image/bmp': ['bmp'],
-        'image/tiff': ['tif', 'tiff'],
+        'image/x-ms-bmp': ['bmp'],
+        'image/tiff': [
+            'tif',
+            'tiff',
+        ],
         'application/postscript': ['eps'],
         'video/webm': ['webm'],
         'video/x-matroska': ['mkv'],
         'video/x-flv': ['flv'],
         'video/ogg': ['ogv'],
-        'audio/ogg': ['ogg', 'ogv', 'oga'],
+        'audio/ogg': [
+            'ogg',
+            'ogv',
+            'oga',
+        ],
         'video/quicktime': ['mov'],
         'video/mp4': ['mp4'],
         'audio/mp4': ['mp4'],
         'video/x-msvideo': ['avi'],
         'video/x-ms-wmv': ['wmv'],
+        'video/x-ms-asf': ['wmv'],
         'application/pdf': ['pdf'],
         'audio/aac': ['aac'],
+        'audio/vnd.dlna.adts': ['aac'],
+        'audio/x-hx-aac-adts': ['aac'],
         'video/mp3': ['mp3'],
         'audio/mp3': ['mp3'],
+        'audio/mpeg': ['mp3'],
         'audio/wav': ['wav'],
+        'audio/x-wav': ['wav'],
+        'audio/x-ms-wma': ['wma'],
         'audio/x-flac': ['flac'],
         'text/plain': ['txt'],
         'application/msword': ['doc'],
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
         'image/vnd.microsoft.icon': ['ico'],
+        'image/x-icon': ['ico'],
         'application/zip': ['zip'],
         'application/vnd.rar': ['rar'],
         'application/json': ['json'],
         'application/xml': ['xml'],
         'application/x-shockwave-flash': ['swf'],
         'application/octet-stream': ['bin'],
+        'application/x-rar': ['rar'],
         'application/x-rar-compressed': ['rar'],
         'application/x-tar': ['tar'],
         'application/x-gzip': ['gzip'],
         'application/x-bzip2': ['bz2'],
         'application/x-7z-compressed': ['7z'],
+        'application/x-zip': ['zip'],
         'application/x-zip-compressed': ['zip'],
         'application/vnd.android.package-archive': ['apk'],
         'application/vnd.apple.keynote': ['key'],
         'application/vnd.apple.pages': ['pages'],
         'application/vnd.apple.numbers': ['numbers'],
         'application/vnd.ms-excel': ['xls'],
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+            'xlsx',
+        ],
         'application/vnd.ms-powerpoint': ['ppt'],
         'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['pptx'],
         'application/vnd.oasis.opendocument.text': ['odt'],
@@ -79,23 +96,17 @@ export default function fileValidationService(): FileValidationService {
      * @example
      * checkByExtension(file, 'png, pdf, svg', {...});
      */
-    function checkByExtension(
-        file: File,
-        extensionAccept: string,
-        mimeOverride: MimeTypes,
-    ): boolean {
+    function checkByExtension(file: File, extensionAccept: string, mimeOverride: MimeTypes): boolean {
         if (extensionAccept === '*') {
             return true;
         }
 
-        const fileExtensions: string[] = extensionAccept
-            .replace(/\s/g, '')
-            .split(',');
+        const fileExtensions: string[] = extensionAccept.replace(/\s/g, '').split(',');
 
         const types = Object.assign(extensionByType, mimeOverride);
 
         return fileExtensions.some((extension) => {
-            const currentFileExtension = file.name.split('.')[1];
+            const currentFileExtension = file.name.split('.').at(-1);
 
             if (!currentFileExtension) {
                 return false;
@@ -123,15 +134,16 @@ export default function fileValidationService(): FileValidationService {
         }
 
         const fileTypes = mimeAccept.replace(/\s/g, '').split(',');
+        const currentFileType = file.type.split('/');
 
         return fileTypes.some((fileType) => {
             const fileAcceptType = fileType.split('/');
-            const currentFileType = file.type.split('/');
 
-            if (
-                fileAcceptType[0] !== currentFileType[0] &&
-                fileAcceptType[0] !== '*'
-            ) {
+            if (mimeAccept === 'model/gltf-binary' && file.name.split('.').at(-1) === 'glb' && file.type === '') {
+                return true;
+            }
+
+            if (fileAcceptType[0] !== currentFileType[0] && fileAcceptType[0] !== '*') {
                 return false;
             }
 
@@ -149,3 +161,6 @@ export default function fileValidationService(): FileValidationService {
         checkByType,
     };
 }
+
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export type { FileValidationService };

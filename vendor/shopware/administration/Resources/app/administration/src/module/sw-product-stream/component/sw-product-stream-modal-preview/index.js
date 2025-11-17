@@ -1,12 +1,14 @@
 /*
- * @package business-ops
+ * @sw-package inventory
  */
 
+import shuffle from 'lodash/shuffle';
 import template from './sw-product-stream-modal-preview.html.twig';
 import './sw-product-stream-modal-preview.scss';
 
 const { Context } = Shopware;
 const { Criteria } = Shopware.Data;
+const PRODUCT_COMPARISON_SALES_CHANNEL_TYPE_ID = 'ed535e5722134ac1aa6524f73e26881b';
 
 /**
  * @private
@@ -14,12 +16,28 @@ const { Criteria } = Shopware.Data;
 export default {
     template,
 
-    inject: ['repositoryFactory', 'productStreamPreviewService'],
+    inject: [
+        'repositoryFactory',
+        'productStreamPreviewService',
+    ],
+
+    emits: ['modal-close'],
 
     props: {
         filters: {
             type: Array,
             required: true,
+        },
+        defaultLimit: {
+            type: Number,
+            default: 25,
+        },
+        defaultSorting: {
+            type: String,
+            default: null,
+            validator(value) {
+                return value === null || value.split(':').length === 2;
+            },
         },
     },
     data() {
@@ -29,8 +47,11 @@ export default {
             searchTerm: '',
             page: 1,
             total: false,
-            limit: 25,
+            limit: this.defaultLimit,
+            sorting: this.defaultSorting,
             isLoading: false,
+            selectedCurrencyIsoCode: 'EUR',
+            selectedCurrencyId: Context.app.systemCurrencyId,
         };
     },
 
@@ -40,17 +61,41 @@ export default {
         },
 
         salesChannelCriteria() {
-            const criteria = new Criteria(1, 1);
-            criteria.addSorting(Criteria.sort('type.iconName', 'ASC'));
+            return new Criteria(1, 1)
+                .addFilter(
+                    Criteria.not('OR', [
+                        Criteria.equals('typeId', PRODUCT_COMPARISON_SALES_CHANNEL_TYPE_ID),
+                    ]),
+                )
+                .addSorting(Criteria.sort('type.iconName', 'ASC'));
+        },
+
+        previewCriteria() {
+            const criteria = new Criteria(this.page, this.limit).setTerm(this.searchTerm);
+
+            if (this.sorting) {
+                if (this.sorting === 'random') {
+                    this.addRandomSort(criteria);
+                } else {
+                    const [
+                        field,
+                        direction,
+                    ] = this.sorting.split(':');
+                    criteria.addSorting(Criteria.sort(field, direction));
+                }
+            }
 
             return criteria;
         },
 
-        previewCriteria() {
-            const criteria = new Criteria(this.page, this.limit);
-            criteria.setTerm(this.searchTerm);
-
-            return criteria;
+        previewSelectionCriteria() {
+            return new Criteria()
+                .addFilter(
+                    Criteria.not('OR', [
+                        Criteria.equals('typeId', PRODUCT_COMPARISON_SALES_CHANNEL_TYPE_ID),
+                    ]),
+                )
+                .addSorting(Criteria.sort('name', 'ASC'));
         },
 
         productColumns() {
@@ -60,18 +105,22 @@ export default {
                     label: this.$tc('sw-product-stream.filter.values.product'),
                     type: 'text',
                     routerLink: 'sw.product.detail',
-                }, {
+                },
+                {
                     property: 'manufacturer.name',
                     label: this.$tc('sw-product-stream.filter.values.manufacturerId'),
-                }, {
+                },
+                {
                     property: 'active',
                     label: this.$tc('sw-product-stream.filter.values.active'),
                     align: 'center',
                     type: 'bool',
-                }, {
+                },
+                {
                     property: 'price',
                     label: this.$tc('sw-product-stream.filter.values.price'),
-                }, {
+                },
+                {
                     property: 'stock',
                     label: this.$tc('sw-product-stream.filter.values.stock'),
                     align: 'right',
@@ -93,27 +142,31 @@ export default {
     },
 
     methods: {
-        onSearchTermChange(searchTerm) {
-            this.searchTerm = searchTerm;
-            this.page = 1;
-            this.isLoading = true;
-            this.loadEntityData()
-                .then(() => {
-                    this.isLoading = false;
-                });
-        },
-        onSalesChannelChange() {
-            this.page = 1;
-            this.isLoading = true;
-            this.loadEntityData()
-                .then(() => {
-                    this.isLoading = false;
-                });
-        },
         createdComponent() {
             this.isLoading = true;
 
             return this.loadSalesChannels()
+                .then(() => {
+                    return this.loadEntityData();
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
+        },
+
+        onSearchTermChange(searchTerm) {
+            this.searchTerm = searchTerm;
+            this.page = 1;
+            this.isLoading = true;
+            this.loadEntityData().finally(() => {
+                this.isLoading = false;
+            });
+        },
+
+        onSalesChannelChange() {
+            this.page = 1;
+            this.isLoading = true;
+            this.loadSalesChannelById()
                 .then(() => {
                     return this.loadEntityData();
                 })
@@ -127,18 +180,15 @@ export default {
                 return false;
             }
 
-            return this.productStreamPreviewService.preview(
-                this.selectedSalesChannel,
-                this.previewCriteria,
-                this.mapFiltersForSearch(this.filters),
-                {
-                    'sw-currency-id': Context.app.systemCurrencyId,
+            return this.productStreamPreviewService
+                .preview(this.selectedSalesChannel, this.previewCriteria, this.mapFiltersForSearch(this.filters), {
+                    'sw-currency-id': this.selectedCurrencyId,
                     'sw-inheritance': true,
-                },
-            ).then((result) => {
-                this.products = Object.values(result.elements);
-                this.total = result.total;
-            });
+                })
+                .then((result) => {
+                    this.products = Object.values(result.elements);
+                    this.total = result.total;
+                });
         },
 
         loadSalesChannels() {
@@ -147,20 +197,32 @@ export default {
             });
         },
 
-        mapFiltersForSearch(filters) {
+        mapFiltersForSearch(filters = [], parentType = null) {
             return filters.map((condition) => {
                 const { field, type, operator, value, parameters, queries } = condition;
-                const mappedQueries = this.mapFiltersForSearch(queries);
-                const mapped = { field, type, operator, value, parameters, queries: mappedQueries };
+                const mappedQueries = this.mapFiltersForSearch(queries, type);
+                const mapped = {
+                    field,
+                    type,
+                    operator,
+                    value,
+                    parameters,
+                    queries: mappedQueries,
+                };
 
                 if (field === 'id' || field === 'product.id') {
+                    const newOperator = this.isNotEqualToAnyType(type, parentType) ? 'AND' : 'OR';
+
                     return {
                         type: 'multi',
                         field: null,
-                        operator: 'OR',
+                        operator: newOperator,
                         value: null,
                         parameters: null,
-                        queries: [mapped, { ...mapped, ...{ field: 'parentId' } }],
+                        queries: [
+                            mapped,
+                            { ...mapped, ...{ field: 'parentId' } },
+                        ],
                     };
                 }
 
@@ -193,10 +255,51 @@ export default {
             this.page = page;
             this.limit = limit;
 
-            this.loadEntityData()
-                .then(() => {
-                    this.isLoading = false;
+            this.loadEntityData().finally(() => {
+                this.isLoading = false;
+            });
+        },
+
+        loadSalesChannelById() {
+            if (this.selectedSalesChannel === null) {
+                return Promise.resolve();
+            }
+
+            const criteria = this.salesChannelCriteria;
+
+            criteria.addAssociation('currency');
+
+            return this.salesChannelRepository
+                .get(this.selectedSalesChannel, Shopware.Context.api, this.salesChannelCriteria)
+                .then((salesChannel) => {
+                    this.selectedCurrencyIsoCode = salesChannel.currency.isoCode;
+                    this.selectedCurrencyId = salesChannel.currencyId;
                 });
+        },
+
+        isNotEqualToAnyType(type, parentType) {
+            return type === 'equalsAny' && parentType === 'not';
+        },
+
+        addRandomSort(criteria) {
+            let fields = [
+                'name',
+                'createdAt',
+                'cheapestPrice',
+                'releaseDate',
+            ];
+
+            fields = shuffle(fields);
+            const selectedFields = fields.slice(0, 2);
+            const directions = [
+                'ASC',
+                'DESC',
+            ];
+            const randomDirection = directions[Math.floor(Math.random() * directions.length)];
+
+            selectedFields.forEach((field) => {
+                criteria.addSorting(Criteria.sort(field, randomDirection));
+            });
         },
     },
 };

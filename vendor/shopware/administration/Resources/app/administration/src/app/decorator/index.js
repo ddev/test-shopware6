@@ -1,9 +1,12 @@
+/**
+ * @sw-package framework
+ */
+
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default (() => {
-    const context = require.context('./', false, /(?<!index)(?<!\.spec)(?<!spec\.vue3\.)\.ts$/);
-    return context.keys().reduce((accumulator, item) => {
-        const service = context(item).default;
-        accumulator.push(service);
-        return accumulator;
-    }, []);
+    const context = import.meta.glob('./**/!(*.spec).{j,t}s', {
+        eager: true,
+    });
+
+    return Object.values(context).map((module) => module.default);
 })();

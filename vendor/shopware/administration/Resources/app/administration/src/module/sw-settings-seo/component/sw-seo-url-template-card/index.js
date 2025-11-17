@@ -1,5 +1,5 @@
 /**
- * @package buyers-experience
+ * @sw-package inventory
  */
 
 import template from './sw-seo-url-template-card.html.twig';
@@ -15,10 +15,12 @@ const utils = Shopware.Utils;
 export default {
     template,
 
-    inject: ['seoUrlTemplateService', 'repositoryFactory'],
+    inject: [
+        'seoUrlTemplateService',
+        'repositoryFactory',
+    ],
 
     mixins: [Mixin.getByName('notification')],
-
 
     data() {
         return {
@@ -81,10 +83,9 @@ export default {
                 new Criteria(1, 25),
             );
 
-            this.seoUrlPreviewCriteria['frontend.navigation.page'] =
-                (new Criteria(1, 25)).addFilter(
-                    Criteria.not('and', [Criteria.equals('path', null)]),
-                );
+            this.seoUrlPreviewCriteria['frontend.navigation.page'] = new Criteria(1, 25).addFilter(
+                Criteria.not('and', [Criteria.equals('path', null)]),
+            );
 
             this.fetchSalesChannels();
             this.fetchSeoUrlTemplates();
@@ -100,7 +101,7 @@ export default {
             this.isLoading = true;
 
             this.seoUrlTemplateRepository.search(criteria).then((response) => {
-                response.forEach(entity => {
+                response.forEach((entity) => {
                     if (!this.seoUrlTemplates.has(entity.id)) {
                         this.seoUrlTemplates.add(entity);
                     }
@@ -108,7 +109,7 @@ export default {
 
                 if (!salesChannelId) {
                     // Save the defaults as blueprint for creating dynamically new entities
-                    response.forEach(entity => {
+                    response.forEach((entity) => {
                         if (!this.defaultSeoUrlTemplates.has(entity)) {
                             this.defaultSeoUrlTemplates.add(entity);
                         }
@@ -118,13 +119,13 @@ export default {
                 }
                 this.isLoading = false;
 
-                this.seoUrlTemplates.forEach(seoUrlTemplate => {
+                this.seoUrlTemplates.forEach((seoUrlTemplate) => {
                     // Fetch preview / validate seo url template
                     this.fetchSeoUrlPreview(seoUrlTemplate);
 
                     // Create stores for the possible variables
                     if (!this.variableStores.hasOwnProperty(seoUrlTemplate.id)) {
-                        this.seoUrlTemplateService.getContext(seoUrlTemplate).then(data => {
+                        this.seoUrlTemplateService.getContext(seoUrlTemplate).then((data) => {
                             this.createVariableOptions(seoUrlTemplate.id, data);
                         });
                     }
@@ -134,7 +135,7 @@ export default {
         createSeoUrlTemplatesFromDefaultRoutes(salesChannelId) {
             // Iterate over the default seo url templates and create new entities for the actual sales channel
             // if they do not exist
-            this.defaultSeoUrlTemplates.forEach(defaultEntity => {
+            this.defaultSeoUrlTemplates.forEach((defaultEntity) => {
                 const entityAlreadyExists = this.seoUrlTemplates.some((entity) => {
                     return entity.routeName === defaultEntity.routeName && entity.salesChannelId === salesChannelId;
                 });
@@ -152,17 +153,24 @@ export default {
         createVariableOptions(id, data) {
             const storeOptions = [];
 
-            Object.entries(data).forEach(([property, value]) => {
-                storeOptions.push({ name: `${property}` });
+            Object.entries(data).forEach(
+                ([
+                    property,
+                    value,
+                ]) => {
+                    storeOptions.push({ name: `${property}` });
 
-                if (value instanceof Object) {
-                    Object.keys(value).forEach((innerProperty) => {
-                        storeOptions.push({ name: `${property}.${innerProperty}` });
-                    });
-                }
-            });
+                    if (value instanceof Object) {
+                        Object.keys(value).forEach((innerProperty) => {
+                            storeOptions.push({
+                                name: `${property}.${innerProperty}`,
+                            });
+                        });
+                    }
+                },
+            );
 
-            this.$set(this.variableStores, id, storeOptions);
+            this.variableStores.id = storeOptions;
         },
         getVariableOptions(id) {
             if (this.variableStores.hasOwnProperty(id)) {
@@ -183,7 +191,7 @@ export default {
                 return null;
             }
 
-            const defaultEntity = Object.values(this.defaultSeoUrlTemplates).find(entity => {
+            const defaultEntity = Object.values(this.defaultSeoUrlTemplates).find((entity) => {
                 return entity.routeName === seoUrlTemplate.routeName;
             });
 
@@ -199,25 +207,27 @@ export default {
                 return;
             }
 
-
             this.seoUrlTemplates.forEach((entry) => {
                 if (entry.template === null) {
                     this.seoUrlTemplates.remove(entry.id);
                 }
             });
 
-            this.seoUrlTemplateRepository.sync(this.seoUrlTemplates).then(() => {
-                this.seoUrlTemplates = new EntityCollection(
-                    this.seoUrlTemplateRepository.route,
-                    this.seoUrlTemplateRepository.schema.entity,
-                    Shopware.Context.api,
-                    new Criteria(1, 25),
-                );
-                this.fetchSeoUrlTemplates(this.salesChannelId);
-                this.createSaveSuccessNotification();
-            }).catch(() => {
-                this.createSaveErrorNotification();
-            });
+            this.seoUrlTemplateRepository
+                .sync(this.seoUrlTemplates)
+                .then(() => {
+                    this.seoUrlTemplates = new EntityCollection(
+                        this.seoUrlTemplateRepository.route,
+                        this.seoUrlTemplateRepository.schema.entity,
+                        Shopware.Context.api,
+                        new Criteria(1, 25),
+                    );
+                    this.fetchSeoUrlTemplates(this.salesChannelId);
+                    this.createSaveSuccessNotification();
+                })
+                .catch(() => {
+                    this.createSaveErrorNotification();
+                });
         },
         createSaveErrorNotification() {
             const titleSaveSuccess = this.$tc('global.default.error');
@@ -242,7 +252,7 @@ export default {
             if (propertyName === null) {
                 return;
             }
-            const templateValue = entity.template ? (`${entity.template}/`) : '';
+            const templateValue = entity.template ? `${entity.template}/` : '';
             entity.template = `${templateValue}{{ ${propertyName} }}`;
             this.fetchSeoUrlPreview(entity);
         },
@@ -255,36 +265,49 @@ export default {
                     if (entity.template && entity.template !== '') {
                         this.fetchSeoUrlPreview(entity);
                     } else {
-                        this.$set(this.errorMessages, entity.id, null);
+                        this.setErrorMessagesForEntity(entity);
                     }
                 }, 400);
             } else {
-                this.$set(this.errorMessages, entity.id, null);
+                this.setErrorMessagesForEntity(entity);
             }
 
             this.debouncedPreviews[entity.id]();
         },
+        setErrorMessagesForEntity(entity, value = null) {
+            // eslint-disable-next-line no-lonely-if
+            this.errorMessages[entity.id] = value;
+        },
         fetchSeoUrlPreview(entity) {
-            this.$set(this.previewLoadingStates, entity.id, true);
+            this.previewLoadingStates[entity.id] = true;
+
             const criteria = this.seoUrlPreviewCriteria[entity.routeName]
-                ? this.seoUrlPreviewCriteria[entity.routeName] : (new Criteria(1, 25));
+                ? this.seoUrlPreviewCriteria[entity.routeName]
+                : new Criteria(1, 25);
             entity.criteria = criteria.parse();
-            this.seoUrlTemplateService.preview(entity).then((response) => {
-                this.noEntityError = this.noEntityError.filter((elem) => {
-                    return elem !== entity.id;
+            this.seoUrlTemplateService
+                .preview(entity)
+                .then((response) => {
+                    this.noEntityError = this.noEntityError.filter((elem) => {
+                        return elem !== entity.id;
+                    });
+
+                    this.previews[entity.id] = response;
+
+                    if (response === null) {
+                        this.noEntityError.push(entity.id);
+                    } else {
+                        this.setErrorMessagesForEntity(entity);
+                    }
+                    this.previewLoadingStates[entity.id] = false;
+                })
+                .catch((err) => {
+                    this.setErrorMessagesForEntity(entity, err.response.data.errors[0].detail);
+
+                    this.previews[entity.id] = [];
+
+                    this.previewLoadingStates[entity.id] = false;
                 });
-                this.$set(this.previews, entity.id, response);
-                if (response === null) {
-                    this.noEntityError.push(entity.id);
-                } else {
-                    this.$set(this.errorMessages, entity.id, null);
-                }
-                this.previewLoadingStates[entity.id] = false;
-            }).catch(err => {
-                this.$set(this.errorMessages, entity.id, err.response.data.errors[0].detail);
-                this.$set(this.previews, entity.id, []);
-                this.previewLoadingStates[entity.id] = false;
-            });
         },
         fetchSalesChannels() {
             this.salesChannelRepository.search(new Criteria(1, 25)).then((response) => {

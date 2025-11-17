@@ -9,7 +9,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class StockSubscriber implements EventSubscriberInterface
 {
     public static function getSubscribedEvents(): array
@@ -31,7 +31,7 @@ class StockSubscriber implements EventSubscriberInterface
         }
 
         $record = $event->getRecord();
-        $record['stock'] = $record['stock'] + 1;
+        ++$record['stock'];
         $event->setRecord($record);
     }
 }

@@ -19,11 +19,14 @@ use Shopware\Core\Framework\Util\Json;
 /**
  * @final
  */
-#[Package('core')]
+#[Package('framework')]
 class Criteria extends Struct implements \Stringable
 {
     use StateAwareTrait;
+
     final public const STATE_ELASTICSEARCH_AWARE = 'elasticsearchAware';
+
+    final public const STATE_DISABLE_SEARCH_INFO = 'disableSearchInfo';
 
     /**
      * no total count will be selected. Should be used if no pagination required (fastest)
@@ -40,99 +43,86 @@ class Criteria extends Struct implements \Stringable
      */
     final public const TOTAL_COUNT_MODE_NEXT_PAGES = 2;
 
-    /**
-     * @var FieldSorting[]
-     */
-    protected $sorting = [];
+    final public const ROOT_NESTING_LEVEL = 0;
 
     /**
-     * @var Filter[]
+     * @var list<FieldSorting>
      */
-    protected $filters = [];
+    protected array $sorting = [];
 
     /**
-     * @var Filter[]
+     * @var array<array-key, Filter>
      */
-    protected $postFilters = [];
+    protected array $filters = [];
+
+    /**
+     * @var list<Filter>
+     */
+    protected array $postFilters = [];
 
     /**
      * @var array<string, Aggregation>
      */
-    protected $aggregations = [];
+    protected array $aggregations = [];
 
     /**
-     * @var ScoreQuery[]
+     * @var list<ScoreQuery>
      */
-    protected $queries = [];
+    protected array $queries = [];
 
     /**
-     * @var FieldGrouping[]
+     * @var list<FieldGrouping>
      */
-    protected $groupFields = [];
+    protected array $groupFields = [];
+
+    protected ?int $offset = null;
+
+    protected ?int $limit = null;
+
+    protected int $totalCountMode = self::TOTAL_COUNT_MODE_NONE;
 
     /**
-     * @var int|null
+     * @var array<string, Criteria>
      */
-    protected $offset;
-
-    /**
-     * @var int|null
-     */
-    protected $limit;
-
-    /**
-     * @var int
-     */
-    protected $totalCountMode = self::TOTAL_COUNT_MODE_NONE;
-
-    /**
-     * @var Criteria[]
-     */
-    protected $associations = [];
+    protected array $associations = [];
 
     /**
      * @var array<string>|array<int, array<string>>
      */
-    protected $ids = [];
+    protected array $ids = [];
+
+    protected bool $inherited = false;
+
+    protected ?string $term = null;
 
     /**
-     * @var bool
+     * @var array<string, list<string>>|null
      */
-    protected $inherited = false;
+    protected ?array $includes = null;
 
     /**
-     * @var string|null
+     * @var array<string, list<string>>|null
      */
-    protected $term;
+    protected ?array $excludes = null;
+
+    protected ?string $title = null;
 
     /**
-     * @var array<string, array<string, string>>|null
-     */
-    protected $includes;
-
-    /**
-     * @var string|null
-     */
-    protected $title;
-
-    /**
-     * @var string[]
+     * @var list<string>
      */
     protected array $fields = [];
 
     /**
      * @param array<string>|array<array<string, string>>|null $ids
      */
-    public function __construct(?array $ids = null)
+    public function __construct(?array $ids = null, protected int $nestingLevel = 0)
     {
         if ($ids === null) {
             return;
         }
 
         $ids = array_filter($ids);
-        if (empty($ids)) {
-            throw DataAbstractionLayerException::invalidCriteriaIds($ids, 'Ids should not be empty');
-        }
+
         $this->validateIds($ids);
 
         $this->ids = $ids;
@@ -169,7 +159,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return FieldSorting[]
+     * @return list<FieldSorting>
      */
     public function getSorting(): array
     {
@@ -190,7 +180,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return Filter[]
+     * @return array<array-key, Filter>
      */
     public function getFilters(): array
     {
@@ -206,7 +196,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return Filter[]
+     * @return list<Filter>
      */
     public function getPostFilters(): array
     {
@@ -214,7 +204,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return ScoreQuery[]
+     * @return list<ScoreQuery>
      */
     public function getQueries(): array
     {
@@ -222,7 +212,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return Criteria[]
+     * @return array<string, Criteria>
      */
     public function getAssociations(): array
     {
@@ -247,7 +237,7 @@ class Criteria extends Struct implements \Stringable
             }
 
             if (!$criteria->hasAssociation($part)) {
-                $criteria->associations[$part] = new Criteria();
+                $criteria->associations[$part] = new Criteria(nestingLevel: $this->nestingLevel + 1);
             }
 
             $criteria = $criteria->associations[$part];
@@ -334,7 +324,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @param string[] $paths
+     * @param array<string> $paths
      *
      * Allows to add multiple associations paths
      *
@@ -527,7 +517,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return FieldGrouping[]
+     * @return list<FieldGrouping>
      */
     public function getGroupFields(): array
     {
@@ -542,7 +532,7 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @param array<string, array<string, string>>|null $includes
+     * @param array<string, list<string>>|null $includes
      */
     public function setIncludes(?array $includes): void
     {
@@ -550,11 +540,29 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return array<string, array<string, string>>|null
+     * @deprecated tag:v6.8.0 - reason:return-type-change - Return type will be native
+     *
+     * @return array<string, list<string>>|null
      */
     public function getIncludes()
     {
         return $this->includes;
+    }
+
+    /**
+     * @param array<string, list<string>>|null $excludes
+     */
+    public function setExcludes(?array $excludes): void
+    {
+        $this->excludes = $excludes;
+    }
+
+    /**
+     * @return array<string, list<string>>|null
+     */
+    public function getExcludes(): ?array
+    {
+        return $this->excludes;
     }
 
     public function getApiAlias(): string
@@ -596,13 +604,15 @@ class Criteria extends Struct implements \Stringable
         return $this->title;
     }
 
-    public function setTitle(?string $title): void
+    public function setTitle(?string $title): self
     {
         $this->title = $title;
+
+        return $this;
     }
 
     /**
-     * @param string[] $fields
+     * @param list<string> $fields
      */
     public function addFields(array $fields): self
     {
@@ -612,11 +622,19 @@ class Criteria extends Struct implements \Stringable
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     public function getFields(): array
     {
         return $this->fields;
+    }
+
+    /**
+     * Returns the nesting level of the criteria inside a criteria
+     */
+    public function getNestingLevel(): int
+    {
+        return $this->nestingLevel;
     }
 
     /**
@@ -629,7 +647,6 @@ class Criteria extends Struct implements \Stringable
         $fields = [];
 
         foreach ($parts as $part) {
-            /** @var CriteriaPartInterface $item */
             foreach ($part as $item) {
                 foreach ($item->getFields() as $field) {
                     $fields[] = $field;
@@ -645,6 +662,10 @@ class Criteria extends Struct implements \Stringable
      */
     private function validateIds(array $ids): void
     {
+        if (\count($ids) === 0) {
+            throw DataAbstractionLayerException::invalidCriteriaIds($ids, 'Ids should not be empty');
+        }
+
         foreach ($ids as $id) {
             if (!\is_string($id) && !\is_array($id)) {
                 throw DataAbstractionLayerException::invalidCriteriaIds($ids, 'Ids should be a list of strings or a list of key value pairs, for entities with combined primary keys');

@@ -1,8 +1,9 @@
+import type { Extension } from '../../../store/extensions.store';
 import template from './sw-iframe-renderer.html.twig';
-import type { Extension } from '../../../state/extensions.store';
+import './sw-iframe-renderer.scss';
 
 /**
- * @package admin
+ * @sw-package framework
  *
  * @private
  * @description This component renders iFrame views for extensions
@@ -11,7 +12,7 @@ import type { Extension } from '../../../state/extensions.store';
  * @component-example
  * <sw-iframe-renderer src="https://www.my-source.com" locationId="my-special-location" />
  */
-Shopware.Component.register('sw-iframe-renderer', {
+export default Shopware.Component.wrapComponentConfig({
     template,
 
     inject: ['extensionSdkService'],
@@ -25,14 +26,19 @@ Shopware.Component.register('sw-iframe-renderer', {
             type: String,
             required: true,
         },
+        fullScreen: {
+            type: Boolean,
+            required: false,
+            default: false,
+        },
     },
 
     data(): {
-        heightHandler: null | (() => void),
-        urlHandler: null | (() => void),
-        locationHeight: null | number,
-        signedIframeSrc: null | string,
-        } {
+        heightHandler: null | (() => void);
+        urlHandler: null | (() => void);
+        locationHeight: null | number;
+        signedIframeSrc: null | string;
+    } {
         return {
             heightHandler: null,
             urlHandler: null,
@@ -48,41 +54,41 @@ Shopware.Component.register('sw-iframe-renderer', {
             }
         });
 
-        this.urlHandler = Shopware.ExtensionAPI.handle('locationUpdateUrl', async ({
-            hash,
-            pathname,
-            searchParams,
-            locationId,
-        }) => {
-            if (locationId !== this.locationId) {
-                return;
-            }
+        this.urlHandler = Shopware.ExtensionAPI.handle(
+            'locationUpdateUrl',
+            async ({ hash, pathname, searchParams, locationId }) => {
+                if (locationId !== this.locationId) {
+                    return;
+                }
 
-            const filteredSearchParams = JSON.stringify(searchParams.filter(([key]) => {
-                return ![
-                    'location-id',
-                    'privileges',
-                    'shop-id',
-                    'shop-url',
-                    'timestamp',
-                    'sw-version',
-                    'sw-context-language',
-                    'sw-user-language',
-                    'shopware-shop-signature',
-                ].includes(key);
-            }));
+                const filteredSearchParams = JSON.stringify(
+                    searchParams.filter(([key]) => {
+                        return ![
+                            'location-id',
+                            'privileges',
+                            'shop-id',
+                            'shop-url',
+                            'timestamp',
+                            'sw-version',
+                            'sw-context-language',
+                            'sw-user-language',
+                            'shopware-shop-signature',
+                        ].includes(key);
+                    }),
+                );
 
-            await this.$router.replace({
-                query: {
-                    [this.locationIdHashQueryKey]: hash,
-                    [this.locationIdPathnameQueryKey]: pathname,
-                    [this.locationIdSearchParamsQueryKey]: filteredSearchParams,
-                },
-            });
-        });
+                await this.$router.replace({
+                    query: {
+                        [this.locationIdHashQueryKey]: hash,
+                        [this.locationIdPathnameQueryKey]: pathname,
+                        [this.locationIdSearchParamsQueryKey]: filteredSearchParams,
+                    },
+                });
+            },
+        );
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         if (this.heightHandler) {
             this.heightHandler();
         }
@@ -105,15 +111,17 @@ Shopware.Component.register('sw-iframe-renderer', {
             return `locationId_${this.locationId}_searchParams`;
         },
 
-        componentName(): string|undefined {
-            return Shopware.State.get('sdkLocation').locations[this.locationId];
+        componentName(): string | undefined {
+            return Shopware.Store.get('sdkLocation').locations[this.locationId];
         },
 
         extension(): Extension | undefined {
-            const extensions = Shopware.State.get('extensions');
+            const extensions = Shopware.Store.get('extensions').extensionsState;
+            const srcWithoutSearchParameters = new URL(this.src).origin + new URL(this.src).pathname;
 
             return Object.values(extensions).find((ext) => {
-                return ext.baseUrl === this.src;
+                const extensionBaseUrlWithoutSearchParameters = new URL(ext.baseUrl).origin + new URL(ext.baseUrl).pathname;
+                return extensionBaseUrlWithoutSearchParameters === srcWithoutSearchParameters;
             });
         },
 
@@ -123,11 +131,7 @@ Shopware.Component.register('sw-iframe-renderer', {
 
         iFrameSrc(): string {
             const urlObject = new URL(this.src, window.location.origin);
-
             urlObject.searchParams.append('location-id', this.locationId);
-            if (this.extension) {
-                urlObject.searchParams.append('privileges', JSON.stringify(this.extension.permissions));
-            }
 
             return urlObject.toString();
         },
@@ -139,19 +143,38 @@ Shopware.Component.register('sw-iframe-renderer', {
 
             return '100%';
         },
+
+        classes(): { [key: string]: boolean } {
+            return {
+                'sw-iframe-renderer': true,
+                'sw-iframe-renderer--full-screen': this.fullScreen,
+            };
+        },
     },
 
     watch: {
         extension: {
             immediate: true,
-            handler(extension) {
-                if (!extension || !this.extensionIsApp) {
-                    return;
-                }
+            handler() {
+                this.signIframeSrc();
+            },
+        },
+        locationId() {
+            this.signIframeSrc();
+        },
+    },
 
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-                this.extensionSdkService.signIframeSrc(extension.name, this.iFrameSrc).then((response) => {
-                    const uri = (response as { uri?: string})?.uri;
+    methods: {
+        signIframeSrc() {
+            if (!this.extension || !this.extensionIsApp) {
+                return;
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+            this.extensionSdkService
+                .signIframeSrc(this.extension.name, this.iFrameSrc)
+                .then((response) => {
+                    const uri = (response as { uri?: string })?.uri;
 
                     if (!uri) {
                         return;
@@ -174,15 +197,20 @@ Shopware.Component.register('sw-iframe-renderer', {
                     if (searchParams) {
                         const parsedSearchParams = JSON.parse(searchParams as string) as [string, string][];
 
-                        parsedSearchParams.forEach(([key, value]) => {
-                            urlObject.searchParams.append(key, value);
-                        });
+                        parsedSearchParams.forEach(
+                            ([
+                                key,
+                                value,
+                            ]) => {
+                                urlObject.searchParams.append(key, value);
+                            },
+                        );
                     }
 
                     this.signedIframeSrc = urlObject.toString();
                     // eslint-disable-next-line @typescript-eslint/no-empty-function
-                }).catch(() => {});
-            },
+                })
+                .catch(() => {});
         },
     },
 });

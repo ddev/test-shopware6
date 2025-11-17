@@ -3,6 +3,7 @@
 namespace Shopware\Core\Content\Media;
 
 use Psr\Http\Message\StreamInterface;
+use Shopware\Core\Content\Media\Aggregate\MediaFolder\MediaFolderCollection;
 use Shopware\Core\Content\Media\File\FileFetcher;
 use Shopware\Core\Content\Media\File\FileLoader;
 use Shopware\Core\Content\Media\File\FileSaver;
@@ -15,11 +16,14 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class MediaService
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<MediaCollection> $mediaRepository
+     * @param EntityRepository<MediaFolderCollection> $mediaFolderRepository
      */
     public function __construct(
         private readonly EntityRepository $mediaRepository,
@@ -81,6 +85,7 @@ class MediaService
         }
 
         $this->fileSaver->persistFileToMedia($mediaFile, $filename, $mediaId, $context);
+        $this->fileFetcher->cleanUpTempFile($mediaFile);
 
         return $mediaId;
     }
@@ -123,7 +128,7 @@ class MediaService
 
         return [
             'content' => $fileBlob,
-            'fileName' => $media->getFilename() . '.' . $media->getFileExtension(),
+            'fileName' => $media->getFileName() . '.' . $media->getFileExtension(),
             'mimeType' => $media->getMimeType(),
         ];
     }
@@ -134,12 +139,7 @@ class MediaService
         $criteria->addFilter(new EqualsFilter('media_folder.defaultFolder.entity', $folder));
         $criteria->addAssociation('defaultFolder');
         $criteria->setLimit(1);
-        $defaultFolder = $this->mediaFolderRepository->search($criteria, $context);
-        $defaultFolderId = null;
-        if ($defaultFolder->count() === 1) {
-            $defaultFolderId = $defaultFolder->first()->getId();
-        }
 
-        return $defaultFolderId;
+        return $this->mediaFolderRepository->searchIds($criteria, $context)->firstId();
     }
 }

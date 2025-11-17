@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('business-ops')]
+#[Package('fundamentals@after-sales')]
 class BusinessEventCollector
 {
     /**
@@ -57,7 +57,7 @@ class BusinessEventCollector
             ->newInstanceWithoutConstructor();
 
         if (!$instance instanceof FlowEventAware) {
-            throw new \RuntimeException(sprintf('Event %s is not a business event', $class));
+            throw new \RuntimeException(\sprintf('Event %s is not a business event', $class));
         }
 
         $name ??= $instance->getName();
@@ -69,8 +69,8 @@ class BusinessEventCollector
 
         $aware = [];
         foreach ($interfaces as $interface) {
-            if (is_subclass_of($interface, FlowEventAware::class)
-                && $interface !== FlowEventAware::class) {
+            $reflection = new \ReflectionClass($interface);
+            if ($reflection->getAttributes(IsFlowEventAware::class) !== []) {
                 $aware[] = lcfirst((new \ReflectionClass($interface))->getShortName());
                 $aware[] = $interface;
             }

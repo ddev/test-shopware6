@@ -12,20 +12,20 @@ use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Content\Media\MediaException;
 use Shopware\Core\Content\Media\MediaService;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
-use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class DownloadResponseGenerator
 {
-    final public const X_SENDFILE_DOWNLOAD_STRATEGRY = 'x-sendfile';
-    final public const X_ACCEL_DOWNLOAD_STRATEGRY = 'x-accel';
+    final public const X_SENDFILE_DOWNLOAD_STRATEGY = 'x-sendfile';
+    final public const X_ACCEL_DOWNLOAD_STRATEGY = 'x-accel';
+    final public const X_ACCEL_REDIRECT = 'X-Accel-Redirect';
+    private const EXPIRATION_TIME = '+120 minutes';
 
     /**
      * @internal
@@ -35,14 +35,15 @@ class DownloadResponseGenerator
         private readonly FilesystemOperator $filesystemPrivate,
         private readonly MediaService $mediaService,
         private readonly string $localPrivateDownloadStrategy,
-        private readonly AbstractMediaUrlGenerator $mediaUrlGenerator
+        private readonly AbstractMediaUrlGenerator $mediaUrlGenerator,
+        private readonly string $privateLocalPathPrefix = ''
     ) {
     }
 
     public function getResponse(
         MediaEntity $media,
         SalesChannelContext $context,
-        string $expiration = '+120 minutes'
+        string $expiration = self::EXPIRATION_TIME
     ): Response {
         $fileSystem = $this->getFileSystem($media);
 
@@ -67,21 +68,28 @@ class DownloadResponseGenerator
         }
 
         switch ($this->localPrivateDownloadStrategy) {
-            case self::X_SENDFILE_DOWNLOAD_STRATEGRY:
+            case self::X_SENDFILE_DOWNLOAD_STRATEGY:
                 $location = $media->getPath();
 
                 $stream = $fileSystem->readStream($location);
-                $location = \is_resource($stream) ? stream_get_meta_data($stream)['uri'] : $location;
+                if (\is_resource($stream)) {
+                    $location = stream_get_meta_data($stream)['uri'] ?? $location;
+                }
 
-                $response = new Response(null, 200, $this->getStreamHeaders($media));
-                $response->headers->set('X-Sendfile', $location);
+                $response = new Response(null, Response::HTTP_OK, $this->getStreamHeaders($media));
+                $response->headers->set(self::X_SENDFILE_DOWNLOAD_STRATEGY, $location);
 
                 return $response;
-            case self::X_ACCEL_DOWNLOAD_STRATEGRY:
+            case self::X_ACCEL_DOWNLOAD_STRATEGY:
                 $location = $media->getPath();
 
-                $response = new Response(null, 200, $this->getStreamHeaders($media));
-                $response->headers->set('X-Accel-Redirect', $location);
+                // Apply the path prefix if configured
+                if (!empty($this->privateLocalPathPrefix)) {
+                    $location = $this->privateLocalPathPrefix . '/' . ltrim($location, '/');
+                }
+
+                $response = new Response(null, Response::HTTP_OK, $this->getStreamHeaders($media));
+                $response->headers->set(self::X_ACCEL_REDIRECT, $location);
 
                 return $response;
             default:
@@ -100,17 +108,13 @@ class DownloadResponseGenerator
         );
 
         if (!$stream instanceof StreamInterface) {
-            throw MediaException::fileNotFound($media->getFilename() . '.' . $media->getFileExtension());
+            throw MediaException::fileNotFound($media->getFileName() . '.' . $media->getFileExtension());
         }
 
         $stream = $stream->detach();
 
         if (!\is_resource($stream)) {
-            if (!Feature::isActive('v6.6.0.0')) {
-                throw new FileNotFoundException($media->getFilename() . '.' . $media->getFileExtension());
-            }
-
-            throw MediaException::fileNotFound($media->getFilename() . '.' . $media->getFileExtension());
+            throw MediaException::fileNotFound($media->getFileName() . '.' . $media->getFileExtension());
         }
 
         return new StreamedResponse(function () use ($stream): void {
@@ -138,7 +142,7 @@ class DownloadResponseGenerator
      */
     private function getStreamHeaders(MediaEntity $media): array
     {
-        $filename = $media->getFilename() . '.' . $media->getFileExtension();
+        $filename = $media->getFileName() . '.' . $media->getFileExtension();
 
         return [
             'Content-Disposition' => HeaderUtils::makeDisposition(

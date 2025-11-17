@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Adapter\Twig\NamespaceHierarchy\TemplateNamespaceHie
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\SalesChannelRequest;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
-use Shopware\Storefront\Theme\SalesChannelThemeLoader;
+use Shopware\Storefront\Theme\DatabaseSalesChannelThemeLoader;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -17,11 +17,11 @@ use Symfony\Contracts\Service\ResetInterface;
 /**
  * @internal
  */
-#[Package('storefront')]
+#[Package('framework')]
 class ThemeNamespaceHierarchyBuilder implements TemplateNamespaceHierarchyBuilderInterface, EventSubscriberInterface, ResetInterface
 {
     /**
-     * @var array<int|string, bool>
+     * @var array<string, bool>
      */
     private array $themes = [];
 
@@ -30,7 +30,7 @@ class ThemeNamespaceHierarchyBuilder implements TemplateNamespaceHierarchyBuilde
      */
     public function __construct(
         private readonly ThemeInheritanceBuilderInterface $themeInheritanceBuilder,
-        private readonly SalesChannelThemeLoader $salesChannelThemeLoader
+        private readonly ?DatabaseSalesChannelThemeLoader $salesChannelThemeLoader = null
     ) {
     }
 
@@ -66,13 +66,13 @@ class ThemeNamespaceHierarchyBuilder implements TemplateNamespaceHierarchyBuilde
 
         $themes = [];
 
-        $theme = $this->salesChannelThemeLoader->load($context->getSalesChannelId());
+        $theme = $this->salesChannelThemeLoader?->load($context->getSalesChannelId());
 
-        if (empty($theme['themeName'])) {
+        if (empty($theme) || !isset($theme[0])) {
             return;
         }
 
-        $themes[$theme['themeName']] = true;
+        $themes[$theme[0]] = true;
         $themes['Storefront'] = true;
 
         $this->themes = $themes;
@@ -93,7 +93,7 @@ class ThemeNamespaceHierarchyBuilder implements TemplateNamespaceHierarchyBuilde
     }
 
     /**
-     * @return array<int|string, bool>
+     * @return array<string, bool>
      */
     private function detectedThemes(Request $request): array
     {

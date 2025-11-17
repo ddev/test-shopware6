@@ -1,22 +1,24 @@
 import template from './sw-newsletter-recipient-detail.html.twig';
 import './sw-newsletter-recipient-detail.scss';
 
-/**
- * @package buyers-experience
- */
-
-const { Mixin } = Shopware;
 const { Criteria } = Shopware.Data;
 
+/**
+ * @sw-package after-sales
+ */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+        'customFieldDataProviderService',
+    ],
 
     mixins: [
-        Mixin.getByName('notification'),
-        Mixin.getByName('salutation'),
+        'notification',
+        'salutation',
     ],
 
     data() {
@@ -26,6 +28,8 @@ export default {
             languages: [],
             salesChannels: [],
             isLoading: false,
+            isSaveSuccessful: false,
+            customFieldSets: null,
         };
     },
 
@@ -51,33 +55,63 @@ export default {
 
     methods: {
         createdComponent() {
+            this.isLoading = true;
+
             Shopware.ExtensionAPI.publishData({
                 id: 'sw-newsletter-recipient-detail__newsletterRecipient',
                 path: 'newsletterRecipient',
                 scope: this,
             });
-            this.isLoading = true;
-            const recipientCriteria = new Criteria(1, 1);
 
-            recipientCriteria.addFilter(Criteria.equals('id', this.$route.params.id));
-            recipientCriteria.addAssociation('tags');
-            this.newsletterRecipientStore.search(recipientCriteria).then((newsletterRecipient) => {
-                this.newsletterRecipient = newsletterRecipient.first();
-                this.$nextTick(() => {
+            const recipientCriteria = new Criteria(1, 1)
+                .addFilter(Criteria.equals('id', this.$route.params.id.toLowerCase()))
+                .addAssociation('tags');
+
+            this.newsletterRecipientStore
+                .search(recipientCriteria)
+                .then((newsletterRecipient) => {
+                    this.newsletterRecipient = newsletterRecipient.first();
+                    this.loadCustomFieldSets();
+                })
+                .finally(() => {
                     this.isLoading = false;
                 });
-            });
         },
 
-        onClickSave() {
-            this.newsletterRecipientStore.save(this.newsletterRecipient, Shopware.Context.api).then(() => {
-                this.createNotificationSuccess({
-                    message: this.$tc(
-                        'sw-newsletter-recipient.detail.messageSaveSuccess',
-                        0,
-                        { key: this.newsletterRecipient.email },
-                    ),
+        onSave() {
+            this.isLoading = true;
+            this.isSaveSuccessful = false;
+
+            this.newsletterRecipientStore
+                .save(this.newsletterRecipient)
+                .then(() => {
+                    this.isSaveSuccessful = true;
+                })
+                .catch(() => {
+                    this.createNotificationError({
+                        message: this.$tc(
+                            'sw-newsletter-recipient.detail.messageSaveError',
+                            {
+                                key: this.newsletterRecipient.email,
+                            },
+                            0,
+                        ),
+                    });
                 });
+        },
+
+        onSaveFinish() {
+            this.isSaveSuccessful = false;
+            this.isLoading = false;
+        },
+
+        onCancel() {
+            this.$router.push({ name: 'sw.newsletter.recipient.index' });
+        },
+
+        loadCustomFieldSets() {
+            this.customFieldDataProviderService.getCustomFieldSets('newsletter_recipient').then((sets) => {
+                this.customFieldSets = sets;
             });
         },
     },

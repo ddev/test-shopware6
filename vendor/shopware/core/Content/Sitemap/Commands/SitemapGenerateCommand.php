@@ -10,13 +10,13 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainEntity;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
-use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -28,11 +28,13 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
     name: 'sitemap:generate',
     description: 'Generates sitemap files',
 )]
-#[Package('sales-channel')]
+#[Package('discovery')]
 class SitemapGenerateCommand extends Command
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<SalesChannelCollection> $salesChannelRepository
      */
     public function __construct(
         private readonly EntityRepository $salesChannelRepository,
@@ -64,7 +66,7 @@ class SitemapGenerateCommand extends Command
     {
         $salesChannelId = $input->getOption('salesChannelId');
 
-        $context = Context::createDefaultContext();
+        $context = Context::createCLIContext();
 
         $criteria = $this->createCriteria($salesChannelId);
 
@@ -74,21 +76,20 @@ class SitemapGenerateCommand extends Command
 
         $salesChannels = $this->salesChannelRepository->search($criteria, $context);
 
-        /** @var SalesChannelEntity $salesChannel */
         foreach ($salesChannels as $salesChannel) {
-            /** @var list<string> $languageIds */
-            $languageIds = $salesChannel->getDomains()->map(fn (SalesChannelDomainEntity $salesChannelDomain) => $salesChannelDomain->getLanguageId());
+            $languageIds = $salesChannel->getDomains()?->map(fn (SalesChannelDomainEntity $salesChannelDomain) => $salesChannelDomain->getLanguageId()) ?? [];
 
             $languageIds = array_unique($languageIds);
 
             foreach ($languageIds as $languageId) {
                 $salesChannelContext = $this->salesChannelContextFactory->create('', $salesChannel->getId(), [SalesChannelContextService::LANGUAGE_ID => $languageId]);
-                $output->writeln(sprintf('Generating sitemaps for sales channel %s (%s) with and language %s...', $salesChannel->getId(), $salesChannel->getName(), $languageId));
+
+                $output->writeln(\sprintf('Generating sitemaps for sales channel %s (%s) with and language %s...', $salesChannel->getId(), $salesChannel->getName(), $languageId));
 
                 try {
                     $this->generateSitemap($salesChannelContext, $input->getOption('force'));
                 } catch (AlreadyLockedException $exception) {
-                    $output->writeln(sprintf('ERROR: %s', $exception->getMessage()));
+                    $output->writeln(\sprintf('ERROR: %s', $exception->getMessage()));
                 }
             }
         }
@@ -110,10 +111,7 @@ class SitemapGenerateCommand extends Command
     {
         $criteria = $salesChannelId ? new Criteria([$salesChannelId]) : new Criteria();
         $criteria->addAssociation('domains');
-        $criteria->addFilter(new NotFilter(
-            NotFilter::CONNECTION_AND,
-            [new EqualsFilter('domains.id', null)]
-        ));
+        $criteria->addFilter(new NotEqualsFilter('domains.id', null));
 
         $criteria->addAssociation('type');
         $criteria->addFilter(new EqualsFilter('type.id', Defaults::SALES_CHANNEL_TYPE_STOREFRONT));

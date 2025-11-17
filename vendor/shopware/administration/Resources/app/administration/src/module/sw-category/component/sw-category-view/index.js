@@ -1,8 +1,11 @@
 import template from './sw-category-view.html.twig';
 import './sw-category-view.scss';
+import errorConfig from '../../error-config.json';
+
+const { mapPageErrors } = Shopware.Component.getComponentHelper();
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -29,7 +32,11 @@ export default {
 
     computed: {
         category() {
-            return Shopware.State.get('swCategoryDetail').category;
+            return Shopware.Store.get('swCategoryDetail').category;
+        },
+
+        isCategoryColumn() {
+            return Shopware.Store.get('swCategoryDetail').isCategoryColumn;
         },
 
         cmsPage() {
@@ -37,7 +44,7 @@ export default {
                 return false;
             }
 
-            return Shopware.State.get('cmsPageState').currentPage;
+            return Shopware.Store.get('cmsPage').currentPage;
         },
 
         isPage() {
@@ -47,5 +54,7 @@ export default {
         isCustomEntity() {
             return this.type === 'custom_entity';
         },
+
+        ...mapPageErrors(errorConfig),
     },
 };

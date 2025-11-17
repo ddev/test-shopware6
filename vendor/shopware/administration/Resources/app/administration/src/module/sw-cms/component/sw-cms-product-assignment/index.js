@@ -5,15 +5,23 @@ const { Criteria } = Shopware.Data;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
+
+    emits: [
+        'change',
+        'paginate',
+    ],
+
     data() {
         return {
             steps: [5],
         };
     },
+
+    computed: {},
 
     watch: {
         criteria: {
@@ -83,7 +91,6 @@ export default {
 
             return Promise.resolve();
         },
-
 
         onSelectCollapsed() {
             this.resultCollection = null;

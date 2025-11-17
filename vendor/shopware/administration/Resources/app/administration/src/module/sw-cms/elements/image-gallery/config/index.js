@@ -2,17 +2,25 @@ import template from './sw-cms-el-config-image-gallery.html.twig';
 import './sw-cms-el-config-image-gallery.scss';
 
 const { Mixin } = Shopware;
-const { moveItem, object: { cloneDeep } } = Shopware.Utils;
+const {
+    moveItem,
+    object: { cloneDeep },
+} = Shopware.Utils;
 const Criteria = Shopware.Data.Criteria;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+        'feature',
+    ],
+
+    emits: ['element-update'],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -22,8 +30,6 @@ export default {
         return {
             mediaModalIsOpen: false,
             initialFolderId: null,
-            /* @deprecated tag:v6.6.0 - Will be removed use entity instead. */
-            enitiy: this.element,
             entity: this.element,
             mediaItems: [],
             columnWidth: '100px',
@@ -62,6 +68,78 @@ export default {
         isProductPage() {
             return (this.cmsPageState?.currentPage?.type ?? '') === 'product_detail';
         },
+
+        displayModeValueOptions() {
+            return [
+                { value: 'standard', label: this.$tc('sw-cms.elements.general.config.label.displayModeStandard') },
+                { value: 'contain', label: this.$tc('sw-cms.elements.general.config.label.displayModeContain') },
+                { value: 'cover', label: this.$tc('sw-cms.elements.general.config.label.displayModeCover') },
+            ];
+        },
+
+        verticalAlignValueOptions() {
+            return [
+                {
+                    value: 'flex-start',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignTop'),
+                },
+                {
+                    value: 'center',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignCenter'),
+                },
+                {
+                    value: 'flex-end',
+                    label: this.$tc('sw-cms.elements.general.config.label.verticalAlignBottom'),
+                },
+            ];
+        },
+
+        navigationArrowsValueOptions() {
+            return [
+                {
+                    value: 'none',
+                    label: this.$tc('sw-cms.elements.imageSlider.config.label.navigationPositionNone'),
+                },
+                {
+                    value: 'inside',
+                    label: this.$tc('sw-cms.elements.imageSlider.config.label.navigationPositionInside'),
+                },
+                {
+                    value: 'outside',
+                    label: this.$tc('sw-cms.elements.imageSlider.config.label.navigationPositionOutside'),
+                },
+            ];
+        },
+
+        navigationDotsValueOptions() {
+            return [
+                {
+                    value: 'none',
+                    label: this.$tc('sw-cms.elements.imageSlider.config.label.navigationPositionNone'),
+                },
+                {
+                    value: 'inside',
+                    label: this.$tc('sw-cms.elements.imageSlider.config.label.navigationPositionInside'),
+                },
+                {
+                    value: 'outside',
+                    label: this.$tc('sw-cms.elements.imageSlider.config.label.navigationPositionOutside'),
+                },
+            ];
+        },
+
+        galleryPositionValueOptions() {
+            return [
+                {
+                    value: 'left',
+                    label: this.$tc('sw-cms.elements.imageGallery.config.label.navigationPreviewPositionLeft'),
+                },
+                {
+                    value: 'underneath',
+                    label: this.$tc('sw-cms.elements.imageGallery.config.label.navigationPreviewPositionUnderneath'),
+                },
+            ];
+        },
     },
 
     watch: {
@@ -86,7 +164,7 @@ export default {
                 return item.media;
             });
 
-            this.element.config.sliderItems.value = this.sliderItems.map(item => {
+            this.element.config.sliderItems.value = this.sliderItems.map((item) => {
                 return {
                     mediaId: item.media.id,
                     mediaUrl: item.media.url,
@@ -133,9 +211,7 @@ export default {
         },
 
         initConfig() {
-            if (!this.isProductPage
-                || this.element?.translated?.config
-                || this.element?.data?.sliderItems) {
+            if (!this.isProductPage || this.element?.translated?.config || this.element?.data?.sliderItems) {
                 return;
             }
 
@@ -156,7 +232,8 @@ export default {
             }
 
             this.$nextTick(() => {
-                const cssColumns = window.getComputedStyle(this.$refs.demoMediaGrid, null)
+                const cssColumns = window
+                    .getComputedStyle(this.$refs.demoMediaGrid, null)
                     .getPropertyValue('grid-template-columns')
                     .split(' ');
                 this.columnWidth = cssColumns[0];
@@ -180,6 +257,22 @@ export default {
                 this.mediaItems = [];
             }
 
+            // Check if mediaItem already exists in mediaItems
+            const mediaItemExists = this.mediaItems.find((item) => {
+                return item.id === mediaItem.id;
+            });
+
+            // Remove previous mediaItem if it already exists
+            if (mediaItemExists) {
+                this.mediaItems = this.mediaItems.filter((item) => {
+                    return item.id !== mediaItem.id;
+                });
+
+                sliderItems.value = sliderItems.value.filter((item) => {
+                    return item.mediaId !== mediaItem.id;
+                });
+            }
+
             sliderItems.value.push({
                 mediaUrl: mediaItem.url,
                 mediaId: mediaItem.id,
@@ -194,14 +287,11 @@ export default {
 
         onItemRemove(mediaItem, index) {
             const key = mediaItem.id;
-            this.element.config.sliderItems.value =
-                this.element.config.sliderItems.value.filter(
-                    (item, i) => (item.mediaId !== key || i !== index),
-                );
-
-            this.mediaItems = this.mediaItems.filter(
-                (item, i) => (item.id !== key || i !== index),
+            this.element.config.sliderItems.value = this.element.config.sliderItems.value.filter(
+                (item, i) => item.mediaId !== key || i !== index,
             );
+
+            this.mediaItems = this.mediaItems.filter((item, i) => item.id !== key || i !== index);
 
             this.updateMediaDataValue();
             this.emitUpdateEl();
@@ -243,10 +333,8 @@ export default {
                 });
 
                 if (!this.element.data) {
-                    this.$set(this.element, 'data', { sliderItems });
-                } else {
-                    this.$set(this.element.data, 'sliderItems', sliderItems);
-                }
+                    this.element.data = { sliderItems };
+                } else this.element.data.sliderItems = sliderItems;
             }
         },
 
@@ -265,9 +353,20 @@ export default {
         },
 
         onChangeDisplayMode(value) {
-            if (['cover', 'contain'].includes(value)) {
+            if (
+                [
+                    'cover',
+                    'contain',
+                ].includes(value)
+            ) {
                 this.element.config.verticalAlign.value = null;
             }
+
+            this.$emit('element-update', this.element);
+        },
+
+        onChangeUseFetchPriorityOnFirstItem(value) {
+            this.element.config.useFetchPriorityOnFirstItem.value = value;
 
             this.$emit('element-update', this.element);
         },

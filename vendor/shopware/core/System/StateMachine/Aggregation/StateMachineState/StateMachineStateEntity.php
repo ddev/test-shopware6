@@ -21,69 +21,33 @@ class StateMachineStateEntity extends Entity
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $name;
+    protected ?string $name = null;
 
-    /**
-     * @var string
-     */
-    protected $technicalName;
+    protected string $technicalName;
 
-    /**
-     * @var string
-     */
-    protected $stateMachineId;
+    protected string $stateMachineId;
 
-    /**
-     * @var StateMachineEntity|null
-     */
-    protected $stateMachine;
+    protected ?StateMachineEntity $stateMachine = null;
 
-    /**
-     * @var StateMachineTransitionCollection|null
-     */
-    protected $fromStateMachineTransitions;
+    protected ?StateMachineTransitionCollection $fromStateMachineTransitions = null;
 
-    /**
-     * @var StateMachineTransitionCollection|null
-     */
-    protected $toStateMachineTransitions;
+    protected ?StateMachineTransitionCollection $toStateMachineTransitions = null;
 
-    /**
-     * @var StateMachineStateTranslationCollection
-     */
-    protected $translations;
+    protected ?StateMachineStateTranslationCollection $translations = null;
 
-    /**
-     * @var OrderCollection|null
-     */
-    protected $orders;
+    protected ?OrderCollection $orders = null;
 
     protected ?OrderTransactionCaptureCollection $orderTransactionCaptures = null;
 
     protected ?OrderTransactionCaptureRefundCollection $orderTransactionCaptureRefunds = null;
 
-    /**
-     * @var OrderTransactionCollection|null
-     */
-    protected $orderTransactions;
+    protected ?OrderTransactionCollection $orderTransactions = null;
 
-    /**
-     * @var OrderDeliveryCollection|null
-     */
-    protected $orderDeliveries;
+    protected ?OrderDeliveryCollection $orderDeliveries = null;
 
-    /**
-     * @var StateMachineHistoryCollection|null
-     */
-    protected $fromStateMachineHistoryEntries;
+    protected ?StateMachineHistoryCollection $fromStateMachineHistoryEntries = null;
 
-    /**
-     * @var StateMachineHistoryCollection|null
-     */
-    protected $toStateMachineHistoryEntries;
+    protected ?StateMachineHistoryCollection $toStateMachineHistoryEntries = null;
 
     public function getToStateMachineHistoryEntries(): ?StateMachineHistoryCollection
     {
@@ -105,7 +69,7 @@ class StateMachineStateEntity extends Entity
         $this->fromStateMachineHistoryEntries = $fromStateMachineHistoryEntries;
     }
 
-    public function getName(): string
+    public function getName(): ?string
     {
         return $this->name;
     }
@@ -155,7 +119,7 @@ class StateMachineStateEntity extends Entity
         $this->toStateMachineTransitions = $toStateMachineTransitions;
     }
 
-    public function getTranslations(): StateMachineStateTranslationCollection
+    public function getTranslations(): ?StateMachineStateTranslationCollection
     {
         return $this->translations;
     }

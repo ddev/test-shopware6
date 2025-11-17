@@ -1,14 +1,12 @@
 import template from './sw-tree.html.twig';
 import './sw-tree.scss';
 
-const { Component } = Shopware;
 const { debounce, sort } = Shopware.Utils;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type static
  * @description you need to declare the functions createNewElement, getChildrenFromParent in the parent.
@@ -43,7 +41,7 @@ const { debounce, sort } = Shopware.Utils;
  * </sw-tree>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-tree', {
+export default {
     template,
 
     inject: ['feature'],
@@ -51,8 +49,29 @@ Component.register('sw-tree', {
     provide() {
         return {
             getItems: this.getItems,
+            startDrag: this.startDrag,
+            endDrag: this.endDrag,
+            moveDrag: this.moveDrag,
+            addSubElement: this.addSubElement,
+            addElement: this.addElement,
+            duplicateElement: this.duplicateElement,
+            onFinishNameingElement: this.onFinishNameingElement,
+            onDeleteElements: this.onDeleteElements,
+            abortCreateElement: this.abortCreateElement,
         };
     },
+
+    emits: [
+        'checked-elements-count',
+        'get-tree-items',
+        'search-tree-items',
+        'drag-start',
+        'drag-end',
+        'delete-element',
+        'editing-end',
+        'batch-delete',
+        'save-tree-items',
+    ],
 
     props: {
         items: {
@@ -95,7 +114,6 @@ Component.register('sw-tree', {
         searchable: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return true;
@@ -137,7 +155,6 @@ Component.register('sw-tree', {
         disableContextMenu: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return false;
@@ -147,7 +164,6 @@ Component.register('sw-tree', {
         bindItemsToFolder: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return false;
@@ -157,7 +173,6 @@ Component.register('sw-tree', {
         sortable: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return true;
@@ -167,7 +182,6 @@ Component.register('sw-tree', {
         checkItemsInitial: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return false;
@@ -177,7 +191,6 @@ Component.register('sw-tree', {
         allowDeleteCategories: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return true;
@@ -187,7 +200,6 @@ Component.register('sw-tree', {
         allowCreateCategories: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return true;
@@ -197,11 +209,16 @@ Component.register('sw-tree', {
         initiallyExpandedRoot: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: () => {
                 return false;
             },
+        },
+
+        ariaLabel: {
+            type: String,
+            required: false,
+            default: null,
         },
     },
 
@@ -261,7 +278,10 @@ Component.register('sw-tree', {
                 const pathIds = item?.data?.path?.split('|').filter((pathId) => pathId.length > 0) ?? '';
 
                 // add parent id to accumulator
-                return [...acc, ...pathIds];
+                return [
+                    ...acc,
+                    ...pathIds,
+                ];
             }, []);
         },
 
@@ -277,6 +297,7 @@ Component.register('sw-tree', {
                 this.treeItems = this.getTreeItems(this.isSearched ? null : this.rootParentId);
                 this._eventFromEdit = null;
             },
+            deep: true,
         },
 
         activeTreeItemId(val) {
@@ -290,8 +311,16 @@ Component.register('sw-tree', {
         this.createdComponent();
     },
 
-    destroyed() {
+    mounted() {
+        this.mountedComponent();
+    },
+
+    unmounted() {
         this.$emit('checked-elements-count', 0);
+    },
+
+    beforeUnmount() {
+        this.beforeUnmountedComponent();
     },
 
     methods: {
@@ -300,6 +329,267 @@ Component.register('sw-tree', {
                 this.openTreeById();
             }
             this.$emit('checked-elements-count', this.checkedElementsCount);
+        },
+
+        mountedComponent() {
+            // Focus handling
+            this.$el.addEventListener('focusin', this.handleFocusIn);
+            this.$el.addEventListener('keydown', this.handleKeyDown);
+        },
+
+        beforeUnmountedComponent() {
+            this.$el.removeEventListener('focusin', this.handleFocusIn);
+            this.$el.removeEventListener('keydown', this.handleKeyDown);
+        },
+
+        handleFocusIn(event) {
+            // Check if focus in already in the tree on any tree item
+            if (event.target.classList.contains('sw-tree-item') || event.target.classList.contains('sw-tree-item__toggle')) {
+                // If focus is already on a tree item, do nothing
+                return;
+            }
+
+            // Check if target is a input element
+            if (event.target.tagName === 'INPUT') {
+                // If focus is on an input element, do nothing
+                return;
+            }
+
+            /* Check recursively if any tree item is active, if yes, focus on it.
+             * If no tree item is active, focus on the tree item closest to the event target.
+             */
+            const activeTreeItem = this.$el.querySelector('.sw-tree-item[aria-current="page"]');
+
+            if (activeTreeItem) {
+                activeTreeItem.focus();
+            } else {
+                const closestTreeItem = event.target.closest('.sw-tree-item') || this.$el.querySelector('.sw-tree-item');
+
+                closestTreeItem?.focus();
+            }
+        },
+
+        handleKeyDown(event) {
+            switch (event.key) {
+                case 'Tab': {
+                    // Tab out of the tree to the next focusable element
+
+                    // Add inert attribute to the tree
+                    this.$el.setAttribute('inert', '');
+
+                    // Remove inert attribute from the tree after normal tabbing behavior is done
+                    setTimeout(() => {
+                        this.$el.removeAttribute('inert');
+                    }, 0);
+
+                    break;
+                }
+
+                case 'ArrowDown': {
+                    const currentFocusedTreeItem = this.$el.querySelector('.sw-tree-item:focus');
+
+                    if (!currentFocusedTreeItem) {
+                        break;
+                    }
+
+                    // Check if current focused tree is open
+                    const isTreeItemOpen = currentFocusedTreeItem.getAttribute('aria-expanded') === 'true';
+
+                    // If tree item is open, focus on the first child tree item
+                    if (isTreeItemOpen) {
+                        const firstChildTreeItem = currentFocusedTreeItem.querySelector('.sw-tree-item');
+
+                        if (firstChildTreeItem) {
+                            firstChildTreeItem.focus();
+                            break;
+                        }
+                    }
+
+                    const nextTreeItem = currentFocusedTreeItem.nextElementSibling;
+
+                    if (nextTreeItem) {
+                        nextTreeItem.focus();
+                        break;
+                    }
+
+                    // If no next tree item is found, look at the parent tree item
+                    const parentTreeItem = currentFocusedTreeItem.parentElement.closest('.sw-tree-item');
+                    // Get the next sibling of the parent tree item
+                    const nextParentTreeItem = parentTreeItem.nextElementSibling;
+
+                    if (nextParentTreeItem) {
+                        nextParentTreeItem.focus();
+                        break;
+                    }
+
+                    break;
+                }
+
+                case 'ArrowUp': {
+                    const currentFocusedTreeItem = document.activeElement;
+
+                    // Check if current focused tree item is a tree item
+                    if (!currentFocusedTreeItem.classList.contains('sw-tree-item')) {
+                        break;
+                    }
+
+                    // Helper function to find the last visible child in an expanded tree
+                    const getLastVisibleChild = (treeItem) => {
+                        const isExpanded = treeItem?.getAttribute('aria-expanded') === 'true';
+                        if (isExpanded) {
+                            const children = treeItem.querySelectorAll('.sw-tree-item');
+                            return children[children.length - 1]; // Last child in expanded tree
+                        }
+                        return null;
+                    };
+
+                    // Step 1: Try to focus on the previous sibling
+                    let previousTreeItem = currentFocusedTreeItem.previousElementSibling;
+                    if (previousTreeItem) {
+                        // If previous sibling is expanded, go to its last child
+                        const lastChild = getLastVisibleChild(previousTreeItem);
+                        if (lastChild) {
+                            lastChild.focus();
+                        } else {
+                            previousTreeItem.focus();
+                        }
+                        break;
+                    }
+
+                    // Step 2: No previous sibling, try to go to the parent
+                    let parentTreeItem = currentFocusedTreeItem.parentElement.closest('.sw-tree-item');
+                    while (parentTreeItem) {
+                        if (parentTreeItem.previousElementSibling) {
+                            // Go to the last visible child of the parent's previous sibling
+                            previousTreeItem = parentTreeItem.previousElementSibling;
+                            const lastChild = getLastVisibleChild(previousTreeItem);
+                            if (lastChild) {
+                                lastChild.focus();
+                            } else {
+                                previousTreeItem.focus();
+                            }
+                            break;
+                        }
+                        // If no previous sibling, keep traversing up the tree
+                        parentTreeItem = parentTreeItem.parentElement.closest('.sw-tree-item');
+                    }
+
+                    // If no parent or sibling found, nothing more to focus on
+                    break;
+                }
+
+                // Space key
+                case ' ': {
+                    // Toggle the checkbox of the focused tree item
+                    const currentFocusedTreeItem = document.activeElement;
+
+                    // Check if active element is a tree item
+                    if (!currentFocusedTreeItem.classList.contains('sw-tree-item')) {
+                        break;
+                    }
+
+                    const itemId = currentFocusedTreeItem.getAttribute('data-item-id');
+
+                    if (!itemId) {
+                        break;
+                    }
+
+                    // Get tree item from the recursive this.treeItems array
+                    const treeItem = this.findById(itemId);
+
+                    if (!treeItem) {
+                        break;
+                    }
+
+                    // Toggle the tree item
+                    treeItem.checked = !treeItem.checked;
+                    this.checkItem(treeItem);
+
+                    break;
+                }
+
+                // Enter key
+                case 'Enter': {
+                    // Change route to the focused tree item
+                    const currentFocusedTreeItem = document.activeElement;
+
+                    // Check if active element is a tree item
+                    if (!currentFocusedTreeItem.classList.contains('sw-tree-item')) {
+                        break;
+                    }
+
+                    const itemId = currentFocusedTreeItem.getAttribute('data-item-id');
+
+                    if (!itemId) {
+                        break;
+                    }
+
+                    // Get tree item from the recursive this.treeItems array
+                    const treeItem = this.findById(itemId);
+
+                    if (!treeItem) {
+                        break;
+                    }
+
+                    this.onChangeRoute(treeItem);
+                    break;
+                }
+
+                case 'ArrowLeft': {
+                    /* Closing is handled by the tree item component.
+                     * This event just gets triggered when event is not handled by the tree item component.
+                     * Then we need to focus the parent tree item.
+                     */
+                    const currentFocusedTreeItem = document.activeElement;
+
+                    // Check if active element is a tree item
+                    if (!currentFocusedTreeItem.classList.contains('sw-tree-item')) {
+                        break;
+                    }
+
+                    const parentTreeItem = currentFocusedTreeItem.parentElement.closest('.sw-tree-item');
+
+                    if (parentTreeItem) {
+                        parentTreeItem.focus();
+                    }
+
+                    break;
+                }
+
+                case 'ArrowRight': {
+                    /* Opening is handled by the tree item component.
+                     * This event just gets triggered when event is not handled by the tree item component.
+                     * Then we need to focus the first child tree item.
+                     */
+                    const currentFocusedTreeItem = document.activeElement;
+
+                    // Check if active element is a tree item
+                    if (!currentFocusedTreeItem.classList.contains('sw-tree-item')) {
+                        break;
+                    }
+
+                    // Check if current focused tree is open
+                    const isTreeItemOpen = currentFocusedTreeItem.getAttribute('aria-expanded') === 'true';
+
+                    // If tree item is open, focus on the first child tree item
+                    if (!isTreeItemOpen) {
+                        break;
+                    }
+
+                    const firstChildTreeItem = currentFocusedTreeItem.querySelector('.sw-tree-item');
+
+                    if (firstChildTreeItem) {
+                        firstChildTreeItem.focus();
+                        break;
+                    }
+
+                    break;
+                }
+
+                default: {
+                    break;
+                }
+            }
         },
 
         getItems(parentId = this.rootParentId, searchTerm = null) {
@@ -317,7 +607,7 @@ Component.register('sw-tree', {
                     return;
                 }
 
-                if (parentId === null && typeof this.items.find(i => i.id === item.parentId) !== 'undefined') {
+                if (parentId === null && typeof this.items.find((i) => i.id === item.parentId) !== 'undefined') {
                     return;
                 }
 
@@ -431,8 +721,8 @@ Component.register('sw-tree', {
             const sourceTree = this.findTreeByParentId(draggedComponent.parentId);
             const targetTree = this.findTreeByParentId(droppedComponent.parentId);
 
-            const dragItemIdx = sourceTree.findIndex(i => i.id === draggedComponent.id);
-            const dropItemIdx = targetTree.findIndex(i => i.id === droppedComponent.id);
+            const dragItemIdx = sourceTree.findIndex((i) => i.id === draggedComponent.id);
+            const dropItemIdx = targetTree.findIndex((i) => i.id === droppedComponent.id);
 
             if (dragItemIdx < 0 || dropItemIdx < 0) {
                 return;
@@ -513,11 +803,7 @@ Component.register('sw-tree', {
             }
 
             let newElem = null;
-            if (this.feature.isActive('VUE3')) {
-                newElem = this.$parent.$parent.createNewElement(null, null, name);
-            } else {
-                newElem = this.$parent.createNewElement(null, null, name);
-            }
+            newElem = this.$parent.$parent.createNewElement(null, null, name);
 
             this.saveItems();
 
@@ -536,24 +822,9 @@ Component.register('sw-tree', {
             }
             this.currentEditMode = this.addSubElement;
 
-            if (this.feature.isActive('VUE3')) {
-                this.$parent.$parent.getChildrenFromParent(contextItem.id).then(() => {
-                    const parentElement = contextItem;
-                    const newElem = this.$parent.$parent.createNewElement(contextItem, contextItem.id);
-                    const newTreeItem = this.getNewTreeItem(newElem);
-
-                    parentElement.childCount += 1;
-                    parentElement.data.childCount += 1;
-                    this.newElementId = newElem.id;
-                    this.createdItem = newTreeItem;
-                });
-
-                return;
-            }
-
-            this.$parent.getChildrenFromParent(contextItem.id).then(() => {
+            this.$parent.$parent.getChildrenFromParent(contextItem.id).then(() => {
                 const parentElement = contextItem;
-                const newElem = this.$parent.createNewElement(contextItem, contextItem.id);
+                const newElem = this.$parent.$parent.createNewElement(contextItem, contextItem.id);
                 const newTreeItem = this.getNewTreeItem(newElem);
 
                 parentElement.childCount += 1;
@@ -564,22 +835,12 @@ Component.register('sw-tree', {
         },
 
         duplicateElement(contextItem) {
-            if (this.feature.isActive('VUE3')) {
-                this.$parent.$parent.duplicateElement(contextItem);
-
-                return;
-            }
-
-            this.$parent.duplicateElement(contextItem);
+            this.$parent.$parent.duplicateElement(contextItem);
         },
 
         addElement(contextItem, pos) {
             let newElem = null;
-            if (this.feature.isActive('VUE3')) {
-                newElem = this.$parent.$parent.createNewElement(contextItem);
-            } else {
-                newElem = this.$parent.createNewElement(contextItem);
-            }
+            newElem = this.$parent.$parent.createNewElement(contextItem);
 
             const newTreeItem = this.getNewTreeItem(newElem);
 
@@ -598,8 +859,8 @@ Component.register('sw-tree', {
 
             const targetTree = this.findTreeByParentId(contextItem.parentId);
 
-            const newItemIdx = this.treeItems.findIndex(i => i.id === newTreeItem.id);
-            const contextItemIdx = targetTree.findIndex(i => i.id === contextItem.id);
+            const newItemIdx = this.treeItems.findIndex((i) => i.id === newTreeItem.id);
+            const contextItemIdx = targetTree.findIndex((i) => i.id === contextItem.id);
 
             if (pos === 'before') {
                 targetTree.splice(contextItemIdx, 1, newTreeItem, contextItem);
@@ -634,7 +895,7 @@ Component.register('sw-tree', {
 
         deleteElement(item) {
             const targetTree = this.findTreeByParentId(item.parentId);
-            const deletedItemIdx = targetTree.findIndex(i => i.id === item.id);
+            const deletedItemIdx = targetTree.findIndex((i) => i.id === item.id);
             if (item.children.length > 0) {
                 item.children.forEach((child) => {
                     child.data.isDeleted = true;
@@ -671,6 +932,8 @@ Component.register('sw-tree', {
 
         onFinishNameingElement(draft, event) {
             if (this.createdItem) {
+                this.createdItem.data.name = draft;
+
                 this.createdItem.data.save().then(() => {
                     this.createdItem = null;
                     this.saveItems();
@@ -688,7 +951,9 @@ Component.register('sw-tree', {
                 return;
             }
 
-            if (typeof this.$listeners['batch-delete'] === 'function') {
+            const batchDeleteIsFunction = typeof this.$attrs.onBatchDelete === 'function';
+
+            if (batchDeleteIsFunction) {
                 this.$emit('batch-delete', this.checkedElements);
             } else {
                 Object.values(this.checkedElements).forEach((itemId) => {
@@ -710,13 +975,13 @@ Component.register('sw-tree', {
                 if (item.childCount > 0) {
                     this.checkedElementsChildCount += 1;
                 }
-                this.$set(this.checkedElements, item.id, item.id);
+                this.checkedElements[item.id] = item.id;
                 this.checkedElementsCount += 1;
             } else {
                 if (item.childCount > 0) {
                     this.checkedElementsChildCount -= 1;
                 }
-                this.$delete(this.checkedElements, item.id);
+                delete this.checkedElements[item.id];
                 this.checkedElementsCount -= 1;
             }
 
@@ -747,4 +1012,4 @@ Component.register('sw-tree', {
             this.toDeleteItem = null;
         },
     },
-});
+};

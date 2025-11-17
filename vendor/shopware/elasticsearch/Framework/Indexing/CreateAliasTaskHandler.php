@@ -5,10 +5,10 @@ namespace Shopware\Elasticsearch\Framework\Indexing;
 use Doctrine\DBAL\Connection;
 use OpenSearch\Client;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Shopware\Core\Framework\Adapter\Storage\AbstractKeyValueStorage;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskCollection;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTaskHandler;
 use Shopware\Elasticsearch\Framework\ElasticsearchHelper;
 use Shopware\Elasticsearch\Framework\Indexing\Event\ElasticsearchIndexAliasSwitchedEvent;
@@ -20,24 +20,25 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * @final
  */
 #[AsMessageHandler(handles: CreateAliasTask::class)]
-#[Package('core')]
+#[Package('framework')]
 class CreateAliasTaskHandler extends ScheduledTaskHandler
 {
     /**
      * @internal
      *
+     * @param EntityRepository<ScheduledTaskCollection> $scheduledTaskRepository
      * @param array<mixed> $config
      */
     public function __construct(
         EntityRepository $scheduledTaskRepository,
+        LoggerInterface $logger,
         private readonly Client $client,
         private readonly Connection $connection,
         private readonly ElasticsearchHelper $elasticsearchHelper,
         private readonly array $config,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly AbstractKeyValueStorage $keyValueStorage
     ) {
-        parent::__construct($scheduledTaskRepository);
+        parent::__construct($scheduledTaskRepository, $logger);
     }
 
     public function run(): void
@@ -63,29 +64,23 @@ class CreateAliasTaskHandler extends ScheduledTaskHandler
             return;
         }
 
-        $actions = [
-            ['add' => ['index' => $index, 'alias' => $alias]],
-        ];
-
         $current = $this->client->indices()->getAlias(['name' => $alias]);
         $current = array_keys($current);
 
+        $actions = [];
         foreach ($current as $value) {
+            if ($value === $index) {
+                continue;
+            }
             $actions[] = ['remove' => ['index' => $value, 'alias' => $alias]];
         }
+        $actions[] = ['add' => ['index' => $index, 'alias' => $alias]];
 
         $this->client->indices()->updateAliases(['body' => ['actions' => $actions]]);
     }
 
     private function handleQueue(): void
     {
-        /**
-         * @deprecated tag:v6.6.0 - Will be removed
-         */
-        if (Feature::isActive('ES_MULTILINGUAL_INDEX')) {
-            $this->keyValueStorage->set(ElasticsearchHelper::ENABLE_MULTILINGUAL_INDEX_KEY, 1);
-        }
-
         $indices = $this->connection->fetchAllAssociative('SELECT * FROM elasticsearch_index_task');
         if (empty($indices)) {
             return;

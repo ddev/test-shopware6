@@ -1,4 +1,3 @@
-import type { MetaInfo } from 'vue-meta';
 import type Repository from '../../../../core/data/repository.data';
 import type CriteriaType from '../../../../core/data/criteria.data';
 import template from './sw-flow-index.html.twig';
@@ -8,20 +7,23 @@ const { Criteria } = Shopware.Data;
 
 /**
  * @private
- * @package services-settings
+ * @sw-package after-sales
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default Shopware.Component.wrapComponentConfig({
     template,
 
-    inject: ['acl', 'repositoryFactory'],
+    inject: [
+        'acl',
+        'repositoryFactory',
+    ],
 
     data(): {
-        isLoading: boolean,
-        term: string,
-        total: number,
-        showUploadModal: boolean,
-        } {
+        isLoading: boolean;
+        term: string;
+        total: number;
+        showUploadModal: boolean;
+    } {
         return {
             isLoading: false,
             term: '',
@@ -30,7 +32,7 @@ export default Shopware.Component.wrapComponentConfig({
         };
     },
 
-    metaInfo(): MetaInfo {
+    metaInfo() {
         return {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             title: this.$createTitle(),

@@ -12,8 +12,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
     name: 'sales-channel:maintenance:disable',
     description: 'Disable maintenance mode for a sales channel',
 )]
-#[Package('core')]
+#[Package('discovery')]
 class SalesChannelMaintenanceDisableCommand extends SalesChannelMaintenanceEnableCommand
 {
-    protected $setMaintenanceMode = false;
+    protected bool $setMaintenanceMode = false;
 }

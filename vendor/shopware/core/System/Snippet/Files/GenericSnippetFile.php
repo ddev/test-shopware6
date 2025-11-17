@@ -4,7 +4,7 @@ namespace Shopware\Core\System\Snippet\Files;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('system-settings')]
+#[Package('discovery')]
 class GenericSnippetFile extends AbstractSnippetFile
 {
     public function __construct(
@@ -13,7 +13,7 @@ class GenericSnippetFile extends AbstractSnippetFile
         private readonly string $iso,
         private readonly string $author,
         private readonly bool $isBase,
-        private string $technicalName
+        private string $technicalName,
     ) {
     }
 

@@ -2,15 +2,23 @@ import template from './sw-order-create-address-modal.html.twig';
 import './sw-order-create-address-modal.scss';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
-const { Mixin, State, Service } = Shopware;
+const { Mixin, Store, Service } = Shopware;
 const { Criteria } = Shopware.Data;
 
+/**
+ * @deprecated tag:v6.8.0 - will be removed, is not used anymore
+ */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'set-customer-address',
+        'close-modal',
+    ],
 
     mixins: [
         Mixin.getByName('notification'),
@@ -102,10 +110,10 @@ export default {
             try {
                 this.addresses = await this.addressRepository.search(this.addressCriteria);
 
-                this.selectedAddressId = this.activeCustomer[this.address.contextId]
-                    || this.activeCustomer[this.address.contextDataDefaultId];
+                this.selectedAddressId =
+                    this.activeCustomer[this.address.contextId] || this.activeCustomer[this.address.contextDataDefaultId];
 
-                await Shopware.State.dispatch('error/resetApiErrors');
+                await Shopware.Store.get('error').resetApiErrors();
             } catch {
                 this.createNotificationError({
                     message: this.$tc('sw-order.create.messageFetchCustomerAddressesError'),
@@ -134,7 +142,7 @@ export default {
         },
 
         findSelectedAddress() {
-            return this.addresses.find(address => address.id === this.selectedAddressId);
+            return this.addresses.find((address) => address.id === this.selectedAddressId);
         },
 
         async updateOrderContext() {
@@ -146,12 +154,11 @@ export default {
                 [this.address.contextDataDefaultId]: address[this.address.contextDataDefaultId],
             };
 
-            await State
-                .dispatch('swOrder/updateOrderContext', {
-                    context,
-                    salesChannelId: this.activeCustomer.salesChannelId,
-                    contextToken: this.cart.token,
-                });
+            await Store.get('swOrder').updateOrderContext({
+                context,
+                salesChannelId: this.activeCustomer.salesChannelId,
+                contextToken: this.cart.token,
+            });
 
             this.$emit('set-customer-address', {
                 contextId: this.address.contextId,
@@ -184,7 +191,7 @@ export default {
                     code: 'c1051bb4-d103-4f74-8988-acbcafc7fdc3',
                 });
 
-                await Shopware.State.dispatch('error/addApiError', {
+                await Shopware.Store.get('error').addApiError({
                     expression: `customer_address.${this.currentAddress.id}.company`,
                     error: companyError,
                 });

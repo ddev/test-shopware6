@@ -6,6 +6,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Kernel;
+use Shopware\Core\Maintenance\MaintenanceException;
 
 /**
  * @internal
@@ -13,7 +14,7 @@ use Shopware\Core\Kernel;
  * @codeCoverageIgnore - Is tested by integration test, does not make sense to unit test
  * as the sole purpose of this class is to abstract DB interactions during setup
  */
-#[Package('core')]
+#[Package('framework')]
 class SetupDatabaseAdapter
 {
     public function dropDatabase(Connection $connection, string $database): void
@@ -43,11 +44,7 @@ class SetupDatabaseAdapter
 
         $tables = $connection->fetchFirstColumn('SHOW TABLES');
 
-        if (\in_array('migration', $tables, true)) {
-            return true;
-        }
-
-        return false;
+        return \in_array('migration', $tables, true);
     }
 
     public function getTableCount(Connection $connection, string $database): int
@@ -62,7 +59,7 @@ class SetupDatabaseAdapter
     /**
      * @param list<string> $ignoredSchemas
      *
-     * @return list<string>
+     * @return array<string>
      */
     public function getExistingDatabases(Connection $connection, array $ignoredSchemas): array
     {
@@ -84,8 +81,8 @@ class SetupDatabaseAdapter
         $directory = \dirname((string) $kernelClass->getFileName());
 
         $path = $directory . '/schema.sql';
-        if (!is_readable($path) || is_dir($path)) {
-            throw new \RuntimeException('schema.sql not found or readable in ' . $directory);
+        if (!is_file($path) || !is_readable($path)) {
+            throw MaintenanceException::couldNotReadFile($path);
         }
 
         return (string) file_get_contents($path);

@@ -4,24 +4,27 @@ namespace Shopware\Elasticsearch\Admin\Indexer;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Exception;
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressDefinition;
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerTag\CustomerTagDefinition;
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IterableQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IteratorFactory;
-use Shopware\Core\Framework\DataAbstractionLayer\Entity;
-use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('system-settings')]
+#[Package('inventory')]
 final class CustomerAdminSearchIndexer extends AbstractAdminIndexer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<CustomerCollection> $repository
      */
     public function __construct(
         private readonly Connection $connection,
@@ -51,11 +54,48 @@ final class CustomerAdminSearchIndexer extends AbstractAdminIndexer
         return $this->factory->createIterator($this->getEntity(), null, $this->indexingBatchSize);
     }
 
-    /**
-     * @param array<string, mixed> $result
-     *
-     * @return array{total:int, data:EntityCollection<Entity>}
-     */
+    public function getUpdatedIds(EntityWrittenContainerEvent $event): array
+    {
+        $ids = [];
+
+        $customerIds = $event->getPrimaryKeysWithPropertyChange($this->getEntity(), [
+            'firstName',
+            'lastName',
+            'email',
+            'company',
+            'customerNumber',
+        ]);
+
+        $addresses = $event->getPrimaryKeysWithPropertyChange(CustomerAddressDefinition::ENTITY_NAME, [
+            'firstName',
+            'lastName',
+            'company',
+            'city',
+            'street',
+            'zipcode',
+            'phoneNumber',
+            'additionalAddressLine1',
+            'additionalAddressLine2',
+            'countryId',
+        ]);
+
+        if (!empty($addresses)) {
+            $ids = array_merge($customerIds, $event->getPrimaryKeys($this->getEntity()));
+        }
+
+        $tags = $event->getPrimaryKeysWithPropertyChange(CustomerTagDefinition::ENTITY_NAME, [
+            'tagId',
+        ]);
+
+        foreach ($tags as $pks) {
+            if (isset($pks['customerId'])) {
+                $ids[] = $pks['customerId'];
+            }
+        }
+
+        return \array_values(\array_unique($ids));
+    }
+
     public function globalData(array $result, Context $context): array
     {
         $ids = array_column($result['hits'], 'id');
@@ -66,26 +106,22 @@ final class CustomerAdminSearchIndexer extends AbstractAdminIndexer
         ];
     }
 
-    /**
-     * @param array<string>|array<int, array<string>> $ids
-     *
-     * @throws Exception
-     *
-     * @return array<int|string, array<string, mixed>>
-     */
     public function fetch(array $ids): array
     {
         $data = $this->connection->fetchAllAssociative(
             '
             SELECT LOWER(HEX(customer.id)) as id,
-                   GROUP_CONCAT(DISTINCT tag.name) as tags,
-                   GROUP_CONCAT(DISTINCT country_translation.name) as country,
-                   GROUP_CONCAT(DISTINCT customer_address.city) as city,
-                   GROUP_CONCAT(DISTINCT customer_address.street) as street,
-                   GROUP_CONCAT(DISTINCT customer_address.zipcode) as zipcode,
-                   GROUP_CONCAT(DISTINCT customer_address.phone_number) as phone_number,
-                   GROUP_CONCAT(DISTINCT customer_address.additional_address_line1) as additional_address_line1,
-                   GROUP_CONCAT(DISTINCT customer_address.additional_address_line2) as additional_address_line2,
+                   GROUP_CONCAT(DISTINCT tag.name SEPARATOR " ") as tags,
+                   GROUP_CONCAT(DISTINCT country_translation.name SEPARATOR " ") as country,
+                   GROUP_CONCAT(DISTINCT customer_address.first_name SEPARATOR " ") as address_first_name,
+                   GROUP_CONCAT(DISTINCT customer_address.last_name SEPARATOR " ") as address_last_name,
+                   GROUP_CONCAT(DISTINCT customer_address.company SEPARATOR " ") as address_company,
+                   GROUP_CONCAT(DISTINCT customer_address.city SEPARATOR " ") as city,
+                   GROUP_CONCAT(DISTINCT customer_address.street SEPARATOR " ") as street,
+                   GROUP_CONCAT(DISTINCT customer_address.zipcode SEPARATOR " ") as zipcode,
+                   GROUP_CONCAT(DISTINCT customer_address.phone_number SEPARATOR " ") as phone_number,
+                   GROUP_CONCAT(DISTINCT customer_address.additional_address_line1 SEPARATOR " ") as additional_address_line1,
+                   GROUP_CONCAT(DISTINCT customer_address.additional_address_line2 SEPARATOR " ") as additional_address_line2,
                    customer.first_name,
                    customer.last_name,
                    customer.email,
@@ -115,7 +151,7 @@ final class CustomerAdminSearchIndexer extends AbstractAdminIndexer
 
         $mapped = [];
         foreach ($data as $row) {
-            $id = $row['id'];
+            $id = (string) $row['id'];
             $text = \implode(' ', array_filter(array_unique(array_values($row))));
             $mapped[$id] = ['id' => $id, 'text' => \strtolower($text)];
         }

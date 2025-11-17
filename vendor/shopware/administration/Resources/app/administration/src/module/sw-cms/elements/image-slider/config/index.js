@@ -2,17 +2,22 @@ import template from './sw-cms-el-config-image-slider.html.twig';
 import './sw-cms-el-config-image-slider.scss';
 
 const { Mixin } = Shopware;
-const { moveItem, object: { cloneDeep } } = Shopware.Utils;
+const {
+    moveItem,
+    object: { cloneDeep },
+} = Shopware.Utils;
 const Criteria = Shopware.Data.Criteria;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
 
     inject: ['repositoryFactory'],
+
+    emits: ['element-update'],
 
     mixins: [
         Mixin.getByName('cms-element'),
@@ -56,6 +61,73 @@ export default {
         autoplayTimeoutDefault() {
             return this.cmsService.getCmsElementConfigByName('image-slider').defaultConfig.autoplayTimeout.value;
         },
+
+        displayModeValueOptions() {
+            return [
+                {
+                    value: 'standard',
+                    label: this.$t('sw-cms.elements.general.config.label.displayModeStandard'),
+                },
+                {
+                    value: 'contain',
+                    label: this.$t('sw-cms.elements.general.config.label.displayModeContain'),
+                },
+                {
+                    value: 'cover',
+                    label: this.$t('sw-cms.elements.general.config.label.displayModeCover'),
+                },
+            ];
+        },
+        verticalAlignValueOptions() {
+            return [
+                {
+                    value: 'flex-start',
+                    label: this.$t('sw-cms.elements.general.config.label.verticalAlignTop'),
+                },
+                {
+                    value: 'center',
+                    label: this.$t('sw-cms.elements.general.config.label.verticalAlignCenter'),
+                },
+                {
+                    value: 'flex-end',
+                    label: this.$t('sw-cms.elements.general.config.label.verticalAlignBottom'),
+                },
+            ];
+        },
+
+        navigationArrowsValueOptions() {
+            return [
+                {
+                    value: 'none',
+                    label: this.$t('sw-cms.elements.imageSlider.config.label.navigationPositionNone'),
+                },
+                {
+                    value: 'inside',
+                    label: this.$t('sw-cms.elements.imageSlider.config.label.navigationPositionInside'),
+                },
+                {
+                    value: 'outside',
+                    label: this.$t('sw-cms.elements.imageSlider.config.label.navigationPositionOutside'),
+                },
+            ];
+        },
+
+        navigationDotsValueOptions() {
+            return [
+                {
+                    value: 'none',
+                    label: this.$t('sw-cms.elements.imageSlider.config.label.navigationPositionNone'),
+                },
+                {
+                    value: 'inside',
+                    label: this.$t('sw-cms.elements.imageSlider.config.label.navigationPositionInside'),
+                },
+                {
+                    value: 'outside',
+                    label: this.$t('sw-cms.elements.imageSlider.config.label.navigationPositionOutside'),
+                },
+            ];
+        },
     },
 
     created() {
@@ -79,8 +151,17 @@ export default {
                 criteria.setIds(mediaIds);
 
                 const searchResult = await this.mediaRepository.search(criteria);
-                this.mediaItems = mediaIds.map((mediaId) => {
-                    return searchResult.get(mediaId);
+
+                this.mediaItems = mediaIds
+                    .map((mediaId) => {
+                        return searchResult.get(mediaId);
+                    })
+                    .filter((mediaItem) => mediaItem !== null);
+
+                this.element.config.sliderItems.value.forEach((item, i) => {
+                    if (searchResult.get(item.mediaId) === null) {
+                        this.onItemRemove({ id: item.mediaId }, i);
+                    }
                 });
             }
         },
@@ -92,9 +173,26 @@ export default {
                 sliderItems.source = 'static';
             }
 
+            // Check if mediaItem already exists in mediaItems
+            const mediaItemExists = this.mediaItems.find((item) => {
+                return item.id === mediaItem.id;
+            });
+
+            // Remove previous mediaItem if it already exists
+            if (mediaItemExists) {
+                this.mediaItems = this.mediaItems.filter((item) => {
+                    return item.id !== mediaItem.id;
+                });
+
+                sliderItems.value = sliderItems.value.filter((item) => {
+                    return item.mediaId !== mediaItem.id;
+                });
+            }
+
             sliderItems.value.push({
                 mediaUrl: mediaItem.url,
                 mediaId: mediaItem.id,
+                ariaLabel: null,
                 url: null,
                 newTab: false,
             });
@@ -109,17 +207,13 @@ export default {
             const key = mediaItem.id;
             const { value } = this.element.config.sliderItems;
 
-            this.element.config.sliderItems.value = value.filter(
-                (item, i) => {
-                    return (item.mediaId !== key || i !== index);
-                },
-            );
+            this.element.config.sliderItems.value = value.filter((item, i) => {
+                return item.mediaId !== key || i !== index;
+            });
 
-            this.mediaItems = this.mediaItems.filter(
-                (item, i) => {
-                    return (item.id !== key || i !== index);
-                },
-            );
+            this.mediaItems = this.mediaItems.filter((item, i) => {
+                return item.id !== key || i !== index;
+            });
 
             this.updateMediaDataValue();
             this.emitUpdateEl();
@@ -140,6 +234,7 @@ export default {
                 this.element.config.sliderItems.value.push({
                     mediaUrl: item.url,
                     mediaId: item.id,
+                    ariaLabel: null,
                     url: null,
                     newTab: false,
                 });
@@ -172,10 +267,12 @@ export default {
                 });
 
                 if (!this.element.data) {
-                    this.$set(this.element, 'data', { sliderItems });
-                } else {
-                    this.$set(this.element.data, 'sliderItems', sliderItems);
+                    this.element.data = { sliderItems };
+
+                    return;
                 }
+
+                this.element.data.sliderItems = sliderItems;
             }
         },
 
@@ -207,6 +304,18 @@ export default {
         },
 
         emitUpdateEl() {
+            this.$emit('element-update', this.element);
+        },
+
+        onChangeIsDecorative(value) {
+            this.element.config.isDecorative.value = value;
+
+            this.$emit('element-update', this.element);
+        },
+
+        onChangeUseFetchPriorityOnFirstItem(value) {
+            this.element.config.useFetchPriorityOnFirstItem.value = value;
+
             this.$emit('element-update', this.element);
         },
     },

@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('content')]
+#[Package('framework')]
 class Migration1659425718AddFlagsToCustomEntities extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -19,13 +19,11 @@ class Migration1659425718AddFlagsToCustomEntities extends MigrationStep
 
     public function update(Connection $connection): void
     {
-        if (!$this->columnExists($connection, 'custom_entity', 'flags')) {
-            $connection->executeStatement('ALTER TABLE `custom_entity` ADD `flags` JSON NULL;');
-        }
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
+        $this->addColumn(
+            connection: $connection,
+            table: 'custom_entity',
+            column: 'flags',
+            type: 'JSON'
+        );
     }
 }

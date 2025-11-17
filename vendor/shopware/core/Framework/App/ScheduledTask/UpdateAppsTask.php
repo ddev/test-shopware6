@@ -4,8 +4,9 @@ namespace Shopware\Core\Framework\App\ScheduledTask;
 
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[Package('core')]
+#[Package('framework')]
 class UpdateAppsTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -15,6 +16,16 @@ class UpdateAppsTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 1 Day
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
+    }
+
+    public static function shouldRun(ParameterBagInterface $bag): bool
+    {
+        return $bag->get('shopware.deployment.runtime_extension_management');
     }
 }

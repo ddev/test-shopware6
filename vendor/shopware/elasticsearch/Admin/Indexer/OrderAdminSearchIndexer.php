@@ -4,25 +4,29 @@ namespace Shopware\Elasticsearch\Admin\Indexer;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Exception;
+use Shopware\Core\Checkout\Document\DocumentDefinition;
+use Shopware\Core\Checkout\Order\Aggregate\OrderAddress\OrderAddressDefinition;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTag\OrderTagDefinition;
+use Shopware\Core\Checkout\Order\OrderCollection;
 use Shopware\Core\Checkout\Order\OrderDefinition;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IterableQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\Common\IteratorFactory;
-use Shopware\Core\Framework\DataAbstractionLayer\Entity;
-use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('system-settings')]
+#[Package('inventory')]
 final class OrderAdminSearchIndexer extends AbstractAdminIndexer
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<OrderCollection> $repository
      */
     public function __construct(
         private readonly Connection $connection,
@@ -49,14 +53,47 @@ final class OrderAdminSearchIndexer extends AbstractAdminIndexer
 
     public function getIterator(): IterableQuery
     {
-        return $this->factory->createIterator($this->getEntity(), null, $this->indexingBatchSize);
+        return $this->factory->createIterator($this->getEntity(), null, $this->indexingBatchSize, Defaults::LIVE_VERSION);
     }
 
-    /**
-     * @param array<string, mixed> $result
-     *
-     * @return array{total:int, data:EntityCollection<Entity>}
-     */
+    public function getUpdatedIds(EntityWrittenContainerEvent $event): array
+    {
+        $ids = $event->getPrimaryKeysWithPropertyChange(OrderDefinition::ENTITY_NAME, [
+            'orderNumber',
+            'amountTotal',
+        ]);
+
+        $addresses = $event->getPrimaryKeysWithPropertyChange(OrderAddressDefinition::ENTITY_NAME, [
+            'city',
+            'street',
+            'zipcode',
+            'phoneNumber',
+            'additionalAddressLine1',
+            'additionalAddressLine2',
+            'countryId',
+            'orderId',
+        ]);
+
+        $orderDocuments = $event->getPrimaryKeysWithPropertyChange(DocumentDefinition::ENTITY_NAME, [
+            'config',
+            'orderId',
+        ]);
+
+        if (!empty($addresses) || !empty($orderDocuments)) {
+            $ids = array_merge($ids, $event->getPrimaryKeys($this->getEntity()));
+        }
+
+        $tags = $event->getPrimaryKeysWithPropertyChange(OrderTagDefinition::ENTITY_NAME, ['tagId']);
+
+        foreach ($tags as $pks) {
+            if (isset($pks['orderId'])) {
+                $ids[] = $pks['orderId'];
+            }
+        }
+
+        return \array_values(\array_unique($ids));
+    }
+
     public function globalData(array $result, Context $context): array
     {
         $ids = array_column($result['hits'], 'id');
@@ -67,27 +104,20 @@ final class OrderAdminSearchIndexer extends AbstractAdminIndexer
         ];
     }
 
-    /**
-     * @param array<string>|array<int, array<string>> $ids
-     *
-     * @throws Exception
-     *
-     * @return array<int|string, array<string, mixed>>
-     */
     public function fetch(array $ids): array
     {
         $data = $this->connection->fetchAllAssociative(
             '
             SELECT LOWER(HEX(order.id)) as id,
-                   GROUP_CONCAT(DISTINCT tag.name) as tags,
-                   GROUP_CONCAT(DISTINCT country_translation.name) as country,
-                   GROUP_CONCAT(DISTINCT order_address.city) as city,
-                   GROUP_CONCAT(DISTINCT order_address.street) as street,
-                   GROUP_CONCAT(DISTINCT order_address.zipcode) as zipcode,
-                   GROUP_CONCAT(DISTINCT order_address.phone_number) as phone_number,
-                   GROUP_CONCAT(DISTINCT order_address.additional_address_line1) as additional_address_line1,
-                   GROUP_CONCAT(DISTINCT order_address.additional_address_line2) as additional_address_line2,
-                   GROUP_CONCAT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(document.config, "$.documentNumber"))) as documentNumber,
+                   GROUP_CONCAT(DISTINCT tag.name SEPARATOR " ") as tags,
+                   GROUP_CONCAT(DISTINCT country_translation.name SEPARATOR " ") as country,
+                   GROUP_CONCAT(DISTINCT order_address.city SEPARATOR " ") as city,
+                   GROUP_CONCAT(DISTINCT order_address.street SEPARATOR " ") as street,
+                   GROUP_CONCAT(DISTINCT order_address.zipcode SEPARATOR " ") as zipcode,
+                   GROUP_CONCAT(DISTINCT order_address.phone_number SEPARATOR " ") as phone_number,
+                   GROUP_CONCAT(DISTINCT order_address.additional_address_line1 SEPARATOR " ") as additional_address_line1,
+                   GROUP_CONCAT(DISTINCT order_address.additional_address_line2 SEPARATOR " ") as additional_address_line2,
+                   GROUP_CONCAT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(document.config, "$.documentNumber")) SEPARATOR " ") as documentNumber,
                    order_customer.first_name,
                    order_customer.last_name,
                    order_customer.email,
@@ -98,19 +128,19 @@ final class OrderAdminSearchIndexer extends AbstractAdminIndexer
                    order_delivery.tracking_codes
             FROM `order`
                 LEFT JOIN order_customer
-                    ON `order`.id = order_customer.order_id
+                    ON `order`.id = order_customer.order_id AND order_customer.order_version_id = :versionId
                 LEFT JOIN order_address
-                    ON `order`.id = order_address.order_id
+                    ON `order`.id = order_address.order_id AND order_address.order_version_id = :versionId
                 LEFT JOIN country
                     ON order_address.country_id = country.id
                 LEFT JOIN country_translation
                     ON country.id = country_translation.country_id
                 LEFT JOIN order_tag
-                    ON `order`.id = order_tag.order_id
+                    ON `order`.id = order_tag.order_id AND order_tag.order_version_id = :versionId
                 LEFT JOIN tag
                     ON order_tag.tag_id = tag.id
                 LEFT JOIN order_delivery
-                    ON `order`.id = order_delivery.order_id
+                    ON `order`.id = order_delivery.order_id AND order_delivery.order_version_id = :versionId
                 LEFT JOIN document
                     ON `order`.id = document.order_id
             WHERE order.id IN (:ids) AND `order`.version_id = :versionId
@@ -127,7 +157,7 @@ final class OrderAdminSearchIndexer extends AbstractAdminIndexer
 
         $mapped = [];
         foreach ($data as $row) {
-            $id = $row['id'];
+            $id = (string) $row['id'];
             $text = \implode(' ', array_filter(array_unique(array_values($row))));
             $mapped[$id] = ['id' => $id, 'text' => \strtolower($text)];
         }

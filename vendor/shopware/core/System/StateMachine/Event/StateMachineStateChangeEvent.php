@@ -16,62 +16,19 @@ class StateMachineStateChangeEvent extends Event
     final public const STATE_MACHINE_TRANSITION_SIDE_ENTER = 'state_enter';
     final public const STATE_MACHINE_TRANSITION_SIDE_LEAVE = 'state_leave';
 
-    /**
-     * @var Context
-     */
-    protected $context;
+    protected string $salesChannelId;
 
-    /**
-     * @var string
-     */
-    protected $salesChannelId;
-
-    /**
-     * @var StateMachineEntity
-     */
-    protected $stateMachine;
-
-    /**
-     * @var string
-     */
-    protected $transitionSide;
-
-    /**
-     * @var string
-     */
-    protected $stateName;
-
-    /**
-     * @var StateMachineStateEntity
-     */
-    protected $previousState;
-
-    /**
-     * @var StateMachineStateEntity
-     */
-    protected $nextState;
-
-    /**
-     * @var Transition
-     */
-    protected $transition;
+    protected string $stateName;
 
     public function __construct(
-        Context $context,
-        string $transitionSide,
-        Transition $transition,
-        StateMachineEntity $stateMachine,
-        StateMachineStateEntity $previousState,
-        StateMachineStateEntity $nextState,
+        protected Context $context,
+        protected string $transitionSide,
+        protected Transition $transition,
+        protected StateMachineEntity $stateMachine,
+        protected StateMachineStateEntity $previousState,
+        protected StateMachineStateEntity $nextState,
         private readonly ?MailRecipientStruct $mailRecipientStruct = null
     ) {
-        $this->context = $context;
-        $this->stateMachine = $stateMachine;
-        $this->transitionSide = $transitionSide;
-        $this->previousState = $previousState;
-        $this->nextState = $nextState;
-        $this->transition = $transition;
-
         if ($this->transitionSide === static::STATE_MACHINE_TRANSITION_SIDE_ENTER) {
             $this->stateName = $this->nextState->getTechnicalName();
         } else {

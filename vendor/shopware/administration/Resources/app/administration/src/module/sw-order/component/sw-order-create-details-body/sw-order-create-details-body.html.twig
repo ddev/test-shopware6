@@ -1,4 +1,3 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_order_create_details_body %}
 <sw-container
     class="sw-order-create-details-body"
@@ -6,14 +5,10 @@
     gap="0 32px"
 >
     <div>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_create_details_body_email %}
-        <sw-text-field
-            {% if VUE3 %}
-            v-model:value="email"
-            {% else %}
+
+        <mt-text-field
             v-model="email"
-            {% endif %}
             disabled
             size="small"
             class="sw-order-create-details-body__item"
@@ -22,7 +17,6 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_create_details_body_billing_address %}
         <div
             v-if="isCustomerActive"
@@ -30,16 +24,18 @@
         >
             <p class="sw-order-create-details-body__item-label">
                 {{ $tc('sw-order.createBase.detailsBody.labelBillingAddress') }}
-                <sw-button
+                <mt-button
                     class="sw-order-create-details-body__item-label-button"
+                    variant="secondary"
+                    data-analytics-id="sw-order-create-details-body.edit-billing-address"
                     @click="onEditBillingAddress"
                 >
                     {{ $tc('sw-order.detailBase.buttonEditAddress') }}
-                </sw-button>
+                </mt-button>
             </p>
             <sw-address :address="billingAddress" />
         </div>
-        <sw-textarea-field
+        <mt-textarea
             v-else
             disabled
             class="sw-order-create-details-body__item"
@@ -50,14 +46,10 @@
     </div>
 
     <div>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_create_details_body_phone_number %}
-        <sw-text-field
-            {% if VUE3 %}
-            v-model:value="phoneNumber"
-            {% else %}
+
+        <mt-text-field
             v-model="phoneNumber"
-            {% endif %}
             disabled
             size="small"
             class="sw-order-create-details-body__item"
@@ -66,23 +58,23 @@
         />
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_order_create_details_body_shipping_address %}
         <div
             v-if="isCustomerActive"
             class="sw-order-create-details-body__item is-shipping"
         >
             <template v-if="isAddressIdentical">
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_order_create_details_body_shipping_address_identical %}
                 <p class="sw-order-create-details-body__item-label">
                     {{ $tc('sw-order.createBase.detailsBody.labelShippingAddress') }}
-                    <sw-button
+                    <mt-button
                         class="sw-order-create-details-body__item-label-button"
+                        variant="secondary"
+                        data-analytics-id="sw-order-create-details-body.edit-identical-shipping-address"
                         @click="onEditShippingAddress"
                     >
                         {{ $tc('sw-order.detailBase.buttonEditAddress') }}
-                    </sw-button>
+                    </mt-button>
                 </p>
                 <div class="sw-order-create-details-body__address-identical">
                     <span class="sw-order-create-details-body__address-identical-text">
@@ -92,22 +84,23 @@
                 {% endblock %}
             </template>
             <template v-else>
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_order_create_details_body_shipping_address_content %}
                 <p class="sw-order-create-details-body__item-label">
                     {{ $tc('sw-order.createBase.detailsBody.labelShippingAddress') }}
-                    <sw-button
+                    <mt-button
                         class="sw-order-create-details-body__item-label-button"
+                        variant="secondary"
+                        data-analytics-id="sw-order-create-details-body.edit-shipping-address"
                         @click="onEditShippingAddress"
                     >
                         {{ $tc('sw-order.detailBase.buttonEditAddress') }}
-                    </sw-button>
+                    </mt-button>
                 </p>
                 <sw-address :address="shippingAddress" />
                 {% endblock %}
             </template>
         </div>
-        <sw-textarea-field
+        <mt-textarea
             v-else
             disabled
             class="sw-order-create-details-body__item"

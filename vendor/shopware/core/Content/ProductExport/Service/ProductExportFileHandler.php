@@ -22,9 +22,7 @@ class ProductExportFileHandler implements ProductExportFileHandlerInterface
 
     public function getFilePath(ProductExportEntity $productExport, bool $partialGeneration = false): string
     {
-        $this->ensureDirectoryExists();
-
-        $filePath = sprintf(
+        $filePath = \sprintf(
             '%s/%s',
             $this->exportDirectory,
             $productExport->getFileName()
@@ -96,12 +94,5 @@ class ProductExportFileHandler implements ProductExportFileHandlerInterface
         $expireTimestamp = $productExport->getGeneratedAt()->getTimestamp() + $productExport->getInterval();
 
         return (new \DateTime())->getTimestamp() > $expireTimestamp;
-    }
-
-    private function ensureDirectoryExists(): void
-    {
-        if (!$this->fileSystem->fileExists($this->exportDirectory)) {
-            $this->fileSystem->createDirectory($this->exportDirectory);
-        }
     }
 }

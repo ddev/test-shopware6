@@ -1,5 +1,5 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-layout-assignment.html.twig';
@@ -10,6 +10,12 @@ export default {
     template,
 
     inject: ['acl'],
+
+    emits: [
+        'modal-layout-open',
+        'button-edit-click',
+        'button-delete-click',
+    ],
 
     props: {
         cmsPage: {

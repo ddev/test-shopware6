@@ -3,6 +3,9 @@
 namespace Shopware\Core\Maintenance\SalesChannel\Service;
 
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerGroup\CustomerGroupDefinition;
+use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
+use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
+use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Api\Util\AccessKeyHelper;
 use Shopware\Core\Framework\Context;
@@ -12,12 +15,24 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\Maintenance\MaintenanceException;
+use Shopware\Core\System\Country\CountryCollection;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 
-#[Package('core')]
+/**
+ * @internal
+ */
+#[Package('discovery')]
 class SalesChannelCreator
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<SalesChannelCollection> $salesChannelRepository
+     * @param EntityRepository<PaymentMethodCollection> $paymentMethodRepository
+     * @param EntityRepository<ShippingMethodCollection> $shippingMethodRepository
+     * @param EntityRepository<CountryCollection> $countryRepository
+     * @param EntityRepository<CategoryCollection> $categoryRepository
      */
     public function __construct(
         private readonly DefinitionInstanceRegistry $definitionRegistry,
@@ -29,6 +44,14 @@ class SalesChannelCreator
     ) {
     }
 
+    /**
+     * @param list<string>|null $currencies
+     * @param list<string>|null $languages
+     * @param list<string>|null $shippingMethods
+     * @param list<string>|null $paymentMethods
+     * @param list<string>|null $countries
+     * @param array<string, mixed> $overwrites
+     */
     public function createSalesChannel(
         string $id,
         string $name,
@@ -51,9 +74,9 @@ class SalesChannelCreator
 
         $languageId ??= Defaults::LANGUAGE_SYSTEM;
         $currencyId ??= Defaults::CURRENCY;
-        $paymentMethodId ??= $this->getFirstActivePaymentMethodId();
-        $shippingMethodId ??= $this->getFirstActiveShippingMethodId();
-        $countryId ??= $this->getFirstActiveCountryId();
+        $paymentMethodId ??= $this->getFirstActivePaymentMethodId($context);
+        $shippingMethodId ??= $this->getFirstActiveShippingMethodId($context);
+        $countryId ??= $this->getFirstActiveCountryId($context);
 
         $currencies = $this->formatToMany($currencies, $currencyId, 'currency', $context);
         $languages = $this->formatToMany($languages, $languageId, 'language', $context);
@@ -73,8 +96,8 @@ class SalesChannelCreator
             'paymentMethodId' => $paymentMethodId,
             'shippingMethodId' => $shippingMethodId,
             'countryId' => $countryId,
-            'customerGroupId' => $customerGroupId ?? $this->getCustomerGroupId(),
-            'navigationCategoryId' => $navigationCategoryId ?? $this->getRootCategoryId(),
+            'customerGroupId' => $customerGroupId ?? $this->getCustomerGroupId($context),
+            'navigationCategoryId' => $navigationCategoryId ?? $this->getRootCategoryId($context),
 
             // available mappings
             'currencies' => $currencies,
@@ -86,89 +109,105 @@ class SalesChannelCreator
 
         $data = array_replace_recursive($data, $overwrites);
 
-        $this->salesChannelRepository->create([$data], Context::createDefaultContext());
+        $this->salesChannelRepository->create([$data], $context);
 
         return $data['accessKey'];
     }
 
-    private function getFirstActiveShippingMethodId(): string
+    private function getFirstActiveShippingMethodId(Context $context): string
     {
         $criteria = (new Criteria())
             ->setLimit(1)
             ->addFilter(new EqualsFilter('active', true));
 
-        /** @var array<string> $ids */
-        $ids = $this->shippingMethodRepository->searchIds($criteria, Context::createDefaultContext())->getIds();
+        $shippingMethodId = $this->shippingMethodRepository->searchIds($criteria, $context)->firstId();
+        if (!\is_string($shippingMethodId)) {
+            throw MaintenanceException::couldNotGetId('first active shipping method');
+        }
 
-        return $ids[0];
+        return $shippingMethodId;
     }
 
-    private function getFirstActivePaymentMethodId(): string
+    private function getFirstActivePaymentMethodId(Context $context): string
     {
         $criteria = (new Criteria())
             ->setLimit(1)
             ->addFilter(new EqualsFilter('active', true))
             ->addSorting(new FieldSorting('position'));
 
-        /** @var array<string> $ids */
-        $ids = $this->paymentMethodRepository->searchIds($criteria, Context::createDefaultContext())->getIds();
+        $paymentMethodId = $this->paymentMethodRepository->searchIds($criteria, $context)->firstId();
+        if (!\is_string($paymentMethodId)) {
+            throw MaintenanceException::couldNotGetId('first active payment method');
+        }
 
-        return $ids[0];
+        return $paymentMethodId;
     }
 
-    private function getFirstActiveCountryId(): string
+    private function getFirstActiveCountryId(Context $context): string
     {
         $criteria = (new Criteria())
             ->setLimit(1)
             ->addFilter(new EqualsFilter('active', true))
             ->addSorting(new FieldSorting('position'));
 
-        /** @var array<string> $ids */
-        $ids = $this->countryRepository->searchIds($criteria, Context::createDefaultContext())->getIds();
+        $countryId = $this->countryRepository->searchIds($criteria, $context)->firstId();
+        if (!\is_string($countryId)) {
+            throw MaintenanceException::couldNotGetId('first active country');
+        }
 
-        return $ids[0];
+        return $countryId;
     }
 
-    private function getRootCategoryId(): string
+    private function getRootCategoryId(Context $context): string
     {
         $criteria = new Criteria();
         $criteria->setLimit(1);
         $criteria->addFilter(new EqualsFilter('category.parentId', null));
         $criteria->addSorting(new FieldSorting('category.createdAt', FieldSorting::ASCENDING));
 
-        /** @var array<string> $categories */
-        $categories = $this->categoryRepository->searchIds($criteria, Context::createDefaultContext())->getIds();
+        $categoryId = $this->categoryRepository->searchIds($criteria, $context)->firstId();
+        if (!\is_string($categoryId)) {
+            throw MaintenanceException::couldNotGetId('root category');
+        }
 
-        return $categories[0];
+        return $categoryId;
     }
 
+    /**
+     * @return array<array{id: string}>
+     */
     private function getAllIdsOf(string $entity, Context $context): array
     {
-        /** @var array<string> $ids */
+        /** @var list<string> $ids */
         $ids = $this->definitionRegistry->getRepository($entity)->searchIds(new Criteria(), $context)->getIds();
 
         return array_map(
-            fn (string $id) => ['id' => $id],
+            static fn (string $id): array => ['id' => $id],
             $ids
         );
     }
 
-    private function getCustomerGroupId(): string
+    private function getCustomerGroupId(Context $context): string
     {
         $criteria = (new Criteria())
             ->setLimit(1);
 
         $repository = $this->definitionRegistry->getRepository(CustomerGroupDefinition::ENTITY_NAME);
 
-        $id = $repository->searchIds($criteria, Context::createDefaultContext())->firstId();
+        $id = $repository->searchIds($criteria, $context)->firstId();
 
         if ($id === null) {
-            throw new \RuntimeException('Cannot find a customer group to assign it to the sales channel');
+            throw MaintenanceException::couldNotGetId('customer group');
         }
 
         return $id;
     }
 
+    /**
+     * @param list<string>|null $values
+     *
+     * @return array<array{id: string}>
+     */
     private function formatToMany(?array $values, string $default, string $entity, Context $context): array
     {
         if (!\is_array($values)) {
@@ -178,7 +217,7 @@ class SalesChannelCreator
         $values = array_unique(array_merge($values, [$default]));
 
         return array_map(
-            fn (string $id) => ['id' => $id],
+            static fn (string $id): array => ['id' => $id],
             $values
         );
     }

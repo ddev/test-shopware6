@@ -4,7 +4,10 @@ namespace Shopware\Core\Content\ImportExport\DataAbstractionLayer\Serializer\Ent
 
 use Shopware\Core\Content\ImportExport\Struct\Config;
 use Shopware\Core\Content\Media\MediaEntity;
+use Shopware\Core\Content\Product\Aggregate\ProductConfiguratorSetting\ProductConfiguratorSettingCollection;
+use Shopware\Core\Content\Product\Aggregate\ProductMedia\ProductMediaCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductMedia\ProductMediaEntity;
+use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityCollection;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityDefinition;
 use Shopware\Core\Content\Product\Aggregate\ProductVisibility\ProductVisibilityEntity;
 use Shopware\Core\Content\Product\ProductDefinition;
@@ -19,8 +22,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 
-#[Package('core')]
+#[Package('fundamentals@after-sales')]
 class ProductSerializer extends EntitySerializer
 {
     final public const VISIBILITY_MAPPING = [
@@ -31,6 +35,11 @@ class ProductSerializer extends EntitySerializer
 
     /**
      * @internal
+     *
+     * @param EntityRepository<ProductVisibilityCollection> $visibilityRepository
+     * @param EntityRepository<SalesChannelCollection> $salesChannelRepository
+     * @param EntityRepository<ProductMediaCollection> $productMediaRepository
+     * @param EntityRepository<ProductConfiguratorSettingCollection> $productConfiguratorSettingRepository
      */
     public function __construct(
         private readonly EntityRepository $visibilityRepository,
@@ -40,11 +49,6 @@ class ProductSerializer extends EntitySerializer
     ) {
     }
 
-    /**
-     * @param array|Struct|null $entity
-     *
-     * @return \Generator
-     */
     public function serialize(Config $config, EntityDefinition $definition, $entity): iterable
     {
         if ($entity instanceof Struct) {
@@ -88,11 +92,6 @@ class ProductSerializer extends EntitySerializer
         }
     }
 
-    /**
-     * @param array|\Traversable $entity
-     *
-     * @return array|\Traversable
-     */
     public function deserialize(Config $config, EntityDefinition $definition, $entity)
     {
         $entity = \is_array($entity) ? $entity : iterator_to_array($entity);
@@ -107,6 +106,8 @@ class ProductSerializer extends EntitySerializer
 
         $visibilities = [];
 
+        $context = Context::createDefaultContext();
+
         foreach ($mapping as $key => $type) {
             if (!isset($entity['visibilities'][$key])) {
                 continue;
@@ -114,7 +115,7 @@ class ProductSerializer extends EntitySerializer
 
             $ids = array_filter(explode('|', (string) $entity['visibilities'][$key]));
 
-            $ids = $this->convertSalesChannelNamesToIds($ids);
+            $ids = $this->convertSalesChannelNamesToIds($ids, $context);
 
             foreach ($ids as $salesChannelId) {
                 $visibility = [
@@ -130,21 +131,21 @@ class ProductSerializer extends EntitySerializer
         }
 
         if ($visibilities !== []) {
-            yield 'visibilities' => $this->findVisibilityIds($visibilities);
+            yield 'visibilities' => $this->findVisibilityIds($visibilities, $context);
         }
 
         try {
-            yield 'media' => $this->convertMediaStringToArray($config, $definition, $entity, $deserialized);
+            yield 'media' => $this->convertMediaStringToArray($config, $definition, $entity, $deserialized, $context);
         } catch (\Throwable $exception) {
             yield '_error' => $exception;
         }
 
         if (isset($deserialized['id'], $deserialized['cover']['media']['id'])) {
-            yield 'cover' => $this->findCoverProductMediaId($deserialized['id'], $deserialized['cover']);
+            yield 'cover' => $this->findCoverProductMediaId($deserialized['id'], $deserialized['cover'], $context);
         }
 
         if (!empty($deserialized['parentId']) && !empty($deserialized['options'])) {
-            yield 'configuratorSettings' => $this->findConfiguratorSettings($deserialized['parentId'], $deserialized['options']);
+            yield 'configuratorSettings' => $this->findConfiguratorSettings($deserialized['parentId'], $deserialized['options'], $context);
         }
     }
 
@@ -153,7 +154,12 @@ class ProductSerializer extends EntitySerializer
         return $entity === ProductDefinition::ENTITY_NAME;
     }
 
-    private function findVisibilityIds(array $visibilities): array
+    /**
+     * @param array<array<string, mixed>> $visibilities
+     *
+     * @return array<array<string, mixed>>
+     */
+    private function findVisibilityIds(array $visibilities, Context $context): array
     {
         foreach ($visibilities as $i => $visibility) {
             if (!isset($visibility['productId'])) {
@@ -164,7 +170,7 @@ class ProductSerializer extends EntitySerializer
             $criteria->addFilter(new EqualsFilter('productId', $visibility['productId']));
             $criteria->addFilter(new EqualsFilter('salesChannelId', $visibility['salesChannelId']));
 
-            $id = $this->visibilityRepository->searchIds($criteria, Context::createDefaultContext())->firstId();
+            $id = $this->visibilityRepository->searchIds($criteria, $context)->firstId();
 
             if ($id) {
                 $visibility['id'] = $id;
@@ -176,7 +182,12 @@ class ProductSerializer extends EntitySerializer
         return $visibilities;
     }
 
-    private function convertSalesChannelNamesToIds(array $ids): array
+    /**
+     * @param array<string> $ids
+     *
+     * @return array<string>
+     */
+    private function convertSalesChannelNamesToIds(array $ids, Context $context): array
     {
         $salesChannelNames = [];
 
@@ -201,21 +212,27 @@ class ProductSerializer extends EntitySerializer
         $criteria = new Criteria();
         $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, $filters));
 
+        /** @var list<string> $additionalIds */
         $additionalIds = $this->salesChannelRepository->searchIds(
             $criteria,
-            Context::createDefaultContext()
+            $context
         )->getIds();
 
         return array_unique(array_merge($ids, $additionalIds));
     }
 
-    private function findCoverProductMediaId(string $productId, array $cover): array
+    /**
+     * @param array<string, mixed> $cover
+     *
+     * @return array<string, mixed>
+     */
+    private function findCoverProductMediaId(string $productId, array $cover, Context $context): array
     {
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('productId', $productId));
         $criteria->addFilter(new EqualsFilter('mediaId', $cover['media']['id']));
 
-        $id = $this->productMediaRepository->searchIds($criteria, Context::createDefaultContext())->firstId();
+        $id = $this->productMediaRepository->searchIds($criteria, $context)->firstId();
 
         if ($id) {
             $cover['id'] = $id;
@@ -224,7 +241,12 @@ class ProductSerializer extends EntitySerializer
         return $cover;
     }
 
-    private function findConfiguratorSettings(string $parentId, array $options): array
+    /**
+     * @param list<array{id: string}> $options
+     *
+     * @return list<array{optionId: string, product: array{id: string}, id?: string}>
+     */
+    private function findConfiguratorSettings(string $parentId, array $options, Context $context): array
     {
         $configuratorSettings = [];
 
@@ -244,7 +266,7 @@ class ProductSerializer extends EntitySerializer
             $criteria->addFilter(new EqualsFilter('productId', $parentId));
             $criteria->addFilter(new EqualsFilter('optionId', $option['id']));
 
-            $id = $this->productConfiguratorSettingRepository->searchIds($criteria, Context::createDefaultContext())->firstId();
+            $id = $this->productConfiguratorSettingRepository->searchIds($criteria, $context)->firstId();
 
             if ($id) {
                 $configuratorSetting['id'] = $id;
@@ -256,11 +278,18 @@ class ProductSerializer extends EntitySerializer
         return $configuratorSettings;
     }
 
+    /**
+     * @param array<string, mixed> $entity
+     * @param array<string, mixed> $deserialized
+     *
+     * @return list<array<string, mixed>>
+     */
     private function convertMediaStringToArray(
         Config $config,
         EntityDefinition $definition,
         array $entity,
-        array $deserialized
+        array $deserialized,
+        Context $context
     ): array {
         if (empty($entity['media'])) {
             return [];
@@ -308,7 +337,7 @@ class ProductSerializer extends EntitySerializer
             $criteria->addFilter(new EqualsFilter('productId', $deserialized['id']));
             $criteria->addFilter(new EqualsFilter('media.id', $deserializedMedia['id']));
 
-            $productMediaId = $this->productMediaRepository->searchIds($criteria, Context::createDefaultContext())->firstId();
+            $productMediaId = $this->productMediaRepository->searchIds($criteria, $context)->firstId();
 
             if ($productMediaId) {
                 $productMedia['id'] = $productMediaId;
@@ -320,6 +349,11 @@ class ProductSerializer extends EntitySerializer
         return $productMedias;
     }
 
+    /**
+     * @param array<string, mixed> $entity
+     *
+     * @return array<int, string>
+     */
     private function getMediaUrls(array $entity): array
     {
         if (!isset($entity['media'])) {
@@ -360,7 +394,7 @@ class ProductSerializer extends EntitySerializer
                 continue;
             }
 
-            $urls[$productMedia['position']] = $media['url'];
+            $urls[(int) $productMedia['position']] = (string) $media['url'];
         }
 
         ksort($urls);

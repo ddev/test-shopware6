@@ -2,16 +2,23 @@ import template from './sw-category-tree.html.twig';
 import './sw-category-tree.scss';
 
 const { Criteria } = Shopware.Data;
-const { mapState } = Shopware.Component.getComponentHelper();
 
 /**
- * @package content
+ * @sw-package discovery
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'syncService'],
+    inject: [
+        'repositoryFactory',
+        'syncService',
+    ],
+
+    emits: [
+        'category-checked-elements-count',
+        'unsaved-changes',
+    ],
 
     mixins: ['notification'],
 
@@ -30,7 +37,6 @@ export default {
         allowEdit: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -38,7 +44,6 @@ export default {
         allowCreate: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -46,7 +51,6 @@ export default {
         allowDelete: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -64,16 +68,16 @@ export default {
     },
 
     computed: {
-        ...mapState('swCategoryDetail', [
-            'categoriesToDelete',
-        ]),
+        categoriesToDelete() {
+            return Shopware.Store.get('swCategoryDetail').categoriesToDelete;
+        },
 
         categoryRepository() {
             return this.repositoryFactory.create('category');
         },
 
         category() {
-            return Shopware.State.get('swCategoryDetail').category;
+            return Shopware.Store.get('swCategoryDetail').category;
         },
 
         categories() {
@@ -130,9 +134,7 @@ export default {
 
             this.$refs.categoryTree.onDeleteElements(value);
 
-            Shopware.State.commit('swCategoryDetail/setCategoriesToDelete', {
-                categoriesToDelete: undefined,
-            });
+            Shopware.Store.get('swCategoryDetail').categoriesToDelete = undefined;
         },
 
         allowEdit(value) {
@@ -155,20 +157,27 @@ export default {
             if (oldVal && newVal.id === oldVal.id) {
                 const affectedCategoryIds = [
                     newVal.id,
-                    ...oldVal.navigationSalesChannels.map(salesChannel => salesChannel.navigationCategoryId),
-                    ...oldVal.footerSalesChannels.map(salesChannel => salesChannel.footerCategoryId),
-                    ...oldVal.serviceSalesChannels.map(salesChannel => salesChannel.serviceCategoryId),
+                    ...oldVal.navigationSalesChannels.map((salesChannel) => salesChannel.navigationCategoryId),
+                    ...oldVal.footerSalesChannels.map((salesChannel) => salesChannel.footerCategoryId),
+                    ...oldVal.serviceSalesChannels.map((salesChannel) => salesChannel.serviceCategoryId),
                 ];
 
-                const criteria = Criteria.fromCriteria(this.criteria)
-                    .setIds(affectedCategoryIds.filter((value, index, self) => {
+                const criteria = Criteria.fromCriteria(this.criteria).setIds(
+                    affectedCategoryIds.filter((value, index, self) => {
                         return value !== null && self.indexOf(value) === index;
-                    }));
+                    }),
+                );
 
                 this.categoryRepository.search(criteria).then((categories) => {
                     this.addCategories(categories);
                 });
+
+                return;
             }
+
+            this.loadActiveCategory().then(() => {
+                this.$refs.categoryTree.openTreeById();
+            });
         },
 
         currentLanguageId() {
@@ -198,28 +207,39 @@ export default {
             this.loadedCategories = {};
             this.loadedParentIds = [];
 
-            this.loadRootCategories()
-                .then(() => {
-                    if (!this.category || this.category.path === null) {
-                        this.isLoadingInitialData = false;
-                        return Promise.resolve();
-                    }
+            this.loadRootCategories().then(() => {
+                if (!this.category || this.category.path === null) {
+                    this.isLoadingInitialData = false;
+                    return Promise.resolve();
+                }
 
-                    const parentIds = this.category.path.split('|').filter((id) => !!id);
-                    const parentPromises = [];
-
-                    parentIds.forEach((id) => {
-                        const promise = this.categoryRepository.get(id, Shopware.Context.api, this.criteriaWithChildren)
-                            .then((result) => {
-                                this.addCategories([result, ...result.children]);
-                            });
-                        parentPromises.push(promise);
-                    });
-
-                    return Promise.all(parentPromises).then(() => {
-                        this.isLoadingInitialData = false;
-                    });
+                return this.loadActiveCategory().then(() => {
+                    this.isLoadingInitialData = false;
                 });
+            });
+        },
+
+        loadActiveCategory() {
+            if (!this.category || this.category.path === null || this.category.id in this.loadedCategories) {
+                return Promise.resolve();
+            }
+
+            const parentIds = this.category.path.split('|').filter((id) => !!id);
+            const parentPromises = [];
+
+            parentIds.forEach((id) => {
+                const promise = this.categoryRepository
+                    .get(id, Shopware.Context.api, this.criteriaWithChildren)
+                    .then((result) => {
+                        this.addCategories([
+                            result,
+                            ...result.children,
+                        ]);
+                    });
+                parentPromises.push(promise);
+            });
+
+            return Promise.all(parentPromises);
         },
 
         onUpdatePositions: Shopware.Utils.debounce(function onUpdatePositions({ draggedItem, oldParentId, newParentId }) {
@@ -243,10 +263,12 @@ export default {
 
         syncProducts(categoryId) {
             const criteria = new Criteria(1, 50);
-            criteria.addFilter(Criteria.multi('or', [
-                Criteria.equals('categoriesRo.id', categoryId),
-                Criteria.equals('categories.id', categoryId),
-            ]));
+            criteria.addFilter(
+                Criteria.multi('or', [
+                    Criteria.equals('categoriesRo.id', categoryId),
+                    Criteria.equals('categories.id', categoryId),
+                ]),
+            );
 
             return this.productRepository.iterateIds(criteria, this.indexProducts);
         },
@@ -268,8 +290,10 @@ export default {
             const ids = Object.keys(checkedItems);
 
             const hasNavigationCategories = ids.some((id) => {
-                return this.loadedCategories[id]?.navigationSalesChannels !== null
-                    && this.loadedCategories[id]?.navigationSalesChannels.length > 0;
+                return (
+                    this.loadedCategories[id]?.navigationSalesChannels !== null &&
+                    this.loadedCategories[id]?.navigationSalesChannels.length > 0
+                );
             });
 
             if (hasNavigationCategories) {
@@ -283,7 +307,7 @@ export default {
 
                 // reload to remove selection
                 ids.forEach((deleted) => {
-                    this.$delete(this.loadedCategories, deleted);
+                    delete this.loadedCategories[deleted];
                 });
                 this.$nextTick(() => {
                     this.addCategories(categories);
@@ -298,14 +322,14 @@ export default {
 
             await this.fixSortingForCategories(categories);
 
-            ids.forEach(id => {
+            ids.forEach((id) => {
                 this.removeFromStore(id);
             });
         },
 
         onDeleteCategory({ data: category, children, checked }) {
             if (category.isNew()) {
-                this.$delete(this.loadedCategories, category.id);
+                delete this.loadedCategories[category.id];
                 return Promise.resolve();
             }
 
@@ -329,7 +353,9 @@ export default {
                 // reload after changes
                 this.loadedCategories = { ...this.loadedCategories };
 
-                this.createNotificationError({ message: this.entryPointWarningMessage(category) });
+                this.createNotificationError({
+                    message: this.entryPointWarningMessage(category),
+                });
                 return Promise.resolve();
             }
 
@@ -353,10 +379,7 @@ export default {
 
                 if (checked === true) {
                     this.$refs.categoryTree.checkedElementsCount -= 1;
-                    this.$emit(
-                        'category-checked-elements-count',
-                        this.$refs.categoryTree.checkedElementsCount,
-                    );
+                    this.$emit('category-checked-elements-count', this.$refs.categoryTree.checkedElementsCount);
                 }
             });
         },
@@ -364,7 +387,7 @@ export default {
         fixSortingForCategories(categories, isSorted = false) {
             const categoriesToBeChanged = [];
 
-            categories.forEach(category => {
+            categories.forEach((category) => {
                 // We need the second parameter, because the value of `afterCategoryId` of the actual next category
                 // is either updated already in case of `onDeleteCategory`, but not in case of `deleteCheckedItems`
                 const nextCategory = this.getNextCategory(category, isSorted ? 'afterCategoryId' : 'id');
@@ -375,7 +398,7 @@ export default {
 
                 nextCategory.afterCategoryId = category.afterCategoryId;
 
-                if (categories.find(item => item.id === nextCategory.id)) {
+                if (categories.find((item) => item.id === nextCategory.id)) {
                     return;
                 }
 
@@ -392,7 +415,10 @@ export default {
         },
 
         changeCategory(category) {
-            const route = { name: 'sw.category.detail', params: { id: category.id } };
+            const route = {
+                name: 'sw.category.detail',
+                params: { id: category.id },
+            };
             if (this.category && this.categoryRepository.hasChanges(this.category)) {
                 this.$emit('unsaved-changes', route);
             } else {
@@ -422,8 +448,7 @@ export default {
         },
 
         loadRootCategories() {
-            const criteria = Criteria.fromCriteria(this.criteria)
-                .addFilter(Criteria.equals('parentId', null));
+            const criteria = Criteria.fromCriteria(this.criteria).addFilter(Criteria.equals('parentId', null));
 
             return this.categoryRepository.search(criteria).then((result) => {
                 this.addCategories(result);
@@ -452,8 +477,12 @@ export default {
 
             newCategory.save = () => {
                 return this.categoryRepository.save(newCategory).then(() => {
-                    const criteria = Criteria.fromCriteria(this.criteria)
-                        .setIds([newCategory.id, parentId].filter((id) => id !== null));
+                    const criteria = Criteria.fromCriteria(this.criteria).setIds(
+                        [
+                            newCategory.id,
+                            parentId,
+                        ].filter((id) => id !== null),
+                    );
                     this.categoryRepository.search(criteria).then((categories) => {
                         this.addCategories(categories);
 
@@ -470,14 +499,17 @@ export default {
                 return category.parentId === parentId;
             });
 
-            return this.categoryRepository.sync(siblings).then(() => {
-                this.loadedParentIds = this.loadedParentIds.filter(id => id !== parentId);
-                return this.getChildrenFromParent(parentId);
-            }).then(() => {
-                this.categoryRepository.get(parentId, Shopware.Context.api, this.criteria).then((parent) => {
-                    this.addCategory(parent);
+            return this.categoryRepository
+                .sync(siblings)
+                .then(() => {
+                    this.loadedParentIds = this.loadedParentIds.filter((id) => id !== parentId);
+                    return this.getChildrenFromParent(parentId);
+                })
+                .then(() => {
+                    this.categoryRepository.get(parentId, Shopware.Context.api, this.criteria).then((parent) => {
+                        this.addCategory(parent);
+                    });
                 });
-            });
         },
 
         addCategory(category) {
@@ -485,12 +517,12 @@ export default {
                 return;
             }
 
-            this.$set(this.loadedCategories, category.id, category);
+            this.loadedCategories[category.id] = category;
         },
 
         addCategories(categories) {
             categories.forEach((category) => {
-                this.$set(this.loadedCategories, category.id, category);
+                this.loadedCategories[category.id] = category;
             });
         },
 
@@ -501,7 +533,7 @@ export default {
             });
 
             deletedIds.forEach((deleted) => {
-                this.$delete(this.loadedCategories, deleted);
+                delete this.loadedCategories[deleted];
             });
         },
 
@@ -524,9 +556,11 @@ export default {
         },
 
         isHighlighted({ data: category }) {
-            return (category.navigationSalesChannels !== null && category.navigationSalesChannels.length > 0)
-                || (category.serviceSalesChannels !== null && category.serviceSalesChannels.length > 0)
-                || (category.footerSalesChannels !== null && category.footerSalesChannels.length > 0);
+            return (
+                (category.navigationSalesChannels !== null && category.navigationSalesChannels.length > 0) ||
+                (category.serviceSalesChannels !== null && category.serviceSalesChannels.length > 0) ||
+                (category.footerSalesChannels !== null && category.footerSalesChannels.length > 0)
+            );
         },
 
         isErrorNavigationEntryPoint(category) {
@@ -536,7 +570,7 @@ export default {
                 navigationSalesChannels,
                 serviceSalesChannels,
                 footerSalesChannels,
-            ].some(navigation => navigation !== null && navigation?.length > 0);
+            ].some((navigation) => navigation !== null && navigation?.length > 0);
         },
 
         entryPointWarningMessage(category) {
@@ -545,23 +579,29 @@ export default {
             if (serviceSalesChannels !== null && serviceSalesChannels?.length > 0) {
                 return this.$tc(
                     'sw-category.general.errorNavigationEntryPoint',
+                    {
+                        entryPointLabel: this.$tc('sw-category.base.entry-point-card.types.labelServiceNavigation'),
+                    },
                     0,
-                    { entryPointLabel: this.$tc('sw-category.base.entry-point-card.types.labelServiceNavigation') },
                 );
             }
 
             if (footerSalesChannels !== null && footerSalesChannels?.length > 0) {
                 return this.$tc(
                     'sw-category.general.errorNavigationEntryPoint',
+                    {
+                        entryPointLabel: this.$tc('sw-category.base.entry-point-card.types.labelFooterNavigation'),
+                    },
                     0,
-                    { entryPointLabel: this.$tc('sw-category.base.entry-point-card.types.labelFooterNavigation') },
                 );
             }
 
             return this.$tc(
                 'sw-category.general.errorNavigationEntryPoint',
+                {
+                    entryPointLabel: this.$tc('sw-category.base.entry-point-card.types.labelMainNavigation'),
+                },
                 0,
-                { entryPointLabel: this.$tc('sw-category.base.entry-point-card.types.labelMainNavigation') },
             );
         },
     },

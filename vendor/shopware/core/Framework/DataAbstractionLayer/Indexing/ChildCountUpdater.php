@@ -12,7 +12,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 
-#[Package('core')]
+#[Package('framework')]
 class ChildCountUpdater
 {
     /**
@@ -48,7 +48,7 @@ class ChildCountUpdater
         $entity = $definition->getEntityName();
         $versionAware = $definition->isVersionAware();
 
-        $sql = sprintf(
+        $sql = \sprintf(
             'UPDATE #entity#  as parent
                 LEFT JOIN
                 (

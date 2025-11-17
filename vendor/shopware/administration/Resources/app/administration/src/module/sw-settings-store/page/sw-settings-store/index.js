@@ -3,7 +3,7 @@ import template from './sw-settings-store.html.twig';
 const { Mixin } = Shopware;
 
 /**
- * @package services-settings
+ * @sw-package checkout
  * @private
  */
 export default {
@@ -41,15 +41,18 @@ export default {
 
             this.trimHost();
 
-            this.$refs.systemConfig.saveAll().then(() => {
-                this.isLoading = false;
-                this.isSaveSuccessful = true;
-            }).catch((err) => {
-                this.isLoading = false;
-                this.createNotificationError({
-                    message: err,
+            this.$refs.systemConfig
+                .saveAll()
+                .then(() => {
+                    this.isLoading = false;
+                    this.isSaveSuccessful = true;
+                })
+                .catch((err) => {
+                    this.isLoading = false;
+                    this.createNotificationError({
+                        message: err,
+                    });
                 });
-            });
         },
 
         trimHost() {

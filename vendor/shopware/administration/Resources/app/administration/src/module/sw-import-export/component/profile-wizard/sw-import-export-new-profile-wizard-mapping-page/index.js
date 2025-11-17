@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@after-sales
  */
 import unionBy from 'lodash/unionBy';
 
@@ -13,6 +13,8 @@ export default {
     inject: [
         'repositoryFactory',
     ],
+
+    emits: ['next-allow'],
 
     props: {
         profile: {
@@ -44,8 +46,11 @@ export default {
         },
 
         mergeMappings() {
-            const requiredMappings = Object.entries(this.systemRequiredFields).map(mapping => {
-                const [key, mappedKey] = mapping;
+            const requiredMappings = Object.entries(this.systemRequiredFields).map((mapping) => {
+                const [
+                    key,
+                    mappedKey,
+                ] = mapping;
 
                 return { key, mappedKey };
             });

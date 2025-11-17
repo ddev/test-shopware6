@@ -5,7 +5,7 @@ namespace Shopware\Core\Framework\Log\ScheduledTask;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\MessageQueue\ScheduledTask\ScheduledTask;
 
-#[Package('core')]
+#[Package('framework')]
 class LogCleanupTask extends ScheduledTask
 {
     public static function getTaskName(): string
@@ -15,6 +15,11 @@ class LogCleanupTask extends ScheduledTask
 
     public static function getDefaultInterval(): int
     {
-        return 86400; // 24 hours
+        return self::DAILY;
+    }
+
+    public static function shouldRescheduleOnFailure(): bool
+    {
+        return true;
     }
 }

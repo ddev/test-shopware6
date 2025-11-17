@@ -17,7 +17,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class RemoteAddressFieldSerializer extends AbstractFieldSerializer
 {
     protected const CONFIG_KEY = 'core.loginRegistration.customerIpAddressesNotAnonymously';
@@ -53,7 +53,7 @@ class RemoteAddressFieldSerializer extends AbstractFieldSerializer
             return;
         }
 
-        yield $field->getStorageName() => IPUtils::anonymize($data->getValue());
+        yield $field->getStorageName() => IpUtils::anonymize($data->getValue());
     }
 
     public function decode(Field $field, mixed $value): ?string

@@ -5,28 +5,16 @@ namespace Shopware\Core\Content\Sitemap\Struct;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('sales-channel')]
+#[Package('discovery')]
 class Sitemap extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $filename;
+    protected \DateTimeInterface $created;
 
-    /**
-     * @var \DateTimeInterface
-     */
-    protected $created;
-
-    /**
-     * @throws \Exception
-     */
     public function __construct(
-        string $filename,
+        protected string $filename,
         private int $urlCount,
-        ?\DateTimeInterface $created = null
+        ?\DateTimeInterface $created = null,
     ) {
-        $this->filename = $filename;
         $this->created = $created ?: new \DateTime('NOW', new \DateTimeZone('UTC'));
     }
 

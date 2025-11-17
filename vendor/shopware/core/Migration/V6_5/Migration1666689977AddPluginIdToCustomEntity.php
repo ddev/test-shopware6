@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('content')]
+#[Package('framework')]
 class Migration1666689977AddPluginIdToCustomEntity extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -28,10 +28,5 @@ class Migration1666689977AddPluginIdToCustomEntity extends MigrationStep
                     ON DELETE CASCADE
                     ON UPDATE CASCADE');
         }
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

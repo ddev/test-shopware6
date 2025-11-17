@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-custom-field-translated-labels.html.twig';
 import './sw-custom-field-translated-labels.scss';
@@ -16,15 +16,11 @@ export default {
         Mixin.getByName('sw-inline-snippet'),
     ],
 
-    model: {
-        prop: 'config',
-    },
-
     props: {
-        // FIXME: add type to locales
-        // eslint-disable-next-line vue/require-prop-types
         locales: {
+            type: Array,
             required: true,
+            default: [],
         },
         config: {
             type: Object,
@@ -42,14 +38,12 @@ export default {
     },
 
     computed: {
-        locale() {
-            return this.$root.$i18n.locale;
-        },
         fallbackLocale() {
-            return this.$root.$i18n.fallbackLocale;
+            return this.$root.$i18n.fallbackLocale.value;
         },
+
         localeCount() {
-            return Object.keys(this.locales).length;
+            return this.locales.length;
         },
     },
 
@@ -67,19 +61,22 @@ export default {
         createdComponent() {
             this.initializeConfiguration();
         },
+
         initializeConfiguration() {
             Object.keys(this.propertyNames).forEach((property) => {
                 if (!this.config.hasOwnProperty(property)) {
-                    this.$set(this.config, property, { [this.fallbackLocale]: null });
+                    this.config[property] = { [this.fallbackLocale]: null };
                 }
             });
         },
+
         getLabel(label, locale) {
             const snippet = this.getInlineSnippet(label);
             const language = this.$tc(`locale.${locale}`);
 
             return `${snippet} (${language})`;
         },
+
         onInput(input, propertyName, locale) {
             if (input === '') {
                 this.config[propertyName][locale] = null;

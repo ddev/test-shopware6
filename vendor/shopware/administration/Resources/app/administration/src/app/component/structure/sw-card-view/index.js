@@ -1,13 +1,10 @@
 import template from './sw-card-view.html.twig';
 import './sw-card-view.scss';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @description
  * Container for the <sw-card> component.
  * @status ready
@@ -26,16 +23,15 @@ const { Component } = Shopware;
  * </sw-card-view>
  */
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-Component.register('sw-card-view', {
+export default {
     template,
 
     props: {
         showErrorSummary: {
             type: Boolean,
             require: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
     },
-});
+};

@@ -15,7 +15,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  *
  * @codeCoverageIgnore
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1591361320ChargebackAndAuthorized extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -188,7 +188,7 @@ class Migration1591361320ChargebackAndAuthorized extends MigrationStep
     /**
      * @param list<string> $names
      *
-     * @return list<string>
+     * @return array<string>
      */
     private function getStateIds(Connection $connection, string $machineId, array $names): array
     {

@@ -21,7 +21,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * @internal
  */
-#[Package('services-settings')]
+#[Package('fundamentals@after-sales')]
 class RulePayloadUpdater implements EventSubscriberInterface
 {
     /**
@@ -41,7 +41,7 @@ class RulePayloadUpdater implements EventSubscriberInterface
     }
 
     /**
-     * @param list<string> $ids
+     * @param array<string> $ids
      *
      * @return array<string, array{payload: string|null, invalid: bool}>
      */
@@ -57,6 +57,7 @@ class RulePayloadUpdater implements EventSubscriberInterface
             ['ids' => ArrayParameterType::BINARY]
         );
 
+        /** @var array<string, list<array<string, string>>> */
         $rules = FetchModeHelper::group($conditions);
 
         $update = new RetryableQuery(
@@ -65,7 +66,6 @@ class RulePayloadUpdater implements EventSubscriberInterface
         );
 
         $updated = [];
-        /** @var string $id */
         foreach ($rules as $id => $rule) {
             $invalid = false;
             $serialized = null;
@@ -95,6 +95,7 @@ class RulePayloadUpdater implements EventSubscriberInterface
 
     public function updatePayloads(EntityWrittenEvent $event): void
     {
+        /** @var list<non-empty-string> $ruleIds */
         $ruleIds = $this->connection->fetchFirstColumn(
             'SELECT DISTINCT rc.rule_id
                 FROM rule_condition rc
@@ -108,11 +109,11 @@ class RulePayloadUpdater implements EventSubscriberInterface
             return;
         }
 
-        $this->update(Uuid::fromBytesToHexList($ruleIds));
+        $this->update(array_values(Uuid::fromBytesToHexList($ruleIds)));
     }
 
     /**
-     * @param array<string, mixed> $rules
+     * @param list<array<string, mixed>> $rules
      *
      * @return list<Rule>
      */

@@ -19,7 +19,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class PasswordFieldSerializer extends AbstractFieldSerializer
 {
     public const CONFIG_MIN_LENGTH_FOR = [
@@ -27,18 +27,15 @@ class PasswordFieldSerializer extends AbstractFieldSerializer
         PasswordField::FOR_ADMIN => 'core.userPermission.passwordMinLength',
     ];
 
-    private SystemConfigService $configService;
-
     /**
      * @internal
      */
     public function __construct(
         ValidatorInterface $validator,
         DefinitionInstanceRegistry $definitionRegistry,
-        SystemConfigService $configService
+        private readonly SystemConfigService $configService,
     ) {
         parent::__construct($validator, $definitionRegistry);
-        $this->configService = $configService;
     }
 
     public function encode(
@@ -89,11 +86,11 @@ class PasswordFieldSerializer extends AbstractFieldSerializer
 
         $minPasswordLength = $this->configService->getInt($configKey);
 
-        if ($minPasswordLength === 0) {
+        if ($minPasswordLength < 1) {
             return $constraints;
         }
 
-        $constraints[] = new Length(['min' => $minPasswordLength]);
+        $constraints[] = new Length(min: $minPasswordLength);
 
         return $constraints;
     }

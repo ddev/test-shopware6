@@ -1,59 +1,47 @@
 import template from './sw-switch-field.html.twig';
-import './sw-switch-field.scss';
-
-const { Component } = Shopware;
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
- * @description Boolean input field based on checkbox.
+ * @private
  * @status ready
- * @example-type static
- * @component-example
- * <sw-switch-field v-model="aBooleanProperty" label="Name"></sw-switch-field>
+ * @description Wrapper component for sw-switch-field and mt-switch. Autoswitches between the two components.
+ *
+ * @deprecated tag:v6.8.0 - Will be removed, use mt-switch instead.
  */
-Component.extend('sw-switch-field', 'sw-checkbox-field', {
+export default {
     template,
 
-    inheritAttrs: false,
+    emits: ['update:value'],
 
     props: {
-        noMarginTop: {
+        value: {
+            type: Boolean,
+            required: false,
+        },
+
+        checked: {
+            type: Boolean,
+            required: false,
+        },
+
+        deprecated: {
             type: Boolean,
             required: false,
             default: false,
         },
-
-        size: {
-            type: String,
-            required: false,
-            default: 'default',
-            validValues: ['small', 'medium', 'default'],
-            validator(val) {
-                return ['small', 'medium', 'default'].includes(val);
-            },
-        },
     },
 
     computed: {
-        swSwitchFieldClasses() {
-            return [
-                {
-                    'sw-field--switch-bordered': this.bordered,
-                    'sw-field--switch-padded': this.padded,
-                    'sw-field--switch-no-margin-top': this.noMarginTop,
-                    ...this.swCheckboxFieldClasses,
-                },
-                `sw-field--${this.size}`,
-            ];
+        checkedValue() {
+            return this.value || this.checked;
         },
     },
 
     methods: {
-        onInheritanceRestore(event) {
-            this.$emit('inheritance-restore', event);
+        onChangeHandler(value) {
+            // For backwards compatibility
+            this.$emit('update:value', value);
         },
     },
-});
+};

@@ -6,9 +6,15 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Platforms\MySQLPlatform;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
+use Doctrine\DBAL\Schema\Index\IndexedColumn;
+use Doctrine\DBAL\Schema\Name\UnqualifiedName;
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
+/**
+ * @phpstan-type RelationData array{TABLE_NAME: string, COLUMN_NAME: string, CONSTRAINT_NAME: string, REFERENCED_TABLE_NAME: string, REFERENCED_COLUMN_NAME: string}
+ * @phpstan-type ForeignKeyData array{TABLE_NAME: string, COLUMN_NAME: list<string>, REFERENCED_TABLE_NAME: string, REFERENCED_COLUMN_NAME: list<string>}
+ */
+#[Package('framework')]
 class MakeVersionableMigrationHelper
 {
     private const DROP_FOREIGN_KEY = 'ALTER TABLE `%s` DROP FOREIGN KEY `%s`';
@@ -44,6 +50,9 @@ EOD;
         $this->schemaManager = $connection->createSchemaManager();
     }
 
+    /**
+     * @return array<string, ForeignKeyData>
+     */
     public function getRelationData(string $tableName, string $keyColumn): array
     {
         $data = $this->fetchRelationData($tableName);
@@ -51,6 +60,11 @@ EOD;
         return $this->hydrateForeignKeyData($data, $keyColumn);
     }
 
+    /**
+     * @param array<string, ForeignKeyData> $keyStructures
+     *
+     * @return array<string>
+     */
     public function createSql(array $keyStructures, string $tableName, string $newColumnName, string $defaultValue): array
     {
         return array_filter(array_merge(
@@ -61,6 +75,11 @@ EOD;
         ));
     }
 
+    /**
+     * @param array<string, ForeignKeyData> $keyStructures
+     *
+     * @return list<string>
+     */
     private function createDropKeysPlaybookEntries(array $keyStructures): array
     {
         $playbook = [];
@@ -69,16 +88,21 @@ EOD;
 
             $indexes = $this->schemaManager->listTableIndexes($keyStructure['TABLE_NAME']);
 
-            $playbook[] = sprintf(self::DROP_FOREIGN_KEY, $keyStructure['TABLE_NAME'], $constraintName);
+            $playbook[] = \sprintf(self::DROP_FOREIGN_KEY, $keyStructure['TABLE_NAME'], $constraintName);
 
             if (\array_key_exists(strtolower($constraintName), $indexes)) {
-                $playbook[] = sprintf(self::DROP_KEY, $keyStructure['TABLE_NAME'], $constraintName);
+                $playbook[] = \sprintf(self::DROP_KEY, $keyStructure['TABLE_NAME'], $constraintName);
             }
         }
 
         return $playbook;
     }
 
+    /**
+     * @param array<string, ForeignKeyData> $keyStructures
+     *
+     * @return list<string|null>
+     */
     private function createAddColumnsAndKeysPlaybookEntries(string $newColumnName, array $keyStructures, string $default): array
     {
         $playbook = [];
@@ -107,6 +131,11 @@ EOD;
         return $playbook;
     }
 
+    /**
+     * @param array<string, ForeignKeyData> $keyStructures
+     *
+     * @return list<string>
+     */
     private function createAddKeysPlaybookEntries(array $keyStructures, string $newColumnName, string $tableName): array
     {
         $playbook = [];
@@ -119,26 +148,39 @@ EOD;
             $keyColumns[] = $newColumnName;
             $uniqueName = implode('_', $keyColumns);
 
-            $playbook[$uniqueName] = sprintf(self::ADD_KEY, $tableName, $tableName, $uniqueName, $this->implodeColumns($keyColumns));
+            $playbook[$uniqueName] = \sprintf(self::ADD_KEY, $tableName, $tableName, $uniqueName, $this->implodeColumns($keyColumns));
         }
 
         return array_values($playbook);
     }
 
+    /**
+     * @param array<string> $columns
+     */
     private function implodeColumns(array $columns): string
     {
         return implode(',', array_map(fn (string $column): string => '`' . $column . '`', $columns));
     }
 
+    /**
+     * @param list<string> $foreignFieldNames
+     */
     private function isEqualForeignKey(ForeignKeyConstraint $constraint, string $foreignTable, array $foreignFieldNames): bool
     {
-        if ($constraint->getForeignTableName() !== $foreignTable) {
+        if ($constraint->getReferencedTableName()->toString() !== $foreignTable) {
             return false;
         }
 
-        return \count(array_diff($constraint->getForeignColumns(), $foreignFieldNames)) === 0;
+        $referencedColumns = array_map(fn (UnqualifiedName $column): string => $column->toString(), $constraint->getReferencedColumnNames());
+
+        return \count(array_diff($referencedColumns, $foreignFieldNames)) === 0;
     }
 
+    /**
+     * @param list<RelationData> $data
+     *
+     * @return array<string, ForeignKeyData>
+     */
     private function hydrateForeignKeyData(array $data, string $keyColumnName): array
     {
         $hydratedData = $this->mapHydrateForeignKeyData($data);
@@ -146,6 +188,11 @@ EOD;
         return $this->filterHydrateForeignKeyData($hydratedData, $keyColumnName);
     }
 
+    /**
+     * @param list<RelationData> $data
+     *
+     * @return array<string, ForeignKeyData>
+     */
     private function mapHydrateForeignKeyData(array $data): array
     {
         $hydratedData = [];
@@ -171,19 +218,26 @@ EOD;
         return $hydratedData;
     }
 
+    /**
+     * @param array<string, ForeignKeyData> $hydratedData
+     *
+     * @return array<string, ForeignKeyData>
+     */
     private function filterHydrateForeignKeyData(array $hydratedData, string $keyColumnName): array
     {
-        $hydratedData = array_filter($hydratedData, fn (array $entry): bool => \in_array($keyColumnName, $entry['REFERENCED_COLUMN_NAME'], true));
-
-        return $hydratedData;
+        return array_filter($hydratedData, fn (array $entry): bool => \in_array($keyColumnName, $entry['REFERENCED_COLUMN_NAME'], true));
     }
 
+    /**
+     * @return list<RelationData>
+     */
     private function fetchRelationData(string $tableName): array
     {
         $databaseName = $this->connection->fetchOne('SELECT DATABASE()');
         \assert(\is_string($databaseName));
-        $query = sprintf(self::FIND_RELATIONSHIPS_QUERY, $databaseName, $tableName);
+        $query = \sprintf(self::FIND_RELATIONSHIPS_QUERY, $databaseName, $tableName);
 
+        /* @phpstan-ignore return.type (PHPStan cannot properly determine the array type from the DB) */
         return $this->connection->fetchAllAssociative($query);
     }
 
@@ -191,50 +245,55 @@ EOD;
     {
         $pk = $this->schemaManager->listTableIndexes($tableName)['primary'];
 
-        if (\count($pk->getColumns()) !== 1) {
-            throw new \RuntimeException(
-                'Tables with multi column primary keys not supported. Maybe this migration did already run.'
-            );
+        if (\count($pk->getIndexedColumns()) !== 1) {
+            throw MigrationException::multiColumnPrimaryKey();
         }
-        $pkName = current($pk->getColumns());
+        $pkName = current($pk->getIndexedColumns())->getColumnName()->toString();
 
-        return sprintf(self::MODIFY_PRIMARY_KEY_IN_MAIN, $tableName, $newColumnName, $defaultValue, $pkName, $pkName, $newColumnName);
+        return \sprintf(self::MODIFY_PRIMARY_KEY_IN_MAIN, $tableName, $newColumnName, $defaultValue, $pkName, $pkName, $newColumnName);
     }
 
+    /**
+     * @param ForeignKeyData $keyStructure
+     */
     private function findForeignKeyDefinition(array $keyStructure): ForeignKeyConstraint
     {
-        $fks = $this->schemaManager->listTableForeignKeys($keyStructure['TABLE_NAME']);
+        $foreignKeys = $this->schemaManager->listTableForeignKeys($keyStructure['TABLE_NAME']);
         $fk = null;
 
-        foreach ($fks as $fk) {
-            if ($this->isEqualForeignKey($fk, $keyStructure['REFERENCED_TABLE_NAME'], $keyStructure['REFERENCED_COLUMN_NAME'])) {
+        foreach ($foreignKeys as $foreignKey) {
+            if ($this->isEqualForeignKey($foreignKey, $keyStructure['REFERENCED_TABLE_NAME'], $keyStructure['REFERENCED_COLUMN_NAME'])) {
+                $fk = $foreignKey;
                 break;
             }
         }
 
         if ($fk === null) {
-            throw new \LogicException('Unable to find a foreign key that was previously selected');
+            throw MigrationException::logicError('Unable to find a foreign key that was previously selected');
         }
 
         return $fk;
     }
 
+    /**
+     * @param ForeignKeyData $keyStructure
+     */
     private function determineAddColumnSql(ForeignKeyConstraint $fk, array $keyStructure, string $foreignKeyColumnName, string $default): string
     {
         \assert(\is_string($keyStructure['TABLE_NAME']));
         $columnName = end($keyStructure['COLUMN_NAME']);
         \assert(\is_string($columnName));
 
-        $isNullable = $fk->getOption('onDelete') === 'SET NULL';
+        $isNullable = $fk->getOnDeleteAction()->value === 'SET NULL';
         if ($isNullable) {
-            $addColumnSql = sprintf(
+            $addColumnSql = \sprintf(
                 self::ADD_NEW_COLUMN_NULLABLE,
                 $keyStructure['TABLE_NAME'],
                 $foreignKeyColumnName,
                 $columnName
             );
         } else {
-            $addColumnSql = sprintf(
+            $addColumnSql = \sprintf(
                 self::ADD_NEW_COLUMN_WITH_DEFAULT,
                 $keyStructure['TABLE_NAME'],
                 $foreignKeyColumnName,
@@ -246,12 +305,20 @@ EOD;
         return $addColumnSql;
     }
 
-    private function getAddForeignKeySql(array $keyStructure, string $constraintName, string $foreignKeyColumnName, string $newColumnName, ForeignKeyConstraint $fk): string
-    {
+    /**
+     * @param ForeignKeyData $keyStructure
+     */
+    private function getAddForeignKeySql(
+        array $keyStructure,
+        string $constraintName,
+        string $foreignKeyColumnName,
+        string $newColumnName,
+        ForeignKeyConstraint $fk
+    ): string {
         \assert(\is_string($keyStructure['TABLE_NAME']));
         \assert(\is_string($keyStructure['REFERENCED_TABLE_NAME']));
 
-        return sprintf(
+        return \sprintf(
             self::ADD_FOREIGN_KEY,
             $keyStructure['TABLE_NAME'],
             $constraintName,
@@ -260,19 +327,26 @@ EOD;
             $keyStructure['REFERENCED_TABLE_NAME'],
             $this->implodeColumns($keyStructure['REFERENCED_COLUMN_NAME']),
             $newColumnName,
-            (string) ($fk->getOption('onDelete') ?? 'RESTRICT')
+            $fk->getOnDeleteAction()->value ?? 'RESTRICT'
         );
     }
 
+    /**
+     * @param ForeignKeyData $keyStructure
+     */
     private function determineModifyPrimaryKeySql(array $keyStructure, string $foreignKeyColumnName): ?string
     {
         \assert(\is_string($keyStructure['TABLE_NAME']));
         $indexes = $this->schemaManager->listTableIndexes($keyStructure['TABLE_NAME']);
-        if (isset($indexes['primary']) && \count(array_intersect($indexes['primary']->getColumns(), $keyStructure['COLUMN_NAME']))) {
-            return sprintf(
+
+        $indexedColumns = $indexes['primary']->getIndexedColumns() ?? [];
+        $indexedColumns = array_map(fn (IndexedColumn $column): string => $column->getColumnName()->toString(), $indexedColumns);
+
+        if (\count(array_intersect($indexedColumns, $keyStructure['COLUMN_NAME']))) {
+            return \sprintf(
                 self::MODIFY_PRIMARY_KEY_IN_RELATION,
                 $keyStructure['TABLE_NAME'],
-                $this->implodeColumns($indexes['primary']->getColumns()),
+                $this->implodeColumns($indexedColumns),
                 $foreignKeyColumnName
             );
         }

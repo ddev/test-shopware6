@@ -5,25 +5,17 @@ namespace Shopware\Storefront\Theme\StorefrontPluginConfiguration;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('storefront')]
+#[Package('framework')]
 class File extends Struct
 {
     /**
-     * @var string
+     * @param array<string, string> $resolveMapping
      */
-    protected $filepath;
-
-    /**
-     * @var array
-     */
-    protected $resolveMapping;
-
     public function __construct(
-        string $filepath,
-        array $resolveMapping = []
+        protected string $filepath,
+        protected array $resolveMapping = [],
+        public ?string $assetName = null
     ) {
-        $this->filepath = $filepath;
-        $this->resolveMapping = $resolveMapping;
     }
 
     public function getFilepath(): string
@@ -36,11 +28,17 @@ class File extends Struct
         $this->filepath = $filepath;
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getResolveMapping(): array
     {
         return $this->resolveMapping;
     }
 
+    /**
+     * @param array<string, string> $resolveMapping
+     */
     public function setResolveMapping(array $resolveMapping): void
     {
         $this->resolveMapping = $resolveMapping;

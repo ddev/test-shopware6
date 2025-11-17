@@ -6,7 +6,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainEntity;
+use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainCollection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -14,15 +14,20 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @internal
+ */
 #[AsCommand(
     name: 'sales-channel:update:domain',
     description: 'Updates a sales channel domain',
 )]
-#[Package('core')]
+#[Package('discovery')]
 class SalesChannelUpdateDomainCommand extends Command
 {
     /**
      * @internal
+     *
+     * @param EntityRepository<SalesChannelDomainCollection> $salesChannelDomainRepository
      */
     public function __construct(private readonly EntityRepository $salesChannelDomainRepository)
     {
@@ -37,14 +42,13 @@ class SalesChannelUpdateDomainCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $context = Context::createDefaultContext();
-        $domains = $this->salesChannelDomainRepository->search(new Criteria(), $context);
+        $context = Context::createCLIContext();
+        $domains = $this->salesChannelDomainRepository->search(new Criteria(), $context)->getEntities();
 
         $host = $input->getArgument('domain');
         $previousHost = $input->getOption('previous-domain');
 
         $payload = [];
-        /** @var SalesChannelDomainEntity $domain */
         foreach ($domains as $domain) {
             // Ignore default headless
             if (str_starts_with($domain->getUrl(), 'default.headless')) {
@@ -83,17 +87,20 @@ class SalesChannelUpdateDomainCommand extends Command
         return $this->buildUrl($components);
     }
 
+    /**
+     * @param array<string, mixed> $parts
+     */
     private function buildUrl(array $parts): string
     {
         return (isset($parts['scheme']) ? "{$parts['scheme']}:" : '')
             . ((isset($parts['user']) || isset($parts['host'])) ? '//' : '')
             . (isset($parts['user']) ? (string) ($parts['user']) : '')
-            . (isset($parts['pass']) ? ":{$parts['pass']}" : '')
+            . (isset($parts['pass']) ? ':' . $parts['pass'] : '')
             . (isset($parts['user']) ? '@' : '')
-            . (isset($parts['host']) ? "{$parts['host']}" : '')
-            . (isset($parts['port']) ? ":{$parts['port']}" : '')
-            . (isset($parts['path']) ? "{$parts['path']}" : '')
-            . (isset($parts['query']) ? "?{$parts['query']}" : '')
-            . (isset($parts['fragment']) ? "#{$parts['fragment']}" : '');
+            . (isset($parts['host']) ? (string) ($parts['host']) : '')
+            . (isset($parts['port']) ? ':' . $parts['port'] : '')
+            . (isset($parts['path']) ? (string) ($parts['path']) : '')
+            . (isset($parts['query']) ? '?' . $parts['query'] : '')
+            . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
     }
 }

@@ -8,9 +8,12 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @extends EntityCollection<UserAccessKeyEntity>
  */
-#[Package('system-settings')]
+#[Package('fundamentals@framework')]
 class UserAccessKeyCollection extends EntityCollection
 {
+    /**
+     * @return array<string, string>
+     */
     public function getUserIds(): array
     {
         return $this->fmap(fn (UserAccessKeyEntity $user) => $user->getUserId());

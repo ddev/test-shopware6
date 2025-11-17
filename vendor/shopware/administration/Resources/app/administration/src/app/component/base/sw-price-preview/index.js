@@ -1,12 +1,9 @@
 import template from './sw-price-preview.html.twig';
 
-const { Component } = Shopware;
-
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
- * @public
+ * @private
  * @status ready
  * @example-type static
  * @component-example
@@ -17,7 +14,7 @@ const { Component } = Shopware;
  *     :currency="{...}">
  * </sw-price-preview>
  */
-Component.extend('sw-price-preview', 'sw-price-field', {
+export default {
     template,
 
     computed: {
@@ -25,4 +22,4 @@ Component.extend('sw-price-preview', 'sw-price-field', {
             return Shopware.Filter.getByName('currency');
         },
     },
-});
+};

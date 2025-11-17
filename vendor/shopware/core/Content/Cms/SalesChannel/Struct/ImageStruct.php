@@ -6,28 +6,18 @@ use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Struct\Struct;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class ImageStruct extends Struct
 {
-    /**
-     * @var string|null
-     */
-    protected $mediaId;
+    protected ?string $mediaId = null;
 
-    /**
-     * @var string|null
-     */
-    protected $url;
+    protected ?string $url = null;
 
-    /**
-     * @var bool|null
-     */
-    protected $newTab;
+    protected ?string $ariaLabel = null;
 
-    /**
-     * @var MediaEntity|null
-     */
-    protected $media;
+    protected ?bool $newTab = null;
+
+    protected ?MediaEntity $media = null;
 
     public function getMedia(): ?MediaEntity
     {
@@ -57,6 +47,16 @@ class ImageStruct extends Struct
     public function setUrl(?string $url): void
     {
         $this->url = $url;
+    }
+
+    public function getAriaLabel(): ?string
+    {
+        return $this->ariaLabel;
+    }
+
+    public function setAriaLabel(?string $ariaLabel): void
+    {
+        $this->ariaLabel = $ariaLabel;
     }
 
     public function getNewTab(): ?bool

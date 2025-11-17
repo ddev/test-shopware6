@@ -51,10 +51,14 @@ class PropertyGroupOptionCollection extends EntityCollection
         $groups = new PropertyGroupCollection();
 
         foreach ($this->getIterator() as $element) {
+            if ($element->getGroup() === null) {
+                continue;
+            }
+
             if ($groups->has($element->getGroupId())) {
                 $group = $groups->get($element->getGroupId());
             } else {
-                $group = PropertyGroupEntity::createFrom($element->getGroup() ?? new PropertyGroupEntity());
+                $group = PropertyGroupEntity::createFrom($element->getGroup());
                 $groups->add($group);
 
                 $group->setOptions(new self());
@@ -66,6 +70,20 @@ class PropertyGroupOptionCollection extends EntityCollection
         }
 
         return $groups;
+    }
+
+    /**
+     * @internal
+     * Performance optimization: By design this skips the expected class validation,
+     * should only be used internally, when we need to add a lot of entities, that are already validated.
+     *
+     * @param array<PropertyGroupOptionEntity> $options
+     */
+    public function fillOptions(array $options): void
+    {
+        foreach ($options as $option) {
+            $this->elements[$option->getUniqueIdentifier()] = $option;
+        }
     }
 
     public function getApiAlias(): string

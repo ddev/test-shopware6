@@ -1,4 +1,5 @@
-.is-act-cartpage {
+.is-act-cartpage, // @deprecated tag:v6.8.0 - Body class `is-act-cartpage` will be removed, use active route class `is-active-route-frontend-checkout-cart-page` instead.
+.is-active-route-frontend-checkout-cart-page {
     .checkout {
         .checkout-container {
             @extend .row;
@@ -46,7 +47,6 @@
 $cart-grid-gutter-width: $spacer-sm;
 
 .cart-header-row,
-.cart-item-row,
 .line-item-row {
     margin-right: -$cart-grid-gutter-width / 2;
     margin-left: -$cart-grid-gutter-width / 2;
@@ -60,6 +60,12 @@ $cart-grid-gutter-width: $spacer-sm;
 
 .cart-add-product-container {
     margin-bottom: $spacer;
+
+    .add-product-button {
+        .icon-checkmark {
+            color: inherit;
+        }
+    }
 }
 
 .cart-shipping-costs-container {
@@ -74,10 +80,6 @@ $cart-grid-gutter-width: $spacer-sm;
 @include media-breakpoint-up(md) {
     .cart-table-header {
         display: block;
-    }
-
-    .cart-add-product {
-        max-width: 250px;
     }
 
     .cart-add-product-container {

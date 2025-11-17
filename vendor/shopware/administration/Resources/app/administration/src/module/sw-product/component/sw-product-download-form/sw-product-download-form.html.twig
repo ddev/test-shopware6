@@ -1,3 +1,4 @@
+{% block sw_product_download_form %}
 <div
     class="sw-product-download-form"
     :class="{ 'is--disabled': disabled }"
@@ -15,7 +16,6 @@
         :class="swFieldClasses"
         variant="regular"
         :upload-tag="`downloads-${product.id}`"
-        :scroll-target="$parent.$el"
         :private-filesystem="true"
         :extension-accept="fileAccept"
         default-folder="product_download"
@@ -73,3 +73,4 @@
     </div>
     <sw-loader v-else />
 </div>
+{% endblock %}

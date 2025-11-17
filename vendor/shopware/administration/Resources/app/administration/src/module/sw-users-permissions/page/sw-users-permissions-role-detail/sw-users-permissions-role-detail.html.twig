@@ -1,11 +1,8 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_users_permissions_role_detail %}
 <sw-page class="sw-users-permissions-role-detail">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_users_permissions_role_detail_smart_bar_header %}
     <template #smart-bar-header>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_users_permissions_role_detail_smart_bar_header_title %}
         <h2 v-if="role && role.isNew() && role.name.length <= 0">
             {{ $tc('sw-users-permissions.roles.general.labelCreateNewRole') }}
@@ -20,33 +17,28 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_users_permissions_role_detail_smart_bar_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_users_permissions_role_detail_smart_bar_actions_button_cancel %}
-        <sw-button
+        <mt-button
             v-tooltip.bottom="tooltipCancel"
+            variant="secondary"
+            size="default"
             @click="onCancel"
         >
             {{ $tc('global.default.cancel') }}
-        </sw-button>
+        </mt-button>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_users_permissions_role_detail_smart_bar_actions_button_save %}
         <sw-button-process
             v-tooltip.bottom="tooltipSave"
             class="sw-users-permissions-role-detail__button-save"
             :is-loading="isLoading"
             :process-success="isSaveSuccessful"
-            :disabled="isLoading || !acl.can('users_and_permissions.editor')"
+            :disabled="isLoading || !acl.can('users_and_permissions.editor') || undefined"
             variant="primary"
-            {% if VUE3 %}
             @update:process-success="saveFinish"
-            {% else %}
-            @process-finish="saveFinish"
-            {% endif %}
             @click.prevent="onSave"
         >
             {{ $tc('global.default.save') }}
@@ -55,13 +47,10 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_users_permissions_role_detail_content %}
     <template #content>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_users_permissions_role_detail_content_card_view %}
         <sw-card-view>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_users_permissions_role_detail_content_card_view_tabs %}
             <sw-tabs
                 default-item="general"
@@ -91,7 +80,6 @@
             </template>
 
             <template v-else>
-                {% if VUE3 %}
                 <router-view
                     v-slot="{ Component }"
                 >
@@ -101,17 +89,10 @@
                         :detailed-privileges="detailedPrivileges"
                     />
                 </router-view>
-                {% else %}
-                <router-view
-                    :role="role"
-                    :detailed-privileges="detailedPrivileges"
-                />
-                {% endif %}
             </template>
         </sw-card-view>
         {% endblock %}
 
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_users_permissions_role_detail_content_verify_modal %}
         <sw-verify-user-modal
             v-if="confirmPasswordModal"

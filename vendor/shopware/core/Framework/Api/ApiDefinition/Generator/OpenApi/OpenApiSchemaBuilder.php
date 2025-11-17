@@ -17,7 +17,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class OpenApiSchemaBuilder
 {
     final public const API = [
@@ -45,7 +45,6 @@ class OpenApiSchemaBuilder
         $openApi->merge($this->createServers($api));
         $openApi->info = $this->createInfo($api, $this->version);
 
-        /** @var array|string $security */
         $security = $openApi->security;
         $openApi->security = [array_merge(\is_array($security) ? $security : [], $this->createSecurity($api))];
 
@@ -73,15 +72,22 @@ class OpenApiSchemaBuilder
         return new Info([
             'title' => 'Shopware ' . self::API[$api]['name'],
             'version' => $version,
+            'license' => [
+                'name' => 'MIT',
+                'url' => 'https://github.com/shopware/shopware/blob/trunk/LICENSE',
+            ],
             'description' => <<<'EOF'
 This endpoint reference contains an overview of all endpoints comprising the Shopware Admin API.
 
 For a better overview, all CRUD-endpoints are hidden by default. If you want to show also CRUD-endpoints
 add the query parameter `type=jsonapi`.
-EOF
+EOF,
         ]);
     }
 
+    /**
+     * @return array<string, array<string|null>>
+     */
     private function createSecurity(string $api): array
     {
         if (self::API[$api]['apiKey']) {

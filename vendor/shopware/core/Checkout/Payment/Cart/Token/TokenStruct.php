@@ -8,62 +8,20 @@ use Shopware\Core\Framework\Struct\Struct;
 #[Package('checkout')]
 class TokenStruct extends Struct
 {
-    /**
-     * @var string|null
-     */
-    protected $id;
+    protected ?\Throwable $exception = null;
 
-    /**
-     * @var string|null
-     */
-    protected $token;
-
-    /**
-     * @var string|null
-     */
-    protected $paymentMethodId;
-
-    /**
-     * @var string|null
-     */
-    protected $transactionId;
-
-    /**
-     * @var string|null
-     */
-    protected $finishUrl;
-
-    /**
-     * @var string|null
-     */
-    protected $errorUrl;
-
-    /**
-     * @var \Exception|null
-     */
-    protected $exception;
-
-    /**
-     * @var int Unix Timestamp
-     */
-    protected $expires;
+    protected int $expires;
 
     public function __construct(
-        ?string $id = null,
-        ?string $token = null,
-        ?string $paymentMethodId = null,
-        ?string $transactionId = null,
-        ?string $finishUrl = null,
+        protected ?string $id = null,
+        protected ?string $token = null,
+        protected ?string $paymentMethodId = null,
+        protected ?string $transactionId = null,
+        protected ?string $finishUrl = null,
         ?int $expires = null,
-        ?string $errorUrl = null
+        protected ?string $errorUrl = null
     ) {
-        $this->id = $id;
-        $this->token = $token;
-        $this->paymentMethodId = $paymentMethodId;
-        $this->transactionId = $transactionId;
-        $this->finishUrl = $finishUrl;
         $this->expires = $expires ?? 1800;
-        $this->errorUrl = $errorUrl;
     }
 
     public function getId(): ?string
@@ -111,12 +69,12 @@ class TokenStruct extends Struct
         return $this->expires < time();
     }
 
-    public function getException(): ?\Exception
+    public function getException(): ?\Throwable
     {
         return $this->exception;
     }
 
-    public function setException(?\Exception $exception): void
+    public function setException(?\Throwable $exception): void
     {
         $this->exception = $exception;
     }

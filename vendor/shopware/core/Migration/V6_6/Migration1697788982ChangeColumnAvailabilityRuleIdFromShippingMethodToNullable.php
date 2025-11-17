@@ -9,7 +9,7 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class Migration1697788982ChangeColumnAvailabilityRuleIdFromShippingMethodToNullable extends MigrationStep
 {
     public function getCreationTimestamp(): int
@@ -20,10 +20,5 @@ class Migration1697788982ChangeColumnAvailabilityRuleIdFromShippingMethodToNulla
     public function update(Connection $connection): void
     {
         $connection->executeStatement('ALTER TABLE `shipping_method` MODIFY COLUMN `availability_rule_id` BINARY(16) DEFAULT NULL');
-    }
-
-    public function updateDestructive(Connection $connection): void
-    {
-        // implement update destructive
     }
 }

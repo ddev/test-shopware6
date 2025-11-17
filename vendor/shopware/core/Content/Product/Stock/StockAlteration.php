@@ -4,14 +4,14 @@ namespace Shopware\Core\Content\Product\Stock;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('core')]
-final class StockAlteration
+#[Package('inventory')]
+final readonly class StockAlteration
 {
     public function __construct(
-        public readonly string $lineItemId,
-        public readonly string $productId,
-        public readonly int $quantityBefore,
-        public readonly int $newQuantity
+        public string $lineItemId,
+        public string $productId,
+        public int $quantityBefore,
+        public int $newQuantity
     ) {
     }
 

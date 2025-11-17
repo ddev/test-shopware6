@@ -4,8 +4,11 @@ namespace Shopware\Core\Content\Sitemap\ConfigHandler;
 
 use Shopware\Core\Framework\Log\Package;
 
-#[Package('sales-channel')]
+#[Package('discovery')]
 interface ConfigHandlerInterface
 {
+    /**
+     * @return array<string, array<array<string, mixed>>>
+     */
     public function getSitemapConfig(): array;
 }

@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-settings-custom-field-set-detail.html.twig';
 
@@ -109,7 +109,7 @@ export default {
     methods: {
         createdComponent() {
             if (this.$route.params.id) {
-                this.setId = this.$route.params.id;
+                this.setId = this.$route.params.id.toLowerCase();
                 this.loadEntityData();
             }
         },
@@ -129,9 +129,13 @@ export default {
         onSave() {
             const setLabel = this.identifier;
             const titleSaveSuccess = this.$tc('global.default.success');
-            const messageSaveSuccess = this.$tc('sw-settings-custom-field.set.detail.messageSaveSuccess', 0, {
-                name: setLabel,
-            });
+            const messageSaveSuccess = this.$tc(
+                'sw-settings-custom-field.set.detail.messageSaveSuccess',
+                {
+                    name: setLabel,
+                },
+                0,
+            );
             this.isSaveSuccessful = false;
             this.isLoading = true;
 
@@ -139,31 +143,37 @@ export default {
             // in case, the set is not translated
             if (!this.set.config.translated || this.set.config.translated === false) {
                 const fallbackLocale = this.swInlineSnippetFallbackLocale;
-                this.set.config.label = { [fallbackLocale]: this.set.config.label[fallbackLocale] };
+                this.set.config.label = {
+                    [fallbackLocale]: this.set.config.label[fallbackLocale],
+                };
             }
 
             if (!this.set.relations) {
                 this.set.relations = [];
             }
 
-            this.customFieldSetRepository.save(this.set).then(() => {
-                this.isSaveSuccessful = true;
+            this.customFieldSetRepository
+                .save(this.set)
+                .then(() => {
+                    this.isSaveSuccessful = true;
 
-                this.createNotificationSuccess({
-                    title: titleSaveSuccess,
-                    message: messageSaveSuccess,
+                    this.createNotificationSuccess({
+                        title: titleSaveSuccess,
+                        message: messageSaveSuccess,
+                    });
+
+                    return this.loadEntityData();
+                })
+                .catch((error) => {
+                    const errorMessage = error?.response?.data?.errors?.[0]?.detail ?? 'Error';
+
+                    this.createNotificationError({
+                        message: errorMessage,
+                    });
+                })
+                .finally(() => {
+                    this.isLoading = false;
                 });
-
-                return this.loadEntityData();
-            }).catch((error) => {
-                const errorMessage = error?.response?.data?.errors?.[0]?.detail ?? 'Error';
-
-                this.createNotificationError({
-                    message: errorMessage,
-                });
-            }).finally(() => {
-                this.isLoading = false;
-            });
         },
 
         onCancel() {

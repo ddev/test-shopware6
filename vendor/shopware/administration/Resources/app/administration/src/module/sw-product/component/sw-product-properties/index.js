@@ -1,19 +1,21 @@
 /*
- * @package inventory
+ * @sw-package inventory
  */
 
 import template from './sw-product-properties.html.twig';
 import './sw-product-properties.scss';
 
-const { Component, Context } = Shopware;
+const { Context } = Shopware;
 const { Criteria, EntityCollection } = Shopware.Data;
-const { mapState, mapGetters } = Component.getComponentHelper();
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
 
-    inject: ['repositoryFactory', 'acl'],
+    inject: [
+        'repositoryFactory',
+        'acl',
+    ],
 
     props: {
         disabled: {
@@ -52,7 +54,6 @@ export default {
             return this.repositoryFactory.create('property_group');
         },
 
-
         propertyOptionRepository() {
             return this.repositoryFactory.create('property_group_option');
         },
@@ -60,12 +61,8 @@ export default {
         propertyGroupCriteria() {
             const criteria = new Criteria(1, 10);
 
-            criteria.addSorting(
-                Criteria.sort('name', 'ASC', false),
-            );
-            criteria.addFilter(
-                Criteria.equalsAny('id', this.groupIds),
-            );
+            criteria.addSorting(Criteria.sort('name', 'ASC', false));
+            criteria.addFilter(Criteria.equalsAny('id', this.groupIds));
 
             if (this.searchTerm) {
                 criteria.setTerm(this.searchTerm);
@@ -75,6 +72,13 @@ export default {
 
             criteria.getAssociation('options').addFilter(Criteria.equalsAny('id', optionIds));
             criteria.addFilter(Criteria.equalsAny('options.id', optionIds));
+
+            return criteria;
+        },
+
+        propertyExistsCriteria() {
+            const criteria = new Criteria(1, 1);
+            criteria.setTotalCountMode(0);
 
             return criteria;
         },
@@ -95,15 +99,21 @@ export default {
             ];
         },
 
-        ...mapState('swProductDetail', [
-            'product',
-            'parentProduct',
-        ]),
+        product() {
+            return Shopware.Store.get('swProductDetail').product;
+        },
 
-        ...mapGetters('swProductDetail', [
-            'isLoading',
-            'isChild',
-        ]),
+        parentProduct() {
+            return Shopware.Store.get('swProductDetail').parentProduct;
+        },
+
+        isLoading() {
+            return Shopware.Store.get('swProductDetail').isLoading;
+        },
+
+        isChild() {
+            return Shopware.Store.get('swProductDetail').isChild;
+        },
 
         productProperties() {
             return this.isChild && this.product?.properties?.length <= 0
@@ -164,7 +174,8 @@ export default {
             }
 
             this.isPropertiesLoading = true;
-            return this.propertyGroupRepository.search(this.propertyGroupCriteria, Context.api)
+            return this.propertyGroupRepository
+                .search(this.propertyGroupCriteria, Context.api)
                 .then((properties) => {
                     this.properties = properties;
                 })
@@ -178,6 +189,7 @@ export default {
 
         onDeletePropertyValue(propertyValue) {
             this.productProperties.remove(propertyValue.id);
+            this.getProperties();
         },
 
         onDeleteProperty(property) {
@@ -246,18 +258,20 @@ export default {
             this.turnOffAddPropertiesModal();
         },
 
-        onSaveAddPropertiesModal(newProperties) {
+        onSaveAddPropertiesModal(newProperties, callbackUpdateCurrentValues) {
             this.turnOffAddPropertiesModal();
 
             if (newProperties.length <= 0) {
                 return;
             }
 
-            this.productProperties.splice(0, this.productProperties.length, ...newProperties);
+            if (typeof callbackUpdateCurrentValues === 'function') {
+                callbackUpdateCurrentValues.bind(this)(newProperties);
+            }
         },
 
         checkIfPropertiesExists() {
-            this.propertyOptionRepository.search(new Criteria(1, 1)).then((res) => {
+            this.propertyOptionRepository.searchIds(this.propertyExistsCriteria).then((res) => {
                 this.propertiesAvailable = res.total > 0;
             });
         },

@@ -8,7 +8,7 @@ use Shopware\Core\Framework\Struct\Collection;
 /**
  * @extends Collection<FieldConfig>
  */
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class FieldConfigCollection extends Collection
 {
     /**
@@ -20,7 +20,7 @@ class FieldConfigCollection extends Collection
     }
 
     /**
-     * @param string|int  $key
+     * @param string|int $key
      * @param FieldConfig $element
      */
     public function set($key, $element): void

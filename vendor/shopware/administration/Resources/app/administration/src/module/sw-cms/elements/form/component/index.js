@@ -1,13 +1,11 @@
 import template from './sw-cms-el-form.html.twig';
-import contact from './templates/form-contact/index';
-import newsletter from './templates/form-newsletter/index';
 import './sw-cms-el-form.scss';
 
 const { Mixin } = Shopware;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -16,13 +14,14 @@ export default {
         Mixin.getByName('cms-element'),
     ],
 
-    components: {
-        contact,
-        newsletter,
-    },
-
     computed: {
         selectedForm() {
+            if (this.element.config.type.value === 'contact') {
+                return 'sw-cms-el-form-template-contact';
+            }
+            if (this.element.config.type.value === 'newsletter') {
+                return 'sw-cms-el-form-template-newsletter';
+            }
             return this.element.config.type.value;
         },
     },

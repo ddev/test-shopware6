@@ -1,13 +1,10 @@
-import type { Entity } from '@shopware-ag/admin-extension-sdk/es/data/_internals/Entity';
-import type { PropType } from 'vue';
-import type EntityCollection from '@shopware-ag/admin-extension-sdk/es/data/_internals/EntityCollection';
 import template from './sw-order-customer-address-select.html.twig';
 import './sw-order-customer-address-select.scss';
 import type CriteriaType from '../../../../core/data/criteria.data';
 import type Repository from '../../../../core/data/repository.data';
 
 /**
- * @package checkout
+ * @sw-package checkout
  */
 
 const { Component } = Shopware;
@@ -19,13 +16,7 @@ export default Component.wrapComponentConfig({
 
     inject: [
         'repositoryFactory',
-        'feature',
     ],
-
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
 
     props: {
         customer: {
@@ -60,7 +51,7 @@ export default Component.wrapComponentConfig({
         customerAddresses: EntityCollection<'customer_address'> | [];
         isLoading: boolean;
         addressSearchTerm: string;
-        } {
+    } {
         return {
             customerAddresses: [],
             isLoading: false,
@@ -78,11 +69,8 @@ export default Component.wrapComponentConfig({
                     return;
                 }
 
-                if (this.feature.isActive('VUE3')) {
-                    this.$emit('update:value', newValue);
-
-                    return;
-                }
+                this.$emit('update:value', newValue);
+                return;
 
                 this.$emit('change', newValue);
             },
@@ -94,8 +82,8 @@ export default Component.wrapComponentConfig({
 
         addressRepository(): Repository<'customer_address'> {
             return this.repositoryFactory.create(
-                this.customer.addresses?.entity ?? 'customer_address',
-                this.customer.addresses?.source,
+                this.customer?.addresses?.entity ?? 'customer_address',
+                this.customer?.addresses?.source,
             );
         },
 
@@ -110,6 +98,14 @@ export default Component.wrapComponentConfig({
             }
 
             return criteria;
+        },
+    },
+
+    watch: {
+        'customer.id': {
+            handler(): void {
+                void this.getCustomerAddresses();
+            },
         },
     },
 
@@ -172,11 +168,9 @@ export default Component.wrapComponentConfig({
             // Get the latest addresses from customer's db
             return this.addressRepository
                 .search(this.addressCriteria)
-                .then(
-                    (addresses: EntityCollection<'customer_address'>): void => {
-                        this.customerAddresses = addresses;
-                    },
-                )
+                .then((addresses: EntityCollection<'customer_address'>): void => {
+                    this.customerAddresses = addresses;
+                })
                 .finally(() => {
                     this.isLoading = false;
                 });
@@ -198,6 +192,10 @@ export default Component.wrapComponentConfig({
                 .finally(() => {
                     this.isLoading = false;
                 });
+        },
+
+        searchAddressResults() {
+            return this.customerAddresses;
         },
     },
 });

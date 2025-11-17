@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package discovery
  */
 import template from './sw-settings-snippet-filter-switch.html.twig';
 import './sw-settings-snippet-filter-switch.scss';
@@ -7,6 +7,8 @@ import './sw-settings-snippet-filter-switch.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: ['update:value'],
 
     props: {
         label: {
@@ -46,7 +48,10 @@ export default {
                 if (!value.length) {
                     return true;
                 }
-                return ['small', 'large'].includes(value);
+                return [
+                    'small',
+                    'large',
+                ].includes(value);
             },
         },
 
@@ -74,7 +79,7 @@ export default {
         onChange(value) {
             const name = this.name;
             const group = this.group;
-            this.$emit('change', { value, name, group });
+            this.$emit('update:value', { value, name, group });
         },
     },
 };

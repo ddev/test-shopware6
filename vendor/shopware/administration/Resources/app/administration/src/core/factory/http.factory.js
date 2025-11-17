@@ -1,5 +1,5 @@
 /**
- * @package admin
+ * @sw-package framework
  *
  * @module core/factory/http
  */
@@ -38,12 +38,17 @@ export const { CancelToken, isCancel, Cancel } = Axios;
 function createClient() {
     const client = Axios.create({
         baseURL: Shopware.Context.api.apiPath,
+        // Add request/response size limits to mitigate DoS vulnerability
+        maxContentLength: 50 * 1024 * 1024, // 50MB limit
+        maxBodyLength: 50 * 1024 * 1024, // 50MB limit
+        timeout: 30000, // 30 second timeout
     });
 
     refreshTokenInterceptor(client);
     globalErrorHandlingInterceptor(client);
     storeSessionExpiredInterceptor(client);
     client.CancelToken = CancelToken;
+    tracingInterceptor(client);
 
     /**
      * Don´t use cache in unit tests because it is possible
@@ -67,7 +72,6 @@ function createClient() {
  */
 function requestCacheAdapterInterceptor(client) {
     const requestCaches = {};
-
     client.interceptors.request.use((config) => {
         const originalAdapter = config.adapter;
 
@@ -83,38 +87,44 @@ function requestCacheAdapterInterceptor(client) {
  * @returns {AxiosInstance}
  */
 function globalErrorHandlingInterceptor(client) {
-    client.interceptors.response.use(response => response, error => {
-        const { hasOwnProperty } = Shopware.Utils.object;
+    client.interceptors.response.use(
+        (response) => response,
+        (error) => {
+            const { hasOwnProperty } = Shopware.Utils.object;
 
-        if (hasOwnProperty(error?.config?.headers ?? {}, 'sw-app-integration-id')) {
-            return Promise.reject(error);
-        }
-
-        if (!error) {
-            return Promise.reject(error);
-        }
-
-        const { status } = error.response ?? { status: undefined };
-        const { errors, data } = error.response?.data ?? { errors: undefined, data: undefined };
-
-        try {
-            handleErrorStates({ status, errors, error, data });
-        } catch (e) {
-            Shopware.Utils.debug.error(e);
-
-            if (errors) {
-                errors.forEach(singleError => {
-                    Shopware.State.dispatch('notification/createNotification', {
-                        variant: 'error',
-                        title: singleError.title,
-                        message: singleError.detail,
-                    });
-                });
+            if (hasOwnProperty(error?.config?.headers ?? {}, 'sw-app-integration-id')) {
+                return Promise.reject(error);
             }
-        }
 
-        return Promise.reject(error);
-    });
+            if (!error) {
+                return Promise.reject(error);
+            }
+
+            const { status } = error.response ?? { status: undefined };
+            const { errors, data } = error.response?.data ?? {
+                errors: undefined,
+                data: undefined,
+            };
+
+            try {
+                handleErrorStates({ status, errors, error, data });
+            } catch (e) {
+                Shopware.Utils.debug.error(e);
+
+                if (errors) {
+                    errors.forEach((singleError) => {
+                        Shopware.Store.get('notification').createNotification({
+                            variant: 'error',
+                            title: singleError.title,
+                            message: singleError.detail,
+                        });
+                    });
+                }
+            }
+
+            return Promise.reject(error);
+        },
+    );
 
     return client;
 }
@@ -129,11 +139,9 @@ function globalErrorHandlingInterceptor(client) {
 function handleErrorStates({ status, errors, error = null, data }) {
     // Get $tc for translations and bind the Vue component scope to make it working
     const viewRoot = Shopware.Application.view.root;
-    const $tc = viewRoot.$tc.bind(viewRoot);
 
     // Handle sync-api errors
-    if (status === 400 &&
-        (error?.response?.config?.url ?? '').includes('_action/sync')) {
+    if (status === 400 && (error?.response?.config?.url ?? '').includes('_action/sync')) {
         if (!data) {
             return;
         }
@@ -147,14 +155,18 @@ function handleErrorStates({ status, errors, error = null, data }) {
                 }
 
                 const statusCode = parseInt(resultItem.errors[0].status, 10);
-                handleErrorStates({ status: statusCode, errors: resultItem.errors, data });
+                handleErrorStates({
+                    status: statusCode,
+                    errors: resultItem.errors,
+                    data,
+                });
             });
         });
     }
 
     if (status === 403) {
-        const missingPrivilegeErrors = errors.filter(e => e.code === 'FRAMEWORK__MISSING_PRIVILEGE_ERROR');
-        missingPrivilegeErrors.forEach(missingPrivilegeError => {
+        const missingPrivilegeErrors = errors.filter((e) => e.code === 'FRAMEWORK__MISSING_PRIVILEGE_ERROR');
+        missingPrivilegeErrors.forEach((missingPrivilegeError) => {
             const detail = JSON.parse(missingPrivilegeError.detail);
             let missingPrivileges = detail.missingPrivileges;
 
@@ -167,35 +179,41 @@ function handleErrorStates({ status, errors, error = null, data }) {
                 return `${message}<br>"${privilege}"`;
             }, '');
 
-            Shopware.State.dispatch('notification/createNotification', {
+            Shopware.Store.get('notification').createNotification({
                 variant: 'error',
                 system: true,
                 autoClose: false,
                 growl: true,
-                title: $tc('global.error-codes.FRAMEWORK__MISSING_PRIVILEGE_ERROR'),
-                message: `${$tc('sw-privileges.error.description')} <br> ${missingPrivilegesMessage}`,
+                title: Shopware.Snippet.tc('global.error-codes.FRAMEWORK__MISSING_PRIVILEGE_ERROR'),
+                message: `${Shopware.Snippet.tc('sw-privileges.error.description')} <br> ${missingPrivilegesMessage}`,
             });
         });
     }
 
-    if (status === 403
-        && ['FRAMEWORK__STORE_SESSION_EXPIRED', 'FRAMEWORK__STORE_SHOP_SECRET_INVALID'].includes(errors[0]?.code)
+    if (
+        status === 403 &&
+        [
+            'FRAMEWORK__STORE_SESSION_EXPIRED',
+            'FRAMEWORK__STORE_SHOP_SECRET_INVALID',
+        ].includes(errors[0]?.code)
     ) {
-        Shopware.State.dispatch('notification/createNotification', {
+        Shopware.Store.get('notification').createNotification({
             variant: 'warning',
             system: true,
             autoClose: false,
             growl: true,
-            title: $tc('sw-extension.errors.storeSessionExpired.title'),
-            message: $tc('sw-extension.errors.storeSessionExpired.message'),
-            actions: [{
-                label: $tc('sw-extension.errors.storeSessionExpired.actionLabel'),
-                method: () => {
-                    viewRoot.$router.push({
-                        name: 'sw.extension.my-extensions.account',
-                    });
+            title: Shopware.Snippet.tc('sw-extension.errors.storeSessionExpired.title'),
+            message: Shopware.Snippet.tc('sw-extension.errors.storeSessionExpired.message'),
+            actions: [
+                {
+                    label: Shopware.Snippet.tc('sw-extension.errors.storeSessionExpired.actionLabel'),
+                    method: () => {
+                        viewRoot.$router.push({
+                            name: 'sw.extension.my-extensions.account',
+                        });
+                    },
                 },
-            }],
+            ],
         });
     }
 
@@ -208,20 +226,17 @@ function handleErrorStates({ status, errors, error = null, data }) {
 
             blockingEntities = parameters.usages.reduce((message, usageObject) => {
                 const times = usageObject.count;
-                const timesSnippet = $tc('global.default.xTimesIn', times);
-                const blockingEntitiesSnippet = $tc(`global.entities.${usageObject.entityName}`, times[1]);
+                const timesSnippet = Shopware.Snippet.tc('global.default.xTimesIn', times);
+                const blockingEntitiesSnippet = Shopware.Snippet.tc(`global.entities.${usageObject.entityName}`, times[1]);
                 return `${message}<br>${timesSnippet} <b>${blockingEntitiesSnippet}</b>`;
             }, '');
 
-            Shopware.State.dispatch('notification/createNotification', {
+            Shopware.Store.get('notification').createNotification({
                 variant: 'error',
-                title: $tc('global.default.error'),
-                message: `${$tc(
-                    'global.notification.messageDeleteFailed',
-                    3,
-                    { entityName: $tc(`global.entities.${entityName}`) },
-                )
-                }${blockingEntities}`,
+                title: Shopware.Snippet.tc('global.default.error'),
+                message: `${Shopware.Snippet.tc('global.notification.messageDeleteFailed', 3, {
+                    entityName: Shopware.Snippet.tc(`global.entities.${entityName}`),
+                })}${blockingEntities}`,
             });
         }
     }
@@ -232,7 +247,7 @@ function handleErrorStates({ status, errors, error = null, data }) {
         if (frameworkLanguageNotFound) {
             localStorage.removeItem('sw-admin-current-language');
 
-            Shopware.State.dispatch('notification/createNotification', {
+            Shopware.Store.get('notification').createNotification({
                 variant: 'error',
                 system: true,
                 autoClose: false,
@@ -259,49 +274,52 @@ function handleErrorStates({ status, errors, error = null, data }) {
 function refreshTokenInterceptor(client) {
     const tokenHandler = getRefreshTokenHelper();
 
-    client.interceptors.response.use((response) => {
-        return response;
-    }, (error) => {
-        const config = error.config || {};
-        const status = error.response?.status;
-        const originalRequest = config;
-        const resource = originalRequest.url?.replace(originalRequest.baseURL, '');
+    client.interceptors.response.use(
+        (response) => {
+            return response;
+        },
+        (error) => {
+            const config = error.config || {};
+            const status = error.response?.status;
+            const originalRequest = config;
+            const resource = originalRequest.url?.replace(originalRequest.baseURL, '');
 
-        // eslint-disable-next-line inclusive-language/use-inclusive-words
-        if (tokenHandler.whitelist.includes(resource)) {
-            return Promise.reject(error);
-        }
+            // eslint-disable-next-line inclusive-language/use-inclusive-words
+            if (tokenHandler.whitelist.includes(resource)) {
+                return Promise.reject(error);
+            }
 
-        if (status === 401) {
-            if (!tokenHandler.isRefreshing) {
-                tokenHandler.fireRefreshTokenRequest().catch(() => {
-                    return Promise.reject(error);
+            if (status === 401) {
+                if (!tokenHandler.isRefreshing) {
+                    tokenHandler.fireRefreshTokenRequest().catch(() => {
+                        return Promise.reject(error);
+                    });
+                }
+
+                return new Promise((resolve, reject) => {
+                    tokenHandler.subscribe(
+                        (newToken) => {
+                            // replace the expired token and retry
+                            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                            originalRequest.url = originalRequest.url.replace(originalRequest.baseURL, '');
+                            resolve(Axios(originalRequest));
+                        },
+                        (err) => {
+                            if (!Shopware.Application.getApplicationRoot()) {
+                                reject(err);
+                                window.location.reload();
+                                return;
+                            }
+
+                            reject(err);
+                        },
+                    );
                 });
             }
 
-            return new Promise((resolve, reject) => {
-                tokenHandler.subscribe(
-                    (newToken) => {
-                    // replace the expired token and retry
-                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                        originalRequest.url = originalRequest.url.replace(originalRequest.baseURL, '');
-                        resolve(Axios(originalRequest));
-                    },
-                    (err) => {
-                        if (!Shopware.Application.getApplicationRoot()) {
-                            reject(err);
-                            window.location.reload();
-                            return;
-                        }
-
-                        reject(err);
-                    },
-                );
-            });
-        }
-
-        return Promise.reject(error);
-    });
+            return Promise.reject(error);
+        },
+    );
 
     return client;
 }
@@ -315,33 +333,61 @@ function refreshTokenInterceptor(client) {
 function storeSessionExpiredInterceptor(client) {
     const maxRetryLimit = 1;
 
-    client.interceptors.response.use((response) => {
-        return response;
-    }, (error) => {
-        const { config, response } = error;
-        const code = response?.data?.errors?.[0]?.code;
+    client.interceptors.response.use(
+        (response) => {
+            return response;
+        },
+        (error) => {
+            const { config, response } = error;
+            const code = response?.data?.errors?.[0]?.code;
 
-        if (config?.storeSessionRequestRetries >= maxRetryLimit) {
-            return Promise.reject(error);
-        }
-
-        const errorCodes = [
-            'FRAMEWORK__STORE_SESSION_EXPIRED',
-            'FRAMEWORK__STORE_SHOP_SECRET_INVALID',
-        ];
-
-        if (response.status === 403 && errorCodes.includes(code)) {
-            if (typeof config.storeSessionRequestRetries === 'number') {
-                config.storeSessionRequestRetries += 1;
-            } else {
-                config.storeSessionRequestRetries = 1;
+            if (config?.storeSessionRequestRetries >= maxRetryLimit) {
+                return Promise.reject(error);
             }
 
-            return client.request(config);
-        }
+            const errorCodes = [
+                'FRAMEWORK__STORE_SESSION_EXPIRED',
+                'FRAMEWORK__STORE_SHOP_SECRET_INVALID',
+            ];
 
-        return Promise.reject(error);
-    });
+            if (response?.status === 403 && errorCodes.includes(code)) {
+                if (typeof config.storeSessionRequestRetries === 'number') {
+                    config.storeSessionRequestRetries += 1;
+                } else {
+                    config.storeSessionRequestRetries = 1;
+                }
+
+                return client.request(config);
+            }
+
+            return Promise.reject(error);
+        },
+    );
+
+    return client;
+}
+
+/**
+ * Sets up an interceptor to add tracing information to the request headers on which admin page this request has been fired
+ *
+ * @param {AxiosInstance} client
+ * @returns {AxiosInstance}
+ */
+function tracingInterceptor(client) {
+    /**
+     * axios-client-mock does not work with request interceptors. So we have to disable it for tests.
+     */
+    if (process.env.NODE_ENV !== 'test') {
+        client.interceptors.request.use((config) => {
+            const currentRoute = Shopware?.Application?.view?.router?.currentRoute?.value?.name;
+
+            if (currentRoute) {
+                config.headers['shopware-admin-active-route'] = currentRoute;
+            }
+
+            return config;
+        });
+    }
 
     return client;
 }

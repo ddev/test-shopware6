@@ -10,7 +10,7 @@ use Twig\Source;
 /**
  * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class ScriptTwigLoader implements LoaderInterface
 {
     public function __construct(private readonly Script $script)
@@ -22,7 +22,7 @@ class ScriptTwigLoader implements LoaderInterface
         $script = $this->get($name);
 
         if ($script === null) {
-            throw new LoaderError(sprintf('Template "%s" is not defined.', $name));
+            throw new LoaderError(\sprintf('Template "%s" is not defined.', $name));
         }
 
         return new Source($script->getScript(), $name);
@@ -30,7 +30,15 @@ class ScriptTwigLoader implements LoaderInterface
 
     public function getCacheKey(string $name): string
     {
-        return $name;
+        $parts = [
+            $name, $this->script->getName(),
+        ];
+
+        if ($this->script->getScriptAppInformation()) {
+            $parts[] = $this->script->getScriptAppInformation()->getAppId();
+        }
+
+        return implode('-', $parts);
     }
 
     public function isFresh(string $name, int $time): bool
@@ -59,7 +67,7 @@ class ScriptTwigLoader implements LoaderInterface
         }
 
         foreach ($this->script->getIncludes() as $include) {
-            if ($include->getName() === $name) {
+            if ($include->getName() === $name && $include->isActive()) {
                 return $include;
             }
         }

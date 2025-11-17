@@ -19,7 +19,7 @@ use Shopware\Core\System\UsageData\UsageDataException;
 /**
  * @internal
  */
-#[Package('merchant-services')]
+#[Package('data-services')]
 class IterateEntitiesQueryBuilder
 {
     public function __construct(
@@ -33,7 +33,6 @@ class IterateEntitiesQueryBuilder
         string $entityName,
         Operation $operation,
         \DateTimeImmutable $currentRun,
-        \DateTimeInterface $lastApprovalDate,
         ?\DateTimeImmutable $lastRun,
     ): QueryBuilder {
         $definition = $this->entityDefinitionService->getAllowedEntityDefinition($entityName);
@@ -44,8 +43,8 @@ class IterateEntitiesQueryBuilder
         }
 
         return match ($operation) {
-            Operation::CREATE => $this->createQueryForCreatedEntities($definition, $lastApprovalDate, $lastRun),
-            Operation::UPDATE => $this->createQueryForUpdatedEntities($definition, $lastApprovalDate, $lastRun),
+            Operation::CREATE => $this->createQueryForCreatedEntities($definition, $currentRun, $lastRun),
+            Operation::UPDATE => $this->createQueryForUpdatedEntities($definition, $currentRun, $lastRun),
             Operation::DELETE => $this->createQueryForDeletedEntities($definition, $currentRun, $lastRun),
         };
     }
@@ -57,7 +56,7 @@ class IterateEntitiesQueryBuilder
 
     private function createQueryForCreatedEntities(
         EntityDefinition $definition,
-        \DateTimeInterface $lastApprovalDate,
+        \DateTimeInterface $currentRun,
         ?\DateTimeImmutable $lastRun,
     ): QueryBuilder {
         if ($lastRun === null) {
@@ -67,25 +66,25 @@ class IterateEntitiesQueryBuilder
         $iterableQuery = $this->getBaseQuery($definition);
         $iterableQuery->andWhere(
             'created_at > :lastRun',
-            'created_at <= :lastApprovalDate',
+            'created_at <= :currentRun',
         );
 
         $iterableQuery->andWhere(
             CompositeExpression::or(
                 $iterableQuery->expr()->isNull('updated_at'),
-                $iterableQuery->expr()->lte('updated_at', ':lastApprovalDate')
+                $iterableQuery->expr()->lte('updated_at', ':currentRun')
             )
         );
 
         $iterableQuery->setParameter('lastRun', $lastRun->format(Defaults::STORAGE_DATE_TIME_FORMAT));
-        $iterableQuery->setParameter('lastApprovalDate', $lastApprovalDate->format(Defaults::STORAGE_DATE_TIME_FORMAT));
+        $iterableQuery->setParameter('currentRun', $currentRun->format(Defaults::STORAGE_DATE_TIME_FORMAT));
 
         return $iterableQuery;
     }
 
     private function createQueryForUpdatedEntities(
         EntityDefinition $definition,
-        \DateTimeInterface $lastApprovalDate,
+        \DateTimeInterface $currentRun,
         ?\DateTimeImmutable $lastRun,
     ): QueryBuilder {
         if ($lastRun === null) {
@@ -96,11 +95,11 @@ class IterateEntitiesQueryBuilder
         $iterableQuery->andWhere(
             'created_at <= :lastRun',
             'updated_at > :lastRun',
-            'updated_at <= :lastApprovalDate',
+            'updated_at <= :currentRun',
         );
 
         $iterableQuery->setParameter('lastRun', $lastRun->format(Defaults::STORAGE_DATE_TIME_FORMAT));
-        $iterableQuery->setParameter('lastApprovalDate', $lastApprovalDate->format(Defaults::STORAGE_DATE_TIME_FORMAT));
+        $iterableQuery->setParameter('currentRun', $currentRun->format(Defaults::STORAGE_DATE_TIME_FORMAT));
 
         return $iterableQuery;
     }
@@ -119,7 +118,7 @@ class IterateEntitiesQueryBuilder
 
         $query = $this->createQueryBuilder();
         $query->setTitle("UsageData EntitySync - iterate entity deletions for '$entityName'");
-        $query->select(sprintf(
+        $query->select(\sprintf(
             'LOWER(HEX(%s)) as %s',
             $escapedIdFieldStorageName,
             $escapedIdFieldStorageName,
@@ -157,7 +156,7 @@ class IterateEntitiesQueryBuilder
 
             $escapedFieldStorageName = EntityDefinitionQueryHelper::escape($primaryKey->getStorageName());
 
-            $selections[] = sprintf(
+            $selections[] = \sprintf(
                 'LOWER(HEX(%s.%s)) as %s',
                 $escapedEntityName,
                 $escapedFieldStorageName,
@@ -185,7 +184,7 @@ class IterateEntitiesQueryBuilder
             if ($field instanceof VersionField || $field instanceof ReferenceVersionField) {
                 $hasVersionFields = true;
                 $queryBuilder->andWhere(
-                    sprintf('%s = :versionId', EntityDefinitionQueryHelper::escape($field->getStorageName())),
+                    \sprintf('%s = :versionId', EntityDefinitionQueryHelper::escape($field->getStorageName())),
                 );
             }
         }

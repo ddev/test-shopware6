@@ -4,12 +4,15 @@ namespace Shopware\Storefront\Theme\DataAbstractionLayer;
 
 use Shopware\Core\Framework\DataAbstractionLayer\Dbal\ExceptionHandlerInterface;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Storefront\Theme\Exception\ThemeException;
 
 /**
  * @internal
  */
-#[Package('storefront')]
+#[Package('framework')]
+/**
+ * @deprecated tag:v6.8.0 - reason:remove-subscriber - Will be removed, as the exception handler is no longer needed, languages now also throw RestrictDeleteViolationException
+ * @see RestrictDeleteViolationException is now thrown instead
+ */
 class ThemeExceptionHandler implements ExceptionHandlerInterface
 {
     public function getPriority(): int
@@ -17,15 +20,8 @@ class ThemeExceptionHandler implements ExceptionHandlerInterface
         return ExceptionHandlerInterface::PRIORITY_DEFAULT;
     }
 
-    public function matchException(\Exception $e): ?\Exception
+    public function matchException(\Throwable $e): ?\Throwable
     {
-        if (preg_match(
-            '/SQLSTATE\[23000]: Integrity constraint violation: 1451.*CONSTRAINT `fk.theme_media.media_id` FOREIGN KEY \(`media_id`\) REFERENCES `media` \(`id`\)/',
-            $e->getMessage(),
-        )) {
-            return ThemeException::themeMediaStillInUse();
-        }
-
         return null;
     }
 }

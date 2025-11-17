@@ -33,7 +33,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'es:admin:test',
     description: 'Allows you to test the admin search index',
 )]
-#[Package('system-settings')]
+#[Package('inventory')]
 final class ElasticsearchAdminTestCommand extends Command
 {
     private SymfonyStyle $io;
@@ -75,7 +75,7 @@ final class ElasticsearchAdminTestCommand extends Command
             ShippingMethodDefinition::ENTITY_NAME,
         ];
 
-        $result = $this->searcher->search($term, $entities, Context::createDefaultContext());
+        $result = $this->searcher->search($term, $entities, Context::createCLIContext());
 
         $rows = [];
         foreach ($result as $data) {

@@ -4,57 +4,52 @@ namespace Shopware\Core\Framework\Test\Plugin;
 
 use Composer\Autoload\ClassLoader;
 use Doctrine\DBAL\Connection;
+use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\Before;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Plugin\PluginEntity;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
+use Shopware\Core\Framework\Test\TestCaseBase\KernelTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
-use Shopware\Core\Kernel;
-use SwagTest\SwagTest;
+use SwagTestPlugin\SwagTestPlugin;
 use SwagTestSkipRebuild\SwagTestSkipRebuild;
 use SwagTestWithBundle\SwagTestWithBundle;
 
 trait PluginIntegrationTestBehaviour
 {
-    /**
-     * @var ClassLoader
-     */
-    protected $classLoader;
+    use KernelTestBehaviour;
 
-    /**
-     * @var Connection
-     */
-    protected $connection;
+    protected ClassLoader $classLoader;
 
-    /**
-     * @before
-     */
+    #[Before]
     public function pluginIntegrationSetUp(): void
     {
-        $this->connection = Kernel::getConnection();
-        $this->connection->beginTransaction();
-        $this->connection->executeStatement('DELETE FROM plugin');
+        $connection = static::getContainer()
+            ->get(Connection::class);
+        $connection->beginTransaction();
+        $connection->executeStatement('DELETE FROM plugin');
 
         $this->classLoader = clone KernelLifecycleManager::getClassLoader();
         KernelLifecycleManager::getClassLoader()->unregister();
         $this->classLoader->register();
     }
 
-    /**
-     * @after
-     */
+    #[After]
     public function pluginIntegrationTearDown(): void
     {
         $this->classLoader->unregister();
         KernelLifecycleManager::getClassLoader()->register();
 
-        $this->connection->rollBack();
+        static::getContainer()
+            ->get(Connection::class)
+            ->rollBack();
     }
 
     protected function insertPlugin(PluginEntity $plugin): void
     {
         $installedAt = $plugin->getInstalledAt();
-        /** @var \DateTimeInterface $createdAt */
         $createdAt = $plugin->getCreatedAt();
+        static::assertNotNull($createdAt);
 
         $data = [
             'id' => Uuid::fromHexToBytes($plugin->getId()),
@@ -69,7 +64,9 @@ trait PluginIntegrationTestBehaviour
             'installed_at' => $installedAt ? $installedAt->format(Defaults::STORAGE_DATE_TIME_FORMAT) : null,
         ];
 
-        $this->connection->insert('plugin', $data);
+        static::getContainer()
+            ->get(Connection::class)
+            ->insert('plugin', $data);
     }
 
     protected function getNotInstalledPlugin(): PluginEntity
@@ -77,12 +74,12 @@ trait PluginIntegrationTestBehaviour
         $plugin = new PluginEntity();
         $plugin->assign([
             'id' => Uuid::randomHex(),
-            'name' => 'SwagTest',
-            'baseClass' => SwagTest::class,
+            'name' => 'SwagTestPlugin',
+            'baseClass' => SwagTestPlugin::class,
             'version' => '1.0.1',
             'active' => false,
-            'path' => __DIR__ . '/_fixture/plugins/SwagTest',
-            'autoload' => ['psr-4' => ['SwagTest\\' => 'src/']],
+            'path' => __DIR__ . '/_fixture/plugins/SwagTestPlugin',
+            'autoload' => ['psr-4' => ['SwagTestPlugin\\' => 'src/']],
             'createdAt' => new \DateTimeImmutable('2019-01-01'),
             'managedByComposer' => false,
         ]);

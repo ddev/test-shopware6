@@ -4,21 +4,25 @@ namespace Shopware\Core\Framework\Demodata\Generator;
 
 use Doctrine\DBAL\Connection;
 use Faker\Generator;
+use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Content\Category\CategoryDefinition;
+use Shopware\Core\Content\Cms\CmsPageCollection;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Indexing\EntityIndexerRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Demodata\DemodataContext;
 use Shopware\Core\Framework\Demodata\DemodataGeneratorInterface;
+use Shopware\Core\Framework\Demodata\DemodataService;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class CategoryGenerator implements DemodataGeneratorInterface
 {
     /**
@@ -30,6 +34,9 @@ class CategoryGenerator implements DemodataGeneratorInterface
 
     /**
      * @internal
+     *
+     * @param EntityRepository<CategoryCollection> $categoryRepository
+     * @param EntityRepository<CmsPageCollection> $cmsPageRepository
      */
     public function __construct(
         private readonly EntityRepository $categoryRepository,
@@ -62,9 +69,13 @@ class CategoryGenerator implements DemodataGeneratorInterface
         $console->progressStart($numberOfItems);
 
         foreach ($payload as $cat) {
+            $context->getContext()->addState(EntityIndexerRegistry::DISABLE_INDEXING);
+
             $this->categoryRepository->create([$cat], $context->getContext());
 
             $context->getConsole()->progressAdvance();
+
+            $context->getContext()->removeState(EntityIndexerRegistry::DISABLE_INDEXING);
         }
 
         $context->getConsole()->progressFinish();
@@ -72,7 +83,7 @@ class CategoryGenerator implements DemodataGeneratorInterface
 
     /**
      * @param list<string> $pageIds
-     * @param list<string> $tags
+     * @param array<string> $tags
      *
      * @return array<string, mixed>
      */
@@ -90,6 +101,7 @@ class CategoryGenerator implements DemodataGeneratorInterface
             'mediaId' => $context->getRandomId('media'),
             'description' => $context->getFaker()->text(),
             'tags' => $this->getTags($tags),
+            'customFields' => [DemodataService::DEMODATA_CUSTOM_FIELDS_KEY => true],
         ];
 
         if ($current >= $max) {
@@ -102,7 +114,7 @@ class CategoryGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @param list<string> $tags
+     * @param array<string> $tags
      *
      * @return array<string, mixed>
      */
@@ -125,7 +137,7 @@ class CategoryGenerator implements DemodataGeneratorInterface
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     private function getIds(string $table): array
     {
@@ -170,8 +182,8 @@ class CategoryGenerator implements DemodataGeneratorInterface
         $criteria->addFilter(new EqualsFilter('category.parentId', null));
         $criteria->addSorting(new FieldSorting('category.createdAt', FieldSorting::ASCENDING));
 
-        /** @var string $categoryId */
         $categoryId = $this->categoryRepository->searchIds($criteria, $context)->firstId();
+        \assert(\is_string($categoryId));
 
         return $categoryId;
     }
@@ -193,7 +205,7 @@ class CategoryGenerator implements DemodataGeneratorInterface
 
     /**
      * @param list<string> $pageIds
-     * @param list<string> $tags
+     * @param array<string> $tags
      *
      * @return list<array<string, mixed>>
      */

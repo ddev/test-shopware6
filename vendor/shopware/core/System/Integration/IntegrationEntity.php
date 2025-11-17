@@ -7,58 +7,32 @@ use Shopware\Core\Framework\App\AppEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCustomFieldsTrait;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
-use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
+use Shopware\Core\System\StateMachine\Aggregation\StateMachineHistory\StateMachineHistoryCollection;
 
-#[Package('system-settings')]
+#[Package('fundamentals@framework')]
 class IntegrationEntity extends Entity
 {
     use EntityCustomFieldsTrait;
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $label;
+    protected string $label;
 
-    /**
-     * @var string
-     */
-    protected $accessKey;
+    protected string $accessKey;
 
-    /**
-     * @var string
-     */
-    protected $secretAccessKey;
+    protected string $secretAccessKey;
 
-    /**
-     * @var bool
-     */
-    protected $admin;
+    protected bool $admin;
 
-    /**
-     * @var \DateTimeInterface|null
-     */
-    protected $lastUsageAt;
+    protected ?\DateTimeInterface $lastUsageAt = null;
 
-    /**
-     * @var AppEntity|null
-     */
-    protected $app;
+    protected ?AppEntity $app = null;
 
-    /**
-     * @var AclRoleCollection|null
-     */
-    protected $aclRoles;
-
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed
-     *
-     * @var bool
-     */
-    protected $writeAccess;
+    protected ?AclRoleCollection $aclRoles = null;
 
     protected ?\DateTimeInterface $deletedAt = null;
+
+    protected ?StateMachineHistoryCollection $stateMachineHistoryEntries = null;
 
     public function getLabel(): string
     {
@@ -140,29 +114,13 @@ class IntegrationEntity extends Entity
         $this->deletedAt = $deletedAt;
     }
 
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed
-     */
-    public function getWriteAccess(): bool
+    public function getStateMachineHistoryEntries(): ?StateMachineHistoryCollection
     {
-        Feature::triggerDeprecationOrThrow(
-            'v6.6.0.0',
-            Feature::deprecatedMethodMessage(__CLASS__, __METHOD__, 'v6.6.0.0')
-        );
-
-        return $this->writeAccess;
+        return $this->stateMachineHistoryEntries;
     }
 
-    /**
-     * @deprecated tag:v6.6.0 - Will be removed
-     */
-    public function setWriteAccess(bool $writeAccess): void
+    public function setStateMachineHistoryEntries(StateMachineHistoryCollection $stateMachineHistoryEntries): void
     {
-        Feature::triggerDeprecationOrThrow(
-            'v6.6.0.0',
-            Feature::deprecatedMethodMessage(__CLASS__, __METHOD__, 'v6.6.0.0')
-        );
-
-        $this->writeAccess = $writeAccess;
+        $this->stateMachineHistoryEntries = $stateMachineHistoryEntries;
     }
 }

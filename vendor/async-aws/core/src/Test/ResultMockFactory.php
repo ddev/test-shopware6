@@ -42,7 +42,7 @@ class ResultMockFactory
         if (Result::class !== $class) {
             $parent = get_parent_class($class);
             if (false === $parent || Result::class !== $parent) {
-                throw new LogicException(sprintf('The "%s::%s" can only be used for classes that extend "%s"', __CLASS__, __METHOD__, Result::class));
+                throw new LogicException(\sprintf('The "%s::%s" can only be used for classes that extend "%s"', __CLASS__, __METHOD__, Result::class));
             }
         }
 
@@ -75,7 +75,7 @@ class ResultMockFactory
         if (Result::class !== $class) {
             $parent = get_parent_class($class);
             if (false === $parent || Result::class !== $parent) {
-                throw new LogicException(sprintf('The "%s::%s" can only be used for classes that extend "%s"', __CLASS__, __METHOD__, Result::class));
+                throw new LogicException(\sprintf('The "%s::%s" can only be used for classes that extend "%s"', __CLASS__, __METHOD__, Result::class));
             }
         }
 
@@ -84,7 +84,9 @@ class ResultMockFactory
         // Make sure the Result is initialized
         $reflectionClass = new \ReflectionClass(Result::class);
         $initializedProperty = $reflectionClass->getProperty('initialized');
-        $initializedProperty->setAccessible(true);
+        if (\PHP_VERSION_ID < 80100) {
+            $initializedProperty->setAccessible(true);
+        }
 
         /** @psalm-var \ReflectionClass<T> $reflectionClass */
         $reflectionClass = new \ReflectionClass($class);
@@ -116,7 +118,9 @@ class ResultMockFactory
                     $property = $reflectionClass->getProperty($propertyName);
                 }
             }
-            $property->setAccessible(true);
+            if (\PHP_VERSION_ID < 80100) {
+                $property->setAccessible(true);
+            }
             $property->setValue($object, $propertyValue);
         }
 
@@ -139,22 +143,26 @@ class ResultMockFactory
         if (Waiter::class !== $class) {
             $parent = get_parent_class($class);
             if (false === $parent || Waiter::class !== $parent) {
-                throw new LogicException(sprintf('The "%s::%s" can only be used for classes that extend "%s"', __CLASS__, __METHOD__, Waiter::class));
+                throw new LogicException(\sprintf('The "%s::%s" can only be used for classes that extend "%s"', __CLASS__, __METHOD__, Waiter::class));
             }
         }
 
         if (Waiter::STATE_SUCCESS !== $finalState && Waiter::STATE_FAILURE !== $finalState) {
-            throw new LogicException(sprintf('The state passed to "%s::%s" must be "%s" or "%s".', __CLASS__, __METHOD__, Waiter::STATE_SUCCESS, Waiter::STATE_FAILURE));
+            throw new LogicException(\sprintf('The state passed to "%s::%s" must be "%s" or "%s".', __CLASS__, __METHOD__, Waiter::STATE_SUCCESS, Waiter::STATE_FAILURE));
         }
 
         $response = self::getResponseObject();
 
         $reflectionClass = new \ReflectionClass(Waiter::class);
         $propertyResponse = $reflectionClass->getProperty('response');
-        $propertyResponse->setAccessible(true);
+        if (\PHP_VERSION_ID < 80100) {
+            $propertyResponse->setAccessible(true);
+        }
 
         $propertyState = $reflectionClass->getProperty('finalState');
-        $propertyState->setAccessible(true);
+        if (\PHP_VERSION_ID < 80100) {
+            $propertyState->setAccessible(true);
+        }
 
         /** @psalm-var \ReflectionClass<T> $reflectionClass */
         $reflectionClass = new \ReflectionClass($class);
@@ -217,7 +225,9 @@ class ResultMockFactory
             }
 
             if (null !== $propertyValue) {
-                $property->setAccessible(true);
+                if (\PHP_VERSION_ID < 80100) {
+                    $property->setAccessible(true);
+                }
                 $property->setValue($object, $propertyValue);
             }
         }
@@ -231,7 +241,7 @@ class ResultMockFactory
     private static function addPropertiesOnResult(\ReflectionClass $reflectionClass, object $object, string $class): void
     {
         if (false === $pos = strrpos($class, '\\')) {
-            throw new LogicException(sprintf('Expected class "%s" to have a backslash. ', $class));
+            throw new LogicException(\sprintf('Expected class "%s" to have a backslash. ', $class));
         }
 
         $className = substr($class, $pos + 1);
@@ -242,16 +252,16 @@ class ResultMockFactory
         } elseif ('Result' === substr($className, -6)) {
             $classNameWithoutSuffix = substr($className, 0, -6);
         } else {
-            throw new LogicException(sprintf('Unknown class suffix: "%s"', $className));
+            throw new LogicException(\sprintf('Unknown class suffix: "%s"', $className));
         }
 
         if (false === $pos = strrpos($class, '\\', -2 - \strlen($className))) {
-            throw new LogicException(sprintf('Expected class "%s" to have more than one backslash. ', $class));
+            throw new LogicException(\sprintf('Expected class "%s" to have more than one backslash. ', $class));
         }
 
         $baseNamespace = substr($class, 0, $pos);
         if (false === $pos = strrpos($baseNamespace, '\\')) {
-            throw new LogicException(sprintf('Expected base namespace "%s" to have a backslash. ', $baseNamespace));
+            throw new LogicException(\sprintf('Expected base namespace "%s" to have a backslash. ', $baseNamespace));
         }
 
         $awsClientClass = $baseNamespace . substr($baseNamespace, $pos) . 'Client';
@@ -260,14 +270,18 @@ class ResultMockFactory
         if (class_exists($awsClientClass)) {
             $awsClientMock = (new \ReflectionClass($awsClientClass))->newInstanceWithoutConstructor();
             $property = $reflectionClass->getProperty('awsClient');
-            $property->setAccessible(true);
+            if (\PHP_VERSION_ID < 80100) {
+                $property->setAccessible(true);
+            }
             $property->setValue($object, $awsClientMock);
         }
 
         if (class_exists($inputClass)) {
             $inputMock = (new \ReflectionClass($inputClass))->newInstanceWithoutConstructor();
             $property = $reflectionClass->getProperty('input');
-            $property->setAccessible(true);
+            if (\PHP_VERSION_ID < 80100) {
+                $property->setAccessible(true);
+            }
             $property->setValue($object, $inputMock);
         }
     }
@@ -278,12 +292,22 @@ class ResultMockFactory
         $response = $reflectionClass->newInstanceWithoutConstructor();
 
         $property = $reflectionClass->getProperty('resolveResult');
-        $property->setAccessible(true);
+        if (\PHP_VERSION_ID < 80100) {
+            $property->setAccessible(true);
+        }
         $property->setValue($response, true);
 
         $property = $reflectionClass->getProperty('bodyDownloaded');
-        $property->setAccessible(true);
+        if (\PHP_VERSION_ID < 80100) {
+            $property->setAccessible(true);
+        }
         $property->setValue($response, true);
+
+        $property = $reflectionClass->getProperty('httpResponse');
+        if (\PHP_VERSION_ID < 80100) {
+            $property->setAccessible(true);
+        }
+        $property->setValue($response, new SimpleMockedResponse());
 
         return $response;
     }

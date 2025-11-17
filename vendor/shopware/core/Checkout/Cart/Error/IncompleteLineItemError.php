@@ -9,10 +9,10 @@ use Shopware\Core\Framework\Log\Package;
 class IncompleteLineItemError extends Error
 {
     public function __construct(
-        private string $key,
-        private readonly string $property
+        protected string $key,
+        protected readonly string $property
     ) {
-        $this->message = sprintf('Line item "%s" incomplete. Property "%s" missing.', $key, $property);
+        $this->message = \sprintf('Line item "%s" incomplete. Property "%s" missing.', $key, $property);
 
         parent::__construct($this->message);
     }

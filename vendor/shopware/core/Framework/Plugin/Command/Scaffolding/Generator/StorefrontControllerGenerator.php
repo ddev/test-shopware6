@@ -12,7 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * @internal
  */
-#[Package('core')]
+#[Package('framework')]
 class StorefrontControllerGenerator implements ScaffoldingGenerator
 {
     use AddScaffoldConfigDefaultBehaviour;
@@ -34,7 +34,7 @@ class StorefrontControllerGenerator implements ScaffoldingGenerator
 
     private string $routesXmlEntry = <<<'EOL'
 
-        <import resource="../../Storefront/Controller/**/*Controller.php" type="annotation" />
+        <import resource="../../Storefront/Controller/**/*Controller.php" type="attribute" />
 
     EOL;
 

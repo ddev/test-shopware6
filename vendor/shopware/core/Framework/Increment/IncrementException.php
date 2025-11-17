@@ -8,11 +8,16 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('core')]
+#[Package('framework')]
 class IncrementException extends HttpException
 {
     public const KEY_PARAMETER_IS_MISSING = 'FRAMEWORK__KEY_PARAMETER_IS_MISSING';
     public const CLUSTER_PARAMETER_IS_MISSING = 'FRAMEWORK__CLUSTER_PARAMETER_IS_MISSING';
+    public const WRONG_GATEWAY_TYPE = 'FRAMEWORK__INCREMENT_WRONG_GATEWAY_TYPE';
+    public const GATEWAY_SERVICE_NOT_FOUND = 'FRAMEWORK__INCREMENT_GATEWAY_SERVICE_NOT_FOUND';
+    public const WRONG_GATEWAY_CLASS = 'FRAMEWORK__INCREMENT_WRONG_GATEWAY_CLASS';
+
+    public const KEYS_PARAMETER_IS_INVALID = 'FRAMEWORK__INCREMENT_KEYS_PARAMETER_IS_INVALID';
 
     public static function keyParameterIsMissing(): self
     {
@@ -32,8 +37,56 @@ class IncrementException extends HttpException
         );
     }
 
+    public static function invalidKeysParameter(): self
+    {
+        return new self(
+            Response::HTTP_BAD_REQUEST,
+            self::KEYS_PARAMETER_IS_INVALID,
+            'Parameter "keys" must be an array.',
+        );
+    }
+
     public static function gatewayNotFound(string $pool): ShopwareHttpException
     {
         return new IncrementGatewayNotFoundException($pool);
+    }
+
+    public static function wrongGatewayType(string $pool): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::WRONG_GATEWAY_TYPE,
+            'shopware.increment.gateway type of {{ pool }} pool must be a string',
+            [
+                'pool' => $pool,
+            ]
+        );
+    }
+
+    public static function gatewayServiceNotFound(string $type, string $pool, string $serviceId): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::GATEWAY_SERVICE_NOT_FOUND,
+            'Can not find increment gateway for configured type {{ type }} of pool {{ pool }}, expected service id {{ serviceId }} can not be found',
+            [
+                'type' => $type,
+                'pool' => $pool,
+                'serviceId' => $serviceId,
+            ]
+        );
+    }
+
+    public static function wrongGatewayClass(string $serviceId, string $requiredClass): self
+    {
+        return new self(
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+            self::WRONG_GATEWAY_CLASS,
+            'Increment gateway with id {{ serviceId }}, expected service instance of {{ requiredClass }}',
+            [
+                'serviceId' => $serviceId,
+                'requiredClass' => $requiredClass,
+            ]
+        );
     }
 }

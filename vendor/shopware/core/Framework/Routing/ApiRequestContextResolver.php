@@ -13,12 +13,13 @@ use Shopware\Core\Framework\Api\Exception\MissingPrivilegeException;
 use Shopware\Core\Framework\Api\Util\AccessKeyHelper;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Pricing\CashRoundingConfig;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Package('core')]
+#[Package('framework')]
 class ApiRequestContextResolver implements RequestContextResolverInterface
 {
     use RouteScopeCheckTrait;
@@ -76,7 +77,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     }
 
     /**
-     * @return array{currencyId: string, languageId: string, systemFallbackLanguageId: string, currencyFactory: float, currencyPrecision: int, versionId: ?string, considerInheritance: bool}
+     * @return array{currencyId: string, languageId: non-falsy-string, systemFallbackLanguageId: non-falsy-string, currencyFactory: float, currencyPrecision: int, versionId: ?string, considerInheritance: bool}
      */
     private function getContextParameters(Request $request): array
     {
@@ -92,7 +93,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
 
         $runtimeParams = $this->getRuntimeParameters($request);
 
-        /** @var array{currencyId: string, languageId: string, systemFallbackLanguageId: string, currencyFactory: float, currencyPrecision: int, versionId: ?string, considerInheritance: bool} $params */
+        /** @var array{currencyId: string, languageId: non-falsy-string, systemFallbackLanguageId: non-falsy-string, currencyFactory: float, currencyPrecision: int, versionId: ?string, considerInheritance: bool} $params */
         $params = array_replace_recursive($params, $runtimeParams);
 
         return $params;
@@ -147,7 +148,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
             return new SystemSource();
         }
 
-        $clientId = $request->attributes->get(PlatformRequest::ATTRIBUTE_OAUTH_CLIENT_ID);
+        $clientId = $request->attributes->getString(PlatformRequest::ATTRIBUTE_OAUTH_CLIENT_ID);
         $keyOrigin = AccessKeyHelper::getOrigin($clientId);
 
         if ($keyOrigin === 'user') {
@@ -159,7 +160,13 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
         if ($keyOrigin === 'integration') {
             $integrationId = $this->getIntegrationIdByAccessKey($clientId);
 
-            return $this->getAdminApiSource(null, $integrationId);
+            $userId = $request->headers->get(PlatformRequest::HEADER_APP_USER_ID);
+
+            if ($userId !== null && !$this->userAppIntegrationHeaderPrivileged($userId, $integrationId)) {
+                $userId = null;
+            }
+
+            return $this->getAdminApiSource($userId, $integrationId);
         }
 
         if ($keyOrigin === 'sales-channel') {
@@ -172,24 +179,19 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     }
 
     /**
-     * @param array{languageId: string, systemFallbackLanguageId: string} $params
+     * @param array{languageId: non-falsy-string, systemFallbackLanguageId: non-falsy-string} $params
      *
-     * @return non-empty-array<string>
+     * @return non-empty-list<string>
      */
     private function getLanguageIdChain(array $params): array
     {
-        $chain = [$params['languageId']];
-        if ($chain[0] === Defaults::LANGUAGE_SYSTEM) {
-            return $chain; // no query needed
+        $languageId = $params['languageId'];
+        if ($languageId === Defaults::LANGUAGE_SYSTEM) {
+            // no query needed
+            return [$languageId];
         }
-        // `Context` ignores nulls and duplicates
-        $chain[] = $this->getParentLanguageId($chain[0]);
-        $chain[] = $params['systemFallbackLanguageId'];
 
-        /** @var non-empty-array<string> $filtered */
-        $filtered = array_filter($chain);
-
-        return $filtered;
+        return array_values(array_filter([$languageId, $this->getParentLanguageId($languageId), $params['systemFallbackLanguageId']]));
     }
 
     private function getParentLanguageId(?string $languageId): ?string
@@ -198,7 +200,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
             throw RoutingException::languageNotFound($languageId);
         }
         $data = $this->connection->createQueryBuilder()
-            ->select(['LOWER(HEX(language.parent_id))'])
+            ->select('LOWER(HEX(language.parent_id))')
             ->from('language')
             ->where('language.id = :id')
             ->setParameter('id', Uuid::fromHexToBytes($languageId))
@@ -215,7 +217,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     private function getUserIdByAccessKey(string $clientId): string
     {
         $id = $this->connection->createQueryBuilder()
-            ->select(['user_id'])
+            ->select('user_id')
             ->from('user_access_key')
             ->where('access_key = :accessKey')
             ->setParameter('accessKey', $clientId)
@@ -228,7 +230,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     private function getSalesChannelIdByAccessKey(string $clientId): string
     {
         $id = $this->connection->createQueryBuilder()
-            ->select(['id'])
+            ->select('id')
             ->from('sales_channel')
             ->where('access_key = :accessKey')
             ->setParameter('accessKey', $clientId)
@@ -241,7 +243,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     private function getIntegrationIdByAccessKey(string $clientId): string
     {
         $id = $this->connection->createQueryBuilder()
-            ->select(['id'])
+            ->select('id')
             ->from('integration')
             ->where('access_key = :accessKey')
             ->setParameter('accessKey', $clientId)
@@ -258,6 +260,14 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
         // Use the permissions associated to that app, if the request is made by an integration associated to an app
         $appPermissions = $this->fetchPermissionsIntegrationByApp($integrationId);
         if ($appPermissions !== null) {
+            // If both userId and integrationId are provided (HEADER_APP_USER_ID case), intersect user permissions with app permissions
+            if ($userId !== null && !$this->isAdmin($userId)) {
+                $appPermissions = array_intersect(
+                    $appPermissions,
+                    $this->fetchPermissions($userId)
+                );
+            }
+
             $source->setIsAdmin(false);
             $source->setPermissions($appPermissions);
 
@@ -303,7 +313,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     private function fetchPermissions(string $userId): array
     {
         $permissions = $this->connection->createQueryBuilder()
-            ->select(['role.privileges'])
+            ->select('role.privileges')
             ->from('acl_user_role', 'mapping')
             ->innerJoin('mapping', 'acl_role', 'role', 'mapping.acl_role_id = role.id')
             ->where('mapping.user_id = :userId')
@@ -327,7 +337,11 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
             ['id' => Uuid::fromHexToBytes($currencyId)]
         );
         if ($rounding === false) {
-            throw new \RuntimeException(sprintf('No cash rounding for currency "%s" found', $currencyId));
+            if (!Feature::isActive('v6.8.0.0')) {
+                // @phpstan-ignore-next-line
+                throw new \RuntimeException(\sprintf('No cash rounding for currency "%s" found', $currencyId));
+            }
+            throw RoutingException::currencyNotFound($currencyId);
         }
 
         $rounding = json_decode((string) $rounding['item_rounding'], true, 512, \JSON_THROW_ON_ERROR);
@@ -368,7 +382,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     private function fetchIntegrationPermissions(string $integrationId): array
     {
         $permissions = $this->connection->createQueryBuilder()
-            ->select(['role.privileges'])
+            ->select('role.privileges')
             ->from('integration_role', 'mapping')
             ->innerJoin('mapping', 'acl_role', 'role', 'mapping.acl_role_id = role.id')
             ->where('mapping.integration_id = :integrationId')
@@ -388,7 +402,7 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     private function fetchAppNameByIntegrationId(string $integrationId): ?string
     {
         $name = $this->connection->createQueryBuilder()
-            ->select(['app.name'])
+            ->select('app.name')
             ->from('app', 'app')
             ->innerJoin('app', 'integration', 'integration', 'integration.id = app.integration_id')
             ->where('integration.id = :integrationId')
@@ -405,7 +419,6 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
     }
 
     /**
-     * @throws MissingPrivilegeException
      * @throws RoutingException
      */
     private function userAppIntegrationHeaderPrivileged(string $userId, ?string $appIntegrationId): bool
@@ -429,7 +442,11 @@ class ApiRequestContextResolver implements RequestContextResolverInterface
         $specificAppPrivileged = \in_array($appPrivilegeName, $permissions, true);
 
         if (!($specificAppPrivileged || $allAppsPrivileged)) {
-            throw new MissingPrivilegeException([$appPrivilegeName]);
+            if (!Feature::isActive('v6.8.0.0')) {
+                // @phpstan-ignore-next-line
+                throw new MissingPrivilegeException([$appPrivilegeName]);
+            }
+            throw RoutingException::missingPrivileges([$appPrivilegeName]);
         }
 
         return true;

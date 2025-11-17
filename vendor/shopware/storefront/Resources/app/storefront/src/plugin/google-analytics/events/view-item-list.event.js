@@ -1,10 +1,15 @@
 import AnalyticsEvent from 'src/plugin/google-analytics/analytics-event';
-import DomAccessHelper from 'src/helper/dom-access.helper';
 
 export default class ViewItemListEvent extends AnalyticsEvent
 {
+    /**
+     * @param {string} controllerName @deprecated tag:v6.8.0 - Will be removed, use activeRoute instead.
+     * @param {string} actionName @deprecated tag:v6.8.0 - Will be removed, use activeRoute instead.
+     * @param {string} activeRoute
+     * @returns {boolean}
+     */
     supports() {
-        const listingWrapper = DomAccessHelper.querySelector(document, '.cms-element-product-listing-wrapper', false);
+        const listingWrapper = document.querySelector('.cms-element-product-listing-wrapper');
         return !!listingWrapper;
     }
 
@@ -19,7 +24,7 @@ export default class ViewItemListEvent extends AnalyticsEvent
     }
 
     getListItems() {
-        const productBoxes = DomAccessHelper.querySelectorAll(document, '.product-box', false);
+        const productBoxes = document.querySelectorAll('.product-box');
         const lineItems = [];
 
         if (!productBoxes) {
@@ -27,31 +32,11 @@ export default class ViewItemListEvent extends AnalyticsEvent
         }
 
         productBoxes.forEach(item => {
-            const id = DomAccessHelper.querySelector(item, 'input[name=product-id]').value;
-            const name = DomAccessHelper.querySelector(item, 'input[name=product-name]').value;
-
-            if (!id || !name) {
-                return;
+            if (item.dataset['productInformation']) {
+                lineItems.push(JSON.parse(item.dataset['productInformation']));
             }
-
-            lineItems.push({
-                id,
-                name,
-            });
         });
 
         return lineItems;
-    }
-
-    fetchProductId(inputs) {
-        let productId = null;
-
-        inputs.forEach(item => {
-            if (DomAccessHelper.getAttribute(item, 'name').endsWith('[id]')) {
-                productId = item.value;
-            }
-        });
-
-        return productId;
     }
 }

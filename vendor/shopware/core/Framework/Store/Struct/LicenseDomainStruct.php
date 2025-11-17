@@ -8,28 +8,16 @@ use Shopware\Core\Framework\Struct\Struct;
 /**
  * @codeCoverageIgnore
  */
-#[Package('services-settings')]
+#[Package('checkout')]
 class LicenseDomainStruct extends Struct
 {
-    /**
-     * @var string
-     */
-    protected $domain;
+    protected string $domain;
 
-    /**
-     * @var bool
-     */
-    protected $verified = false;
+    protected bool $verified = false;
 
-    /**
-     * @var string
-     */
-    protected $edition = 'Community Edition';
+    protected string $edition = 'Community Edition';
 
-    /**
-     * @var bool
-     */
-    protected $active = false;
+    protected bool $active = false;
 
     public function getDomain(): string
     {

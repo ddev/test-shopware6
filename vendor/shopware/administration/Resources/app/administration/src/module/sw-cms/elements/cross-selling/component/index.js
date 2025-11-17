@@ -6,7 +6,7 @@ const { isEmpty } = Shopware.Utils.types;
 
 /**
  * @private
- * @package buyers-experience
+ * @sw-package discovery
  */
 export default {
     template,
@@ -19,6 +19,7 @@ export default {
     data() {
         return {
             sliderBoxLimit: 3,
+            resizeObserver: null,
         };
     },
 
@@ -65,7 +66,7 @@ export default {
         },
 
         crossSellingProducts() {
-            return (this.element.data.product.crossSellings.length)
+            return this.element.data.product.crossSellings.length
                 ? this.element.data.product.crossSellings[0].assignedProducts
                 : [];
         },
@@ -91,6 +92,16 @@ export default {
                 this.setSliderRowLimit();
             }, 400);
         },
+
+        '$refs.productHolder': {
+            handler(newVal) {
+                if (newVal && this.resizeObserver) {
+                    // Re-attach observer when ref becomes available
+                    this.resizeObserver.observe(newVal);
+                }
+            },
+            immediate: true,
+        },
     },
 
     created() {
@@ -101,6 +112,10 @@ export default {
         this.mountedComponent();
     },
 
+    beforeUnmount() {
+        this.beforeUnmountComponent();
+    },
+
     methods: {
         createdComponent() {
             this.initElementConfig('cross-selling');
@@ -109,6 +124,38 @@ export default {
 
         mountedComponent() {
             this.setSliderRowLimit();
+            this.initResizeObserver();
+        },
+
+        beforeUnmountComponent() {
+            this.destroyResizeObserver();
+        },
+
+        initResizeObserver() {
+            this.destroyResizeObserver();
+
+            this.resizeObserver = new ResizeObserver(() => {
+                window.requestAnimationFrame(() => {
+                    this.setSliderRowLimit();
+                });
+            });
+
+            if (this.$refs.productHolder) {
+                this.resizeObserver.observe(this.$refs.productHolder);
+            }
+
+            this.$nextTick(() => {
+                if (this.$refs.productHolder && this.resizeObserver) {
+                    this.resizeObserver.observe(this.$refs.productHolder);
+                }
+            });
+        },
+
+        destroyResizeObserver() {
+            if (this.resizeObserver) {
+                this.resizeObserver.disconnect();
+                this.resizeObserver = null;
+            }
         },
 
         setSliderRowLimit() {
@@ -116,16 +163,17 @@ export default {
                 this.createdComponent();
             }
 
-            if (this.currentDeviceView === 'mobile'
-                || (this.$refs.productHolder && this.$refs.productHolder.offsetWidth < 500)
-            ) {
+            const productHolder = this.$refs.productHolder;
+            if (this.currentDeviceView === 'mobile' || productHolder?.offsetWidth < 500) {
                 this.sliderBoxLimit = 1;
                 return;
             }
 
-            if (!this.element.config.elMinWidth.value ||
+            if (
+                !this.element.config.elMinWidth.value ||
                 this.element.config.elMinWidth.value === 'px' ||
-                this.element.config.elMinWidth.value.indexOf('px') === -1) {
+                this.element.config.elMinWidth.value.indexOf('px') === -1
+            ) {
                 this.sliderBoxLimit = 3;
                 return;
             }
@@ -134,9 +182,13 @@ export default {
                 return;
             }
 
+            if (!productHolder) {
+                return;
+            }
+
             // Subtract to fake look in storefront which has more width
             const fakeLookWidth = 100;
-            const boxWidth = this.$refs.productHolder.offsetWidth;
+            const boxWidth = productHolder.offsetWidth;
             const elGap = 32;
             let elWidth = parseInt(this.element.config.elMinWidth.value.replace('px', ''), 10);
 

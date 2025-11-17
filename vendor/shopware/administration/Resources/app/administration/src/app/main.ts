@@ -1,9 +1,9 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
 /** Initializer */
-import initializers from 'src/app/init';
+import initializers from 'src/app/init/';
 import preInitializer from 'src/app/init-pre/';
 import postInitializer from 'src/app/init-post/';
 
@@ -46,6 +46,7 @@ import UserActivityService from 'src/app/service/user-activity.service';
 import EntityValidationService from 'src/app/service/entity-validation.service';
 import CustomEntityDefinitionService from 'src/app/service/custom-entity-definition.service';
 import addUsageDataConsentListener from 'src/core/service/usage-data-consent-listener.service';
+import FileValidationService from 'src/app/service/file-validation.service';
 
 /** Import Feature */
 import Feature from 'src/core/feature';
@@ -53,8 +54,11 @@ import Feature from 'src/core/feature';
 /** Import decorators */
 import 'src/app/decorator';
 
-/** Import global styles */
-import 'src/app/assets/scss/all.scss';
+/** Import Meteor Component Library styles */
+// eslint-disable-next-line import/no-unresolved
+import '@shopware-ag/meteor-component-library/styles.css';
+// eslint-disable-next-line import/no-unresolved
+import '@shopware-ag/meteor-component-library/font.css';
 
 import ChangesetGenerator from '../core/data/changeset-generator.data';
 import ErrorResolver from '../core/data/error-resolver.data';
@@ -69,24 +73,41 @@ const adapter = new VueAdapter(Application);
 
 Application.setViewAdapter(adapter);
 
-// Merge all initializer
-const allInitializers = { ...preInitializer, ...initializers, ...postInitializer };
-
-// Add initializers to application
-Object.keys(allInitializers).forEach((key) => {
+// Add pre-initializers to application
+Object.keys(preInitializer).forEach((key) => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const initializer = allInitializers[key];
+    const initializer = preInitializer[key];
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    Application.addInitializer(key, initializer, '-pre');
+});
+
+// Add initializers to application
+Object.keys(initializers).forEach((key) => {
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const initializer = initializers[key];
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     Application.addInitializer(key, initializer);
 });
 
+// Add post-initializers to application
+Object.keys(postInitializer).forEach((key) => {
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const initializer = postInitializer[key];
+
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    Application.addInitializer(key, initializer, '-post');
+});
+
 // Add service providers
-Application
-    .addServiceProvider('feature', () => {
-        return new FeatureService(Feature);
-    })
+Application.addServiceProvider('feature', () => {
+    return new FeatureService(Feature);
+})
     .addServiceProvider('customEntityDefinitionService', () => {
         return new CustomEntityDefinitionService();
     })
@@ -97,7 +118,7 @@ Application
         return new PrivilegesService();
     })
     .addServiceProvider('acl', () => {
-        return new AclService(Shopware.State);
+        return new AclService();
     })
     .addServiceProvider('loginService', () => {
         const serviceContainer = Application.getContainer('service');
@@ -212,5 +233,7 @@ Application
     })
     .addServiceProvider('userActivityService', () => {
         return new UserActivityService();
+    })
+    .addServiceProvider('fileValidationService', () => {
+        return FileValidationService();
     });
-

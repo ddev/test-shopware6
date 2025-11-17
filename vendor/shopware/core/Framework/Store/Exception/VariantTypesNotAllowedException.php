@@ -6,7 +6,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
 
-#[Package('services-settings')]
+#[Package('checkout')]
 class VariantTypesNotAllowedException extends ShopwareHttpException
 {
     /**
@@ -17,7 +17,7 @@ class VariantTypesNotAllowedException extends ShopwareHttpException
         $message = 'The variant types of the following cart positions are not allowed:';
 
         foreach ($typeViolations as $typeViolation) {
-            $message .= sprintf("\nType \"%s\" for \"%s\" (ID: %d)", $typeViolation['variantType'], $typeViolation['extensionName'], $typeViolation['extensionId']);
+            $message .= \sprintf("\nType \"%s\" for \"%s\" (ID: %d)", $typeViolation['variantType'], $typeViolation['extensionName'], $typeViolation['extensionId']);
         }
 
         parent::__construct($message, $typeViolations);

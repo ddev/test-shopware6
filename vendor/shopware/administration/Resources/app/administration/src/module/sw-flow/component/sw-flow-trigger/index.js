@@ -1,26 +1,30 @@
 import template from './sw-flow-trigger.html.twig';
 import './sw-flow-trigger.scss';
 
-const { Component, State } = Shopware;
-const { mapPropertyErrors, mapState, mapGetters } = Component.getComponentHelper();
+const { Component, Store } = Shopware;
+const { mapPropertyErrors, mapState } = Component.getComponentHelper();
 const utils = Shopware.Utils;
 const { camelCase, capitalizeString } = Shopware.Utils.string;
 const { isEmpty } = utils.types;
 
 /**
  * @private
- * @package services-settings
+ * @sw-package after-sales
  */
 export default {
     template,
 
-    inject: ['repositoryFactory', 'businessEventService'],
+    inject: [
+        'repositoryFactory',
+        'businessEventService',
+    ],
+
+    emits: ['option-select'],
 
     props: {
         overlay: {
             type: Boolean,
             required: false,
-            // TODO: Boolean props should only be opt in and therefore default to false
             // eslint-disable-next-line vue/no-boolean-default
             default: true,
         },
@@ -42,8 +46,6 @@ export default {
 
     data() {
         return {
-            /** @deprecated tag:v6.6.0 - events will be removed, use state triggerEvents instead. */
-            events: [],
             isExpanded: false,
             isLoading: false,
             searchTerm: '',
@@ -71,8 +73,7 @@ export default {
         },
 
         showTreeView() {
-            return this.eventTree.length >= 0
-                && (this.searchTerm.length <= 0 || this.searchTerm === this.formatEventName);
+            return this.eventTree.length >= 0 && (this.searchTerm.length <= 0 || this.searchTerm === this.formatEventName);
         },
 
         eventTree() {
@@ -91,8 +92,14 @@ export default {
             return this.$tc('sw-flow.detail.trigger.unknownTriggerPlaceholder');
         },
 
-        ...mapState('swFlowState', ['flow', 'triggerEvents']),
-        ...mapGetters('swFlowState', ['isSequenceEmpty']),
+        ...mapState(
+            () => Store.get('swFlow'),
+            [
+                'flow',
+                'triggerEvents',
+                'isSequenceEmpty',
+            ],
+        ),
         ...mapPropertyErrors('flow', ['eventName']),
     },
 
@@ -114,12 +121,12 @@ export default {
                 return;
             }
 
-            const keyWords = value.split(/[\W_]+/ig);
+            const keyWords = value.split(/[\W_]+/gi);
 
-            this.searchResult = this.triggerEvents.filter(event => {
+            this.searchResult = this.triggerEvents.filter((event) => {
                 const eventName = this.getEventName(event.name).toLowerCase();
 
-                return keyWords.every(key => eventName.includes(key.toLowerCase()));
+                return keyWords.every((key) => eventName.includes(key.toLowerCase()));
             });
 
             // set first item as focus
@@ -132,12 +139,18 @@ export default {
             if (newValue?.id) {
                 utils.debounce(() => {
                     const newElement = this.findTreeItemVNodeById(newValue.id).$el;
-
+                    if (!newElement) {
+                        return;
+                    }
                     let offsetValue = 0;
                     let foundTreeRoot = false;
                     let actualElement = newElement;
 
                     while (!foundTreeRoot) {
+                        if (!actualElement) {
+                            break;
+                        }
+
                         if (actualElement.classList.contains('sw-tree__content')) {
                             foundTreeRoot = true;
                         } else {
@@ -146,8 +159,8 @@ export default {
                         }
                     }
 
-                    actualElement.scrollTo({
-                        top: offsetValue - (actualElement.clientHeight / 2) - 50,
+                    actualElement?.scrollTo({
+                        top: offsetValue - actualElement.clientHeight / 2 - 50,
                         behavior: 'smooth',
                     });
                 }, 50)();
@@ -159,7 +172,7 @@ export default {
         this.createdComponent();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyComponent();
     },
 
@@ -169,9 +182,9 @@ export default {
             document.addEventListener('keydown', this.handleGeneralKeyEvents);
 
             this.isLoading = true;
-            Shopware.State.dispatch('swFlowState/fetchTriggerActions');
-            State.commit('swFlowState/setTriggerEvent', this.getDataByEvent(this.eventName));
-            State.dispatch('swFlowState/setRestrictedRules', this.eventName);
+            Store.get('swFlow').fetchTriggerActions();
+            Store.get('swFlow').triggerEvent = this.getDataByEvent(this.eventName);
+            Store.get('swFlow').restrictedRules = this.eventName;
 
             this.isLoading = false;
         },
@@ -184,12 +197,25 @@ export default {
         handleClickEvent(event) {
             const target = event.target;
 
+            if (target.closest('.sw-tree-item .sw-tree-item__toggle')) {
+                const selectedElement = target.closest('.sw-tree-item');
+
+                selectedElement?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+
+                return;
+            }
+
             if (target.closest('.sw-tree-item .is--no-children.is--disabled')) {
                 return;
             }
 
-            if (target.closest('.sw-tree-item .is--no-children .sw-tree-item__content')
-            || target.closest('.sw-flow-trigger__search-result')) {
+            if (
+                target.closest('.sw-tree-item .is--no-children .sw-tree-item__content') ||
+                target.closest('.sw-flow-trigger__search-result')
+            ) {
                 this.closeDropdown();
                 return;
             }
@@ -280,22 +306,27 @@ export default {
             // when user has tree open
             const actualSelection = this.findTreeItemVNodeById();
 
+            const actualSelectionItem = actualSelection?.component?.proxy?.item;
+
             switch (key) {
                 case 'arrowdown': {
                     // check if actual selection was found
-                    if (actualSelection?.item?.id) {
+                    if (actualSelectionItem?.id) {
+                        const actualSelectionOpened = actualSelection?.component?.proxy?.opened;
+
                         // when selection is open
-                        if (actualSelection.opened) {
+                        if (actualSelectionOpened) {
                             // get first item of child
-                            const newSelection = this.getFirstChildById(actualSelection.item.id);
+                            const newSelection = this.getFirstChildById(actualSelectionItem?.id);
                             if (newSelection) {
                                 // update the selected item
                                 this.selectedTreeItem = newSelection;
                             }
                             break;
                         }
+
                         // when selection is not open then get the next sibling
-                        let newSelection = this.getSibling(true, actualSelection.item);
+                        let newSelection = this.getSibling(true, actualSelectionItem);
                         // when next sibling exists
                         if (newSelection) {
                             // update the selected item
@@ -304,7 +335,7 @@ export default {
                         }
 
                         // Get the closest visible ancestor to actual section's position.
-                        newSelection = this.getClosestSiblingAncestor(actualSelection.item.parentId);
+                        newSelection = this.getClosestSiblingAncestor(actualSelectionItem?.parentId);
                         // when next parent exists
                         if (newSelection) {
                             // update the selected item
@@ -317,12 +348,15 @@ export default {
 
                 case 'arrowup': {
                     // check if actual selection was found
-                    if (actualSelection?.item?.id) {
+                    if (actualSelectionItem?.id) {
                         // when selection is first item in folder
-                        const parent = this.findTreeItemVNodeById(actualSelection.item.parentId);
-                        if (parent?.item?.children[0].id === actualSelection.item.id) {
+                        const parent = this.findTreeItemVNodeById(actualSelectionItem?.parentId);
+
+                        const parentItemFirstChildrenId = parent?.component?.proxy?.item?.children[0].id;
+                        if (parentItemFirstChildrenId === actualSelectionItem?.id) {
                             // then get the parent folder
-                            const newSelection = parent.item;
+                            const newSelection = parent.component.proxy.item;
+
                             if (newSelection) {
                                 // update the selected item
                                 this.selectedTreeItem = newSelection;
@@ -331,7 +365,7 @@ export default {
                         }
 
                         // when selection is not first item then get the previous sibling
-                        const newSelection = this.getSibling(false, actualSelection.item);
+                        const newSelection = this.getSibling(false, actualSelectionItem);
                         if (newSelection) {
                             // Get the closest visible sibling's descendant to actual selection's position
                             this.selectedTreeItem = this.getClosestSiblingDescendant(newSelection);
@@ -351,11 +385,11 @@ export default {
                     // when selection is an item or a closed folder
                     if (isClosed) {
                         // change the selection to the parent
-                        const parentId = actualSelection.item.parentId;
-                        const parent = this.findTreeItemVNodeById(parentId);
+                        const parent = this.findTreeItemVNodeById(actualSelectionItem?.parentId);
 
                         if (parent) {
-                            this.selectedTreeItem = parent.item;
+                            const parentItem = parent.component.proxy.item;
+                            this.selectedTreeItem = parentItem;
                         }
                     }
 
@@ -369,18 +403,20 @@ export default {
         },
 
         getClosestSiblingAncestor(parentId) {
-            // when sibling does not exists, go to next parent sibling
+            // when sibling does not exist, go to next parent sibling
             const parent = this.findTreeItemVNodeById(parentId);
             const nextParent = this.getSibling(true, parent.item);
             if (nextParent) {
                 return nextParent;
             }
 
-            if (!parent?.item?.parentId) {
+            const parentItemParentId = parent?.component?.proxy?.item?.parentId;
+
+            if (!parentItemParentId) {
                 return null;
             }
 
-            return this.getClosestSiblingAncestor(parent.item.parentId);
+            return this.getClosestSiblingAncestor(parentItemParentId);
         },
 
         getClosestSiblingDescendant(item) {
@@ -450,7 +486,7 @@ export default {
         },
 
         changeSearchSelection(type = 'next') {
-            const typeValue = (type === 'previous') ? -1 : 1;
+            const typeValue = type === 'previous' ? -1 : 1;
 
             const actualIndex = this.searchResult.indexOf(this.searchResultFocusItem);
             const focusItem = this.searchResult[actualIndex + typeValue];
@@ -463,27 +499,33 @@ export default {
         toggleSelectedTreeItem(shouldOpen) {
             const vnode = this.findTreeItemVNodeById();
 
-            if (vnode?.openTreeItem && vnode.opened !== shouldOpen) {
-                vnode.openTreeItem();
+            if (vnode?.component?.proxy?.openTreeItem && vnode?.component?.proxy?.opened !== shouldOpen) {
+                vnode.component.proxy.openTreeItem();
                 return true;
             }
 
             return false;
         },
 
-        findTreeItemVNodeById(itemId = this.selectedTreeItem.id, children = this.$refs.flowTriggerTree.$children) {
+        findTreeItemVNodeById(
+            itemId = this.selectedTreeItem.id,
+            children = this.$refs.flowTriggerTree?.$?.subTree?.children,
+        ) {
             let found = false;
+            if (!children) {
+                return found;
+            }
 
             if (Array.isArray(children)) {
                 found = children.find((child) => {
-                    if (child?.item?.id) {
-                        return child.item.id === itemId;
+                    if (child.component?.proxy?.item?.id) {
+                        return child.component?.proxy?.item?.id === itemId;
                     }
 
                     return false;
                 });
-            } else if (children?.item?.id) {
-                found = children.item.id === itemId;
+            } else if (children.component?.proxy?.item?.id) {
+                found = children.component?.proxy?.item?.id === itemId;
             }
 
             if (found) {
@@ -494,7 +536,15 @@ export default {
 
             // recursion to find vnode
             for (let i = 0; i < children.length; i += 1) {
-                foundInChildren = this.findTreeItemVNodeById(itemId, children[i].$children);
+                if (!children[i]) {
+                    // eslint-disable-next-line no-continue
+                    continue;
+                }
+
+                const childrenToIterate = children[i].component
+                    ? children[i].component?.subTree?.children
+                    : children[i].children;
+                foundInChildren = this.findTreeItemVNodeById(itemId, childrenToIterate ?? null);
                 // stop when found in children
                 if (foundInChildren) {
                     break;
@@ -517,10 +567,10 @@ export default {
             }
 
             // set first item or selected event as focus
-            this.$nextTick(() => {
+            this.$nextTick().then(() => {
                 if (this.searchTerm === this.formatEventName) {
-                    const currentEvent = this.eventTree.find(event => event.id === this.eventName);
-                    this.selectedTreeItem = currentEvent || this.$refs.flowTriggerTree.treeItems[0];
+                    const currentEvent = this.eventTree.find((event) => event.id === this.eventName);
+                    this.selectedTreeItem = currentEvent || this.eventTree[0];
                 }
             });
         },
@@ -541,8 +591,8 @@ export default {
             if (this.isSequenceEmpty) {
                 const { id } = item.data;
 
-                State.commit('swFlowState/setTriggerEvent', this.getDataByEvent(id));
-                State.dispatch('swFlowState/setRestrictedRules', id);
+                Store.get('swFlow').triggerEvent = this.getDataByEvent(id);
+                Store.get('swFlow').restrictedRules = id;
                 this.$emit('option-select', id);
             } else {
                 this.showConfirmModal = this.flow.eventName !== item.id;
@@ -551,30 +601,14 @@ export default {
         },
 
         onConfirm() {
-            State.commit('swFlowState/setTriggerEvent', this.triggerSelect);
-            State.dispatch('swFlowState/setRestrictedRules', this.triggerSelect.name);
+            Store.get('swFlow').triggerEvent = this.triggerSelect;
+            Store.get('swFlow').restrictedRules = this.triggerSelect.name;
             this.$emit('option-select', this.triggerSelect.name);
         },
 
         onCloseConfirm() {
             this.showConfirmModal = false;
             this.triggerSelect = {};
-        },
-
-        /*
-         * @deprecated tag:v6.6.0 - Will be removed
-         */
-        getBusinessEvents() {
-            this.isLoading = true;
-
-            return this.businessEventService.getBusinessEvents()
-                .then(events => {
-                    this.events = events;
-                    State.commit('swFlowState/setTriggerEvent', this.getDataByEvent(this.eventName));
-                    State.dispatch('swFlowState/setRestrictedRules', this.eventName);
-                }).finally(() => {
-                    this.isLoading = false;
-                });
         },
 
         getLastEventName({ parentId = null, id }) {
@@ -584,11 +618,11 @@ export default {
         },
 
         getDataByEvent(event) {
-            return this.triggerEvents.find(item => item.name === event);
+            return this.triggerEvents.find((item) => item.name === event);
         },
 
         hasOnlyStopFlow(event) {
-            const eventAware = this.triggerEvents.find(item => item.name === event).aware || [];
+            const eventAware = this.triggerEvents.find((item) => item.name === event).aware || [];
             return eventAware.length === 0;
         },
 
@@ -596,7 +630,7 @@ export default {
         getEventTree(events) {
             const mappedObj = {};
 
-            events.forEach(event => {
+            events.forEach((event) => {
                 // Split event name by '.'
                 const eventNameKeys = event.name.split('.');
                 if (eventNameKeys.length === 0) {
@@ -639,7 +673,7 @@ export default {
 
             // Convert tree object to array to work with sw-tree
             const convertTreeToArray = (nodes, output = []) => {
-                nodes.forEach(node => {
+                nodes.forEach((node) => {
                     const children = node.children ? Object.values(node.children) : [];
                     output.push({
                         id: node.id,
@@ -647,8 +681,10 @@ export default {
                         childCount: children.length,
                         parentId: node.parentId,
                         disabled: isEmpty(node.children) && this.hasOnlyStopFlow(node.id),
-                        disabledToolTipText: (isEmpty(node.children) && this.hasOnlyStopFlow(node.id))
-                            ? this.$tc('sw-flow.detail.trigger.textHint') : null,
+                        disabledToolTipText:
+                            isEmpty(node.children) && this.hasOnlyStopFlow(node.id)
+                                ? this.$tc('sw-flow.detail.trigger.textHint')
+                                : null,
                     });
 
                     if (children.length > 0) {
@@ -668,9 +704,12 @@ export default {
 
             const keyWords = eventName.split('.');
 
-            return keyWords.map(key => {
-                return capitalizeString(key);
-            }).join(' / ').replace(/_|-/g, ' ');
+            return keyWords
+                .map((key) => {
+                    return capitalizeString(key);
+                })
+                .join(' / ')
+                .replace(/_|-/g, ' ');
         },
 
         onClickSearchItem(item) {
@@ -679,8 +718,8 @@ export default {
 
             if (this.isSequenceEmpty) {
                 this.$emit('option-select', item.name);
-                State.commit('swFlowState/setTriggerEvent', item);
-                State.dispatch('swFlowState/setRestrictedRules', item.name);
+                Store.get('swFlow').triggerEvent = item;
+                Store.get('swFlow').restrictedRules = item.name;
             } else {
                 this.showConfirmModal = true;
                 this.triggerSelect = item;
@@ -698,9 +737,11 @@ export default {
 
             const keyWords = eventName.split('.');
 
-            return keyWords.map(key => {
-                return this.getEventNameTranslated(key);
-            }).join(' / ');
+            return keyWords
+                .map((key) => {
+                    return this.getEventNameTranslated(key);
+                })
+                .join(' / ');
         },
 
         isSearchResultInFocus(item) {
@@ -713,7 +754,7 @@ export default {
                 `sw-flow-app.triggers-app.${eventNameCamelCase}`,
                 `sw-flow-custom-event.event-tree.${eventNameCamelCase}`,
                 `sw-flow.triggers.${eventNameCamelCase}`,
-            ].find(key => this.$te(key));
+            ].find((key) => this.$te(key));
 
             return translatedEventName ? this.$tc(translatedEventName) : eventName.replace(/_|-/g, ' ');
         },

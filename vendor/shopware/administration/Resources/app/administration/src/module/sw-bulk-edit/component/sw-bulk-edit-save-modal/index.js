@@ -1,5 +1,5 @@
 /**
- * @package system-settings
+ * @sw-package framework
  */
 import template from './sw-bulk-edit-save-modal.html.twig';
 import './sw-bulk-edit-save-modal.scss';
@@ -7,6 +7,11 @@ import './sw-bulk-edit-save-modal.scss';
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
     template,
+
+    emits: [
+        'modal-close',
+        'bulk-save',
+    ],
 
     props: {
         itemTotal: {
@@ -22,26 +27,26 @@ export default {
             type: String,
         },
         /**
-        * {
-        *     ...
-        *     orderDeliveries: {
-        *         isChanged: true,
-        *         type: 'overwrite',
-        *         value: 'cancel'
-        *     },
-        *     orderTransactions: {
-        *         isChanged: true,
-        *         type: 'overwrite',
-        *         value: 'cancel'
-        *     },
-        *     orders: {
-        *         isChanged: true,
-        *         type: 'overwrite',
-        *         value: 'cancel'
-        *     }
-        *     ...
-        * }
-        */
+         * {
+         *     ...
+         *     orderDeliveries: {
+         *         isChanged: true,
+         *         type: 'overwrite',
+         *         value: 'cancel'
+         *     },
+         *     orderTransactions: {
+         *         isChanged: true,
+         *         type: 'overwrite',
+         *         value: 'cancel'
+         *     },
+         *     orders: {
+         *         isChanged: true,
+         *         type: 'overwrite',
+         *         value: 'cancel'
+         *     }
+         *     ...
+         * }
+         */
         bulkEditData: {
             type: Object,
             required: false,
@@ -99,7 +104,7 @@ export default {
         this.createdComponent();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.beforeDestroyComponent();
     },
 
@@ -113,11 +118,11 @@ export default {
         },
 
         addEventListeners() {
-            window.addEventListener('beforeunload', (event) => this.beforeUnloadListener(event));
+            window.addEventListener('beforeunload', this.beforeUnloadListener);
         },
 
         removeEventListeners() {
-            window.removeEventListener('beforeunload', (event) => this.beforeUnloadListener(event));
+            window.removeEventListener('beforeunload', this.beforeUnloadListener);
         },
 
         beforeUnloadListener(event) {

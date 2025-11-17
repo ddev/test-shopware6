@@ -6,13 +6,17 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 const { EntityCollection, Criteria } = Shopware.Data;
 
 /**
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  */
-Component.extend('sw-condition-line-item-in-category', 'sw-condition-base-line-item', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
     inheritAttrs: false,
 
-    inject: ['repositoryFactory', 'feature'],
+    inject: [
+        'repositoryFactory',
+        'feature',
+    ],
 
     data() {
         return {
@@ -39,11 +43,17 @@ Component.extend('sw-condition-line-item-in-category', 'sw-condition-base-line-i
             },
             set(categoryIds) {
                 this.ensureValueExist();
-                this.condition.value = { ...this.condition.value, categoryIds };
+                this.condition.value = {
+                    ...this.condition.value,
+                    categoryIds,
+                };
             },
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.categoryIds']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.categoryIds',
+        ]),
 
         currentError() {
             return this.conditionValueOperatorError || this.conditionValueCategoryIdsError;
@@ -87,4 +97,4 @@ Component.extend('sw-condition-line-item-in-category', 'sw-condition-base-line-i
             return Object.values(category.breadcrumb).join(' / ');
         },
     },
-});
+};

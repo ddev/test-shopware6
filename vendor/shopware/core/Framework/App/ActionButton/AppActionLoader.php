@@ -2,25 +2,28 @@
 
 namespace Shopware\Core\Framework\App\ActionButton;
 
+use Shopware\Core\Framework\App\Aggregate\ActionButton\ActionButtonCollection;
 use Shopware\Core\Framework\App\Aggregate\ActionButton\ActionButtonEntity;
-use Shopware\Core\Framework\App\Exception\ActionNotFoundException;
-use Shopware\Core\Framework\App\Exception\AppUrlChangeDetectedException;
-use Shopware\Core\Framework\App\ShopId\ShopIdProvider;
+use Shopware\Core\Framework\App\AppException;
+use Shopware\Core\Framework\App\Exception\ShopIdChangeSuggestedException;
+use Shopware\Core\Framework\App\Payload\AppPayloadServiceHelper;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 
 /**
- * @internal only for use by the app-system, will be considered internal from v6.4.0 onward
+ * @internal only for use by the app-system
  */
-#[Package('core')]
+#[Package('framework')]
 class AppActionLoader
 {
+    /**
+     * @param EntityRepository<ActionButtonCollection> $actionButtonRepo
+     */
     public function __construct(
-        private readonly string $url,
         private readonly EntityRepository $actionButtonRepo,
-        private readonly ShopIdProvider $shopIdProvider
+        private readonly AppPayloadServiceHelper $appPayloadServiceHelper,
     ) {
     }
 
@@ -32,31 +35,29 @@ class AppActionLoader
         $criteria = new Criteria([$actionId]);
         $criteria->addAssociation('app.integration');
 
-        /** @var ActionButtonEntity|null $actionButton */
-        $actionButton = $this->actionButtonRepo->search($criteria, $context)->first();
+        /** @var ActionButtonEntity $actionButton */
+        $actionButton = $this->actionButtonRepo->search($criteria, $context)->getEntities()->first();
 
         if ($actionButton === null) {
-            throw new ActionNotFoundException();
+            throw AppException::actionNotFound();
         }
+
+        $app = $actionButton->getApp();
+        \assert($app !== null);
 
         try {
-            $shopId = $this->shopIdProvider->getShopId();
-        } catch (AppUrlChangeDetectedException) {
-            throw new ActionNotFoundException();
+            $source = $this->appPayloadServiceHelper->buildSource($app->getVersion(), $app->getName());
+        } catch (ShopIdChangeSuggestedException) {
+            throw AppException::actionNotFound();
         }
 
-        /** @var string $secret */
-        $secret = $actionButton->getApp()->getAppSecret();
-
         return new AppAction(
+            $app,
+            $source,
             $actionButton->getUrl(),
-            $this->url,
-            $actionButton->getApp()->getVersion(),
             $actionButton->getEntity(),
             $actionButton->getAction(),
             $ids,
-            $secret,
-            $shopId,
             $actionId
         );
     }

@@ -6,14 +6,15 @@ const { mapPropertyErrors } = Component.getComponentHelper();
 
 /**
  * @public
- * @package business-ops
+ * @sw-package fundamentals@after-sales
  * @description Condition for the LineItemWithQuantityRule. This component must a be child of sw-condition-tree.
  * @status prototype
  * @example-type code-only
  * @component-example
  * <sw-condition-line-item-with-quantity :condition="condition" :level="0"></sw-condition-line-item-with-quantity>
  */
-Component.extend('sw-condition-line-item-with-quantity', 'sw-condition-base-line-item', {
+// eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
+export default {
     template,
 
     inject: ['repositoryFactory'],
@@ -40,7 +41,10 @@ Component.extend('sw-condition-line-item-with-quantity', 'sw-condition-base-line
             },
             set(quantity) {
                 this.ensureValueExist();
-                this.condition.value = { ...this.condition.value, quantity };
+                this.condition.value = {
+                    ...this.condition.value,
+                    quantity,
+                };
             },
         },
 
@@ -55,10 +59,14 @@ Component.extend('sw-condition-line-item-with-quantity', 'sw-condition-base-line
             },
         },
 
-        ...mapPropertyErrors('condition', ['value.operator', 'value.quantity', 'value.id']),
+        ...mapPropertyErrors('condition', [
+            'value.operator',
+            'value.quantity',
+            'value.id',
+        ]),
 
         currentError() {
             return this.conditionValueOperatorError || this.conditionValueQuantityError || this.conditionValueIdError;
         },
     },
-});
+};

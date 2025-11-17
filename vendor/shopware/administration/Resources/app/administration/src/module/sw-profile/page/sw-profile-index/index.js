@@ -1,14 +1,14 @@
 /**
- * @package system-settings
+ * @sw-package fundamentals@framework
  */
 import { email } from 'src/core/service/validation.service';
 import { KEY_USER_SEARCH_PREFERENCE } from 'src/app/service/search-ranking.service';
 import template from './sw-profile-index.html.twig';
-import swProfileState from '../../state/sw-profile.state';
+import '../../store/sw-profile.store';
 
-const { Component, Mixin, State } = Shopware;
+const { Component, Mixin, Store } = Shopware;
 const { Criteria } = Shopware.Data;
-const { mapState, mapPropertyErrors } = Component.getComponentHelper();
+const { mapPropertyErrors } = Component.getComponentHelper();
 
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
 export default {
@@ -23,6 +23,7 @@ export default {
         'searchPreferencesService',
         'searchRankingService',
         'userConfigService',
+        'ssoSettingsService',
     ],
 
     mixins: [
@@ -56,9 +57,13 @@ export default {
     },
 
     computed: {
-        ...mapState('swProfile', [
-            'searchPreferences',
-        ]),
+        minSearchTermLength() {
+            return Store.get('swProfile').minSearchTermLength;
+        },
+
+        searchPreferences() {
+            return Store.get('swProfile').searchPreferences;
+        },
 
         ...mapPropertyErrors('user', [
             'email',
@@ -67,15 +72,15 @@ export default {
 
         userSearchPreferences: {
             get() {
-                return State.get('swProfile').userSearchPreferences;
+                return Store.get('swProfile').userSearchPreferences;
             },
             set(userSearchPreferences) {
-                State.commit('swProfile/setUserSearchPreferences', userSearchPreferences);
+                Store.get('swProfile').userSearchPreferences = userSearchPreferences;
             },
         },
 
         isDisabled() {
-            return true; // TODO use ACL here with NEXT-1653
+            return true;
         },
 
         userRepository() {
@@ -94,24 +99,13 @@ export default {
             return this.repositoryFactory.create('media');
         },
 
-        userMediaCriteria() {
-            if (this.user.id) {
-                // ???
-                // ToDo: If SwSidebarMedia has the new data handling, change this too
-                // return CriteriaFactory.equals('userId', this.user.id);
-                return null;
-            }
-
-            return null;
-        },
-
         languageId() {
-            return Shopware.State.get('session').languageId;
+            return Shopware.Store.get('session').languageId;
         },
     },
 
     watch: {
-        '$route'(newValue) {
+        $route(newValue) {
             if (!newValue || newValue.name === 'sw.profile.index.searchPreferences') {
                 return;
             }
@@ -136,20 +130,12 @@ export default {
         },
     },
 
-    beforeCreate() {
-        State.registerModule('swProfile', swProfileState);
-    },
-
     created() {
         this.createdComponent();
     },
 
     beforeMount() {
         this.beforeMountComponent();
-    },
-
-    beforeDestroy() {
-        State.unregisterModule('swProfile');
     },
 
     methods: {
@@ -178,16 +164,22 @@ export default {
                     });
             }
 
-            Promise.all(promises).then(() => {
-                this.loadLanguages();
-            }).then(() => {
-                this.isUserLoading = false;
-            });
+            Promise.all(promises)
+                .then(() => {
+                    this.loadLanguages();
+                })
+                .then(() => {
+                    this.isUserLoading = false;
+                });
         },
 
         beforeMountComponent() {
             this.userPromise.then((user) => {
                 this.user = user;
+
+                if (this.user.avatarId) {
+                    this.loadMediaItem(this.user.avatarId);
+                }
             });
         },
 
@@ -226,10 +218,6 @@ export default {
             });
         },
 
-        // @deprecated tag:v6.6.0 - Unused
-        loadTimezones() {
-        },
-
         async getUserData() {
             const routeUser = this.$route.params.user;
             if (routeUser) {
@@ -255,20 +243,31 @@ export default {
 
         onSave() {
             if (this.$route.name === 'sw.profile.index.searchPreferences') {
-                this.saveUserSearchPreferences();
+                Promise.all([
+                    this.saveMinSearchTermLength(),
+                    this.saveUserSearchPreferences(),
+                ]);
 
                 return;
             }
 
-            if (this.checkEmail() === false) {
-                return;
-            }
+            this.ssoSettingsService.isSso().then((response) => {
+                if (response.isSso) {
+                    this.saveUser();
 
-            const passwordCheck = this.checkPassword();
+                    return;
+                }
 
-            if (passwordCheck === null || passwordCheck === true) {
-                this.confirmPasswordModal = true;
-            }
+                if (this.checkEmail() === false) {
+                    return;
+                }
+
+                const passwordCheck = this.checkPassword();
+
+                if (passwordCheck === null || passwordCheck === true) {
+                    this.confirmPasswordModal = true;
+                }
+            });
         },
 
         checkEmail() {
@@ -303,65 +302,69 @@ export default {
 
         saveUser(context) {
             if (!this.acl.can('user:editor')) {
-                const changes = this.userRepository.getSyncChangeset([this.user]);
+                const changes = this.userRepository.getSyncChangeset([
+                    this.user,
+                ]);
                 delete changes.changeset[0].changes.id;
 
-                this.userService.updateUser(changes.changeset[0].changes).then(async () => {
-                    await this.updateCurrentUser();
+                this.userService
+                    .updateUser(changes.changeset[0].changes)
+                    .then(async () => {
+                        await this.updateCurrentUser();
 
-                    this.isLoading = false;
-                    this.isSaveSuccessful = true;
+                        this.isLoading = false;
+                        this.isSaveSuccessful = true;
 
-                    Shopware.Service('localeHelper').setLocaleWithId(this.user.localeId);
-                }).catch((error) => {
-                    State.dispatch('error/addApiError', {
-                        expression: `user.${this.user?.id}.password`,
-                        error: new Shopware.Classes.ShopwareError(error.response.data.errors[0]),
+                        Shopware.Service('localeHelper').setLocaleWithId(this.user.localeId);
+                    })
+                    .catch((error) => {
+                        Shopware.Store.get('error').addApiError({
+                            expression: `user.${this.user?.id}.password`,
+                            error: new Shopware.Classes.ShopwareError(error.response.data.errors[0]),
+                        });
+                        this.createNotificationError({
+                            message: this.$tc('sw-profile.index.notificationSaveErrorMessage'),
+                        });
+                        this.isLoading = false;
+                        this.isSaveSuccessful = false;
                     });
-                    this.createNotificationError({
-                        message: this.$tc('sw-profile.index.notificationSaveErrorMessage'),
-                    });
-                    this.isLoading = false;
-                    this.isSaveSuccessful = false;
-                });
 
                 return;
             }
 
-            /**
-             * @deprecated tag:v6.6.0 - the "if" block will be removed
-             */
-            if (typeof context === 'string') {
-                context = { ...Shopware.Context.api };
-                context.authToken.access = context;
-            }
+            this.userRepository
+                .save(this.user, context)
+                .then(async () => {
+                    await this.updateCurrentUser();
+                    Shopware.Service('localeHelper').setLocaleWithId(this.user.localeId);
 
-            this.userRepository.save(this.user, context).then(async () => {
-                await this.updateCurrentUser();
-                Shopware.Service('localeHelper').setLocaleWithId(this.user.localeId);
-
-                if (this.newPassword) {
-                    // re-issue a valid jwt token, as all user tokens were invalidated on password change
-                    this.loginService.loginByUsername(this.user.username, this.newPassword).then(() => {
-                        this.isSaveSuccessful = true;
-                    }).catch(() => {
-                        this.handleUserSaveError();
-                    }).finally(() => {
+                    if (this.newPassword) {
+                        // re-issue a valid jwt token, as all user tokens were invalidated on password change
+                        this.loginService
+                            .loginByUsername(this.user.username, this.newPassword)
+                            .then(() => {
+                                this.isSaveSuccessful = true;
+                            })
+                            .catch(() => {
+                                this.handleUserSaveError();
+                            })
+                            .finally(() => {
+                                this.isLoading = false;
+                            });
+                    } else {
                         this.isLoading = false;
-                    });
-                } else {
-                    this.isLoading = false;
-                    this.isSaveSuccessful = true;
-                }
+                        this.isSaveSuccessful = true;
+                    }
 
-                this.confirmPassword = '';
-                this.newPassword = '';
-                this.newPasswordConfirm = '';
-            }).catch(() => {
-                this.handleUserSaveError();
-                this.isLoading = false;
-                this.isSaveSuccessful = false;
-            });
+                    this.confirmPassword = '';
+                    this.newPassword = '';
+                    this.newPasswordConfirm = '';
+                })
+                .catch(() => {
+                    this.handleUserSaveError();
+                    this.isLoading = false;
+                    this.isSaveSuccessful = false;
+                });
         },
 
         updateCurrentUser() {
@@ -369,23 +372,23 @@ export default {
                 const data = response.data;
                 delete data.password;
 
-                return Shopware.State.commit('setCurrentUser', data);
+                return Shopware.Store.get('session').setCurrentUser(data);
+            });
+        },
+
+        loadMediaItem(targetId) {
+            this.mediaRepository.get(targetId).then((media) => {
+                this.avatarMediaItem = media;
             });
         },
 
         setMediaItem({ targetId }) {
-            this.mediaRepository.get(targetId).then((response) => {
-                this.avatarMediaItem = response;
-            });
             this.user.avatarId = targetId;
+            this.loadMediaItem(targetId);
         },
 
         onDropMedia(mediaItem) {
             this.setMediaItem({ targetId: mediaItem.id });
-        },
-
-        // @deprecated tag:v6.6.0 - Unused
-        onSubmitConfirmPassword() {
         },
 
         onCloseConfirmPasswordModal() {
@@ -428,9 +431,14 @@ export default {
             return this.mediaDefaultFolderService.getDefaultFolderId('user');
         },
 
+        saveMinSearchTermLength() {
+            return this.searchRankingService.saveMinSearchTermLength(this.minSearchTermLength);
+        },
+
         saveUserSearchPreferences() {
             // eslint-disable-next-line max-len
-            this.userSearchPreferences = this.userSearchPreferences ?? this.searchPreferencesService.createUserSearchPreferences();
+            this.userSearchPreferences =
+                this.userSearchPreferences ?? this.searchPreferencesService.createUserSearchPreferences();
             this.userSearchPreferences.value = this.searchPreferences.map(({ entityName, _searchable, fields }) => {
                 return {
                     [entityName]: {
@@ -444,7 +452,10 @@ export default {
 
             this.isLoading = true;
             this.isSaveSuccessful = false;
-            return this.userConfigService.upsert({ [KEY_USER_SEARCH_PREFERENCE]: this.userSearchPreferences.value })
+            return this.userConfigService
+                .upsert({
+                    [KEY_USER_SEARCH_PREFERENCE]: this.userSearchPreferences.value,
+                })
                 .then(() => {
                     this.isLoading = false;
                     this.isSaveSuccessful = true;

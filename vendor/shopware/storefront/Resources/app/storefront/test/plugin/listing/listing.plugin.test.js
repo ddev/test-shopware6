@@ -1,15 +1,37 @@
-/* eslint-disable */
 import ListingPlugin from 'src/plugin/listing/listing.plugin';
 
 describe('ListingPlugin tests', () => {
     let listingPlugin = undefined;
-    let spyInit = jest.fn();
-    let spyInitializePlugins = jest.fn();
+    const spyInit = jest.fn();
+    const spyInitializePlugins = jest.fn();
 
     beforeEach(() => {
+        document.body.innerHTML = `
+            <!-- Filter panel -->
+            <div class="cms-element-sidebar-filter">
+                <div class="filter-panel">
+                    <div class="filter-panel-items-container" role="list" aria-label="Filter">
+                    </div>
+                    <div class="filter-panel-active-container"></div>
+                    <div class="filter-panel-aria-live visually-hidden" aria-live="polite" aria-atomic="true"></div>
+                </div>
+            </div>
+
+            <!-- Product results -->
+            <div class="cms-element-product-listing-wrapper" data-listing="true">
+                <div class="cms-element-product-listing">
+                    <div class="row cms-listing-row js-listing-wrapper" data-aria-live-text="Showing 24 out of 1000 products.">
+                        <div class="card product-box box-standard"></div>
+                        <div class="card product-box box-standard"></div>
+                        <div class="card product-box box-standard"></div>
+                        <div class="card product-box box-standard"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
         // mock listing plugins
-        const mockElement = document.createElement('div');
-        listingPlugin = new ListingPlugin(mockElement);
+        listingPlugin = new ListingPlugin(document.querySelector('[data-listing="true"]'));
         listingPlugin._registry = [];
 
         // create spy elements
@@ -42,7 +64,7 @@ describe('ListingPlugin tests', () => {
         expect(spyInit).toHaveBeenCalled();
     });
 
-    test('refreshRegistry calls the initializePlugins function', () => {
+    test('the initialize should not be called', () => {
         expect(spyInitializePlugins).not.toHaveBeenCalled();
     });
 
@@ -85,14 +107,14 @@ describe('ListingPlugin tests', () => {
 
         const elementsInDocument = [
             {
-                el: inDomFirst
+                el: inDomFirst,
             },
             {
-                el: inDomSecond
+                el: inDomSecond,
             },
             {
-                el: inDomThird
-            }
+                el: inDomThird,
+            },
         ];
 
         // mock _registry elements which are not visible in the dom
@@ -105,14 +127,14 @@ describe('ListingPlugin tests', () => {
 
         const elementsOutsideDocument = [
             {
-                el: outDomFirst
+                el: outDomFirst,
             },
             {
-                el: outDomSecond
+                el: outDomSecond,
             },
             {
-                el: outDomThird
-            }
+                el: outDomThird,
+            },
         ];
 
         // add elements to listing plugin
@@ -132,14 +154,12 @@ describe('ListingPlugin tests', () => {
         expect(listingPlugin._registry).not.toContain(elementsOutsideDocument[2]);
     });
 
-    test('should not autoscroll to top because we are at the top', () => {
-        const mockElement = document.createElement('div');
-        const cmsElementProductListingWrapper = document.createElement('div');
-        cmsElementProductListingWrapper.classList.add('cms-element-product-listing-wrapper');
-
-        document.body.append(cmsElementProductListingWrapper);
-
-        listingPlugin = new ListingPlugin(mockElement);
+    test('should not autoscroll to top because we are at the top', async () => {
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                text: () => Promise.resolve('Listing result HTML'),
+            })
+        );
 
         jest.spyOn(listingPlugin, '_scrollTopOfListing');
         window.scrollTo = jest.fn();
@@ -148,59 +168,57 @@ describe('ListingPlugin tests', () => {
         expect(listingPlugin._scrollTopOfListing).not.toHaveBeenCalled();
 
         listingPlugin._buildRequest();
+        await new Promise(process.nextTick);
 
         expect(listingPlugin._scrollTopOfListing).toHaveBeenCalled();
 
         expect(window.scrollTo).not.toHaveBeenCalled();
     });
 
-    test('should autoscroll to top with scrollOffset because we are not at the top', () => {
-        const mockElement = document.createElement('div');
-        const cmsElementProductListingWrapper = document.createElement('div');
-        cmsElementProductListingWrapper.classList.add('cms-element-product-listing-wrapper');
-
-        document.body.append(cmsElementProductListingWrapper);
-
-        listingPlugin = new ListingPlugin(mockElement);
+    test('should autoscroll to top with scrollOffset because we are not at the top', async () => {
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                text: () => Promise.resolve('Listing result HTML'),
+            })
+        );
 
         jest.spyOn(listingPlugin, '_scrollTopOfListing');
         window.scrollTo = jest.fn();
         window.scrollY = 500;
 
         listingPlugin._cmsProductListingWrapper.getBoundingClientRect = () => ({
-            top: -500
-        })
+            top: -500,
+        });
 
         expect(listingPlugin._scrollTopOfListing).not.toHaveBeenCalled();
 
         listingPlugin._buildRequest();
+        await new Promise(process.nextTick);
 
         expect(listingPlugin._scrollTopOfListing).toHaveBeenCalled();
 
         expect(window.scrollTo).toHaveBeenCalledWith({
-            "behavior": "smooth",
-            "top": listingPlugin.options.scrollOffset * -1
+            behavior: 'smooth',
+            top: listingPlugin.options.scrollOffset * -1,
         });
     });
 
     test('should autoscroll to top of cmsElementProductListingWrapper because we are not at the top', () => {
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                text: () => Promise.resolve('Listing result HTML'),
+            })
+        );
+
         const distanceToTop = 250;
-
-        const mockElement = document.createElement('div');
-        const cmsElementProductListingWrapper = document.createElement('div');
-        cmsElementProductListingWrapper.classList.add('cms-element-product-listing-wrapper');
-
-        document.body.append(cmsElementProductListingWrapper);
-
-        listingPlugin = new ListingPlugin(mockElement);
 
         jest.spyOn(listingPlugin, '_scrollTopOfListing');
         window.scrollTo = jest.fn();
         window.scrollY = 500;
 
         listingPlugin._cmsProductListingWrapper.getBoundingClientRect = () => ({
-            top: -1 * distanceToTop
-        })
+            top: -1 * distanceToTop,
+        });
 
         expect(listingPlugin._scrollTopOfListing).not.toHaveBeenCalled();
 
@@ -209,19 +227,17 @@ describe('ListingPlugin tests', () => {
         expect(listingPlugin._scrollTopOfListing).toHaveBeenCalled();
 
         expect(window.scrollTo).toHaveBeenCalledWith({
-            "behavior": "smooth",
-            "top": distanceToTop - listingPlugin.options.scrollOffset
+            behavior: 'smooth',
+            top: distanceToTop - listingPlugin.options.scrollOffset,
         });
     });
 
-    test('do not push history state if pass false pushHitory parameter into changeListing', () => {
-        const mockElement = document.createElement('div');
-        const cmsElementProductListingWrapper = document.createElement('div');
-        cmsElementProductListingWrapper.classList.add('cms-element-product-listing-wrapper');
-
-        document.body.append(cmsElementProductListingWrapper);
-
-        listingPlugin = new ListingPlugin(mockElement);
+    test('do not push history state if pass false pushHistory parameter into changeListing', () => {
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                text: () => Promise.resolve('Listing result HTML'),
+            })
+        );
 
         jest.spyOn(listingPlugin, '_updateHistory');
         listingPlugin.changeListing(false);
@@ -256,5 +272,78 @@ describe('ListingPlugin tests', () => {
         expect(mockOnWindowPopstateCallback).toHaveBeenCalled();
 
         ListingPlugin.prototype._onWindowPopstate.mockRestore();
+    });
+
+    test('updates the aria-live section after product results have changed',async () => {
+        // Mock listing ajax call returning updated results
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                text: () => Promise.resolve(`
+                <div class="cms-element-product-listing-wrapper" data-listing="true">
+                    <div class="cms-element-product-listing">
+                        <div class="row cms-listing-row js-listing-wrapper" data-aria-live-text="Showing 2 products.">
+                            <div class="card product-box box-standard"></div>
+                            <div class="card product-box box-standard"></div>
+                        </div>
+                    </div>
+                </div>
+                `),
+            })
+        );
+
+        listingPlugin.changeListing(true);
+        await new Promise(process.nextTick);
+
+        // Verify that the new product results contain the data attribute with the updated aria-live text
+        expect(document.querySelector('.js-listing-wrapper').dataset.ariaLiveText).toBe('Showing 2 products.');
+
+        // Verify that the aria-live text in the filter panel has been updated
+        expect(document.querySelector('.filter-panel-aria-live').textContent).toBe('Showing 2 products.');
+    });
+
+    test('builds the labels for the active filters and renders them inside the filter panel', async () => {
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                text: () => Promise.resolve(`
+                <div class="cms-element-product-listing-wrapper" data-listing="true">
+                    <div class="cms-element-product-listing">
+                        <div class="row cms-listing-row js-listing-wrapper" data-aria-live-text="Showing 2 products.">
+                            <div class="card product-box box-standard"></div>
+                            <div class="card product-box box-standard"></div>
+                        </div>
+                    </div>
+                </div>
+                `),
+            })
+        );
+
+        const MockBooleanFilter = {
+            getLabels: () => [{ label: 'Free shipping', id: 'shipping-free' }],
+            getValues: () => { return { 'shipping-free': '1' }; },
+        };
+
+        const MockMultiSelectFilter = {
+            getLabels: () => [{ label: 'Balistreri-Johns', id: '0190da2684cb710aac3d3291a340b3e3' }, { label: 'Pommes Spezial', id: '0190da2684cb710aac3d32919db761bb' }],
+            getValues: () => { return { 'manufacturer': ['0190da2684cb710aac3d3291a340b3e3', '0190da2684cb710aac3d32919db761bb'] }; },
+        };
+
+        // Register filters so that the labels can be built later
+        listingPlugin.registerFilter(MockBooleanFilter);
+        listingPlugin.registerFilter(MockMultiSelectFilter);
+
+        listingPlugin.changeListing(true);
+        await new Promise(process.nextTick);
+
+        const activeFilterElements = document.querySelectorAll('.filter-panel-active-container .filter-active');
+
+        // Verify active filters are generated inside the DOM with correct aria-labels
+        expect(activeFilterElements[0].textContent).toMatch('Free shipping');
+        expect(activeFilterElements[0].getAttribute('aria-label')).toBe('Remove filter: Free shipping');
+
+        expect(activeFilterElements[1].textContent).toMatch('Balistreri-Johns');
+        expect(activeFilterElements[1].getAttribute('aria-label')).toBe('Remove filter: Balistreri-Johns');
+
+        expect(activeFilterElements[2].textContent).toMatch('Pommes Spezial');
+        expect(activeFilterElements[2].getAttribute('aria-label')).toBe('Remove filter: Pommes Spezial');
     });
 });

@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import template from './sw-settings-index.html.twig';
 import './sw-settings-index.scss';
@@ -10,7 +10,29 @@ const { hasOwnProperty } = Shopware.Utils.object;
 export default {
     template,
 
-    inject: ['acl'],
+    inject: [
+        'acl',
+        'feature',
+        'userConfigService',
+    ],
+
+    data() {
+        return {
+            /**
+             * @deprecated tag:v6.8.0 - Will be removed without replacement
+             */
+            hideSettingRenameBanner: true,
+        };
+    },
+
+    /**
+     * @deprecated tag:v6.8.0 - Will be removed without replacement
+     */
+    created() {
+        if (!Shopware.Feature.isActive('v6.8.0.0')) {
+            this.getUserConfig();
+        }
+    },
 
     metaInfo() {
         return {
@@ -20,35 +42,65 @@ export default {
 
     computed: {
         settingsGroups() {
-            const settingsGroups = Object.entries(Shopware.State.get('settingsItems').settingsGroups);
-            return settingsGroups.reduce((acc, [groupName, groupSettings]) => {
-                const group = groupSettings
-                    .filter((setting) => {
-                        if (!setting.privilege) {
-                            return true;
-                        }
+            const settingsGroups = Object.entries(Shopware.Store.get('settingsItems').settingsGroups);
+            return settingsGroups.reduce(
+                (
+                    acc,
+                    [
+                        groupName,
+                        groupSettings,
+                    ],
+                ) => {
+                    const group = groupSettings
+                        .filter((setting) => {
+                            if (!setting.privilege) {
+                                return true;
+                            }
 
-                        return this.acl.can(setting.privilege);
-                    })
-                    .sort((a, b) => {
-                        const labelA = typeof a.label === 'string' ? a.label : a.label?.label;
-                        const labelB = typeof b.label === 'string' ? b.label : b.label?.label;
+                            return this.acl.can(setting.privilege);
+                        })
+                        .sort((a, b) => {
+                            const labelA = typeof a.label === 'string' ? a.label : a.label?.label;
+                            const labelB = typeof b.label === 'string' ? b.label : b.label?.label;
 
-                        return this.$tc(labelA).localeCompare(this.$tc(labelB));
-                    });
+                            return this.$tc(labelA).localeCompare(this.$tc(labelB));
+                        });
 
-                if (group.length > 0) {
-                    acc[groupName] = group;
-                }
+                    if (group.length > 0) {
+                        acc[groupName] = group;
+                    }
 
-                return acc;
-            }, {});
+                    return acc;
+                },
+                {},
+            );
         },
     },
 
     methods: {
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed without replacement
+         */
+        async getUserConfig() {
+            const response = await this.userConfigService.search(['settings.hideRenameBanner']);
+            this.hideSettingRenameBanner = !!response.data['settings.hideRenameBanner']?.value;
+        },
+
+        /**
+         * @deprecated tag:v6.8.0 - Will be removed without replacement
+         */
+        async onCloseSettingRenameBanner() {
+            this.hideSettingRenameBanner = true;
+
+            await this.userConfigService.upsert({
+                'settings.hideRenameBanner': {
+                    value: true,
+                },
+            });
+        },
+
         hasPluginConfig() {
-            return (hasOwnProperty(this.settingsGroups, 'plugins') && this.settingsGroups.plugins.length > 0);
+            return hasOwnProperty(this.settingsGroups, 'plugins') && this.settingsGroups.plugins.length > 0;
         },
 
         getRouteConfig(settingsItem) {
@@ -93,6 +145,11 @@ export default {
             }
 
             return this.$tc(settingsItem.label.label);
+        },
+
+        getGroupLabel(settingsGroup) {
+            const upper = settingsGroup.charAt(0).toUpperCase() + settingsGroup.slice(1);
+            return this.$tc(`sw-settings.index.tab${upper}`);
         },
     },
 };

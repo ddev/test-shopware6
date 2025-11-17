@@ -7,7 +7,7 @@ use Shopware\Core\Framework\Log\Package;
 /**
  * @codeCoverageIgnore
  */
-#[Package('system-settings')]
+#[Package('framework')]
 class Filesystem
 {
     /**
@@ -38,8 +38,8 @@ class Filesystem
     private function fixDirectoryPermission(\SplFileInfo $fileInfo): void
     {
         try {
-            $permission = mb_substr(sprintf('%o', $fileInfo->getPerms()), -4);
-        } catch (\Exception $e) {
+            $permission = mb_substr(\sprintf('%o', $fileInfo->getPerms()), -4);
+        } catch (\Exception) {
             // cannot get permissions...
             return;
         }

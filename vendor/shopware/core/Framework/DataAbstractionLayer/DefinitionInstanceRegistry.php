@@ -10,55 +10,38 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldSerializer\FieldSerializer
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-#[Package('core')]
+#[Package('framework')]
 class DefinitionInstanceRegistry
 {
     /**
-     * @var ContainerInterface
+     * @var array<class-string<Entity>, EntityDefinition>|null
      */
-    protected $container;
+    protected ?array $entityClassMapping = null;
 
     /**
-     * @var array<string, string>
-     */
-    protected $repositoryMap;
-
-    /**
-     * @var array<string, string>
-     */
-    protected $definitions;
-
-    /**
-     * @var array<class-string<Entity>, EntityDefinition>
-     */
-    protected $entityClassMapping;
-
-    /**
-     * @internal
+     * @param array<string, string|class-string<EntityDefinition>> $definitions array of $entityName => $definitionServiceId, e.g. 'product' => '\Shopware\Core\Content\Product\ProductDefinition'
+     * @param array<string, string> $repositoryMap array of $entityName => $repositoryServiceId, e.g. 'product' => 'product.repository'
      *
-     * @param array<string, string> $definitionMap array of $entityName => $definitionServiceId,
-     *                             eg. 'product' => '\Shopware\Core\Content\Product\ProductDefinition'
-     * @param array<string, string> $repositoryMap array of $entityName => $repositoryServiceId, eg. 'product' => 'product.repository'
+     *@internal
      */
     public function __construct(
-        ContainerInterface $container,
-        array $definitionMap,
-        array $repositoryMap
+        protected ContainerInterface $container,
+        protected array $definitions,
+        protected array $repositoryMap
     ) {
-        $this->container = $container;
-        $this->definitions = $definitionMap;
-        $this->repositoryMap = $repositoryMap;
     }
 
     /**
      * @throws EntityRepositoryNotFoundException
+     *
+     * @return EntityRepository<covariant EntityCollection<covariant Entity>>
      */
     public function getRepository(string $entityName): EntityRepository
     {
         $entityRepositoryClass = $this->getEntityRepositoryClassByEntityName($entityName);
 
-        /** @var EntityRepository $entityRepository */
         $entityRepository = $this->container->get($entityRepositoryClass);
+        \assert($entityRepository instanceof EntityRepository);
 
         return $entityRepository;
     }
@@ -67,12 +50,12 @@ class DefinitionInstanceRegistry
     {
         if ($this->container->has($class)) {
             $definition = $this->container->get($class);
+            \assert($definition instanceof EntityDefinition);
 
-            /** @var EntityDefinition $definition */
             return $definition;
         }
 
-        throw new DefinitionNotFoundException($class);
+        throw DataAbstractionLayerException::definitionNotFound($class);
     }
 
     /**
@@ -103,7 +86,7 @@ class DefinitionInstanceRegistry
             return $this->get($definitionClass);
         }
 
-        throw new DefinitionNotFoundException($entityName);
+        throw DataAbstractionLayerException::definitionNotFound($entityName);
     }
 
     /**
@@ -114,29 +97,37 @@ class DefinitionInstanceRegistry
         return array_map(fn (string $name): EntityDefinition => $this->get($name), $this->definitions);
     }
 
+    /**
+     * @param class-string<FieldSerializerInterface> $serializerClass
+     */
     public function getSerializer(string $serializerClass): FieldSerializerInterface
     {
-        /** @var FieldSerializerInterface $fieldSerializer */
         $fieldSerializer = $this->container->get($serializerClass);
+        \assert($fieldSerializer instanceof FieldSerializerInterface);
 
         return $fieldSerializer;
     }
 
     /**
+     * @param class-string<AbstractFieldResolver> $resolverClass
+     *
      * @return AbstractFieldResolver
      */
     public function getResolver(string $resolverClass)
     {
-        /** @var AbstractFieldResolver $fieldResolver */
         $fieldResolver = $this->container->get($resolverClass);
+        \assert($fieldResolver instanceof AbstractFieldResolver);
 
         return $fieldResolver;
     }
 
+    /**
+     * @param class-string<FieldAccessorBuilderInterface> $accessorBuilderClass
+     */
     public function getAccessorBuilder(string $accessorBuilderClass): FieldAccessorBuilderInterface
     {
-        /** @var FieldAccessorBuilderInterface $fieldAccessorBuilder */
         $fieldAccessorBuilder = $this->container->get($accessorBuilderClass);
+        \assert($fieldAccessorBuilder instanceof FieldAccessorBuilderInterface);
 
         return $fieldAccessorBuilder;
     }
@@ -160,7 +151,7 @@ class DefinitionInstanceRegistry
             $this->container->set($serviceId, $definition);
         }
 
-        if ($this->entityClassMapping !== null) {
+        if ($this->entityClassMapping !== null && !$definition instanceof MappingEntityDefinition) {
             $this->entityClassMapping[$definition->getEntityClass()] = $definition;
         }
 
@@ -183,10 +174,9 @@ class DefinitionInstanceRegistry
         $this->entityClassMapping = [];
 
         foreach ($this->definitions as $element) {
-            /** @var EntityDefinition $definition */
             $definition = $this->container->get($element);
 
-            if (!$definition) {
+            if (!$definition instanceof EntityDefinition) {
                 continue;
             }
 
@@ -203,11 +193,13 @@ class DefinitionInstanceRegistry
 
     /**
      * @throws DefinitionNotFoundException
+     *
+     * @return string|class-string<EntityDefinition>
      */
     private function getDefinitionClassByEntityName(string $entityName): string
     {
         if (!isset($this->definitions[$entityName])) {
-            throw new DefinitionNotFoundException($entityName);
+            throw DataAbstractionLayerException::definitionNotFound($entityName);
         }
 
         return $this->definitions[$entityName];
@@ -219,7 +211,7 @@ class DefinitionInstanceRegistry
     private function getEntityRepositoryClassByEntityName(string $entityName): string
     {
         if (!isset($this->repositoryMap[$entityName])) {
-            throw new EntityRepositoryNotFoundException($entityName);
+            throw DataAbstractionLayerException::entityRepositoryNotFound($entityName);
         }
 
         return $this->repositoryMap[$entityName];

@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package fundamentals@framework
  */
 import template from './sw-users-permissions-role-listing.html.twig';
 import './sw-users-permissions-role-listing.scss';
@@ -14,7 +14,10 @@ export default {
     inject: [
         'repositoryFactory',
         'acl',
+        'ssoSettingsService',
     ],
+
+    emits: ['get-list'],
 
     mixins: [
         Mixin.getByName('listing'),
@@ -26,21 +29,24 @@ export default {
             roles: [],
             isLoading: false,
             itemToDelete: null,
-            confirmDelete: null,
             disableRouteParams: true,
-            confirmPasswordModal: false,
+            isConfirmDeleteModalOpen: false,
+            isConfirmingPasswordModalOpen: false,
         };
     },
 
     computed: {
         rolesColumns() {
-            return [{
-                property: 'name',
-                label: this.$tc('sw-users-permissions.roles.role-grid.labelName'),
-            }, {
-                property: 'description',
-                label: this.$tc('sw-users-permissions.roles.role-grid.labelDescription'),
-            }];
+            return [
+                {
+                    property: 'name',
+                    label: this.$tc('sw-users-permissions.roles.role-grid.labelName'),
+                },
+                {
+                    property: 'description',
+                    label: this.$tc('sw-users-permissions.roles.role-grid.labelDescription'),
+                },
+            ];
         },
 
         roleRepository() {
@@ -86,12 +92,15 @@ export default {
             this.isLoading = true;
             this.roles = [];
 
-            return this.roleRepository.search(this.roleCriteria).then((roles) => {
-                this.total = roles.total;
-                this.roles = roles;
-            }).finally(() => {
-                this.isLoading = false;
-            });
+            return this.roleRepository
+                .search(this.roleCriteria)
+                .then((roles) => {
+                    this.total = roles.total;
+                    this.roles = roles;
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
         },
 
         onSearch(searchTerm) {
@@ -109,48 +118,68 @@ export default {
 
         onDelete(role) {
             this.itemToDelete = role;
+            this.isConfirmDeleteModalOpen = true;
         },
 
         onCloseDeleteModal() {
-            this.itemToDelete = null;
+            this.isConfirmDeleteModalOpen = false;
         },
 
         onConfirmDelete() {
-            this.confirmDelete = this.itemToDelete;
-
+            this.isLoading = true;
             this.onCloseDeleteModal();
 
-            this.confirmPasswordModal = true;
-        },
+            this.ssoSettingsService.isSso().then((response) => {
+                this.isLoading = false;
 
-        deleteRole(context) {
-            this.confirmPasswordModal = false;
-            const role = this.confirmDelete;
-            this.confirmDelete = null;
+                if (response.isSso) {
+                    this.deleteRole({ ...Shopware.Context.api });
 
-            this.roleRepository.delete(role.id, context).then(() => {
-                this.createNotificationSuccess({
-                    message: this.$tc(
-                        'sw-users-permissions.roles.role-grid.notification.deleteSuccess.message',
-                        0,
-                        { name: role.name },
-                    ),
-                });
+                    return;
+                }
 
-                this.$emit('get-list');
-            }).catch(() => {
-                this.createNotificationError({
-                    message: this.$tc(
-                        'sw-users-permissions.roles.role-grid.notification.deleteError.message',
-                        0,
-                        { name: role.name },
-                    ),
-                });
+                this.isConfirmingPasswordModalOpen = true;
             });
         },
 
+        deleteRole(context) {
+            this.isConfirmingPasswordModalOpen = false;
+            const role = this.itemToDelete;
+            this.itemToDelete = null;
+            this.isLoading = true;
+
+            this.roleRepository
+                .delete(role.id, context)
+                .then(() => {
+                    this.isLoading = false;
+                    this.createNotificationSuccess({
+                        message: this.$tc(
+                            'sw-users-permissions.roles.role-grid.notification.deleteSuccess.message',
+                            {
+                                name: role.name,
+                            },
+                            0,
+                        ),
+                    });
+
+                    this.$emit('get-list');
+                })
+                .catch(() => {
+                    this.isLoading = false;
+                    this.createNotificationError({
+                        message: this.$tc(
+                            'sw-users-permissions.roles.role-grid.notification.deleteError.message',
+                            {
+                                name: role.name,
+                            },
+                            0,
+                        ),
+                    });
+                });
+        },
+
         onCloseConfirmPasswordModal() {
-            this.confirmPasswordModal = false;
+            this.isConfirmingPasswordModalOpen = false;
         },
     },
 };

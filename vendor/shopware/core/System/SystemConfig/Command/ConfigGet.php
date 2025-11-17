@@ -15,21 +15,19 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'system:config:get',
     description: 'Get a config value',
 )]
-#[Package('system-settings')]
+#[Package('framework')]
 class ConfigGet extends Command
 {
     private const FORMAT_DEFAULT = 'default';
     private const FORMAT_SCALAR = 'scalar';
     private const FORMAT_JSON = 'json';
     private const FORMAT_JSON_PRETTY = 'json-pretty';
-    private const FORMAT_LEGACY = 'legacy';
 
     private const ALLOWED_FORMATS = [
         self::FORMAT_DEFAULT,
         self::FORMAT_SCALAR,
         self::FORMAT_JSON,
         self::FORMAT_JSON_PRETTY,
-        self::FORMAT_LEGACY,
     ];
 
     /**
@@ -45,7 +43,7 @@ class ConfigGet extends Command
         $this
             ->addArgument('key', InputArgument::REQUIRED)
             ->addOption('salesChannelId', 's', InputOption::VALUE_OPTIONAL)
-            ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Supported formats: ' . implode(', ', self::ALLOWED_FORMATS), self::FORMAT_LEGACY)
+            ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Supported formats: ' . implode(', ', self::ALLOWED_FORMATS), self::FORMAT_DEFAULT)
         ;
     }
 
@@ -53,7 +51,7 @@ class ConfigGet extends Command
     {
         $format = $input->getOption('format');
         if (!\in_array($format, self::ALLOWED_FORMATS, true)) {
-            throw new \RuntimeException("{$format} is not a valid choice as output format");
+            throw new \InvalidArgumentException("{$format} is not a valid choice as output format");
         }
 
         $configKey = $input->getArgument('key');
@@ -62,15 +60,9 @@ class ConfigGet extends Command
             $input->getOption('salesChannelId')
         );
 
-        if ($format === self::FORMAT_LEGACY) {
-            $this->writeConfigLegacy($output, $value);
-
-            return self::SUCCESS;
-        }
-
         if ($format === self::FORMAT_SCALAR) {
             if (\is_array($value)) {
-                throw new \RuntimeException('Value is an array, please specify the config key to point to a scalar, when using the scalar format.');
+                throw new \InvalidArgumentException('Value is an array, please specify the config key to point to a scalar, when using the scalar format.');
             }
 
             $this->writeConfigScalar($output, $this->getScalarValue($value));
@@ -102,24 +94,16 @@ class ConfigGet extends Command
     }
 
     /**
-     * @param array|bool|float|int|string|null $config
+     * @param array<mixed> $config
      */
-    private function writeConfigLegacy(OutputInterface $output, $config): void
-    {
-        if (\is_array($config)) {
-            ksort($config);
-
-            $output->writeln($config);
-        } else {
-            $output->writeln((string) $config);
-        }
-    }
-
     private function writeConfigJson(OutputInterface $output, array $config, int $flags): void
     {
         $output->writeln((string) \json_encode($config, $flags));
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function writeConfigDefault(OutputInterface $output, array $config, int $level = 1): void
     {
         ksort($config);

@@ -1,5 +1,5 @@
 /**
- * @package services-settings
+ * @sw-package framework
  */
 import { POLL_BACKGROUND_INTERVAL, POLL_FOREGROUND_INTERVAL } from 'src/core/worker/worker-notification-listener';
 import template from './sw-settings-cache-index.html.twig';
@@ -13,28 +13,28 @@ export default {
 
     inject: [
         'cacheApiService',
+        'feature',
     ],
 
     mixins: [
         Mixin.getByName('notification'),
     ],
 
-
     data() {
         return {
+            componentIsBuilding: true,
             isLoading: true,
             cacheInfo: null,
             processes: {
                 normalClearCache: false,
-                clearAndWarmUpCache: false,
                 updateIndexes: false,
             },
             processSuccess: {
                 normalClearCache: false,
-                clearAndWarmUpCache: false,
                 updateIndexes: false,
             },
-            skip: [],
+            indexingMethod: 'skip',
+            indexerSelection: [],
             indexers: {
                 'category.indexer': [
                     'category.child-count',
@@ -63,7 +63,7 @@ export default {
                     'product.many-to-many-id-field',
                     'product.category-denormalizer',
                     'product.cheapest-price',
-                    'product.rating-averaget',
+                    'product.rating-average',
                     'product.stream',
                     'product.search-keyword',
                     'product.seo-url',
@@ -99,9 +99,9 @@ export default {
                 return '';
             }
 
-            return this.cacheInfo.httpCache ?
-                this.$tc('sw-settings-cache.toolbar.httpCacheOn') :
-                this.$tc('sw-settings-cache.toolbar.httpCacheOff');
+            return this.cacheInfo.httpCache
+                ? this.$tc('sw-settings-cache.toolbar.httpCacheOn')
+                : this.$tc('sw-settings-cache.toolbar.httpCacheOff');
         },
 
         environmentValue() {
@@ -110,9 +110,9 @@ export default {
                 return '';
             }
 
-            return this.cacheInfo.environment === 'dev' ?
-                this.$tc('sw-settings-cache.toolbar.environmentDev') :
-                this.$tc('sw-settings-cache.toolbar.environmentProd');
+            return this.cacheInfo.environment === 'dev'
+                ? this.$tc('sw-settings-cache.toolbar.environmentDev')
+                : this.$tc('sw-settings-cache.toolbar.environmentProd');
         },
 
         cacheAdapterValue() {
@@ -123,6 +123,19 @@ export default {
 
             return this.cacheInfo.cacheAdapter;
         },
+
+        indexingMethodOptions() {
+            return [
+                {
+                    label: this.$tc('sw-settings-cache.section.indexingModeOptionSkipLabel'),
+                    value: 'skip',
+                },
+                {
+                    label: this.$tc('sw-settings-cache.section.indexingModeOptionOnlyLabel'),
+                    value: 'only',
+                },
+            ];
+        },
     },
 
     created() {
@@ -131,8 +144,9 @@ export default {
 
     methods: {
         createdComponent() {
-            this.cacheApiService.info().then(result => {
+            this.cacheApiService.info().then((result) => {
                 this.cacheInfo = result.data;
+                this.componentIsBuilding = false;
                 this.isLoading = false;
             });
         },
@@ -140,17 +154,43 @@ export default {
         resetButtons() {
             this.processSuccess = {
                 normalClearCache: false,
-                clearAndWarmUpCache: false,
                 updateIndexes: false,
             };
         },
 
         decreaseWorkerPoll() {
-            Shopware.State.commit('notification/setWorkerProcessPollInterval', POLL_FOREGROUND_INTERVAL);
+            Shopware.Store.get('notification').workerProcessPollInterval = POLL_FOREGROUND_INTERVAL;
 
             setTimeout(() => {
-                Shopware.State.commit('notification/setWorkerProcessPollInterval', POLL_BACKGROUND_INTERVAL);
+                Shopware.Store.get('notification').workerProcessPollInterval = POLL_BACKGROUND_INTERVAL;
             }, 60000);
+        },
+
+        clearDataCache() {
+            this.createNotificationInfo({
+                message: this.$tc('sw-settings-cache.notifications.clearDataCache.started'),
+            });
+
+            this.processes.normalClearCache = true;
+            this.cacheApiService
+                .delayed()
+                .then(() => {
+                    this.processSuccess.normalClearCache = true;
+
+                    this.createNotificationSuccess({
+                        message: this.$tc('sw-settings-cache.notifications.clearDataCache.success'),
+                    });
+                })
+                .catch(() => {
+                    this.processSuccess.normalClearCache = false;
+
+                    this.createNotificationError({
+                        message: this.$tc('sw-settings-cache.notifications.clearDataCache.error'),
+                    });
+                })
+                .finally(() => {
+                    this.processes.normalClearCache = false;
+                });
         },
 
         clearCache() {
@@ -159,69 +199,92 @@ export default {
             });
 
             this.processes.normalClearCache = true;
-            this.cacheApiService.clear().then(() => {
-                this.processSuccess.normalClearCache = true;
+            this.cacheApiService
+                .clear()
+                .then(() => {
+                    this.processSuccess.normalClearCache = true;
 
-                this.createNotificationSuccess({
-                    message: this.$tc('sw-settings-cache.notifications.clearCache.success'),
+                    this.createNotificationSuccess({
+                        message: this.$tc('sw-settings-cache.notifications.clearCache.success'),
+                    });
+                })
+                .catch(() => {
+                    this.processSuccess.normalClearCache = false;
+
+                    this.createNotificationError({
+                        message: this.$tc('sw-settings-cache.notifications.clearCache.error'),
+                    });
+                })
+                .finally(() => {
+                    this.processes.normalClearCache = false;
                 });
-            }).catch(() => {
-                this.processSuccess.normalClearCache = false;
-
-                this.createNotificationError({
-                    message: this.$tc('sw-settings-cache.notifications.clearCache.error'),
-                });
-            }).finally(() => {
-                this.processes.normalClearCache = false;
-            });
-        },
-
-        clearAndWarmUpCache() {
-            this.processes.clearAndWarmUpCache = true;
-            this.cacheApiService.clearAndWarmup().then(() => {
-                this.decreaseWorkerPoll();
-                setTimeout(() => {
-                    this.cacheApiService.cleanupOldCaches();
-                }, 30000);
-
-                this.createNotificationInfo({
-                    message: this.$tc('sw-settings-cache.notifications.clearCacheAndWarmup.started'),
-                });
-
-                this.processSuccess.clearAndWarmUpCache = true;
-            }).catch(() => {
-                this.processSuccess.clearAndWarmUpCache = false;
-            }).finally(() => {
-                this.processes.clearAndWarmUpCache = false;
-            });
         },
 
         updateIndexes() {
             this.processes.updateIndexes = true;
-            this.cacheApiService.index(this.skip).then(() => {
-                this.decreaseWorkerPoll();
-                this.createNotificationInfo({
-                    message: this.$tc('sw-settings-cache.notifications.index.started'),
+
+            let skip = [];
+            const only = [];
+
+            if (this.indexingMethod === 'skip') {
+                skip = this.indexerSelection;
+            } else {
+                this.createOnlySelection(only);
+            }
+
+            this.cacheApiService
+                .index(skip, only)
+                .then(() => {
+                    this.decreaseWorkerPoll();
+                    this.createNotificationInfo({
+                        message: this.$tc('sw-settings-cache.notifications.index.started'),
+                    });
+                    this.processSuccess.updateIndexes = true;
+                })
+                .catch(() => {
+                    this.processSuccess.updateIndexes = false;
+                })
+                .finally(() => {
+                    this.processes.updateIndexes = false;
                 });
-                this.processSuccess.updateIndexes = true;
-            }).catch(() => {
-                this.processSuccess.updateIndexes = false;
-            }).finally(() => {
-                this.processes.updateIndexes = false;
-            });
         },
 
-        changeSkip(selected, name) {
+        changeSelection(selected, name) {
             if (selected) {
-                this.skip.push(name);
+                this.indexerSelection.push(name);
 
                 return;
             }
 
-            const index = this.skip.indexOf(name);
+            const selectedIndex = this.indexerSelection.indexOf(name);
+            if (selectedIndex > -1) {
+                this.indexerSelection.splice(selectedIndex, 1);
+            }
+        },
 
-            if (index > -1) {
-                this.skip.splice(index, 1);
+        createOnlySelection(only) {
+            // eslint-disable-next-line no-restricted-syntax
+            for (const [
+                indexerName,
+                updaters,
+            ] of Object.entries(this.indexers)) {
+                if (this.indexerSelection.indexOf(indexerName) > -1) {
+                    only.push(indexerName);
+                }
+
+                const selectedUpdaters = [];
+                // eslint-disable-next-line no-restricted-syntax
+                for (const updater of updaters) {
+                    if (this.indexerSelection.indexOf(updater) > -1) {
+                        selectedUpdaters.push(updater);
+                    }
+                }
+
+                if (selectedUpdaters.length > 0) {
+                    only.push(indexerName);
+                }
+
+                only.push(...selectedUpdaters);
             }
         },
     },

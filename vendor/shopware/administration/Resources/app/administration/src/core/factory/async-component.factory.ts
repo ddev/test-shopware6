@@ -1,19 +1,32 @@
 /**
- * @package admin
+ * @sw-package framework
  */
 
+/* eslint-disable max-len, @typescript-eslint/no-empty-object-type, @typescript-eslint/no-explicit-any */
 import { warn } from 'src/core/service/utils/debug.utils';
 import { cloneDeep } from 'src/core/service/utils/object.utils';
 import TemplateFactory from 'src/core/factory/template.factory';
-// eslint-disable-next-line import/no-named-default
-import type { default as Vue, ComponentOptions } from 'vue';
 import type {
-    ThisTypedComponentOptionsWithRecordProps,
-    ThisTypedComponentOptionsWithArrayProps,
-// eslint-disable-next-line import/no-unresolved
-} from 'vue/types/options';
+    AllowedComponentProps,
+    ComponentCustomProps,
+    ComponentInjectOptions,
+    ComponentOptions,
+    ComponentOptionsMixin,
+    ComponentOptionsWithArrayProps,
+    ComponentOptionsWithObjectProps,
+    ComponentOptionsWithoutProps,
+    ComponentPropsOptions,
+    ComputedOptions,
+    DefineComponent,
+    EmitsOptions,
+    ExtractDefaultPropTypes,
+    ExtractPropTypes,
+    MethodOptions,
+    ObjectEmitsOptions,
+    SlotsType,
+    VNodeProps,
+} from 'vue';
 import { defineComponent } from 'vue';
-import type { ComponentOptionsMixin } from 'vue/types/v3-component-options';
 
 /**
  * This method is just for adding TypeScript support to component configuration and provides a this context.
@@ -42,15 +55,15 @@ export default {
     markComponentAsSync,
 };
 
-// @ts-expect-error
 // eslint-disable-next-line sw-deprecation-rules/private-feature-declarations
-export interface ComponentConfig<V extends Vue = Vue> extends ComponentOptions<V> {
-    functional?: boolean,
-    extends?: ComponentConfig<V> | string,
-    _isOverride?: boolean,
-    component?: Promise<ComponentConfig|boolean>,
-    loading?: ComponentConfig,
-    delay?: number,
+export interface ComponentConfig extends ComponentOptions {
+    functional?: boolean;
+    extends?: ComponentConfig | string;
+    _isOverride?: boolean;
+    component?: Promise<ComponentConfig | boolean>;
+    loading?: ComponentConfig;
+    delay?: number;
+    name?: string;
 }
 
 /**
@@ -64,13 +77,17 @@ const componentRegistry = new Map<string, AwaitedComponentConfig>();
  * Registry which holds all component overrides
  * @private
  */
-const overrideRegistry = new Map<string, AwaitedComponentConfig[]>();
+type IndexedAwaitedComponentConfig = {
+    index: number;
+    config: AwaitedComponentConfig;
+};
+const overrideRegistry = new Map<string, IndexedAwaitedComponentConfig[]>();
 
 /**
- * Registry for globally registered helper functions like src/app/service/map-error.service.js
+ * Registry for globally registered helper functions like src/app/service/map-error.service.ts
  * @private
  */
-const componentHelper: { [helperName: string]: unknown } = {};
+const componentHelper: ComponentHelper = {} as ComponentHelper;
 
 /**
  * Contains all components which should be created as a async component
@@ -107,7 +124,7 @@ function getComponentRegistry(): Map<string, AwaitedComponentConfig> {
  * Returns the map with all registered component overrides.
  * @private
  */
-function getOverrideRegistry(): Map<string, AwaitedComponentConfig[]> {
+function getOverrideRegistry(): Map<string, IndexedAwaitedComponentConfig[]> {
     return overrideRegistry;
 }
 
@@ -115,7 +132,7 @@ function getOverrideRegistry(): Map<string, AwaitedComponentConfig[]> {
  * Returns the map of component helper functions
  * @public
  */
-function getComponentHelper(): { [helperName: string]: unknown } {
+function getComponentHelper(): ComponentHelper {
     return componentHelper;
 }
 
@@ -124,7 +141,7 @@ function getComponentHelper(): { [helperName: string]: unknown } {
  */
 function _clearComponentHelper(): void {
     Object.keys(componentHelper).forEach((key) => {
-        delete componentHelper[key];
+        delete componentHelper[key as keyof ComponentHelper];
     });
 }
 
@@ -132,7 +149,7 @@ function _clearComponentHelper(): void {
  * Register a new component helper function
  * @public
  */
-function registerComponentHelper(name: string, helperFunction: unknown): boolean {
+function registerComponentHelper<T extends keyof ComponentHelper>(name: T, helperFunction: ComponentHelper[T]): boolean {
     if (!name || !name.length) {
         warn('ComponentFactory/ComponentHelper', 'A ComponentHelper always needs a name.', helperFunction);
         return false;
@@ -148,25 +165,317 @@ function registerComponentHelper(name: string, helperFunction: unknown): boolean
     return true;
 }
 
+type PublicProps = VNodeProps & AllowedComponentProps & ComponentCustomProps;
+
+type EmitsToProps<T extends EmitsOptions> = T extends string[]
+    ? {
+          // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents,
+          [K in string & `on${Capitalize<T[number]>}`]?: (...args: any[]) => any;
+      }
+    : T extends ObjectEmitsOptions
+      ? {
+            // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+            [K in string & `on${Capitalize<string & keyof T>}`]?: K extends `on${infer C}`
+                ? T[Uncapitalize<C>] extends null
+                    ? (...args: any[]) => any
+                    : (...args: T[Uncapitalize<C>] extends (...args: infer P) => any ? P : never) => any
+                : never;
+        }
+      : {};
+
+type ResolveProps<PropsOrPropOptions, E extends EmitsOptions> = Readonly<
+    PropsOrPropOptions extends ComponentPropsOptions ? ExtractPropTypes<PropsOrPropOptions> : PropsOrPropOptions
+> &
+    ({} extends E ? {} : EmitsToProps<E>);
+
 /**
  * Register a new component.
  * @public
  */
-/* eslint-disable max-len */
-// function overload to support all vue component object variations
-// @ts-expect-error
-function register<V extends Vue, Data, Methods, Computed, PropNames extends string, Setup, Mixin, Extends extends ComponentOptionsMixin>(componentName: string, componentConfiguration: ThisTypedComponentOptionsWithArrayProps<V, Data, Methods, Computed, PropNames, Setup, Mixin, Extends>): boolean | ComponentConfig;
-function register<V extends Vue, Data, Methods, Computed, PropNames extends string, Setup, Mixin extends ComponentOptionsMixin, Extends extends ComponentOptionsMixin>(componentName: string, componentConfiguration: () => Promise<ThisTypedComponentOptionsWithArrayProps<V, Data, Methods, Computed, PropNames, Setup, Mixin, Extends>>): boolean | ComponentConfig;
-function register<V extends Vue, Data, Methods, Computed, Props, Setup, Mixin extends ComponentOptionsMixin, Extends extends ComponentOptionsMixin>(componentName: string, componentConfiguration: ThisTypedComponentOptionsWithRecordProps<V, Data, Methods, Computed, Props, Setup, Mixin, Extends>): boolean | ComponentConfig;
-function register<V extends Vue, Data, Methods, Computed, Props, Setup, Mixin extends ComponentOptionsMixin, Extends extends ComponentOptionsMixin>(componentName: string, componentConfiguration: () => Promise<ThisTypedComponentOptionsWithRecordProps<V, Data, Methods, Computed, Props, Setup, Mixin, Extends>>): boolean | ComponentConfig;
-function register(componentName: string, componentConfiguration: ComponentConfig<Vue> | (() => Promise<ComponentConfig<Vue>>)): boolean | (() => Promise<ComponentConfig|boolean>) {
-/* eslint-enable max-len */
+
+// Overload reference: https://github.com/vuejs/core/blob/1c525f75a3d17a6356d5f66765623c0ae7c0ebcc/packages/runtime-core/src/apiDefineComponent.ts#L92
+
+// overload 1: direct setup function
+// (uses user defined props interface)
+// ####################
+// ##### WARNING: #####
+// ####################
+// This first overload allows the usage
+// of the setup function which is
+// not supported by the Showpare extension
+// system yet.
+// ####################
+// function register<
+//     Props extends Record<string, any>,
+//     E extends EmitsOptions = {},
+//     EE extends string = string,
+//     S extends SlotsType = {}
+// >(
+//     componentName: string,
+//     setup: (
+//         props: Props,
+//         ctx: SetupContext<E, S>
+//     ) => RenderFunction | Promise<RenderFunction>,
+//     options?: Pick<ComponentOptions, "name" | "inheritAttrs"> & {
+//         props?: (keyof Props)[];
+//         emits?: E | EE[];
+//         slots?: S;
+//     }
+// ): (props: Props & EmitsToProps<E>) => any;
+// function register<
+//     Props extends Record<string, any>,
+//     E extends EmitsOptions = {},
+//     EE extends string = string,
+//     S extends SlotsType = {}
+// >(
+//     componentName: string,
+//     setup: (
+//         props: Props,
+//         ctx: SetupContext<E, S>
+//     ) => RenderFunction | Promise<RenderFunction>,
+//     options?: Pick<ComponentOptions, "name" | "inheritAttrs"> & {
+//         props?: ComponentObjectPropsOptions<Props>;
+//         emits?: E | EE[];
+//         slots?: S;
+//     }
+// ): (props: Props & EmitsToProps<E>) => any;
+
+// overload 2: object format with no props
+// (uses user defined props interface)
+// return type is for Vetur and TSX support
+function register<
+    Props = {},
+    RawBindings = {},
+    D = {},
+    C extends ComputedOptions = {},
+    M extends MethodOptions = {},
+    Mixin extends ComponentOptionsMixin = ComponentOptionsMixin,
+    Extends extends ComponentOptionsMixin = ComponentOptionsMixin,
+    E extends EmitsOptions = {},
+    EE extends string = string,
+    S extends SlotsType = {},
+    I extends ComponentInjectOptions = {},
+    II extends string = string,
+>(
+    componentName: string,
+    componentConfiguration: ComponentOptionsWithoutProps<Props, RawBindings, D, C, M, Mixin, Extends, E, EE, I, II, S>,
+): DefineComponent<
+    Props,
+    RawBindings,
+    D,
+    C,
+    M,
+    Mixin,
+    Extends,
+    E,
+    EE,
+    PublicProps,
+    ResolveProps<Props, E>,
+    ExtractDefaultPropTypes<Props>,
+    S
+>;
+
+// overload 2 (ASYNC): object format with no props
+// (uses user defined props interface)
+// return type is for Vetur and TSX support
+function register<
+    Props = {},
+    RawBindings = {},
+    D = {},
+    C extends ComputedOptions = {},
+    M extends MethodOptions = {},
+    Mixin extends ComponentOptionsMixin = ComponentOptionsMixin,
+    Extends extends ComponentOptionsMixin = ComponentOptionsMixin,
+    E extends EmitsOptions = {},
+    EE extends string = string,
+    S extends SlotsType = {},
+    I extends ComponentInjectOptions = {},
+    II extends string = string,
+>(
+    componentName: string,
+    componentConfiguration: () => Promise<
+        ComponentOptionsWithoutProps<Props, RawBindings, D, C, M, Mixin, Extends, E, EE, I, II, S>
+    >,
+): DefineComponent<
+    Props,
+    RawBindings,
+    D,
+    C,
+    M,
+    Mixin,
+    Extends,
+    E,
+    EE,
+    PublicProps,
+    ResolveProps<Props, E>,
+    ExtractDefaultPropTypes<Props>,
+    S
+>;
+
+// overload 3: object format with array props declaration
+// props inferred as { [key in PropNames]?: any }
+// return type is for Vetur and TSX support
+function register<
+    PropNames extends string,
+    RawBindings,
+    D,
+    C extends ComputedOptions = {},
+    M extends MethodOptions = {},
+    Mixin extends ComponentOptionsMixin = ComponentOptionsMixin,
+    Extends extends ComponentOptionsMixin = ComponentOptionsMixin,
+    E extends EmitsOptions = {},
+    EE extends string = string,
+    S extends SlotsType = {},
+    I extends ComponentInjectOptions = {},
+    II extends string = string,
+    Props = Readonly<{ [key in PropNames]?: any }>,
+>(
+    componentName: string,
+    componentConfiguration: ComponentOptionsWithArrayProps<PropNames, RawBindings, D, C, M, Mixin, Extends, E, EE, I, II, S>,
+): DefineComponent<
+    Props,
+    RawBindings,
+    D,
+    C,
+    M,
+    Mixin,
+    Extends,
+    E,
+    EE,
+    PublicProps,
+    ResolveProps<Props, E>,
+    ExtractDefaultPropTypes<Props>,
+    S
+>;
+
+// overload 3 (ASYNC): object format with array props declaration
+// props inferred as { [key in PropNames]?: any }
+// return type is for Vetur and TSX support
+function register<
+    PropNames extends string,
+    RawBindings,
+    D,
+    C extends ComputedOptions = {},
+    M extends MethodOptions = {},
+    Mixin extends ComponentOptionsMixin = ComponentOptionsMixin,
+    Extends extends ComponentOptionsMixin = ComponentOptionsMixin,
+    E extends EmitsOptions = {},
+    EE extends string = string,
+    S extends SlotsType = {},
+    I extends ComponentInjectOptions = {},
+    II extends string = string,
+    Props = Readonly<{ [key in PropNames]?: any }>,
+>(
+    componentName: string,
+    componentConfiguration: () => Promise<
+        ComponentOptionsWithArrayProps<PropNames, RawBindings, D, C, M, Mixin, Extends, E, EE, I, II, S>
+    >,
+): DefineComponent<
+    Props,
+    RawBindings,
+    D,
+    C,
+    M,
+    Mixin,
+    Extends,
+    E,
+    EE,
+    PublicProps,
+    ResolveProps<Props, E>,
+    ExtractDefaultPropTypes<Props>,
+    S
+>;
+
+// overload 4: object format with object props declaration
+// see `ExtractPropTypes` in ./componentProps.ts
+function register<
+    // the Readonly constraint allows TS to treat the type of { required: true }
+    // as constant instead of boolean.
+    PropsOptions extends Readonly<ComponentPropsOptions>,
+    RawBindings,
+    D,
+    C extends ComputedOptions = {},
+    M extends MethodOptions = {},
+    Mixin extends ComponentOptionsMixin = ComponentOptionsMixin,
+    Extends extends ComponentOptionsMixin = ComponentOptionsMixin,
+    E extends EmitsOptions = {},
+    EE extends string = string,
+    S extends SlotsType = {},
+    I extends ComponentInjectOptions = {},
+    II extends string = string,
+>(
+    componentName: string,
+    componentConfiguration: ComponentOptionsWithObjectProps<
+        PropsOptions,
+        RawBindings,
+        D,
+        C,
+        M,
+        Mixin,
+        Extends,
+        E,
+        EE,
+        I,
+        II,
+        S
+    >,
+): DefineComponent<
+    PropsOptions,
+    RawBindings,
+    D,
+    C,
+    M,
+    Mixin,
+    Extends,
+    E,
+    EE,
+    PublicProps,
+    ResolveProps<PropsOptions, E>,
+    ExtractDefaultPropTypes<PropsOptions>,
+    S
+>;
+
+// overload 4 (ASYNC): object format with object props declaration
+// see `ExtractPropTypes` in ./componentProps.ts
+function register<
+    // the Readonly constraint allows TS to treat the type of { required: true }
+    // as constant instead of boolean.
+    PropsOptions extends Readonly<ComponentPropsOptions>,
+    RawBindings,
+    D,
+    C extends ComputedOptions = {},
+    M extends MethodOptions = {},
+    Mixin extends ComponentOptionsMixin = ComponentOptionsMixin,
+    Extends extends ComponentOptionsMixin = ComponentOptionsMixin,
+    E extends EmitsOptions = {},
+    EE extends string = string,
+    S extends SlotsType = {},
+    I extends ComponentInjectOptions = {},
+    II extends string = string,
+>(
+    componentName: string,
+    componentConfiguration: Promise<
+        ComponentOptionsWithObjectProps<PropsOptions, RawBindings, D, C, M, Mixin, Extends, E, EE, I, II, S>
+    >,
+): DefineComponent<
+    PropsOptions,
+    RawBindings,
+    D,
+    C,
+    M,
+    Mixin,
+    Extends,
+    E,
+    EE,
+    PublicProps,
+    ResolveProps<PropsOptions, E>,
+    ExtractDefaultPropTypes<PropsOptions>,
+    S
+>;
+
+function register(componentName: string, componentConfiguration: unknown): unknown {
     if (!componentName || !componentName.length) {
-        warn(
-            'ComponentFactory',
-            'A component always needs a name.',
-            componentConfiguration,
-        );
+        warn('ComponentFactory', 'A component always needs a name.', componentConfiguration);
         return false;
     }
 
@@ -179,22 +488,25 @@ function register(componentName: string, componentConfiguration: ComponentConfig
         return false;
     }
 
-    const configurationResolveMethod = async (): Promise<false | ComponentConfig<Vue>> => {
-        const awaitedConfig = typeof componentConfiguration === 'function'
-            ? componentConfiguration
-            : (): Promise<ComponentConfig> => Promise.resolve(componentConfiguration);
+    const configurationResolveMethod = async (): Promise<false | ComponentConfig> => {
+        const awaitedConfig =
+            typeof componentConfiguration === 'function'
+                ? componentConfiguration
+                : // @ts-expect-error - type is defined in overload
+                  (): Promise<ComponentConfig> => Promise.resolve(componentConfiguration);
 
-        let awaitedConfigResult = await awaitedConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        let awaitedConfigResult = (await awaitedConfig()) as ComponentConfig;
 
         /**
          * Check if the resulted config is a ES module. Then we need to use the default
          * value of it.
          */
-        if (awaitedConfigResult.hasOwnProperty('default')) {
-            // @ts-expect-error
+        if (awaitedConfigResult?.default) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             awaitedConfigResult = awaitedConfigResult.default;
         }
+
         const config = { ...awaitedConfigResult };
 
         config.name = componentName;
@@ -203,7 +515,7 @@ function register(componentName: string, componentConfiguration: ComponentConfig
             /**
              * Register the main template of the component.
              */
-            TemplateFactory.registerComponentTemplate(componentName, config.template);
+            TemplateFactory.registerComponentTemplate(componentName, config.template as string);
 
             /**
              * Delete the template string from the component config.
@@ -244,9 +556,10 @@ function extend(
             return config;
         }
 
-        const awaitedConfig = typeof componentConfiguration === 'function'
-            ? componentConfiguration
-            : (): Promise<ComponentConfig> => Promise.resolve(componentConfiguration);
+        const awaitedConfig =
+            typeof componentConfiguration === 'function'
+                ? componentConfiguration
+                : (): Promise<ComponentConfig> => Promise.resolve(componentConfiguration);
 
         let awaitedConfigResult = await awaitedConfig();
 
@@ -254,8 +567,7 @@ function extend(
          * Check if the resulted config is a ES module. Then we need to use the default
          * value of it.
          */
-        if (awaitedConfigResult.hasOwnProperty('default')) {
-            // @ts-expect-error
+        if (awaitedConfigResult?.default) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             awaitedConfigResult = awaitedConfigResult.default;
         }
@@ -266,7 +578,7 @@ function extend(
             /**
              * Register the main template of the component based on the extended component.
              */
-            TemplateFactory.extendComponentTemplate(componentName, extendComponentName, config.template);
+            TemplateFactory.extendComponentTemplate(componentName, extendComponentName, config.template as string);
 
             /**
              * Delete the template string from the component config.
@@ -294,8 +606,8 @@ function extend(
  */
 function override(
     componentName: string,
-    componentConfiguration: ComponentConfig|(() => Promise<ComponentConfig>),
-    overrideIndex = null,
+    componentConfiguration: ComponentConfig | (() => Promise<ComponentConfig>),
+    overrideIndex: number | null = null,
 ): () => Promise<ComponentConfig> {
     let config: ComponentConfig;
     const configResolveMethod = async (): Promise<ComponentConfig> => {
@@ -303,9 +615,10 @@ function override(
             return config;
         }
 
-        const awaitedConfig = typeof componentConfiguration === 'function'
-            ? componentConfiguration
-            : (): Promise<ComponentConfig> => Promise.resolve(componentConfiguration);
+        const awaitedConfig =
+            typeof componentConfiguration === 'function'
+                ? componentConfiguration
+                : (): Promise<ComponentConfig> => Promise.resolve(componentConfiguration);
 
         config = await awaitedConfig();
 
@@ -313,8 +626,7 @@ function override(
          * Check if the resulted config is a ES module. Then we need to use the default
          * value of it.
          */
-        if (config.hasOwnProperty('default')) {
-            // @ts-expect-error
+        if (config?.default) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             config = config.default;
         }
@@ -325,7 +637,7 @@ function override(
             /**
              * Register a template override for the existing component template.
              */
-            TemplateFactory.registerTemplateOverride(componentName, config.template, overrideIndex);
+            TemplateFactory.registerTemplateOverride(componentName, config.template as string, overrideIndex);
 
             /**
              * Delete the template string from the component config.
@@ -338,13 +650,11 @@ function override(
     };
 
     const overrides = overrideRegistry.get(componentName) || [];
-
-    if (overrideIndex !== null && overrideIndex >= 0 && overrides.length > 0) {
-        overrides.splice(overrideIndex, 0, configResolveMethod);
-    } else {
-        overrides.push(configResolveMethod);
-    }
-
+    overrides.push({
+        index: overrideIndex !== null ? overrideIndex : 0,
+        config: configResolveMethod,
+    });
+    overrides.sort((a, b) => a.index - b.index);
     overrideRegistry.set(componentName, overrides);
 
     return configResolveMethod;
@@ -369,7 +679,7 @@ async function initComponent(componentName: string): Promise<void> {
     }
 
     if (asyncOverrideComponent) {
-        await Promise.all(asyncOverrideComponent.map(c => c()));
+        await Promise.all(asyncOverrideComponent.map((c) => c.config()));
     }
 }
 
@@ -381,26 +691,20 @@ async function build(componentName: string, skipTemplate = false): Promise<Compo
     const awaitedConfig = componentRegistry.get(componentName);
 
     if (!awaitedConfig) {
-        throw new Error(
-            `The component registry has not found a component with the name "${componentName}".`,
-        );
+        throw new Error(`The component registry has not found a component with the name "${componentName}".`);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const resultConfig: ComponentConfig|boolean = await awaitedConfig();
+    const resultConfig: ComponentConfig | boolean = await awaitedConfig();
     if (typeof resultConfig === 'boolean') {
-        throw new Error(
-            `The component registry could not build the component with the name "${componentName}".`,
-        );
+        throw new Error(`The component registry could not build the component with the name "${componentName}".`);
     }
 
     // let config: ComponentConfig = Object.create(resultConfig) as ComponentConfig;
     let config: ComponentConfig = { ...resultConfig } as ComponentConfig;
 
     if (!config) {
-        throw new Error(
-            `The config of the component "${componentName}" is invalid.`,
-        );
+        throw new Error(`The config of the component "${componentName}" is invalid.`);
     }
 
     if (config.extends) {
@@ -415,6 +719,8 @@ async function build(componentName: string, skipTemplate = false): Promise<Compo
         }
 
         if (extendComp) {
+            enrichSuperChain(extendComp, config);
+
             config.extends = extendComp;
         } else {
             delete config.extends;
@@ -425,7 +731,10 @@ async function build(componentName: string, skipTemplate = false): Promise<Compo
         // clone the override configuration to prevent side-effects to the config
         const overrides = cloneDeep(overrideRegistry.get(componentName));
 
-        const convertedOverrides = await convertOverrides(overrides);
+        const convertedOverrides = await convertOverrides(
+            overrides!.map((c) => c.config),
+            config,
+        );
 
         convertedOverrides.forEach((overrideComp) => {
             overrideComp.extends = config;
@@ -435,14 +744,17 @@ async function build(componentName: string, skipTemplate = false): Promise<Compo
     }
 
     const superRegistry = buildSuperRegistry(config);
-
     if (isNotEmptyObject(superRegistry) && config) {
         const inheritedFrom = isAnOverride(config)
             ? `#${componentName}`
             : typeof config.extends !== 'string' && config?.extends?.name;
 
-        // @ts-expect-error
-        config.methods = { ...config.methods, ...addSuperBehaviour(inheritedFrom, superRegistry) };
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        config.methods = {
+            ...config.methods,
+            // @ts-expect-error
+            ...addSuperBehaviour(inheritedFrom, superRegistry),
+        };
     }
 
     /**
@@ -476,34 +788,46 @@ async function build(componentName: string, skipTemplate = false): Promise<Compo
 /**
  * Reorganizes the structure of the given overrides.
  */
-async function convertOverrides(awaitedOverrides: AwaitedComponentConfig[] | undefined): Promise<ComponentConfig[]> {
+async function convertOverrides(
+    awaitedOverrides: AwaitedComponentConfig[] | undefined,
+    config: ComponentConfig,
+): Promise<ComponentConfig[]> {
     if (!awaitedOverrides) {
         return [];
     }
 
-    const overrides = await Promise.all(awaitedOverrides.map((awaitedOverride) => {
-        return awaitedOverride();
-    }));
+    // Await all override configs into one array
+    const overrides = await Promise.all(
+        awaitedOverrides.map((awaitedOverride) => {
+            return awaitedOverride();
+        }),
+    );
 
+    /**
+     * Merge and sort the overrides from latest to first.
+     * Copy over previous override properties if they don't exist.
+     */
     // eslint-disable-next-line max-len
     /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-assignment */
     // @ts-expect-error
-    return overrides
+    const sortedOverrides: ComponentConfig[] = overrides.reduceRight((acc, overrideComp) => {
         // @ts-expect-error
-        .reduceRight((acc, overrideComp) => {
-            if (acc.length === 0) {
-                return [overrideComp];
-            }
+        if (acc.length === 0) {
+            return [overrideComp];
+        }
 
-            const previous = acc.shift();
+        // @ts-expect-error
+        const previous = acc.shift();
 
-            Object.entries(overrideComp).forEach(([prop, values]) => {
+        Object.entries(overrideComp).forEach(
+            ([
+                prop,
+                values,
+            ]) => {
                 // check if current property exists in previous override
-                // @ts-expect-error
                 if (previous && previous.hasOwnProperty(prop)) {
                     // if it exists iterate over the methods
                     // and hoist them if they don't exists in previous override
-
 
                     // ignore array based properties
                     if (Array.isArray(values)) {
@@ -513,48 +837,67 @@ async function convertOverrides(awaitedOverrides: AwaitedComponentConfig[] | und
                     // check for methods in current property-object
                     if (typeof values === 'object') {
                         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                        Object.entries(values).forEach(([methodName, methodFunction]) => {
-                            // @ts-expect-error
-                            if (!previous[prop].hasOwnProperty(methodName)) {
-                                // move the function over
-                                // @ts-expect-error
-                                previous[prop][methodName] = methodFunction;
-                                // @ts-expect-error
-                                delete overrideComp[prop][methodName];
-                            }
-                        });
+                        Object.entries(values).forEach(
+                            ([
+                                methodName,
+                                methodFunction,
+                            ]) => {
+                                if (!previous[prop].hasOwnProperty(methodName)) {
+                                    // move the function over
+                                    previous[prop][methodName] = methodFunction;
+                                    // @ts-expect-error
+                                    delete overrideComp[prop][methodName];
+                                }
+                            },
+                        );
                     }
                 } else {
                     // move the property over
-                    // @ts-expect-error
                     previous[prop] = values;
                     // @ts-expect-error
                     delete overrideComp[prop];
                 }
-            });
+            },
+        );
 
-            return [...[overrideComp], previous, ...acc];
-        }, []);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return [
+            ...[overrideComp],
+            previous,
+            // @ts-expect-error
+            ...acc,
+        ];
+    }, []);
 
+    /**
+     * For every override check if it contains every base computed or method.
+     * If a computed or method is missing, a placeholder function will be injected which simply calls $super.
+     * This assures a consecutive $super chain later in the process.
+     */
+    sortedOverrides.forEach((sortedOverride) => {
+        enrichSuperChain(config, sortedOverride);
+    });
+
+    return sortedOverrides;
     /* eslint-enable @typescript-eslint/no-unsafe-member-access */
 }
 
 interface SuperRegistry {
     [name: string]: {
         [sName: string]: {
-            parent: string,
-            func: (args: $TSFixMe[]) => $TSFixMe
-        }
-    }
+            parent: string;
+            func: ((args: $TSFixMe[]) => $TSFixMe) | null;
+        };
+    };
 }
 
 interface SuperBehavior {
-    $super(name: string, ...args: $TSFixMe[]): $TSFixMe,
-    _initVirtualCallStack(name: string): void,
-    _findInSuperRegister(name: string): SuperRegistry,
-    _superRegistry(): SuperRegistry,
-    _inheritedFrom(): string,
-    _virtualCallStack: { [name: string]: string }
+    $super(name: string, ...args: $TSFixMe[]): $TSFixMe;
+    _initVirtualCallStack(name: string): void;
+    _findInSuperRegister(name: string): SuperRegistry;
+    _superRegistry(): SuperRegistry;
+    _inheritedFrom(): string;
+    _virtualCallStack: { [name: string]: string | undefined };
 }
 
 /**
@@ -572,8 +915,10 @@ function buildSuperRegistry(config: ComponentConfig): SuperRegistry {
      * Search for `this.$super()` call in every `computed` property and `method``
      * and resolve the call chain.
      */
-    ['computed', 'methods'].forEach((methodOrComputed) => {
-        // @ts-expect-error
+    [
+        'computed',
+        'methods',
+    ].forEach((methodOrComputed) => {
         const ConfigMethodOrComputed = config[methodOrComputed];
 
         if (!ConfigMethodOrComputed) {
@@ -583,19 +928,30 @@ function buildSuperRegistry(config: ComponentConfig): SuperRegistry {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         const methods = Object.entries(ConfigMethodOrComputed);
 
-        methods.forEach(([name, method]) => {
-            // is computed getter/setter definition
-            if (methodOrComputed === 'computed' && typeof method === 'object') {
-                Object.entries(method as object).forEach(([cmd, func]) => {
-                    const path = `${name}.${cmd}`;
+        methods.forEach(
+            ([
+                name,
+                method,
+            ]) => {
+                // is computed getter/setter definition
+                if (methodOrComputed === 'computed' && typeof method === 'object') {
+                    Object.entries(method as object).forEach(
+                        ([
+                            cmd,
+                            func,
+                        ]) => {
+                            const path = `${String(name)}.${String(cmd)}`;
 
-                    superRegistry = updateSuperRegistry(superRegistry, path, func, methodOrComputed, config);
-                });
-            } else {
-                // @ts-expect-error
-                superRegistry = updateSuperRegistry(superRegistry, name, method, methodOrComputed, config);
-            }
-        });
+                            superRegistry = updateSuperRegistry(superRegistry, path, func, methodOrComputed, config);
+                        },
+                    );
+                    // regular computed or function
+                } else {
+                    // @ts-expect-error
+                    superRegistry = updateSuperRegistry(superRegistry, name, method, methodOrComputed, config);
+                }
+            },
+        );
     });
 
     return superRegistry;
@@ -605,17 +961,19 @@ function updateSuperRegistry(
     superRegistry: SuperRegistry,
     methodName: string,
     method: unknown,
-    methodOrComputed: 'methods'|'computed',
+    methodOrComputed: 'methods' | 'computed',
     config: ComponentConfig,
 ): SuperRegistry {
     const superCallPattern = /\.\$super/g;
     const methodString = typeof method === 'function' && method.toString();
     const hasSuperCall = methodString && superCallPattern.test(methodString);
 
+    // requested method has no super call return
     if (!hasSuperCall) {
         return superRegistry;
     }
 
+    // method is not in super registry create empty object
     if (!superRegistry.hasOwnProperty(methodName)) {
         superRegistry[methodName] = {};
     }
@@ -631,13 +989,31 @@ function updateSuperRegistry(
  * Returns a superBehaviour object, which contains a super-like callstack.
  */
 function addSuperBehaviour(inheritedFrom: string, superRegistry: SuperRegistry): SuperBehavior {
-    const superBehavior: SuperBehavior = {
+    return {
         $super(this: SuperBehavior, name, ...args) {
+            // this is to prevent this.$super('$super') call's
+            if (name === '$super') {
+                throw new Error('Don\'t call "$super" manually! This is not supported!');
+            }
+
+            // prepare the call stack for the current function name
             this._initVirtualCallStack(name);
 
             const superStack = this._findInSuperRegister(name);
+            const superFuncObject = superStack[this._virtualCallStack[name]!];
+            if (!superFuncObject) {
+                // This should no longer happen but a precise error is better than a call stack exception
+                throw new Error(`There was an error resolving the "$super" chain for method "${name}".`);
+            }
 
-            const superFuncObject = superStack[this._virtualCallStack[name]];
+            // eslint-disable-next-line @typescript-eslint/no-base-to-string
+            if (!superFuncObject?.func?.toString()?.includes('$super')) {
+                this._virtualCallStack[name] = undefined;
+
+                // @ts-expect-error
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return superFuncObject.func.bind(this)(...args);
+            }
 
             // @ts-expect-error
             this._virtualCallStack[name] = superFuncObject.parent;
@@ -647,10 +1023,7 @@ function addSuperBehaviour(inheritedFrom: string, superRegistry: SuperRegistry):
             return superFuncObject.func.bind(this)(...args);
         },
         _initVirtualCallStack(name) {
-            // if there is no virtualCallStack
-            if (!this._virtualCallStack) {
-                this._virtualCallStack = { name };
-            }
+            // _virtualCallStack is added to the instance by virtual-call-stack.plugin.ts
 
             if (!this._virtualCallStack[name]) {
                 this._virtualCallStack[name] = this._inheritedFrom();
@@ -667,8 +1040,6 @@ function addSuperBehaviour(inheritedFrom: string, superRegistry: SuperRegistry):
             return inheritedFrom;
         },
     };
-
-    return superBehavior;
 }
 
 /**
@@ -677,7 +1048,7 @@ function addSuperBehaviour(inheritedFrom: string, superRegistry: SuperRegistry):
 function resolveSuperCallChain(
     config: ComponentConfig,
     methodName: string,
-    methodsOrComputed: 'methods'|'computed' = 'methods',
+    methodsOrComputed: 'methods' | 'computed' = 'methods',
     overridePrefix = '',
 ): $TSFixMe {
     const extension = config.extends;
@@ -687,21 +1058,19 @@ function resolveSuperCallChain(
     }
 
     const parentName = `${overridePrefix}${extension.name ?? ''}`;
-    let parentsParentName = typeof extension.extends === 'object' && extension.extends
-        ? `${overridePrefix}${extension.extends.name ?? ''}`
-        : null;
+    let parentsParentName =
+        typeof extension.extends === 'object' && extension.extends
+            ? `${overridePrefix}${extension.extends.name ?? ''}`
+            : null;
 
     if (parentName === parentsParentName) {
+        // If we are dealing with an override move up one level by prepending another #
         if (overridePrefix.length > 0 || extension._isOverride) {
             overridePrefix = `#${overridePrefix}`;
         }
 
-        const extendsName = (
-            extension
-            && extension.extends
-            && typeof extension.extends !== 'string'
-            && extension.extends.name
-        );
+        const extendsName =
+            extension && extension.extends && typeof extension.extends !== 'string' && extension.extends.name;
         const extendsNameString = typeof extendsName === 'string' ? extendsName : '';
         parentsParentName = `${overridePrefix}${extendsNameString}`;
     }
@@ -715,14 +1084,88 @@ function resolveSuperCallChain(
         func: methodFunction,
     };
 
-    const resolvedParent = resolveSuperCallChain(extension, methodName, methodsOrComputed, overridePrefix);
+    // Early return if the current method does no longer contain a $super call
+    const superCallPattern = /\.\$super/g;
+    if (typeof methodFunction === 'function' && !superCallPattern.test((methodFunction as () => any).toString())) {
+        // @ts-expect-error  - We know this exists
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        parentBlock[parentName].parent = null;
 
-    const result = {
+        return parentBlock;
+    }
+
+    const resolvedParent = resolveSuperCallChain(extension, methodName, methodsOrComputed, overridePrefix);
+    return {
         ...resolvedParent,
         ...parentBlock,
     };
+}
 
-    return result;
+/**
+ * This function adds $super calls for every missing computed or method from baseConfig to targetConfig.
+ * Iterating all computed and methods from baseConfig. Adding a dummy function calling $super is inserted
+ * if targetConfig doesn't specifically override the method or computed already.
+ */
+function enrichSuperChain(baseConfig: ComponentConfig, targetConfig: ComponentConfig) {
+    [
+        'computed',
+        'methods',
+    ].forEach((methodOrComputed) => {
+        // base component has no computed or methods
+        if (!baseConfig.hasOwnProperty(methodOrComputed)) {
+            return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const methodsOrComputed = baseConfig[methodOrComputed];
+        // base component computed or methods are empty
+        if (!methodsOrComputed) {
+            return;
+        }
+
+        // computed or methods does not exist on override create empty object
+        if (!targetConfig.hasOwnProperty(methodOrComputed)) {
+            targetConfig[methodOrComputed] = {};
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        Object.entries(methodsOrComputed).forEach(
+            ([
+                key,
+                method,
+            ]) => {
+                // override specifically overrides the current method or computed? Abort!
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+                if (targetConfig[methodOrComputed].hasOwnProperty(key)) {
+                    return;
+                }
+
+                // is computed getter/setter definition
+                if (methodOrComputed === 'computed' && typeof method === 'object') {
+                    // Create computed as empty object
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    targetConfig[methodOrComputed][key] = {};
+
+                    // Fill object with super calls
+                    Object.entries(method as object).forEach(([cmd]) => {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                        targetConfig[methodOrComputed][key][cmd] = function (...args: $TSFixMe) {
+                            // eslint-disable-next-line max-len
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
+                            return this.$super(`${key}.${cmd}`, ...args);
+                        };
+                    });
+                } else {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    targetConfig[methodOrComputed][key] = function (...args: $TSFixMe) {
+                        // eslint-disable-next-line max-len
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+                        return this.$super(key, ...args);
+                    };
+                }
+            },
+        );
+    });
 }
 
 /**
@@ -731,7 +1174,7 @@ function resolveSuperCallChain(
 function findMethodInChain(
     extension: ComponentConfig,
     methodName: string,
-    methodsOrComputed: 'methods'|'computed',
+    methodsOrComputed: 'methods' | 'computed',
 ): $TSFixMe {
     const splitPath = methodName.split('.');
 
@@ -741,13 +1184,8 @@ function findMethodInChain(
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (extension[methodsOrComputed]?.[methodName]) {
-        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         return extension[methodsOrComputed][methodName];
-    }
-
-    if (extension.extends) {
-        // @ts-expect-error
-        return findMethodInChain(extension.extends, methodName, methodsOrComputed);
     }
 
     return null;
@@ -759,23 +1197,25 @@ function findMethodInChain(
 function resolveGetterSetterChain(
     extension: ComponentConfig,
     path: string[],
-    methodsOrComputed: 'methods'|'computed',
-):$TSFixMe {
-    const [methodName, cmd] = path;
+    methodsOrComputed: 'methods' | 'computed',
+): $TSFixMe {
+    const [
+        methodName,
+        cmd,
+    ] = path;
 
     if (!extension[methodsOrComputed]) {
         // @ts-expect-error
         return findMethodInChain(extension.extends, methodName, methodsOrComputed);
     }
 
-    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (!extension[methodsOrComputed][methodName]) {
         // @ts-expect-error
         return findMethodInChain(extension.extends, methodName, methodsOrComputed);
     }
 
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-member-access
     return extension[methodsOrComputed][methodName][cmd];
 }
 
@@ -795,7 +1235,7 @@ function isAnOverride(config: ComponentConfig): boolean {
  */
 function isNotEmptyObject(obj: $TSFixMe): boolean {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
-    return (Object.keys(obj).length !== 0 && obj.constructor === Object);
+    return Object.keys(obj).length !== 0 && obj.constructor === Object;
 }
 
 /**

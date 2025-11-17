@@ -1,3 +1,6 @@
+/**
+ * @sw-package fundamentals@framework
+ */
 import template from './sw-settings-captcha-select-v2.html.twig';
 import './sw-settings-captcha-select-v2.scss';
 
@@ -7,7 +10,12 @@ const { Mixin } = Shopware;
 export default {
     template,
 
-    inject: ['feature', 'captchaService'],
+    inject: [
+        'feature',
+        'captchaService',
+    ],
+
+    emits: ['update:value'],
 
     mixins: [
         Mixin.getByName('sw-inline-snippet'),
@@ -41,14 +49,14 @@ export default {
             },
 
             set(val) {
-                this.$emit('input', val);
+                this.$emit('update:value', val);
             },
         },
 
         activeCaptchaSelect: {
             get() {
                 const captchaSelected = [];
-                Object.keys(this.currentValue).forEach(key => {
+                Object.keys(this.currentValue).forEach((key) => {
                     if (this.currentValue[key].isActive) {
                         captchaSelected.push(key);
                     }
@@ -59,7 +67,7 @@ export default {
 
             set(val) {
                 if (val !== this.activeCaptchaSelect) {
-                    Object.keys(this.currentValue).forEach(key => {
+                    Object.keys(this.currentValue).forEach((key) => {
                         this.currentValue[key].isActive = val.includes(key);
                     });
                 }
@@ -71,7 +79,7 @@ export default {
         currentValue: {
             deep: true,
             handler(val) {
-                this.$emit('input', val);
+                this.$emit('update:value', val);
             },
         },
     },
@@ -86,7 +94,7 @@ export default {
         },
 
         setCaptchaOptions(list) {
-            this.availableCaptchas = list.map(technicalName => this.renderCaptchaOption(technicalName));
+            this.availableCaptchas = list.map((technicalName) => this.renderCaptchaOption(technicalName));
         },
 
         renderCaptchaOption(technicalName) {
@@ -97,12 +105,19 @@ export default {
         },
 
         getTranslations() {
-            return ['label', 'placeholder', 'helpText']
-                .filter(name => !!this.$attrs[name])
-                .reduce((translations, name) => ({
-                    ...translations,
-                    [name]: this.getInlineSnippet(this.$attrs[name]),
-                }), {});
+            return [
+                'label',
+                'placeholder',
+                'helpText',
+            ]
+                .filter((name) => !!this.$attrs[name])
+                .reduce(
+                    (translations, name) => ({
+                        ...translations,
+                        [name]: this.getInlineSnippet(this.$attrs[name]),
+                    }),
+                    {},
+                );
         },
     },
 };

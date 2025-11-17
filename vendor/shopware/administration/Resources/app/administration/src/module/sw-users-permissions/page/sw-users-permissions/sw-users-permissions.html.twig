@@ -1,16 +1,13 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_users_permissions %}
 <sw-page class="sw-users-permissions">
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_users_permissions_smart_bar_header %}
     <template #smart-bar-header>
         <h2>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_users_permissions_smart_bar_header_title_text %}
             {{ $tc('sw-settings.index.title') }}
-            <sw-icon
+            <mt-icon
                 name="regular-chevron-right-xs"
-                small
+                size="12px"
             />
             {{ $tc('sw-users-permissions.general.label') }}
             {% endblock %}
@@ -18,7 +15,6 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_users_permissions_smart_bar_actions %}
     <template #smart-bar-actions>
         <sw-button-process
@@ -27,22 +23,16 @@
             :process-success="isSaveSuccessful"
             :disabled="!acl.can('users_and_permissions.editor')"
             @click="onSave"
-            {% if VUE3 %}
             @update:process-success="onSaveFinish"
-            {% else %}
-            @process-finish="onSaveFinish"
-            {% endif %}
         >
             {{ $tc('global.default.save') }}
         </sw-button-process>
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_users_permissions_content %}
     <template #content>
         <sw-card-view>
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_users_permissions_content_user_list %}
             <sw-users-permissions-user-listing
                 ref="userListing"

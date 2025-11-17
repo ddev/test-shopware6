@@ -15,7 +15,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Regex;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[Package('buyers-experience')]
+#[Package('discovery')]
 class ContactFormValidationFactory implements DataValidationFactoryInterface
 {
     /**
@@ -47,30 +47,24 @@ class ContactFormValidationFactory implements DataValidationFactoryInterface
         $definition = new DataValidationDefinition($validationName);
 
         $definition
-            ->add('salutationId', new NotBlank(), new EntityExists(['entity' => 'salutation', 'context' => $context->getContext()]))
+            ->add('salutationId', new NotBlank(), new EntityExists(entity: 'salutation', context: $context->getContext()))
             ->add('email', new NotBlank(), new Email())
             ->add('subject', new NotBlank())
             ->add('comment', new NotBlank())
-            ->add('firstName', new Regex(['pattern' => self::DOMAIN_NAME_REGEX, 'match' => false]))
-            ->add('lastName', new Regex(['pattern' => self::DOMAIN_NAME_REGEX, 'match' => false]));
+            ->add('firstName', new Regex(pattern: self::DOMAIN_NAME_REGEX, match: false))
+            ->add('lastName', new Regex(pattern: self::DOMAIN_NAME_REGEX, match: false));
 
-        $required = $this->systemConfigService->get('core.basicInformation.firstNameFieldRequired', $context->getSalesChannel()->getId());
+        $required = $this->systemConfigService->get('core.basicInformation.firstNameFieldRequired', $context->getSalesChannelId());
         if ($required) {
-            $definition->set('firstName', new NotBlank(), new Regex([
-                'pattern' => self::DOMAIN_NAME_REGEX,
-                'match' => false,
-            ]));
+            $definition->set('firstName', new NotBlank(), new Regex(pattern: self::DOMAIN_NAME_REGEX, match: false));
         }
 
-        $required = $this->systemConfigService->get('core.basicInformation.lastNameFieldRequired', $context->getSalesChannel()->getId());
+        $required = $this->systemConfigService->get('core.basicInformation.lastNameFieldRequired', $context->getSalesChannelId());
         if ($required) {
-            $definition->set('lastName', new NotBlank(), new Regex([
-                'pattern' => self::DOMAIN_NAME_REGEX,
-                'match' => false,
-            ]));
+            $definition->set('lastName', new NotBlank(), new Regex(pattern: self::DOMAIN_NAME_REGEX, match: false));
         }
 
-        $required = $this->systemConfigService->get('core.basicInformation.phoneNumberFieldRequired', $context->getSalesChannel()->getId());
+        $required = $this->systemConfigService->get('core.basicInformation.phoneNumberFieldRequired', $context->getSalesChannelId());
         if ($required) {
             $definition->add('phone', new NotBlank());
         }

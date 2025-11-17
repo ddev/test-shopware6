@@ -1,15 +1,15 @@
-import type { DirectiveBinding } from 'vue/types/options';
+import type { ObjectDirective } from 'vue';
 
-interface ResponsiveDirectiveBinding extends DirectiveBinding {
+interface ResponsiveDirectiveBinding extends ObjectDirective {
     value?: {
         [key: string]: ((elementSizeValues: DOMRectReadOnly) => boolean) | number;
-    }
+    };
 }
 
 /**
- * @package admin
+ * @sw-package framework
  *
- * @deprecated tag:v6.6.0 - Will be private
+ * @private
  * Directive for responsive element classes
  *
  * Usage:
@@ -20,25 +20,30 @@ interface ResponsiveDirectiveBinding extends DirectiveBinding {
  */
 
 Shopware.Directive.register('responsive', {
-    inserted(el: HTMLElement, binding: ResponsiveDirectiveBinding) {
+    mounted(el: HTMLElement, binding: ResponsiveDirectiveBinding) {
         const timeout = typeof binding.value?.timeout === 'number' ? binding.value.timeout : 200;
 
         const handleResize: ResizeObserverCallback = Shopware.Utils.throttle((entries: ResizeObserverEntry[]) => {
-            entries.forEach(entry => {
+            entries.forEach((entry) => {
                 const elementSizeValues = entry.contentRect;
 
-                Object.entries(binding.value ?? {}).forEach(([breakpointClass, breakpointCallback]) => {
-                    if (typeof breakpointCallback !== 'function') {
-                        return;
-                    }
+                Object.entries(binding.value ?? {}).forEach(
+                    ([
+                        breakpointClass,
+                        breakpointCallback,
+                    ]) => {
+                        if (typeof breakpointCallback !== 'function') {
+                            return;
+                        }
 
-                    if (breakpointCallback(elementSizeValues)) {
-                        el.classList.add(breakpointClass);
-                        return;
-                    }
+                        if (breakpointCallback(elementSizeValues)) {
+                            el.classList.add(breakpointClass);
+                            return;
+                        }
 
-                    el.classList.remove(breakpointClass);
-                });
+                        el.classList.remove(breakpointClass);
+                    },
+                );
             });
         }, timeout);
 
@@ -46,4 +51,3 @@ Shopware.Directive.register('responsive', {
         observer.observe(el);
     },
 });
-

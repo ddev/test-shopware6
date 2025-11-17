@@ -1,8 +1,6 @@
-<!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
 {% block sw_product_detail %}
 <sw-page class="sw-product-detail">
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_detail_header %}
     <template #smart-bar-header>
         <h2>
@@ -16,18 +14,18 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_detail_actions %}
     <template #smart-bar-actions>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_detail_actions_abort %}
-        <sw-button
+        <mt-button
             v-tooltip.bottom="tooltipCancel"
             :disabled="isLoading"
+            variant="secondary"
+            size="default"
             @click="onCancel"
         >
-            {{ $tc('sw-product.detail.buttonCancel') }}
-        </sw-button>
+            {{ $tc('global.default.cancel') }}
+        </mt-button>
         {% endblock %}
 
         <sw-button-group
@@ -39,7 +37,6 @@
             class="sw-product-detail__save-button-group"
             :split-button="true"
         >
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_actions_save %}
             <sw-button-process
                 v-tooltip.bottom="tooltipSave"
@@ -48,37 +45,32 @@
                 :process-success="isSaveSuccessful"
                 variant="primary"
                 :disabled="isLoading || !acl.can('product.editor')"
-                {% if VUE3 %}
+                size="default"
                 @update:process-success="saveFinish"
-                {% else %}
-                @process-finish="saveFinish"
-                {% endif %}
                 @click.prevent="onSave"
             >
                 {{ $tc('sw-product.detail.buttonSave') }}
             </sw-button-process>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_actions_save_context_menu %}
             <sw-context-button>
                 <template #button>
-                    <sw-button
+                    <mt-button
                         class="sw-product-detail__button-context-menu"
                         square
                         variant="primary"
                         :disabled="isLoading || !acl.can('product.editor')"
+                        size="default"
                     >
-                        <sw-icon
+                        <mt-icon
                             name="regular-chevron-down-xs"
                             size="16"
                         />
-                    </sw-button>
+                    </mt-button>
                 </template>
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_actions_save_context_menu_actions %}
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_actions_duplicate %}
                 <sw-context-menu-item
                     class="sw-product-detail__save-duplicate-action"
@@ -95,7 +87,6 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_detail_language_switch %}
     <template #language-switch>
         <sw-language-switch
@@ -107,12 +98,10 @@
     </template>
     {% endblock %}
 
-    <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
     {% block sw_product_detail_content %}
     <template #content>
         <sw-card-view>
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_content_top %}
             <template v-if="!isLoading && isChild">
                 <router-link
@@ -120,9 +109,9 @@
                     class="sw-card__back-link"
                     :to="{ name: 'sw.product.detail.variants', params: { id: product.parentId } }"
                 >
-                    <sw-icon
+                    <mt-icon
                         name="regular-long-arrow-left"
-                        small
+                        size="16px"
                     />
                     {{ $tc('sw-product.general.backToParent') }}
                 </router-link>
@@ -132,16 +121,15 @@
                     class="sw-card__back-link"
                     :to="{ name: 'sw.product.detail.base', params: { id: product.parentId } }"
                 >
-                    <sw-icon
+                    <mt-icon
                         name="regular-long-arrow-left"
-                        small
+                        size="16px"
                     />
                     {{ $tc('sw-product.general.backToGeneralOverview') }}
                 </router-link>
             </template>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_content_language_info %}
             <sw-language-info
                 :entity-description="placeholder(product, 'name', $tc('sw-product.detail.textHeadline'))"
@@ -149,7 +137,6 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_inheritance_warning %}
             <sw-inheritance-warning
                 v-if="isChild"
@@ -157,14 +144,12 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_content_tabs %}
             <sw-tabs
                 v-if="productId"
                 class="sw-product-detail-page__tabs"
                 position-identifier="sw-product-detail"
             >
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_general %}
                 <sw-tabs-item
                     class="sw-product-detail__tab-general"
@@ -176,7 +161,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_specifications %}
                 <sw-tabs-item
                     class="sw-product-detail__tab-specifications"
@@ -187,7 +171,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_advanced_prices %}
                 <sw-tabs-item
                     v-show="showModeSetting"
@@ -199,7 +182,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_advanced_variants %}
                 <sw-tabs-item
                     v-show="!isChild && showModeSetting"
@@ -211,7 +193,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_layout %}
                 <sw-tabs-item
                     v-show="!isChild && showModeSetting"
@@ -223,7 +204,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_seo %}
                 <sw-tabs-item
                     v-show="showModeSetting"
@@ -235,10 +215,9 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_cross_selling %}
                 <sw-tabs-item
-                    v-show="!isChild && showModeSetting"
+                    v-show="showModeSetting"
                     class="sw-product-detail__tab-cross-selling"
                     :route="{ name: 'sw.product.detail.crossSelling', params: { id: $route.params.id } }"
                     :has-error="swProductDetailCrossSellingError"
@@ -248,7 +227,6 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_reviews %}
                 <sw-tabs-item
                     v-show="showModeSetting"
@@ -260,16 +238,17 @@
                 </sw-tabs-item>
                 {% endblock %}
 
-                <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
                 {% block sw_product_detail_content_tabs_additional %}
                 {% endblock %}
 
             </sw-tabs>
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
+            <sw-extension-component-section
+                position-identifier="sw-product-detail__before-content"
+            />
+
             {% block sw_product_detail_content_view %}
-            {% if VUE3 %}
             <router-view
                 v-slot="{ Component }"
             >
@@ -278,14 +257,8 @@
                     @cover-change="onCoverChange"
                 />
             </router-view>
-            {% else %}
-            <router-view
-                @cover-change="onCoverChange"
-            />
-            {% endif %}
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_detail_content_clone_modal %}
             <sw-product-clone-modal
                 v-if="cloning"
@@ -294,7 +267,6 @@
             />
             {% endblock %}
 
-            <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
             {% block sw_product_settings_mode %}
             <sw-product-settings-mode
                 v-if="showAdvanceModeSetting"
@@ -309,7 +281,6 @@
     {% endblock %}
 
     <template #sidebar>
-        <!-- eslint-disable-next-line sw-deprecation-rules/no-twigjs-blocks -->
         {% block sw_product_detail_sidebar %}
         {% endblock %}
     </template>
